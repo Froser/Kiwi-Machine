@@ -172,6 +172,8 @@ set(nes_sources
         nes/mappers/mapper003.h
         nes/mappers/mapper004.cc
         nes/mappers/mapper004.h
+        nes/mappers/mapper087.cc
+        nes/mappers/mapper087.h
         nes/opcodes.cc
         nes/opcodes.h
         nes/palette.cc

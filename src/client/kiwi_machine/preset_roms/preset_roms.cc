@@ -23,6 +23,7 @@ namespace preset_roms {
 #include "final_fantasy_usa.inc"
 #include "flipull__an_exciting_cube_game_japan_en.inc"
 #include "ghostsn_goblins_usa.inc"
+#include "goonies_japan.inc"
 #include "gradius_usa.inc"
 #include "ice_climber_japan.inc"
 #include "kirbys_adventure_usa_rev_a.inc"

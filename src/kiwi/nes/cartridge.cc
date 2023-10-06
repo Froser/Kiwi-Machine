@@ -112,8 +112,10 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
   // PRG-ROM 16KB banks
   Byte prg_banks = headers[4];
   rom_data_->PRG.resize(0x4000 * prg_banks);
-  if (rom_file.ReadAtCurrentPos(reinterpret_cast<char*>(rom_data_->PRG.data()),
-                                0x4000 * prg_banks) == -1) {
+  int read_bytes = 0;
+  read_bytes = rom_file.ReadAtCurrentPos(
+      reinterpret_cast<char*>(rom_data_->PRG.data()), 0x4000 * prg_banks);
+  if (read_bytes == -1 || read_bytes != 0x4000 * prg_banks) {
     LOG(ERROR) << "Reading PRG-ROM from image file failed.";
     return LoadResult::failed();
   }
@@ -123,9 +125,9 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
   Byte chr_banks = headers[5];
   if (chr_banks) {
     rom_data_->CHR.resize(0x2000 * chr_banks);
-    if (rom_file.ReadAtCurrentPos(
-            reinterpret_cast<char*>(rom_data_->CHR.data()),
-            0x2000 * chr_banks) == -1) {
+    read_bytes = rom_file.ReadAtCurrentPos(
+        reinterpret_cast<char*>(rom_data_->CHR.data()), 0x2000 * chr_banks);
+    if (read_bytes == -1 || read_bytes != 0x2000 * chr_banks) {
       LOG(ERROR) << "Reading CHR-ROM from image file failed.";
       return LoadResult::failed();
     }

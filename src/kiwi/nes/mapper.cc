@@ -19,6 +19,7 @@
 #include "nes/mappers/mapper002.h"
 #include "nes/mappers/mapper003.h"
 #include "nes/mappers/mapper004.h"
+#include "nes/mappers/mapper087.h"
 
 namespace kiwi {
 namespace nes {
@@ -41,15 +42,15 @@ void Mapper::PPUAddressChanged(Address address) {}
 
 std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
   switch (mapper) {
-    case 0x00:
+    case 0:
       return std::make_unique<Mapper000>(cartridge);
-    case 0x01:
+    case 1:
       return std::make_unique<Mapper001>(cartridge);
-    case 0x02:
+    case 2:
       return std::make_unique<Mapper002>(cartridge);
-    case 0x03:
+    case 3:
       return std::make_unique<Mapper003>(cartridge);
-    case 0x04:
+    case 4:
       return std::make_unique<Mapper004>(cartridge);
       break;
     /*
@@ -63,6 +64,8 @@ std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
     ret.reset(new MapperGxROM(cart, mirroring_cb));
     break;
     */
+    case 87:
+      return std::make_unique<Mapper087>(cartridge);
     default:
       break;
   }
@@ -71,9 +74,13 @@ std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
 }
 
 void Mapper::WriteExtendedRAM(Address address, Byte value) {
-  if (address >= 0x6000 && address <= 0x7fff) {
-    CheckExtendedRAM();
-    extended_ram_[address - 0x6000] = value;
+  if (HasExtendedRAM()) {
+    if (address >= 0x6000 && address <= 0x7fff) {
+      CheckExtendedRAM();
+      extended_ram_[address - 0x6000] = value;
+    }
+  } else {
+    WritePRG(address, value);
   }
 }
 

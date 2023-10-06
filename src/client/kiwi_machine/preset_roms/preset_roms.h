@@ -52,6 +52,7 @@ EXTERN_ROM(field_combat_japan)
 EXTERN_ROM(final_fantasy_usa)
 EXTERN_ROM(flipull__an_exciting_cube_game_japan_en)
 EXTERN_ROM(ghostsn_goblins_usa)
+EXTERN_ROM(goonies_japan)
 EXTERN_ROM(gradius_usa)
 EXTERN_ROM(ice_climber_japan)
 EXTERN_ROM(kirbys_adventure_usa_rev_a)
@@ -124,6 +125,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(final_fantasy_usa)},
   {PRESET_ROM(flipull__an_exciting_cube_game_japan_en)},
   {PRESET_ROM(ghostsn_goblins_usa)},
+  {PRESET_ROM(goonies_japan)},
   {PRESET_ROM(gradius_usa)},
   {PRESET_ROM(ice_climber_japan)},
   {PRESET_ROM(kirbys_adventure_usa_rev_a)},

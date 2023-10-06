@@ -55,6 +55,7 @@ SDL_Rect MapToWindow(const SDL_Rect& rect) {
 }
 
 // Save all 8 pattern tables and palettes in a big canvas.
+constexpr int kTopMargin = 20;
 constexpr int kPatternTableWidth = 256;
 constexpr int kPatternTableHeight = 128;
 constexpr int kMargin = 10;
@@ -74,7 +75,7 @@ PatternWidget::PatternWidget(WindowBase* window_base,
   set_flags(ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
   SDL_assert(debug_port);
   set_title("Pattern");
-  set_bounds(SDL_Rect{0, 0, kWidth, kHeight});
+  set_bounds(SDL_Rect{0, 0, kWidth, kHeight + kTopMargin});
 }
 
 PatternWidget::~PatternWidget() {
@@ -98,7 +99,7 @@ void PatternWidget::Paint() {
   }
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-  int offset_y = kMargin;
+  int offset_y = kMargin + kTopMargin;
   kiwi::nes::Palette* palette = debug_port_->GetPPUContext().palette;
   assert(palette);
 
