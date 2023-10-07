@@ -97,6 +97,7 @@ EXTERN_ROM(teenage_mutant_ninja_turtles_ii__the_arcade_game_usa)
 EXTERN_ROM(teenage_mutant_ninja_turtles_iii__the_manhattan_project_usa)
 EXTERN_ROM(tetris_usa)
 EXTERN_ROM(tetris_2_usa)
+EXTERN_ROM(tetris_the_soviet_mind_game)
 EXTERN_ROM(tiny_toon_adventures_usa)
 EXTERN_ROM(tiny_toon_adventures_2__trouble_in_wackyland_usa)
 EXTERN_ROM(twinbee_japan)
@@ -172,6 +173,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(teenage_mutant_ninja_turtles_iii__the_manhattan_project_usa)},
   {PRESET_ROM(tetris_usa)},
   {PRESET_ROM(tetris_2_usa)},
+  {PRESET_ROM(tetris_the_soviet_mind_game)},
   {PRESET_ROM(tiny_toon_adventures_usa)},
   {PRESET_ROM(tiny_toon_adventures_2__trouble_in_wackyland_usa)},
   {PRESET_ROM(twinbee_japan)},

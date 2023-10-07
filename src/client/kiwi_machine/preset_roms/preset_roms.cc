@@ -68,6 +68,7 @@ namespace preset_roms {
 #include "teenage_mutant_ninja_turtles_iii__the_manhattan_project_usa.inc"
 #include "tetris_usa.inc"
 #include "tetris_2_usa.inc"
+#include "tetris_the_soviet_mind_game.inc"
 #include "tiny_toon_adventures_usa.inc"
 #include "tiny_toon_adventures_2__trouble_in_wackyland_usa.inc"
 #include "twinbee_japan.inc"

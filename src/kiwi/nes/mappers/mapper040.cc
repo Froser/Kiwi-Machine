@@ -59,7 +59,7 @@ void Mapper040::WritePRG(Address address, Byte value) {
     irq_enabled_ = true;
   } else if (0xe000 <= address && address <= 0xffff) {
     // Select bank
-    selected_bank_ = value & 0x7;
+    select_prg_ = value & 0x7;
   }
 }
 
@@ -84,7 +84,7 @@ Byte Mapper040::ReadPRG(Address address) {
     // Selectable:
     return cartridge()
         ->GetRomData()
-        ->PRG[(kPRGBankSize * selected_bank_) | (address & 0x1fff)];
+        ->PRG[(kPRGBankSize * select_prg_) | (address & 0x1fff)];
   }
 
   return cartridge()
@@ -123,7 +123,7 @@ void Mapper040::Serialize(EmulatorStates::SerializableStateData& data) {
   if (uses_character_ram_)
     data.WriteData(character_ram_);
 
-  data.WriteData(selected_bank_).WriteData(irq_enabled_).WriteData(irq_count_);
+  data.WriteData(select_prg_).WriteData(irq_enabled_).WriteData(irq_count_);
   Mapper::Serialize(data);
 }
 
@@ -132,7 +132,7 @@ bool Mapper040::Deserialize(const EmulatorStates::Header& header,
   if (uses_character_ram_)
     data.ReadData(&character_ram_);
 
-  data.ReadData(&selected_bank_).ReadData(&irq_enabled_).ReadData(&irq_count_);
+  data.ReadData(&select_prg_).ReadData(&irq_enabled_).ReadData(&irq_count_);
   return Mapper::Deserialize(header, data);
 }
 

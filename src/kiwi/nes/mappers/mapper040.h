@@ -47,7 +47,7 @@ class Mapper040 : public Mapper {
  private:
   bool uses_character_ram_ = false;
   Bytes character_ram_;
-  Byte selected_bank_ = 0;
+  Byte select_prg_ = 0;
   bool irq_enabled_ = false;
   uint64_t irq_count_ = 0;
 };
