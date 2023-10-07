@@ -51,9 +51,14 @@ Byte Mapper087::ReadCHR(Address address) {
   return cartridge()->GetRomData()->CHR[base_address + address];
 }
 
-void Mapper087::Serialize(EmulatorStates::SerializableStateData& data) {}
+void Mapper087::Serialize(EmulatorStates::SerializableStateData& data) {
+  data.WriteData(select_chr_);
+}
 
 bool Mapper087::Deserialize(const EmulatorStates::Header& header,
-                            EmulatorStates::DeserializableStateData& data) {}
+                            EmulatorStates::DeserializableStateData& data) {
+  data.ReadData(&select_chr_);
+  return true;
+}
 }  // namespace nes
 }  // namespace kiwi

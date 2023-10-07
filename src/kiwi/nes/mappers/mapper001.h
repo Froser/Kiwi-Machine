@@ -40,14 +40,7 @@ class Mapper001 : public Mapper {
                    EmulatorStates::DeserializableStateData& data) override;
 
  private:
-  void CalculatePRGBanksOffset();
-
- private:
-  // Helper function to access bank.
-  Byte* chr_bank_0();
-  Byte* chr_bank_1();
-  Byte* prg_bank_0();
-  Byte* prg_bank_1();
+  void WriteRegister(Address address, Byte value);
 
  private:
   bool uses_character_ram_ = false;
@@ -57,22 +50,18 @@ class Mapper001 : public Mapper {
   Byte write_count_ = 0;
 
   // (0: switch 8 KB at a time; 1: switch two separate 4 KB banks)
-  Byte mode_chr_ = 0;
+  Byte chr_mode_ = 0;
 
-  // (0, 1: switch 32 KB at $8000, ignoring low bit of bank number;
+  // 0, 1: switch 32 KB at $8000, ignoring low bit of bank number;
   // 2: fix first bank at $8000 and switch 16 KB bank at $C000;
-  // 3: fix last bank at $C000 and switch 16 KB bank at $8000)
-  Byte prg_mode_ = 0;
+  // 3: fix last bank at $C000 and switch 16 KB bank at $8000
+  // Default PRG mode is 3.
+  Byte prg_mode_ = 3;
 
   Byte chr_reg_0_ = 0;
   Byte chr_reg_1_ = 0;
   Byte prg_reg_ = 0;
   NametableMirroring mirroring_ = NametableMirroring::kHorizontal;
-
-  int chr_bank_0_offset_ = 0;
-  int chr_bank_1_offset_ = 0;
-  int prg_bank_0_offset_ = 0;
-  int prg_bank_1_offset_ = 0;
 };
 
 }  // namespace nes

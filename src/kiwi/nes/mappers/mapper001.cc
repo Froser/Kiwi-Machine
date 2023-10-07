@@ -25,14 +25,15 @@ Mapper001::Mapper001(Cartridge* cartridge) : Mapper(cartridge) {
   } else {
     uses_character_ram_ = false;
   }
-
-  prg_bank_0_offset_ = 0;
-  prg_bank_1_offset_ = (cartridge->GetRomData()->PRG.size() - 0x4000);
 }
 
 Mapper001::~Mapper001() = default;
 
 void Mapper001::WritePRG(Address address, Byte value) {
+  // Load Register: $8000-$FFFF
+  if (address < 0x8000)
+    return;
+
   // https://www.nesdev.org/wiki/MMC1
   // Writing a value with bit 7 set ($80 through $FF) to any address in
   // $8000-$FFFF clears the shift register to its initial state. To change a
@@ -47,58 +48,12 @@ void Mapper001::WritePRG(Address address, Byte value) {
     ++write_count_;
 
     if (write_count_ == 5) {
-      if (address <= 0x9fff) {  // $8000-$9FFF
-        switch (shift_register_ & 0x3) {
-          case 0:
-            mirroring_ = NametableMirroring::kOneScreenLower;
-            break;
-          case 1:
-            mirroring_ = NametableMirroring::kOneScreenHigher;
-            break;
-          case 2:
-            mirroring_ = NametableMirroring::kVertical;
-            break;
-          case 3:
-            mirroring_ = NametableMirroring::kHorizontal;
-            break;
-          default:
-            LOG(ERROR) << "Wrong mirroring: " << (shift_register_ & 0x3);
-            break;
-        }
-
-        DCHECK(mirroring_changed_callback());
-        mirroring_changed_callback().Run();
-
-        mode_chr_ = (shift_register_ & 0x10) >> 4;
-        prg_mode_ = (shift_register_ & 0xc) >> 2;
-        CalculatePRGBanksOffset();
-
-        if (mode_chr_ == 0) {
-          chr_bank_0_offset_ = 0x1000 * (chr_reg_0_ | 1);
-          chr_bank_1_offset_ = chr_bank_0_offset_ + 0x1000;
-        } else {
-          chr_bank_0_offset_ = (0x1000 * chr_reg_0_);
-          chr_bank_1_offset_ = (0x1000 * chr_reg_1_);
-        }
-      } else if (address <= 0xbfff) {  // $A000-$BFFF
-        chr_reg_0_ = shift_register_;
-        chr_bank_0_offset_ = (0x1000 * (shift_register_ | (1 - mode_chr_)));
-        if (mode_chr_ == 0)
-          chr_bank_1_offset_ = chr_bank_0_offset_ + 0x1000;
-      } else if (address <= 0xdfff) {  // $C000-$DFFF
-        chr_reg_1_ = shift_register_;
-        if (mode_chr_ == 1)
-          chr_bank_1_offset_ = (0x1000 * shift_register_);
-      } else {  // $E000-$FFFF
-        if ((shift_register_ & 0x10) == 0x10) {
-          LOG(INFO) << "PRG-RAM activated";
-        }
-
-        shift_register_ &= 0xf;
-        prg_reg_ = shift_register_;
-        CalculatePRGBanksOffset();
-      }
-
+      // Only on the fifth write does the address matter, and even then, only
+      // bits 14 and 13 of the address matter because the mapper doesn't see the
+      // lower address bits (similar to the mirroring seen with PPU registers).
+      // After the fifth write, the shift register is cleared automatically, so
+      // writing again with bit 7 set to clear the shift register is not needed.
+      WriteRegister(address, shift_register_);
       shift_register_ = 0;
       write_count_ = 0;
     }
@@ -106,15 +61,54 @@ void Mapper001::WritePRG(Address address, Byte value) {
     shift_register_ = 0;
     write_count_ = 0;
     prg_mode_ = 3;
-    CalculatePRGBanksOffset();
+    mirroring_ = NametableMirroring::kOneScreenLower;
   }
 }
 
 Byte Mapper001::ReadPRG(Address address) {
-  if (address < 0xc000)
-    return *(prg_bank_0() + (address & 0x3fff));
-
-  return *(prg_bank_1() + (address & 0x3fff));
+  constexpr uint32_t kPRGBankSize = 0x4000;
+  DCHECK(address >= 0x8000);
+  if (address < 0xc000) {
+    // $8000-$BFFF
+    int bank = 0;
+    switch (prg_mode_) {
+      case 0:
+      case 1:
+        bank = prg_reg_ & 0xfe;
+        break;
+      case 2:
+        bank = 0;
+        break;
+      case 3:
+        bank = prg_reg_;
+        break;
+      default:
+        CHECK(false) << "Shouldn't happen.";
+        return 0;
+    }
+    uint32_t index = (kPRGBankSize * bank) | (address & 0x3fff);
+    return cartridge()->GetRomData()->PRG.at(index);
+  } else {
+    // $C000-$FFFF
+    int bank = 0;
+    switch (prg_mode_) {
+      case 0:
+      case 1:
+        bank = (prg_reg_ & 0xfe) | 1; // Added 16 kb
+        break;
+      case 2:
+        bank = prg_reg_;
+        break;
+      case 3:
+        bank = cartridge()->GetRomData()->PRG.size() / kPRGBankSize - 1;
+        break;
+      default:
+        CHECK(false) << "Shouldn't happen.";
+        return 0;
+    }
+    uint32_t index = (kPRGBankSize * bank) | (address & 0x3fff);
+    return cartridge()->GetRomData()->PRG.at(index);
+  }
 }
 
 void Mapper001::WriteCHR(Address address, Byte value) {
@@ -125,51 +119,61 @@ void Mapper001::WriteCHR(Address address, Byte value) {
 Byte Mapper001::ReadCHR(Address address) {
   if (uses_character_ram_)
     return character_ram_[address];
-  else if (address < 0x1000)
-    return *(chr_bank_0() + address);
-  else
-    return *(chr_bank_1() + (address & 0xfff));
+
+  constexpr uint32_t kCHRBankSize = 0x1000;
+  if (address < 0x1000) {
+    uint32_t index = (kCHRBankSize * chr_reg_0_) | (address & 0x3fff);
+    return cartridge()->GetRomData()->CHR.at(index);
+  } else if (address <= 0x2000) {
+    uint32_t bank = (chr_mode_ == 0) ? (chr_reg_0_ + 1) : (chr_reg_1_);
+    uint32_t index = (kCHRBankSize * bank) | ((address - 0x1000) & 0x3fff);
+    return cartridge()->GetRomData()->CHR.at(index);
+  }
+
+  CHECK(false) << "Shouldn't happen.";
+  return 0;
 }
 
 NametableMirroring Mapper001::GetNametableMirroring() {
   return mirroring_;
 }
 
-void Mapper001::CalculatePRGBanksOffset() {
-  switch (prg_mode_) {
-    case 0:
-    case 1:
-      prg_bank_0_offset_ = 0x8000 * (prg_reg_ >> 1);
-      prg_bank_1_offset_ = prg_bank_0_offset_ + 0x4000;
-      break;
-    case 2:
-      prg_bank_0_offset_ = 0;
-      prg_bank_1_offset_ = prg_bank_0_offset_ + 0x4000 * prg_reg_;
-      break;
-    case 3:
-      prg_bank_0_offset_ = (0x4000 * prg_reg_);
-      prg_bank_1_offset_ = (cartridge()->GetRomData()->PRG.size() - 0x4000);
-      break;
-    default:
-      LOG(ERROR) << "Wrong program mode: " << prg_mode_;
-      return;
+void Mapper001::WriteRegister(Address address, Byte value) {
+  if (address <= 0x9fff) {
+    switch (value & 0x3) {
+      case 0:
+        mirroring_ = NametableMirroring::kOneScreenLower;
+        break;
+      case 1:
+        mirroring_ = NametableMirroring::kOneScreenHigher;
+        break;
+      case 2:
+        mirroring_ = NametableMirroring::kVertical;
+        break;
+      case 3:
+        mirroring_ = NametableMirroring::kHorizontal;
+        break;
+      default:
+        LOG(ERROR) << "Wrong mirroring: " << (value & 0x3);
+        break;
+    }
+
+    DCHECK(mirroring_changed_callback());
+    mirroring_changed_callback().Run();
+
+    chr_mode_ = (value & 0x10) >> 4;
+    prg_mode_ = (value & 0xc) >> 2;
+  } else if (address <= 0xbfff) {  // $A000-$BFFF
+    chr_reg_0_ = value & 0x1f;
+  } else if (address <= 0xdfff) {  // $C000-$DFFF
+    chr_reg_1_ = value & 0x1f;
+  } else {  // $E000-$FFFF
+    if ((value & 0x10) == 0x10) {
+      LOG(INFO) << "PRG-RAM activated";
+    }
+
+    prg_reg_ = value & 0xf;
   }
-}
-
-Byte* Mapper001::chr_bank_0() {
-  return cartridge()->GetRomData()->CHR.data() + chr_bank_0_offset_;
-}
-
-Byte* Mapper001::chr_bank_1() {
-  return cartridge()->GetRomData()->CHR.data() + chr_bank_1_offset_;
-}
-
-Byte* Mapper001::prg_bank_0() {
-  return cartridge()->GetRomData()->PRG.data() + prg_bank_0_offset_;
-}
-
-Byte* Mapper001::prg_bank_1() {
-  return cartridge()->GetRomData()->PRG.data() + prg_bank_1_offset_;
 }
 
 void Mapper001::Serialize(EmulatorStates::SerializableStateData& data) {
@@ -178,16 +182,12 @@ void Mapper001::Serialize(EmulatorStates::SerializableStateData& data) {
 
   data.WriteData(shift_register_)
       .WriteData(write_count_)
-      .WriteData(mode_chr_)
+      .WriteData(chr_mode_)
       .WriteData(prg_mode_)
       .WriteData(chr_reg_0_)
       .WriteData(chr_reg_1_)
       .WriteData(prg_reg_)
-      .WriteData(mirroring_)
-      .WriteData(chr_bank_0_offset_)
-      .WriteData(chr_bank_1_offset_)
-      .WriteData(prg_bank_0_offset_)
-      .WriteData(prg_bank_1_offset_);
+      .WriteData(mirroring_);
 
   Mapper::Serialize(data);
 }
@@ -199,16 +199,12 @@ bool Mapper001::Deserialize(const EmulatorStates::Header& header,
 
   data.ReadData(&shift_register_)
       .ReadData(&write_count_)
-      .ReadData(&mode_chr_)
+      .ReadData(&chr_mode_)
       .ReadData(&prg_mode_)
       .ReadData(&chr_reg_0_)
       .ReadData(&chr_reg_1_)
       .ReadData(&prg_reg_)
-      .ReadData(&mirroring_)
-      .ReadData(&chr_bank_0_offset_)
-      .ReadData(&chr_bank_1_offset_)
-      .ReadData(&prg_bank_0_offset_)
-      .ReadData(&prg_bank_1_offset_);
+      .ReadData(&mirroring_);
   return Mapper::Deserialize(header, data);
 }
 
