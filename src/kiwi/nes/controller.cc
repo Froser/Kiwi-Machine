@@ -47,9 +47,9 @@ void Controller::Strobe(Byte b) {
 // https://www.nesdev.org/wiki/Controller_reading_code for more details.
 Byte Controller::Read() {
   Byte ret;
-  if (strobe_)
+  if (strobe_) {
     ret = IsKeyPressed(ControllerButton::kA);
-  else {
+  } else {
     ret = (key_states_ & 1);
     key_states_ >>= 1;
   }
@@ -60,10 +60,32 @@ Byte Controller::Read() {
 // Returns 0 or 1.
 int Controller::IsKeyPressed(ControllerButton button) {
   DCHECK(emulator_);
-  if (emulator_->GetIODevices() && emulator_->GetIODevices()->input_device())
-    return emulator_->GetIODevices()->input_device()->IsKeyDown(id_, button)
-               ? 1
-               : 0;
+  if (emulator_->GetIODevices()) {
+    IODevices::InputDevice* input_device =
+        emulator_->GetIODevices()->input_device();
+
+    if (input_device) {
+      // Press Up/Down or Left/Right simultaneously is not allowed. It will
+      // cause some bugs, for example: Zelda II - The Adventure of Link.
+      if (button == ControllerButton::kLeft &&
+          input_device->IsKeyDown(id_, ControllerButton::kRight))
+        return 0;
+
+      if (button == ControllerButton::kRight &&
+          input_device->IsKeyDown(id_, ControllerButton::kLeft))
+        return 0;
+
+      if (button == ControllerButton::kUp &&
+          input_device->IsKeyDown(id_, ControllerButton::kDown))
+        return 0;
+
+      if (button == ControllerButton::kDown &&
+          input_device->IsKeyDown(id_, ControllerButton::kUp))
+        return 0;
+
+      return input_device->IsKeyDown(id_, button) ? 1 : 0;
+    }
+  }
 
   return 0;
 }

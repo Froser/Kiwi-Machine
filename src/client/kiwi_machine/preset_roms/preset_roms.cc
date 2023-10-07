@@ -71,6 +71,7 @@ namespace preset_roms {
 #include "tiny_toon_adventures_2__trouble_in_wackyland_usa.inc"
 #include "twinbee_japan.inc"
 #include "yie_ar_kungfu_japan_rev_14.inc"
+#include "zelda_ii__the_adventure_of_link_usa.inc"
 namespace specials {
 #include "extra_mario_bros.inc"
 #include "funny_princess.inc"

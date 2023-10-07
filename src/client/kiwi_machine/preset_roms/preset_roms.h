@@ -100,6 +100,7 @@ EXTERN_ROM(tiny_toon_adventures_usa)
 EXTERN_ROM(tiny_toon_adventures_2__trouble_in_wackyland_usa)
 EXTERN_ROM(twinbee_japan)
 EXTERN_ROM(yie_ar_kungfu_japan_rev_14)
+EXTERN_ROM(zelda_ii__the_adventure_of_link_usa)
 
 
 const PresetROM kPresetRoms[] = {
@@ -173,6 +174,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(tiny_toon_adventures_2__trouble_in_wackyland_usa)},
   {PRESET_ROM(twinbee_japan)},
   {PRESET_ROM(yie_ar_kungfu_japan_rev_14)},
+  {PRESET_ROM(zelda_ii__the_adventure_of_link_usa)},
 };
 namespace specials {
 EXTERN_ROM(extra_mario_bros)
