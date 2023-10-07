@@ -60,6 +60,7 @@ namespace preset_roms {
 #include "super_c_usa.inc"
 #include "super_mario_bros_world.inc"
 #include "super_mario_bros_2_usa.inc"
+#include "super_mario_bros_2_the_lost_levels_j.inc"
 #include "super_mario_bros_3_usa.inc"
 #include "takahashi_meijin_no_boukenjima_japan.inc"
 #include "teenage_mutant_ninja_turtles_usa.inc"
@@ -78,6 +79,7 @@ namespace specials {
 #include "kamikaze_v3.inc"
 #include "luigis_chronicles.inc"
 #include "special_mario.inc"
+#include "super_mario_bros_unlimited_w.inc"
 #include "tank_1990.inc"
 }  // namespace specials {
 }  // namespace preset_roms

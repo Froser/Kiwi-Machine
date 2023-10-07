@@ -197,7 +197,7 @@ void Mapper004::PPUAddressChanged(Address address) {
 
 void Mapper004::ScanlineIRQ() {
   if (irq_flag_) {
-    scanline_irq_callback().Run();
+    irq_callback().Run();
   } else {
     StepIRQCounter();
   }

@@ -19,6 +19,7 @@
 #include "nes/mappers/mapper002.h"
 #include "nes/mappers/mapper003.h"
 #include "nes/mappers/mapper004.h"
+#include "nes/mappers/mapper040.h"
 #include "nes/mappers/mapper087.h"
 
 namespace kiwi {
@@ -32,6 +33,8 @@ NametableMirroring Mapper::GetNametableMirroring() {
 }
 
 void Mapper::ScanlineIRQ() {}
+
+void Mapper::M2CycleIRQ() {}
 
 bool Mapper::HasExtendedRAM() {
   DCHECK(cartridge_ && cartridge_->GetRomData());
@@ -64,6 +67,8 @@ std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
     ret.reset(new MapperGxROM(cart, mirroring_cb));
     break;
     */
+    case 40:
+      return std::make_unique<Mapper040>(cartridge);
     case 87:
       return std::make_unique<Mapper087>(cartridge);
     default:

@@ -89,6 +89,7 @@ EXTERN_ROM(star_soldier_japan)
 EXTERN_ROM(super_c_usa)
 EXTERN_ROM(super_mario_bros_world)
 EXTERN_ROM(super_mario_bros_2_usa)
+EXTERN_ROM(super_mario_bros_2_the_lost_levels_j)
 EXTERN_ROM(super_mario_bros_3_usa)
 EXTERN_ROM(takahashi_meijin_no_boukenjima_japan)
 EXTERN_ROM(teenage_mutant_ninja_turtles_usa)
@@ -163,6 +164,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(super_c_usa)},
   {PRESET_ROM(super_mario_bros_world)},
   {PRESET_ROM(super_mario_bros_2_usa)},
+  {PRESET_ROM(super_mario_bros_2_the_lost_levels_j)},
   {PRESET_ROM(super_mario_bros_3_usa)},
   {PRESET_ROM(takahashi_meijin_no_boukenjima_japan)},
   {PRESET_ROM(teenage_mutant_ninja_turtles_usa)},
@@ -182,6 +184,7 @@ EXTERN_ROM(funny_princess)
 EXTERN_ROM(kamikaze_v3)
 EXTERN_ROM(luigis_chronicles)
 EXTERN_ROM(special_mario)
+EXTERN_ROM(super_mario_bros_unlimited_w)
 EXTERN_ROM(tank_1990)
 
 const PresetROM kPresetRoms[] = {
@@ -190,6 +193,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(kamikaze_v3)},
   {PRESET_ROM(luigis_chronicles)},
   {PRESET_ROM(special_mario)},
+  {PRESET_ROM(super_mario_bros_unlimited_w)},
   {PRESET_ROM(tank_1990)},
 };
 } // namespace specials {

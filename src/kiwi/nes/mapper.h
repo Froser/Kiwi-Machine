@@ -33,7 +33,7 @@ class Cartridge;
 class Mapper : public EmulatorStates::SerializableState {
  public:
   using MirroringChangedCallback = base::RepeatingClosure;
-  using ScanlineIRQCallback = base::RepeatingClosure;
+  using IRQCallback = base::RepeatingClosure;
 
   explicit Mapper(Cartridge* cartridge);
   ~Mapper() override;
@@ -42,8 +42,8 @@ class Mapper : public EmulatorStates::SerializableState {
     mirroring_changed_callback_ = callback;
   }
 
-  void set_scanline_irq_callback(ScanlineIRQCallback callback) {
-    scanline_irq_callback_ = callback;
+  void set_scanline_irq_callback(IRQCallback callback) {
+    iqr_callback_ = callback;
   }
 
   // CPU: $8000-$FFFF
@@ -56,6 +56,7 @@ class Mapper : public EmulatorStates::SerializableState {
 
   virtual NametableMirroring GetNametableMirroring();
   virtual void ScanlineIRQ();
+  virtual void M2CycleIRQ();
 
   // MMC3 uses this.
   virtual void PPUAddressChanged(Address address);
@@ -78,7 +79,7 @@ class Mapper : public EmulatorStates::SerializableState {
     return mirroring_changed_callback_;
   }
 
-  ScanlineIRQCallback scanline_irq_callback() { return scanline_irq_callback_; }
+  IRQCallback irq_callback() { return iqr_callback_; }
 
  private:
   void CheckExtendedRAM();
@@ -89,7 +90,7 @@ class Mapper : public EmulatorStates::SerializableState {
  private:
   Cartridge* cartridge_;
   MirroringChangedCallback mirroring_changed_callback_;
-  ScanlineIRQCallback scanline_irq_callback_;
+  IRQCallback iqr_callback_;
   Bytes extended_ram_;
 };
 

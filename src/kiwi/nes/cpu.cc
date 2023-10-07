@@ -17,6 +17,7 @@
 
 #include "base/logging.h"
 #include "nes/cpu_bus.h"
+#include "nes/mapper.h"
 #include "nes/opcodes.h"
 #include "nes/registers.h"
 
@@ -105,6 +106,11 @@ void CPU::Interrupt(InterruptType type) {
 
 void CPU::Step() {
   DCHECK(cpu_bus_);
+  struct M2CylceIRQNotifier {
+    M2CylceIRQNotifier(Bus* cpu_bus) : cpu_bus_(cpu_bus) {}
+    ~M2CylceIRQNotifier() { cpu_bus_->GetMapper()->M2CycleIRQ(); }
+    Bus* cpu_bus_;
+  } notifier(cpu_bus_);
 
   if (--cycles_to_skip_ >= 0) {
     if (observer_)

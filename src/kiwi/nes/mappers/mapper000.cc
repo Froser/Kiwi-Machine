@@ -53,16 +53,15 @@ Byte Mapper000::ReadPRG(Address address) {
 }
 
 void Mapper000::WriteCHR(Address address, Byte value) {
-  if (uses_character_ram_) {
+  if (uses_character_ram_)
     character_ram_[address] = value;
-  }
 }
 
 Byte Mapper000::ReadCHR(Address address) {
   if (uses_character_ram_)
     return character_ram_[address];
-  else
-    return cartridge()->GetRomData()->CHR[address];
+
+  return cartridge()->GetRomData()->CHR[address];
 }
 
 void Mapper000::Serialize(EmulatorStates::SerializableStateData& data) {
