@@ -48,6 +48,10 @@ class KiwiItemWidget : public Widget {
   }
 
   void set_selected(bool is_selected) { selected_ = is_selected; }
+  void set_has_sub_items(bool has_sub_items) { has_sub_items_ = has_sub_items; }
+
+  // Swaps cover, title, and callback.
+  void Swap(KiwiItemWidget& rhs);
 
  protected:
   // Widget:
@@ -55,13 +59,16 @@ class KiwiItemWidget : public Widget {
   bool IsWindowless() override;
 
  private:
+  void CreateTextureIfNotExists();
+
+ private:
   std::string title_;
   const kiwi::nes::Byte* cover_img_ = nullptr;
   size_t cover_size_ = 0u;
   kiwi::base::RepeatingClosure on_trigger_callback_;
-  bool first_paint_ = true;
 
   bool selected_ = false;
+  int has_sub_items_ = false;
   SDL_Surface* cover_surface_ = nullptr;
   SDL_Texture* cover_texture_ = nullptr;
   int cover_width_ = 0;

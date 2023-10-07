@@ -18,6 +18,10 @@
 enum class FontType {
   kDefault,
   kDefault2x,
+  kDefault3x,
+  kDefault4x,
+  kDefault5x,
+  kDefault6x,
 
   kMax,
 };

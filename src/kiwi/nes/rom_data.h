@@ -51,6 +51,7 @@ class NES_EXPORT RomData {
   ConsoleType console_type;
   bool has_extended_ram;
   bool is_nes_20;
+  int crc;
 };
 
 }  // namespace core

@@ -29,6 +29,7 @@ Mapper004::Mapper004(Cartridge* cartridge) : Mapper(cartridge) {
     uses_character_ram_ = false;
   }
 
+  prg_ram_.resize(kPRGBankSize);
   mirroring_ram_.resize(4 * 1024);
 
   prg_banks_count_ = cartridge->GetRomData()->PRG.size() / kPRGBankSize;
@@ -37,6 +38,11 @@ Mapper004::Mapper004(Cartridge* cartridge) : Mapper(cartridge) {
 Mapper004::~Mapper004() = default;
 
 void Mapper004::WritePRG(Address address, Byte value) {
+  if (address >= 0x6000 && address <= 0x7fff) {
+    prg_ram_[address & 0x1fff] = value;
+    return;
+  }
+
   bool is_even = !(address & 1);
   if (address >= 0x8000 && address <= 0x9fff) {
     if (is_even) {
@@ -89,32 +95,32 @@ Byte Mapper004::ReadPRG(Address address) {
   if (0x8000 <= address && address <= 0x9fff) {
     int bank = prg_mode_ ? prg_banks_count_ - 2 : bank_register_[6];
     Address offset = address & 0x1fff;
-    int index = ((kPRGBankSize * bank) | offset) %
-                cartridge()->GetRomData()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) %
+                     cartridge()->GetRomData()->PRG.size();
     return cartridge()->GetRomData()->PRG[index];
   }
 
   if (0xa000 <= address && address <= 0xbfff) {
     int bank = bank_register_[7];
     Address offset = address & 0x1fff;
-    int index = ((kPRGBankSize * bank) | offset) %
-                cartridge()->GetRomData()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) %
+                     cartridge()->GetRomData()->PRG.size();
     return cartridge()->GetRomData()->PRG[index];
   }
 
   if (0xc000 <= address && address <= 0xdfff) {
     int bank = prg_mode_ ? bank_register_[6] : prg_banks_count_ - 2;
     Address offset = address & 0x1fff;
-    int index = ((kPRGBankSize * bank) | offset) %
-                cartridge()->GetRomData()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) %
+                     cartridge()->GetRomData()->PRG.size();
     return cartridge()->GetRomData()->PRG[index];
   }
 
   if (0xe000 <= address && address <= 0xffff) {
     int bank = prg_banks_count_ - 1;
     Address offset = address & 0x1fff;
-    int index = ((kPRGBankSize * bank) | offset) %
-                cartridge()->GetRomData()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) %
+                     cartridge()->GetRomData()->PRG.size();
     return cartridge()->GetRomData()->PRG[index];
   }
 
@@ -169,8 +175,8 @@ Byte Mapper004::ReadCHR(Address address) {
     }
 
     Address offset = address % 0x0400;
-    int index = ((kCHRBankSize * bank) | offset) %
-                cartridge()->GetRomData()->CHR.size();
+    uint32_t index = ((kCHRBankSize * bank) | offset) %
+                     cartridge()->GetRomData()->CHR.size();
     return cartridge()->GetRomData()->CHR[index];
   } else if (address <= 0x2fff) {
     return mirroring_ram_[address - 0x2000];
@@ -178,6 +184,12 @@ Byte Mapper004::ReadCHR(Address address) {
 
   DCHECK(false);
   return 0;
+}
+
+Byte Mapper004::ReadExtendedRAM(Address address) {
+  // Some games will write data to the address less than 0x6000, for example:
+  // Extra Mario Bros. So we don't check here.
+  return prg_ram_[address & 0x1fff];
 }
 
 NametableMirroring Mapper004::GetNametableMirroring() {
@@ -222,6 +234,7 @@ void Mapper004::Serialize(EmulatorStates::SerializableStateData& data) {
       .WriteData(irq_latch_)
       .WriteData(irq_reload_)
       .WriteData(irq_flag_)
+      .WriteData(prg_ram_)
       .WriteData(mirroring_ram_);
 
   if (uses_character_ram_)
@@ -250,6 +263,7 @@ bool Mapper004::Deserialize(const EmulatorStates::Header& header,
       .ReadData(&irq_latch_)
       .ReadData(&irq_reload_)
       .ReadData(&irq_flag_)
+      .ReadData(&prg_ram_)
       .ReadData(&mirroring_ram_);
 
   if (uses_character_ram_)

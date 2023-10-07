@@ -14,6 +14,7 @@
 
 #include <SDL_image.h>
 
+#include "ui/main_window.h"
 #include "ui/window_base.h"
 #include "utility/images.h"
 
@@ -25,7 +26,8 @@ constexpr int kPadding = 30;
 constexpr float kFadeSpeedMs = 100;
 }  // namespace
 
-KiwiBgWidget::KiwiBgWidget(WindowBase* window_base) : Widget(window_base) {
+KiwiBgWidget::KiwiBgWidget(MainWindow* main_window)
+    : Widget(main_window), main_window_(main_window) {
   bg_texture_ =
       GetImage(window()->renderer(), image_resources::ImageID::kBackgroundLogo);
   SDL_SetTextureScaleMode(bg_texture_, SDL_ScaleModeBest);
@@ -76,6 +78,20 @@ void KiwiBgWidget::Paint() {
       }
       is_even = !is_even;
     }
+
+    // Draw 'kiwi machine' logo.
+    constexpr int kKiwiPos = 20;
+    const float kKiwiScale = 0.08f * main_window_->window_scale();
+    SDL_Texture* bg_kiwi =
+        GetImage(window()->renderer(), image_resources::ImageID::kKiwiMachine);
+    int tex_width, tex_height;
+    SDL_QueryTexture(bg_kiwi, nullptr, nullptr, &tex_width, &tex_height);
+    SDL_Rect src_rect{0, 0, tex_width, tex_height};
+    SDL_Rect dest_rect{render_bounds.x + kKiwiPos, render_bounds.y + kKiwiPos,
+                       static_cast<int>(tex_width * kKiwiScale),
+                       static_cast<int>(tex_height * kKiwiScale)};
+    SDL_RenderCopy(window()->renderer(), bg_kiwi, &src_rect, &dest_rect);
+
   } else {
     float fade_progress =
         (bg_fade_out_timer_.ElapsedInMilliseconds() / kFadeSpeedMs);

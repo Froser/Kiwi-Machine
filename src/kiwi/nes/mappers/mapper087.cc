@@ -47,7 +47,7 @@ void Mapper087::WriteCHR(Address address, Byte value) {
 }
 
 Byte Mapper087::ReadCHR(Address address) {
-  Address base_address = select_chr_ * 0x2000;
+  uint32_t base_address = select_chr_ * 0x2000;
   return cartridge()->GetRomData()->CHR[base_address + address];
 }
 

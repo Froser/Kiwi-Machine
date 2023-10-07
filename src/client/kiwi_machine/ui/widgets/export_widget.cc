@@ -34,7 +34,6 @@ void ExportWidget::Start(int max, const kiwi::base::FilePath& export_path) {
 
 void ExportWidget::SetCurrent(const kiwi::base::FilePath& file) {
   current_text_ = file.AsUTF8Unsafe();
-  ++current_;
 }
 
 void ExportWidget::Succeeded(const kiwi::base::FilePath& file) {

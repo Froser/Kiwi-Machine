@@ -25,7 +25,7 @@ include_directories(
         ${CMAKE_CURRENT_BINARY_DIR}/
 
         # GFlags
-        ..
+        ../..
         ${CMAKE_CURRENT_BINARY_DIR}/../third_party/gflags/include
 )
 
@@ -45,14 +45,18 @@ set(Sources
         debug/debug_roms.h
         models/nes_audio.cc
         models/nes_audio.h
+        models/nes_config.cc
+        models/nes_config.h
         models/nes_frame.cc
         models/nes_frame.h
         models/nes_runtime.cc
         models/nes_runtime.h
-        preset_roms/preset_roms.cc
         preset_roms/preset_roms.h
+        preset_roms/roms/preset_roms.cc
         resources/audio_resources.cc
         resources/audio_resources.h
+        resources/font_resources.cc
+        resources/font_resources.h
         resources/image_resources.cc
         resources/image_resources.h
         ui/widgets/about_widget.cc
@@ -93,6 +97,8 @@ set(Sources
         ui/widgets/palette_widget.h
         ui/widgets/pattern_widget.cc
         ui/widgets/pattern_widget.h
+        ui/widgets/splash.cc
+        ui/widgets/splash.h
         ui/widgets/stack_widget.cc
         ui/widgets/stack_widget.h
         ui/widgets/toast.cc
@@ -123,17 +129,26 @@ set(Sources
 )
 
 # Resources generation:
+# Use '__always_buildx.h' as a fake output, to make the command run every time.
 add_custom_command(
-        OUTPUT resources/image_resources.h resources/image_resources.cc
-        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_image_resources.py
+        OUTPUT resources/image_resources.h resources/image_resources.cc __always_build0.h
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_image_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         VERBATIM
 )
 
 add_custom_command(
-        OUTPUT resources/audio_resources.h resources/audio_resources.cc
-        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_audio_resources.py
+        OUTPUT resources/audio_resources.h resources/audio_resources.cc __always_build1.h
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_audio_resources.py
+        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        VERBATIM
+)
+
+add_custom_command(
+        OUTPUT resources/font_resources.h resources/font_resources.cc __always_build2.h
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_font_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         VERBATIM
@@ -176,14 +191,21 @@ endif ()
 
 if (${KIWI_MACHINE_PRESET_ROMS})
     add_custom_command(
-            OUTPUT preset_roms/preset_roms.h
-            COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_preset_roms_data.py
+            OUTPUT preset_roms/preset_roms.h __always_build_roms.h
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_preset_roms_data.py
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
             VERBATIM
     )
 endif ()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static imgui gflags_nothreads_static SDL2_image SDL2_mixer)
+target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+        Kiwi::kiwi_static imgui
+        gflags_nothreads_static
+        SDL2_image
+        SDL2_mixer
+        minizip
+)
 target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
 target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
 target_include_directories(${PROJECT_NAME}

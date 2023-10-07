@@ -37,14 +37,33 @@ class BASE_EXPORT File {
     FLAG_APPEND = 1 << 7,
   };
 
+  // This explicit mapping matches both FILE_ on Windows and SEEK_ on Linux.
+  enum Whence {
+    FROM_BEGIN   = 0,
+    FROM_CURRENT = 1,
+    FROM_END     = 2
+  };
+
   File(const FilePath& path, uint32_t flags);
+  ~File();
 
  public:
+  void Open(const FilePath& file_path, uint32_t flags);
+  int64_t GetLength();
+  int Read(int64_t offset, char* data, int size);
   int ReadAtCurrentPos(char* data, int size);
+  int Write(int64_t offset, const char* data, int size);
+  int WriteAtCurrentPos(const char* data, int size);
+
+  // Changes current position in the file to an |offset| relative to an origin
+  // defined by |whence|. Returns the resultant current position in the file
+  // (relative to the start) or -1 in case of error.
+  int64_t Seek(Whence whence, int64_t offset);
+
   bool IsValid() const;
 
  private:
-  std::unique_ptr<platform::FileInterface> file_;
+  std::fstream file_;
 };
 }  // namespace kiwi::base
 

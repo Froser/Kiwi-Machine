@@ -60,8 +60,6 @@ set(base_sources
         base/memory/ref_counted.cc
         base/memory/ref_counted.h
         base/message_loop/message_pump_type.h
-        base/platform/default/default_file_interface.cc
-        base/platform/default/default_file_interface.h
         base/platform/platform_factory.cc
         base/platform/platform_factory.h
         base/strings/string_number_conversions.cc
@@ -174,6 +172,8 @@ set(nes_sources
         nes/mappers/mapper004.h
         nes/mappers/mapper040.cc
         nes/mappers/mapper040.h
+        nes/mappers/mapper066.cc
+        nes/mappers/mapper066.h
         nes/mappers/mapper087.cc
         nes/mappers/mapper087.h
         nes/opcodes.cc

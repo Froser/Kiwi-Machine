@@ -14,6 +14,7 @@
 #define UI_WIDGETS_KIWI_ITEMS_WIDGET_H_
 
 #include <kiwi_nes.h>
+#include <map>
 #include <string>
 
 #include "models/nes_runtime.h"
@@ -30,10 +31,16 @@ class KiwiItemsWidget : public Widget {
   ~KiwiItemsWidget() override;
 
  public:
-  void AddItem(const std::string& title,
-               const kiwi::nes::Byte* cover_img_ref,
-               size_t cover_size,
-               kiwi::base::RepeatingClosure on_trigger);
+  void AddSubItem(int main_item_index,
+                  const std::string& title,
+                  const kiwi::nes::Byte* cover_img_ref,
+                  size_t cover_size,
+                  kiwi::base::RepeatingClosure on_trigger);
+  size_t AddItem(const std::string& title,
+                 const kiwi::nes::Byte* cover_img_ref,
+                 size_t cover_size,
+                 kiwi::base::RepeatingClosure on_trigger);
+  bool IsEmpty();
 
  private:
   int GetItemMetrics(KiwiItemWidget::Metrics metrics);
@@ -43,6 +50,7 @@ class KiwiItemsWidget : public Widget {
   void FirstFrame();
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void IndexChanged();
+  void ResetSubItemIndex();
 
  protected:
   void Paint() override;
@@ -58,6 +66,8 @@ class KiwiItemsWidget : public Widget {
   std::vector<SDL_Rect> items_bounds_next_;
   float animation_lerp_ = 0.f;
   Timer animation_counter_;
+  std::map<int, std::vector<std::unique_ptr<KiwiItemWidget>>> sub_items_;
+  int sub_item_index_ = -1;  // -1 means do not select sub item.
 
   bool first_paint_ = true;
   int current_idx_ = 0;

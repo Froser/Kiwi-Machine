@@ -12,6 +12,8 @@
 
 #include "base/platform/sdl2/sdl2_single_thread_task_executor_interface.h"
 
+#include <atomic>
+
 #include "base/platform/sdl2/sdl2_runloop_interface.h"
 #include "third_party/SDL2/include/SDL.h"
 
@@ -58,6 +60,8 @@ SDL2SingleThreadTaskExecutorInterface::SDL2SingleThreadTaskExecutorInterface(
 
 SDL2SingleThreadTaskExecutorInterface::
     ~SDL2SingleThreadTaskExecutorInterface() {
+  if (timer_)
+    SDL_RemoveTimer(timer_);
   SingleThreadTaskRunner::SetCurrentDefault(nullptr);
   SequencedTaskRunner::SetCurrentDefault(nullptr);
   SDL_DestroyMutex(mutex_);
@@ -75,7 +79,7 @@ bool SDL2SingleThreadTaskExecutorInterface::PostTask(base::OnceClosure task,
     SDL_PushEvent(&event);
   } else {
     TimerContext* ctx = new TimerContext{this, std::move(task)};
-    SDL_AddTimer(delay.InMilliseconds(), OnShouldPostTask, ctx);
+    timer_ = SDL_AddTimer(delay.InMilliseconds(), OnShouldPostTask, ctx);
   }
   return true;
 }

@@ -36,15 +36,15 @@ bool CreateMenuItemRecursively(MenuBar::MenuItem& menu_item,
     kiwi::base::FileEnumerator::FileInfo info = fe.GetInfo();
     if (info.IsDirectory()) {
       MenuBar::MenuItem new_item;
-      new_item.title = entry.BaseName();
+      new_item.title = entry.BaseName().AsUTF8Unsafe();
       if (CreateMenuItemRecursively(new_item, entry, open_callback)) {
         menu_item.sub_items.push_back(std::move(new_item));
         has_subdirectory = true;
       }
     } else {
-      if (kiwi::base::ToLowerASCII(entry.FinalExtension()) == ".nes") {
+      if (entry.FinalExtension() == FILE_PATH_LITERAL(".nes")) {
         menu_item.sub_items.push_back(
-            {entry.BaseName(),
+            {entry.BaseName().AsUTF8Unsafe(),
              kiwi::base::BindRepeating(open_callback, entry)});
         has_nes = true;
       }

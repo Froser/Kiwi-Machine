@@ -61,9 +61,15 @@ class Mapper : public EmulatorStates::SerializableState {
   // MMC3 uses this.
   virtual void PPUAddressChanged(Address address);
 
-  // CPU: $4100-$7FFF
+  // CPU: $4020-$7FFF
+  // If a ROM has extented RAM, when writing to $4010-$7FFF, WriteExtendedRAM()
+  // will be invoked. Otherwise, WritePRG() will be invoked.
   virtual void WriteExtendedRAM(Address address, Byte value);
+
+  // ReadExtendedRAM() will be invoked whenever read address from $4010 to
+  // $7FFF. If there's no extended ram, an open bus behavior will be returned.
   virtual Byte ReadExtendedRAM(Address address);
+
   virtual Byte* GetExtendedRAMPointer();
   bool HasExtendedRAM();
 
@@ -92,6 +98,7 @@ class Mapper : public EmulatorStates::SerializableState {
   MirroringChangedCallback mirroring_changed_callback_;
   IRQCallback iqr_callback_;
   Bytes extended_ram_;
+  bool force_use_extended_ram_ = false;
 };
 
 }  // namespace nes

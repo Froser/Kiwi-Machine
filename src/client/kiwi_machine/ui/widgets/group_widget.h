@@ -27,6 +27,7 @@ class GroupWidget : public Widget {
 
  public:
   void SetCurrent(int index);
+  void RecalculateBounds();
 
  private:
   void FirstFrame();

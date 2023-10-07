@@ -20,6 +20,7 @@
 #include "nes/mappers/mapper003.h"
 #include "nes/mappers/mapper004.h"
 #include "nes/mappers/mapper040.h"
+#include "nes/mappers/mapper066.h"
 #include "nes/mappers/mapper087.h"
 
 namespace kiwi {
@@ -38,7 +39,7 @@ void Mapper::M2CycleIRQ() {}
 
 bool Mapper::HasExtendedRAM() {
   DCHECK(cartridge_ && cartridge_->GetRomData());
-  return cartridge_->GetRomData()->has_extended_ram;
+  return force_use_extended_ram_ || cartridge_->GetRomData()->has_extended_ram;
 }
 
 void Mapper::PPUAddressChanged(Address address) {}
@@ -69,6 +70,8 @@ std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
     */
     case 40:
       return std::make_unique<Mapper040>(cartridge);
+    case 66:
+      return std::make_unique<Mapper066>(cartridge);
     case 87:
       return std::make_unique<Mapper087>(cartridge);
     default:
@@ -103,12 +106,14 @@ Byte Mapper::ReadExtendedRAM(Address address) {
 }
 
 void Mapper::Serialize(EmulatorStates::SerializableStateData& data) {
+  data.WriteData(force_use_extended_ram_);
   if (HasExtendedRAM())
     data.WriteData(extended_ram_);
 }
 
 bool Mapper::Deserialize(const EmulatorStates::Header& header,
                          EmulatorStates::DeserializableStateData& data) {
+  data.ReadData(&force_use_extended_ram_);
   if (HasExtendedRAM())
     data.ReadData(&extended_ram_);
 
@@ -122,6 +127,7 @@ void Mapper::CheckExtendedRAM() {
           << "This ROM will read/write to extended RAM, but the NES file "
              "indicates no extended RAM exists. Perhaps the NES file is "
              "incorrect, but the emulator still created extended RAM for it.";
+      force_use_extended_ram_ = true;
     }
     extended_ram_.resize(0x2000);
   }

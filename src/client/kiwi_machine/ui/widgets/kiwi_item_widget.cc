@@ -14,8 +14,10 @@
 
 #include <SDL_image.h>
 #include <imgui.h>
+#include <utility>
 
 #include "ui/window_base.h"
+#include "utility/fonts.h"
 
 KiwiItemWidget::KiwiItemWidget(WindowBase* window_base,
                                const std::string& title,
@@ -35,19 +37,22 @@ void KiwiItemWidget::Trigger() {
     on_trigger_callback_.Run();
 }
 
-void KiwiItemWidget::Paint() {
-  if (first_paint_) {
-    SDL_RWops* bg_res =
-        SDL_RWFromMem(const_cast<unsigned char*>(cover_img_), cover_size_);
-    cover_surface_ = IMG_Load_RW(bg_res, 1);
-    cover_texture_ =
-        SDL_CreateTextureFromSurface(window()->renderer(), cover_surface_);
-    SDL_SetTextureScaleMode(cover_texture_, SDL_ScaleModeBest);
-    SDL_QueryTexture(cover_texture_, nullptr, nullptr, &cover_width_,
-                     &cover_height_);
+void KiwiItemWidget::Swap(KiwiItemWidget& rhs) {
+  if (&rhs == this)
+    return;
 
-    first_paint_ = false;
-  }
+  std::swap(title_, rhs.title_);
+  std::swap(cover_img_, rhs.cover_img_);
+  std::swap(cover_size_, rhs.cover_size_);
+  std::swap(on_trigger_callback_, rhs.on_trigger_callback_);
+  std::swap(cover_surface_, rhs.cover_surface_);
+  std::swap(cover_texture_, rhs.cover_texture_);
+  std::swap(cover_width_, rhs.cover_width_);
+  std::swap(cover_height_, rhs.cover_height_);
+}
+
+void KiwiItemWidget::Paint() {
+  CreateTextureIfNotExists();
 
   // Draws cover and title.
   // Layout is like this:
@@ -99,21 +104,52 @@ void KiwiItemWidget::Paint() {
                              cover_rect.y + cover_scaled_height));
 
   if (selected_) {
-    constexpr int kFontSize = 16;
     constexpr int kSpacingBetweenTitleAndCover = 16;
-    ImFont* font = ImGui::GetFont();
-    ImVec2 title_rect =
-        font->CalcTextSizeA(kFontSize, FLT_MAX, 0.f, title_.c_str());
-    // Move title to the center
-    draw_list->AddText(
-        font, kFontSize,
-        ImVec2(
-            kBoundsToParent.x + (kBoundsToParent.w - title_rect.x) / 2,
-            cover_rect.y + cover_scaled_height + kSpacingBetweenTitleAndCover),
-        IM_COL32(0, 0, 0, 255), title_.c_str());
+    ScopedFont scoped_font(FontType::kDefault);
+    ImFont* font = scoped_font.GetFont();
+    {
+      ImVec2 title_rect =
+          font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, title_.c_str());
+      // Move title to the center
+      draw_list->AddText(
+          font, font->FontSize,
+          ImVec2(kBoundsToParent.x + (kBoundsToParent.w - title_rect.x) / 2,
+                 cover_rect.y + cover_scaled_height +
+                     kSpacingBetweenTitleAndCover),
+          IM_COL32(0, 0, 0, 255), title_.c_str());
+    }
+
+    if (has_sub_items_) {
+      constexpr int kSpacingBetweenTitleAndHint = 13;
+      constexpr char kVersionHintStr[] =
+          "(Press select to switch game version)";
+      ImVec2 title_rect =
+          font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, kVersionHintStr);
+      draw_list->AddText(
+          font, font->FontSize,
+          ImVec2(kBoundsToParent.x + (kBoundsToParent.w - title_rect.x) / 2,
+                 cover_rect.y + cover_scaled_height +
+                     kSpacingBetweenTitleAndCover + font->FontSize +
+                     kSpacingBetweenTitleAndHint),
+          IM_COL32(255, 51, 153, 255), kVersionHintStr);
+    }
   }
 }
 
 bool KiwiItemWidget::IsWindowless() {
   return true;
+}
+
+void KiwiItemWidget::CreateTextureIfNotExists() {
+  if (!cover_surface_) {
+    SDL_assert(!cover_texture_);
+    SDL_RWops* bg_res =
+        SDL_RWFromMem(const_cast<unsigned char*>(cover_img_), cover_size_);
+    cover_surface_ = IMG_Load_RW(bg_res, 1);
+    cover_texture_ =
+        SDL_CreateTextureFromSurface(window()->renderer(), cover_surface_);
+    SDL_SetTextureScaleMode(cover_texture_, SDL_ScaleModeBest);
+    SDL_QueryTexture(cover_texture_, nullptr, nullptr, &cover_width_,
+                     &cover_height_);
+  }
 }

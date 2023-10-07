@@ -19,11 +19,11 @@
 #include "ui/widgets/widget.h"
 #include "utility/timer.h"
 
-class WindowBase;
+class MainWindow;
 class LoadingWidget;
 class KiwiBgWidget : public Widget {
  public:
-  explicit KiwiBgWidget(WindowBase* window_base);
+  explicit KiwiBgWidget(MainWindow* main_window);
   ~KiwiBgWidget() override;
 
  public:
@@ -35,6 +35,7 @@ class KiwiBgWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
 
  private:
+  MainWindow* main_window_ = nullptr;
   SDL_Texture* bg_texture_ = nullptr;
   int bg_width_ = 0;
   int bg_height_ = 0;

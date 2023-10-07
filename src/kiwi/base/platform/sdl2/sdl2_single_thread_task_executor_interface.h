@@ -41,6 +41,7 @@ class SDL2SingleThreadTaskExecutorInterface
 
  private:
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
+  SDL_TimerID timer_ = 0;
 
   // Tasks implementation.
   std::queue<base::OnceClosure> tasks_;

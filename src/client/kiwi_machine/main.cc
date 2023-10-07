@@ -18,7 +18,6 @@
 #include "models/nes_runtime.h"
 #include "ui/application.h"
 #include "ui/main_window.h"
-#include "ui/widgets/demo_widget.h"
 
 DEFINE_bool(demo_window, false, "Show ImGui demo window.");
 
@@ -35,13 +34,16 @@ int main(int argc, char** argv) {
 #endif
 
   // Make a kiwi-nes runtime.
-  NESRuntimeID runtime_id = NESRuntime::GetInstance()->CreateData();
+  NESRuntimeID runtime_id = NESRuntime::GetInstance()->CreateData("Default");
   NESRuntime::Data* runtime_data =
       NESRuntime::GetInstance()->GetDataById(runtime_id);
   runtime_data->emulator = kiwi::nes::CreateEmulator();
   runtime_data->debug_port =
       std::make_unique<DebugPort>(runtime_data->emulator.get());
-  runtime_data->emulator->SetDebugPort(runtime_data->debug_port.get());
+
+  // Create configs
+  scoped_refptr<NESConfig> config =
+      kiwi::base::MakeRefCounted<NESConfig>(runtime_data->profile_path);
 
   // Set key mappings.
   NESRuntime::Data::ControllerMapping key_mapping1 = {
@@ -53,11 +55,8 @@ int main(int argc, char** argv) {
   runtime_data->keyboard_mappings[1] = key_mapping2;
   runtime_data->emulator->PowerOn();
 
-  MainWindow main_window("Kiwi Machine", runtime_id);
-
-  if (FLAGS_demo_window) {
-    main_window.AddWidget(std::make_unique<DemoWidget>(&main_window));
-  }
+  config->LoadConfigAndWait();
+  MainWindow main_window("Kiwi Machine", runtime_id, config, FLAGS_demo_window);
 
   application.Run();
   return 0;

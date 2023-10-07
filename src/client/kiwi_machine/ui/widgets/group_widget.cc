@@ -41,8 +41,7 @@ void GroupWidget::SetCurrent(int index) {
   children()[current_idx_]->set_enabled(true);
 }
 
-void GroupWidget::FirstFrame() {
-  SetCurrent(0);
+void GroupWidget::RecalculateBounds() {
   animation_lerp_ = 0.f;
 
   for (int i = 0; i < children().size(); ++i) {
@@ -53,6 +52,11 @@ void GroupWidget::FirstFrame() {
   bounds_next_ = bounds_current_;
   ApplyItemBounds();
   animation_counter_.Start();
+}
+
+void GroupWidget::FirstFrame() {
+  SetCurrent(0);
+  RecalculateBounds();
   first_paint_ = false;
 }
 

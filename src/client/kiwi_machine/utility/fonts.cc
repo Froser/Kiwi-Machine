@@ -12,6 +12,8 @@
 
 #include "utility/fonts.h"
 
+#include "resources/font_resources.h"
+
 namespace {
 
 ImFont* g_fonts[static_cast<int>(FontType::kMax)];
@@ -34,12 +36,23 @@ ImFont* ScopedFont::GetFont() {
   return g_fonts[static_cast<int>(type_)];
 }
 
-void InitializeFonts() {
-  g_fonts[static_cast<int>(FontType::kDefault)] =
-      ImGui::GetIO().Fonts->AddFontDefault();
+#define REGISTER_FONT(enumName, fontType, basicSize)              \
+  {                                                               \
+    ImFontConfig font_config;                                     \
+    font_config.FontDataOwnedByAtlas = false;                     \
+    for (FontType ft = enumName; ft <= enumName##6x;              \
+         ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {  \
+      int font_size = basicSize * (static_cast<int>(ft) + 1);     \
+      size_t data_size;                                           \
+      g_fonts[static_cast<int>(ft)] =                             \
+          ImGui::GetIO().Fonts->AddFontFromMemoryTTF(             \
+              const_cast<unsigned char*>(                         \
+                  font_resources::GetData(fontType, &data_size)), \
+              data_size, font_size, &font_config);                \
+    }                                                             \
+  }
 
-  ImFontConfig default_font_config_2x;
-  default_font_config_2x.SizePixels = 26;
-  g_fonts[static_cast<int>(FontType::kDefault2x)] =
-      ImGui::GetIO().Fonts->AddFontDefault(&default_font_config_2x);
+void InitializeFonts() {
+  ImGui::GetIO().Fonts->AddFontDefault();
+  REGISTER_FONT(FontType::kDefault, font_resources::FontID::kSupermario256, 16);
 }

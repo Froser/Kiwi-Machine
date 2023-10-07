@@ -32,6 +32,8 @@ class WindowBase {
   void RemoveWidgetLater(Widget* widget);
   void RenderWidgets();
   void MoveToCenter();
+  void Hide();
+  void Show();
 
   uint32_t GetWindowID();
   void Resize(int width, int height);

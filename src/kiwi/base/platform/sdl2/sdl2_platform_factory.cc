@@ -12,7 +12,6 @@
 
 #include "base/platform/sdl2/sdl2_platform_factory.h"
 
-#include "base/platform/default/default_file_interface.h"
 #include "base/platform/sdl2/sdl2_runloop_interface.h"
 #include "base/platform/sdl2/sdl2_single_thread_task_executor_interface.h"
 #include "base/platform/sdl2/sdl2_thread_interface.h"
@@ -23,14 +22,6 @@ SDL2PlatformFactory::CreateThreadInterface(const std::string& thread_name) {
   auto thread_interface = std::make_unique<platform::SDL2ThreadInterface>();
   thread_interface->SetThreadName(thread_name);
   return thread_interface;
-}
-
-std::unique_ptr<platform::FileInterface>
-SDL2PlatformFactory::CreateFileInterface(const FilePath& file_path,
-                                         uint32_t flags) {
-  auto file_interface = std::make_unique<platform::DefaultFileInterface>();
-  file_interface->Open(file_path, flags);
-  return file_interface;
 }
 
 std::unique_ptr<platform::SingleThreadTaskExecutorInterface>

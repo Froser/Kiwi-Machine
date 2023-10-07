@@ -135,6 +135,7 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
     LOG(INFO) << "Cartridge with CHR-RAM.";
   }
   crc_ = crc32_z(crc, rom_data_->CHR.data(), rom_data_->CHR.size());
+  rom_data_->crc = crc_;
 
   rom_path_ = rom_path;
   is_loaded_ = true;
@@ -180,6 +181,7 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
   uLong crc = crc32_z(0L, Z_NULL, 0);
   crc_ = crc32_z(crc, crc32_prg_chr_start,
                  crc32_prg_chr_end - crc32_prg_chr_start);
+  rom_data_->crc = crc_;
 
   is_loaded_ = true;
   // Mapper::Create() may access |rom_data_|, and we have already fill

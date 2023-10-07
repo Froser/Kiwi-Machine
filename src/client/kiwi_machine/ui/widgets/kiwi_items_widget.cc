@@ -32,10 +32,21 @@ KiwiItemsWidget::KiwiItemsWidget(MainWindow* main_window,
 
 KiwiItemsWidget::~KiwiItemsWidget() = default;
 
-void KiwiItemsWidget::AddItem(const std::string& title,
-                              const kiwi::nes::Byte* cover_img_ref,
-                              size_t cover_size,
-                              kiwi::base::RepeatingClosure on_trigger) {
+void KiwiItemsWidget::AddSubItem(int main_item_index,
+                                 const std::string& title,
+                                 const kiwi::nes::Byte* cover_img_ref,
+                                 size_t cover_size,
+                                 kiwi::base::RepeatingClosure on_trigger) {
+  std::unique_ptr<KiwiItemWidget> item =
+      std::make_unique<KiwiItemWidget>(window(), title, on_trigger);
+  item->set_cover(cover_img_ref, cover_size);
+  sub_items_[main_item_index].push_back(std::move(item));
+}
+
+size_t KiwiItemsWidget::AddItem(const std::string& title,
+                                const kiwi::nes::Byte* cover_img_ref,
+                                size_t cover_size,
+                                kiwi::base::RepeatingClosure on_trigger) {
   std::unique_ptr<KiwiItemWidget> item =
       std::make_unique<KiwiItemWidget>(window(), title, on_trigger);
   item->set_cover(cover_img_ref, cover_size);
@@ -44,6 +55,11 @@ void KiwiItemsWidget::AddItem(const std::string& title,
 
   items_bounds_current_.resize(items_.size());
   items_bounds_next_.resize(items_.size());
+  return items_.size() - 1;
+}
+
+bool KiwiItemsWidget::IsEmpty() {
+  return items_.empty();
 }
 
 void KiwiItemsWidget::Paint() {
@@ -162,6 +178,8 @@ void KiwiItemsWidget::ApplyItemBounds() {
     items_[i]->set_bounds(
         Lerp(items_bounds_current_[i], items_bounds_next_[i], animation_lerp_));
   }
+
+  items_[current_idx_]->set_has_sub_items(!sub_items_[current_idx_].empty());
 }
 
 void KiwiItemsWidget::FirstFrame() {
@@ -181,6 +199,7 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
     if (current_idx_ > 0) {
       PlayEffect(audio_resources::AudioID::kSelect);
+      ResetSubItemIndex();
       --current_idx_;
       IndexChanged();
     }
@@ -192,6 +211,7 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (current_idx_ < items_.size() - 1) {
       PlayEffect(audio_resources::AudioID::kSelect);
+      ResetSubItemIndex();
       ++current_idx_;
       IndexChanged();
     }
@@ -209,6 +229,28 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
     return true;
   }
 
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
+    if (!sub_items_[current_idx_].empty()) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      if (sub_item_index_ > -1) {
+        // Sub item is currently selected. We have to swap it back first.
+        items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
+      }
+
+      // Increase the sub item index, to select the next one.
+      ++sub_item_index_;
+      if (sub_item_index_ >= sub_items_[current_idx_].size())
+        sub_item_index_ = -1;
+
+      if (sub_item_index_ > -1) {
+        // Swap the item iff sub item is selected.
+        items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
+      }
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -216,4 +258,16 @@ void KiwiItemsWidget::IndexChanged() {
   animation_lerp_ = .0f;
   items_bounds_current_ = items_bounds_next_;
   CalculateItemsBounds(items_bounds_next_);
+}
+
+void KiwiItemsWidget::ResetSubItemIndex() {
+  if (sub_item_index_ == -1)
+    return;
+
+  int last_sub_item_index = sub_item_index_;
+  sub_item_index_ = -1;
+  if (!sub_items_[current_idx_].empty()) {
+    // Swaps back. Reset the current item.
+    items_[current_idx_]->Swap(*sub_items_[current_idx_][last_sub_item_index]);
+  }
 }

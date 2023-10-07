@@ -67,6 +67,10 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
                             LoadCallback callback) = 0;
   virtual void LoadFromBinary(const Bytes& data, LoadCallback callback) = 0;
 
+  // Gets currently loaded ROM's data. Returns nullptr if no ROM has been
+  // loaded.
+  virtual const RomData* GetRomData() = 0;
+
   // Unloads a ROM.
   virtual void Unload(UnloadCallback callback) = 0;
 

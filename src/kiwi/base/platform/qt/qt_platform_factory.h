@@ -24,10 +24,6 @@ class QtPlatformFactory : public PlatformFactory {
   std::unique_ptr<platform::ThreadInterface> CreateThreadInterface(
       const std::string& thread_name) override;
 
-  std::unique_ptr<platform::FileInterface> CreateFileInterface(
-      const FilePath& file_path,
-      uint32_t flags) override;
-
   std::unique_ptr<platform::SingleThreadTaskExecutorInterface>
   CreateSingleThreadTaskExecutor(MessagePumpType message_pump_type) override;
 

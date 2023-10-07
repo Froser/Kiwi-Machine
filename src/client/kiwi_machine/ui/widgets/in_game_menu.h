@@ -16,6 +16,7 @@
 #include <kiwi_nes.h>
 
 #include "models/nes_runtime.h"
+#include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
 
 class MainWindow;
@@ -23,9 +24,11 @@ class InGameMenu : public Widget {
  public:
   enum class MenuItem {
     kContinue,
+    kLoadAutoSave,
     kLoadState,
     kSaveState,
     kOptions,
+    kResetGame,
     kToGameSelection,
 
     kMax,
@@ -38,7 +41,7 @@ class InGameMenu : public Widget {
     kMax,
   };
 
-  using MenuItemCallback = kiwi::base::RepeatingCallback<void(MenuItem)>;
+  using MenuItemCallback = kiwi::base::RepeatingCallback<void(MenuItem, int)>;
   using SettingsItemCallback =
       kiwi::base::RepeatingCallback<void(SettingsItem, bool)>;
 
@@ -49,12 +52,15 @@ class InGameMenu : public Widget {
   ~InGameMenu() override;
   void Close();
   void Show();
-  void NotifyThumbnailChanged();
+  void RequestCurrentThumbnail();
+  void RequestCurrentSaveStatesCount();
+  void OnGotState(const NESRuntime::Data::StateResult& result);
   void HideMenu(int index);
 
  private:
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void MoveSelection(bool up);
+  void SetFirstSelection();
 
  protected:
   // Widget:
@@ -72,10 +78,17 @@ class InGameMenu : public Widget {
   bool settings_entered_ = false;
   MenuItemCallback menu_callback_;
   SettingsItemCallback settings_callback_;
+  int which_state_ = 0;
+  int state_timestamp_ = 0;
+  int which_autosave_state_slot_ = 0;
   std::set<int> hide_menus_;
 
   // Snapshot
+  std::unique_ptr<LoadingWidget> loading_widget_;
+  bool is_loading_snapshot_ = false;
   SDL_Texture* snapshot_ = nullptr;
+  bool currently_has_snapshot_ = false;
+  int current_auto_states_count_ = 0;
 };
 
 #endif  // UI_WIDGETS_IN_GAME_MENU_H_

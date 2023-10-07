@@ -117,6 +117,13 @@ void EmulatorImpl::LoadFromBinary(const Bytes& data, LoadCallback callback) {
   cartridge_->Load(data, MakeLoadCallback(std::move(callback)));
 }
 
+const RomData* EmulatorImpl::GetRomData() {
+  if (cartridge_)
+    return cartridge_->GetRomData();
+
+  return nullptr;
+}
+
 void EmulatorImpl::Run() {
   if (!cartridge_) {
     LOG(ERROR) << "ROM has not been loaded. Call Load() first.";
@@ -287,11 +294,16 @@ Bytes EmulatorImpl::SaveStateOnProperThread() {
 bool EmulatorImpl::LoadStateOnProperThread(const Bytes& data) {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
 
+  bool success;
   if (running_state_ != Emulator::RunningState::kStopped) {
-    return EmulatorStates::CreateStateForVersion(this, 1).Restore(data);
+    success = EmulatorStates::CreateStateForVersion(this, 1).Restore(data);
   } else {
-    return false;
+    success = false;
   }
+
+  // Reset cpu cycle, for calculate next frame correctly.
+  Run();
+  return success;
 }
 
 void EmulatorImpl::ResetOnProperThread() {

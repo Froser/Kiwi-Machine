@@ -31,15 +31,24 @@ class ExportWidget;
 class StackWidget;
 class MemoryWidget;
 class DisassemblyWidget;
+class GroupWidget;
+
+namespace preset_roms {
+class PresetROM;
+}
+
 class MainWindow : public WindowBase,
                    public kiwi::nes::IODevices::InputDevice,
                    public CanvasObserver {
  public:
-  explicit MainWindow(const std::string& title, NESRuntimeID runtime_id);
+  explicit MainWindow(const std::string& title,
+                      NESRuntimeID runtime_id,
+                      scoped_refptr<NESConfig> config,
+                      bool has_demo_widget);
   ~MainWindow() override;
 
-  float window_scale() { return window_scale_; }
-  bool is_fullscreen() { return is_fullscreen_; }
+  float window_scale() { return config_->data().window_scale; }
+  bool is_fullscreen() { return config_->data().is_fullscreen; }
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
@@ -48,6 +57,7 @@ class MainWindow : public WindowBase,
   void ExportDone();
   void ExportSucceeded(const std::string& rom_name);
   void ExportFailed(const std::string& rom_name);
+  void Exporting(const std::string& rom_name);
 
  protected:
   // InputDevice:
@@ -68,30 +78,34 @@ class MainWindow : public WindowBase,
 
  private:
   void Initialize(NESRuntimeID runtime_id);
+  void InitializeAudio();
   void InitializeUI();
   void InitializeIODevices();
+  void StartAutoSave();
+  void StopAutoSave();
   void ResetAudio();
   std::vector<MenuBar::Menu> GetMenuModel();
   void SetLoading(bool is_loading);
   void ShowMainMenu(bool show);
   void OnScaleChanged();
   void UpdateGameControllerMapping();
-  void CleanupState();
 
   // Menu callbacks:
   void OnRomLoaded(const std::string& name);
   void OnQuit();
   void OnResetROM();
   void OnBackToMainMenu();
-  void OnSaveState();
-  void OnLoadState();
+  void OnSaveState(int which_state);
+  void OnLoadState(int which_state);
+  void OnLoadAutoSavedState(int timestamp);
+  void OnStateSaved(bool succeed);
+  void OnStateLoaded(const NESRuntime::Data::StateResult& state_result);
   bool CanSaveOrLoadState();
   void OnTogglePause();
   void OnPause();
   void OnResume();
   bool IsPause();
-  void OnLoadPresetROM(int which);
-  void OnLoadSpecialROM(int which);
+  void OnLoadPresetROM(const preset_roms::PresetROM& rom);
   void OnLoadDebugROM(kiwi::base::FilePath nes_path);
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
@@ -113,11 +127,12 @@ class MainWindow : public WindowBase,
   void OnDebugDisassembly();
   void OnDebugNametable();
   void OnInGameMenuTrigger();
-  void OnInGameMenuItemTrigger(InGameMenu::MenuItem item);
+  void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item, bool is_left);
 
  private:
   std::set<int> pressing_keys_;
+  bool has_demo_widget_ = false;
   // Canvas is owned by this window.
   Canvas* canvas_ = nullptr;
   InGameMenu* in_game_menu_ = nullptr;
@@ -126,19 +141,18 @@ class MainWindow : public WindowBase,
   Widget* pattern_widget_ = nullptr;
   Widget* frame_rate_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
-  Widget* main_group_widget_ = nullptr;
+  GroupWidget* main_group_widget_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
   StackWidget* stack_widget_ = nullptr;
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;
-  float window_scale_ = 1.f;
-  bool is_fullscreen_ = false;
 
   NESRuntimeID runtime_id_ = NESRuntimeID();
   NESRuntime::Data* runtime_data_ = nullptr;
   std::unique_ptr<NESAudio> audio_;
+  scoped_refptr<NESConfig> config_;
 };
 
 #endif  // UI_MAIN_WINDOW_H_

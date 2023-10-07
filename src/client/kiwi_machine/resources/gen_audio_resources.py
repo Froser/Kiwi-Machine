@@ -53,8 +53,8 @@ def main():
         os.mkdir(output_dir)
 
     header = \
-        '''#ifndef AUDIO_IMAGES_H_
-#define AUDIO_IMAGES_H_
+        '''#ifndef AUDIO_RESOURCES_H_
+#define AUDIO_RESOURCES_H_
 
 #include <stddef.h>
 
@@ -74,7 +74,8 @@ namespace audio_resources {
             all_tokens += '  ' + token + ',\n'
             all_data += data
             all_switches += '    case AudioID::' + token + ': {\n'
-            all_switches += '      *size_out = audio_resources::' + token_size + ';\n'
+            all_switches += '      if (size_out)\n'
+            all_switches += '        *size_out = audio_resources::' + token_size + ';\n'
             all_switches += '      return audio_resources::' + token + ';\n'
             all_switches += '    }\n'
 
@@ -95,7 +96,7 @@ namespace audio_resources {
         o.write('\n')
 
         # End of the header
-        o.write('#endif  // AUDIO_IMAGES_H_')
+        o.write('#endif  // AUDIO_RESOURCES_H_')
     print("Generated: ", header_file)
 
     cc_file = output_dir + '/audio_resources.cc'
@@ -109,7 +110,6 @@ namespace audio_resources {
         o.write('\n')
 
         o.write('const unsigned char* GetData(AudioID id, size_t* size_out) {\n')
-        o.write('  SDL_assert(size_out);\n')
         o.write('  switch (id) {\n')
         o.write(all_switches)
         o.write('    default: {\n')

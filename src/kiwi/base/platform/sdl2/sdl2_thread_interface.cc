@@ -12,8 +12,6 @@
 
 #include "base/platform/sdl2/sdl2_thread_interface.h"
 
-#include <SDL.h>
-
 #include "base/platform/sdl2/sdl2_single_thread_task_runner.h"
 
 namespace kiwi::base {
@@ -71,6 +69,9 @@ SDL2ThreadInterface::SDL2ThreadInterface() {
 }
 
 SDL2ThreadInterface::~SDL2ThreadInterface() {
+  if (timer_)
+    SDL_RemoveTimer(timer_);
+
   if (thread_) {
     ExitThread(0);
 
@@ -129,7 +130,7 @@ bool SDL2ThreadInterface::PostTask(base::OnceClosure task,
     SDL_SemPost(sem_);
   } else {
     TimerContext* ctx = new TimerContext{this, std::move(task)};
-    SDL_AddTimer(delay.InMilliseconds(), OnShouldPostTask, ctx);
+    timer_ = SDL_AddTimer(delay.InMilliseconds(), OnShouldPostTask, ctx);
   }
   return true;
 }

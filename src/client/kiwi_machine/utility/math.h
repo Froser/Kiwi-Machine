@@ -15,7 +15,13 @@
 
 #include <SDL.h>
 #include <kiwi_nes.h>
+#include <algorithm>
 
 SDL_Rect Lerp(const SDL_Rect& start, const SDL_Rect& end, float percentage);
 
-#endif  // UTILITY_ZIP_READER_H_
+inline float Lerp(float start, float end, float percentage) {
+  percentage = std::clamp(percentage, 0.f, 1.f);
+  return start + (end - start) * percentage;
+}
+
+#endif  // UTILITY_MATH_H_

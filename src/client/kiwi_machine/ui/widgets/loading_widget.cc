@@ -17,6 +17,8 @@
 
 #include "ui/main_window.h"
 
+constexpr float kCircleScale = 15.f;
+
 LoadingWidget::LoadingWidget(MainWindow* main_window)
     : Widget(main_window), main_window_(main_window) {
   set_title("Loading Widget");
@@ -26,21 +28,9 @@ LoadingWidget::LoadingWidget(MainWindow* main_window)
 
 LoadingWidget::~LoadingWidget() = default;
 
-void LoadingWidget::Paint() {
-  SDL_Rect client_bounds = window()->GetClientBounds();
-  if (first_paint_) {
-    timer_.Start();
-    set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
-    first_paint_ = false;
-  }
-
-  constexpr float kCircleScale = 15.f;
-  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+SDL_Rect LoadingWidget::CalculateCircleAABB(int* indicator_radius_out) {
   SDL_Rect aabb = MapToParent(spinning_bounds_);
   // Scaling the spinning bounds.
-  aabb.x *= main_window_->window_scale();
-  aabb.y = client_bounds.y +
-           (aabb.y - client_bounds.y) * main_window_->window_scale();
   aabb.w *= main_window_->window_scale();
   aabb.h *= main_window_->window_scale();
 
@@ -56,6 +46,24 @@ void LoadingWidget::Paint() {
       static_cast<int>(aabb.y + (aabb.h - indicator_radius * 2) / 2.f),
       static_cast<int>(indicator_radius * 2),
       static_cast<int>(indicator_radius * 2)};
+
+  if (indicator_radius_out)
+    *indicator_radius_out = indicator_radius;
+  return circle_aabb;
+}
+
+void LoadingWidget::Paint() {
+  SDL_Rect client_bounds = window()->GetClientBounds();
+  if (first_paint_) {
+    timer_.Start();
+    set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
+    first_paint_ = false;
+  }
+
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  int indicator_radius;
+  SDL_Rect circle_aabb = CalculateCircleAABB(&indicator_radius);
+  float kCircleRadius = indicator_radius / kCircleScale;
 
   const auto degree_offset = 2.0f * M_PI / circle_count_;
   float elapsed_ms = timer_.ElapsedInMilliseconds();

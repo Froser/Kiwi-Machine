@@ -10,3 +10,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+project(minizip)
+
+set(SOURCES
+        ioapi.c
+        ioapi.h
+        unzip.c
+        unzip.h
+)
+
+add_library(${PROJECT_NAME} STATIC ${SOURCES})

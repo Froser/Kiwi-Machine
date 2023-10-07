@@ -12,8 +12,8 @@
 
 #include "ui/widgets/in_game_menu.h"
 
-#include <climits>
 #include <imgui.h>
+#include <climits>
 
 #include "ui/main_window.h"
 #include "ui/widgets/canvas.h"
@@ -36,6 +36,8 @@ InGameMenu::InGameMenu(MainWindow* main_window,
   set_title("InGameMenu");
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
   SDL_assert(runtime_data_);
+
+  loading_widget_ = std::make_unique<LoadingWidget>(main_window);
 }
 
 InGameMenu::~InGameMenu() {
@@ -43,18 +45,23 @@ InGameMenu::~InGameMenu() {
     SDL_DestroyTexture(snapshot_);
 }
 
+void InGameMenu::SetFirstSelection() {
+  // Set first available index as default.
+  int selection = -1;
+  do {
+    ++selection;
+    if (selection < 0)
+      selection = static_cast<int>(MenuItem::kMax) - 1;
+    else
+      selection %= static_cast<int>(MenuItem::kMax);
+  } while (hide_menus_.find(selection) != hide_menus_.end());
+  current_selection_ = static_cast<MenuItem>(selection);
+}
+
 void InGameMenu::Paint() {
   if (first_paint_) {
-    // Set first available index as default.
-    int selection = -1;
-    do {
-      ++selection;
-      if (selection < 0)
-        selection = static_cast<int>(MenuItem::kMax) - 1;
-      else
-        selection %= static_cast<int>(MenuItem::kMax);
-    } while (hide_menus_.find(selection) != hide_menus_.end());
-    current_selection_ = static_cast<MenuItem>(selection);
+    SetFirstSelection();
+    RequestCurrentThumbnail();
 
     first_paint_ = false;
   }
@@ -69,6 +76,10 @@ void InGameMenu::Paint() {
                               IM_COL32(0, 0, 0, 196));
 
   // Elements
+  // Triangle prompt size:
+  constexpr int kPromptHeight = 20;
+  constexpr int kPromptWidth = kPromptHeight * .8f;
+
   const int kCenterX = window_size.x / 2;
   // Draw a new vertical line in the middle.
   ImGui::GetWindowDrawList()->AddLine(
@@ -77,11 +88,16 @@ void InGameMenu::Paint() {
       IM_COL32_WHITE);
 
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 20));
-  ScopedFont font(FontType::kDefault2x);
+  ScopedFont font(main_window_->window_scale() > 3.f
+                      ? FontType::kDefault3x
+                      : (main_window_->window_scale() > 2.f
+                             ? FontType::kDefault2x
+                             : FontType::kDefault));
 
   // Draw main menu
   const char* kMenuItems[] = {
-      "Continue", "Load State", "Save State", "Options", "Back To Main",
+      "Continue", "Load Auto Save", "Load State",   "Save State",
+      "Options",  "Reset Game",     "Back To Main",
   };
   int menu_tops[static_cast<int>(MenuItem::kMax)];
   constexpr int kMargin = 10;
@@ -133,6 +149,7 @@ void InGameMenu::Paint() {
       Canvas::kNESFrameDefaultHeight / 3 * main_window_->window_scale();
 
   if (current_selection_ == MenuItem::kSaveState ||
+      current_selection_ == MenuItem::kLoadAutoSave ||
       current_selection_ == MenuItem::kLoadState) {
     SDL_Rect right_side_rect{kCenterX, 0,
                              static_cast<int>(window_size.x / 2 + 1),
@@ -147,9 +164,80 @@ void InGameMenu::Paint() {
     ImGui::GetWindowDrawList()->AddRect(
         ImVec2(window_pos.x + p0.x, window_pos.y + p0.y),
         ImVec2(window_pos.x + p1.x, window_pos.y + p1.y), IM_COL32_WHITE);
-    // When the state is saved, NotifyThumbnailChanged() should be invoked. It
+
+    // Draw triangle, to switch states.
+    // Center of the snapshot rect
+    constexpr int kSnapshotPromptSpacing = 10;
+    const int kSnapshotPromptY = p0.y + (p1.y - p0.y - kPromptHeight) / 2;
+
+    bool left_enabled = true;
+    bool right_enabled = true;
+
+    if (current_selection_ == MenuItem::kLoadAutoSave) {
+      if (which_autosave_state_slot_ == 0) {
+        right_enabled = false;
+      }
+
+      const kiwi::nes::RomData* rom_data =
+          runtime_data_->emulator->GetRomData();
+      SDL_assert(rom_data);
+      if (which_autosave_state_slot_ == current_auto_states_count_)
+        left_enabled = false;
+    }
+
+    // Left
+    if (left_enabled) {
+      ImGui::GetWindowDrawList()->AddTriangleFilled(
+          ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing - kPromptWidth,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight / 2),
+          ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY),
+          ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight),
+          IM_COL32_WHITE);
+    } else {
+      ImGui::GetWindowDrawList()->AddTriangle(
+          ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing - kPromptWidth,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight / 2),
+          ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY),
+          ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight),
+          IM_COL32_WHITE);
+    }
+
+    // Right
+    if (right_enabled) {
+      ImGui::GetWindowDrawList()->AddTriangleFilled(
+          ImVec2(window_pos.x + p1.x + kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY),
+          ImVec2(window_pos.x + p1.x + kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight),
+          ImVec2(window_pos.x + p1.x + kSnapshotPromptSpacing + kPromptWidth,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight / 2),
+          IM_COL32_WHITE);
+    } else {
+      ImGui::GetWindowDrawList()->AddTriangle(
+          ImVec2(window_pos.x + p1.x + kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY),
+          ImVec2(window_pos.x + p1.x + kSnapshotPromptSpacing,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight),
+          ImVec2(window_pos.x + p1.x + kSnapshotPromptSpacing + kPromptWidth,
+                 window_pos.y + kSnapshotPromptY + kPromptHeight / 2),
+          IM_COL32_WHITE);
+    }
+
+    // When the state is saved, RequestCurrentThumbnail() should be invoked. It
     // will create a snapshot texture.
-    if (!runtime_data_->saved_state_thumbnail.empty()) {
+    if (is_loading_snapshot_) {
+      SDL_Rect spin_aabb = loading_widget_->CalculateCircleAABB(nullptr);
+      ImVec2 spin_size(spin_aabb.w, spin_aabb.h);
+      SDL_Rect loading_bounds{
+          static_cast<int>(p0.x + (p1.x - p0.x - spin_size.x) / 2),
+          static_cast<int>(p0.y + (p1.y - p0.y - spin_size.y) / 2), 20, 20};
+      loading_widget_->set_spinning_bounds(loading_bounds);
+      loading_widget_->Paint();
+    } else if (currently_has_snapshot_) {
       SDL_assert(snapshot_);
       ImGui::Image(snapshot_, ImVec2(kThumbnailWidth, kThumbnailHeight));
     } else {
@@ -160,7 +248,35 @@ void InGameMenu::Paint() {
                                  p0.y + (p1.y - p0.y - text_size.y) / 2));
       ImGui::Text("%s", kNoStateStr);
     }
+
+    // Draw text
+    {
+      std::string state_slot_str;
+      if (current_selection_ == MenuItem::kLoadAutoSave) {
+        if (state_timestamp_) {
+          // Show the title as auto save's date.
+          // Format timestamp.
+          time_t time(state_timestamp_);
+          state_slot_str = asctime(localtime(&time));
+        }
+      } else {
+        // Slot number in string starts at 1.
+        state_slot_str = "Slot " + kiwi::base::NumberToString(which_state_ + 1);
+      }
+
+      {
+        ScopedFont slot_font(FontType::kDefault);
+        ImVec2 text_size = slot_font.GetFont()->CalcTextSizeA(
+            slot_font.GetFont()->FontSize, FLT_MAX, FLT_MAX,
+            state_slot_str.c_str());
+        constexpr int kSlotSpacing = 10;
+        ImGui::SetCursorPos(ImVec2(p0.x + (p1.x - p0.x - text_size.x) / 2,
+                                   p1.y + kSnapshotPromptSpacing));
+        ImGui::Text("%s", state_slot_str.c_str());
+      }
+    }
   }
+
   ImGui::PopStyleVar();
 
   // Draw settings
@@ -178,7 +294,10 @@ void InGameMenu::Paint() {
 
     const char* kWindowSizes[] = {"Small", "Normal", "Large", "Fullscreen"};
     int window_scaling = static_cast<int>(main_window_->window_scale());
-    SDL_assert(window_scaling > 1 && window_scaling <= 4);
+    if (window_scaling < 2)
+      window_scaling = 2;
+    else if (window_scaling > 4)
+      window_scaling = 4;
     const char* kSizeStr = main_window_->is_fullscreen()
                                ? kWindowSizes[3]
                                : kWindowSizes[window_scaling - 2];
@@ -210,8 +329,6 @@ void InGameMenu::Paint() {
     // Draw volume bar
     constexpr int kVolumeBarHeight = 20;
     constexpr int kVolumeBarSpacing = 10;
-    constexpr int kPromptHeight = kVolumeBarHeight;
-    constexpr int kPromptWidth = kPromptHeight * .8f;
     ImVec2 p0(
         window_pos.x + kCenterX + kMargin + kPromptWidth + kMargin,
         window_pos.y + settings_tops[0] + font_height + kVolumeBarSpacing);
@@ -335,7 +452,16 @@ bool InGameMenu::HandleInputEvents(SDL_KeyboardEvent* k,
       settings_entered_ = true;
     } else {
       PlayEffect(audio_resources::AudioID::kStart);
-      menu_callback_.Run(current_selection_);
+      if (current_selection_ == MenuItem::kLoadState ||
+          current_selection_ == MenuItem::kSaveState) {
+        // Saving or loading states will pass a parameter to show which state
+        // to be saved.
+        menu_callback_.Run(current_selection_, which_state_);
+      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
+        menu_callback_.Run(current_selection_, state_timestamp_);
+      } else {
+        menu_callback_.Run(current_selection_, 0);
+      }
     }
     return true;
   }
@@ -347,23 +473,53 @@ bool InGameMenu::HandleInputEvents(SDL_KeyboardEvent* k,
     if (settings_entered_)
       settings_entered_ = false;
     else
-      menu_callback_.Run(MenuItem::kContinue);
+      menu_callback_.Run(MenuItem::kContinue, 0);
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
-    if (settings_entered_)
+    if (settings_entered_) {
       settings_callback_.Run(current_setting_, true);
+    } else {
+      if (current_selection_ == MenuItem::kSaveState ||
+          current_selection_ == MenuItem::kLoadState) {
+        --which_state_;
+        if (which_state_ < 0)
+          which_state_ = NESRuntime::Data::MaxSaveStates - 1;
+        RequestCurrentThumbnail();
+      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
+        const kiwi::nes::RomData* rom_data =
+            runtime_data_->emulator->GetRomData();
+        SDL_assert(rom_data);
+        RequestCurrentSaveStatesCount();
+        if (which_autosave_state_slot_ < current_auto_states_count_) {
+          ++which_autosave_state_slot_;
+          RequestCurrentThumbnail();
+        }
+      }
+    }
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
-    if (settings_entered_)
+    if (settings_entered_) {
       settings_callback_.Run(current_setting_, false);
+    } else {
+      if (current_selection_ == MenuItem::kSaveState ||
+          current_selection_ == MenuItem::kLoadState) {
+        which_state_ = (which_state_ + 1) % NESRuntime::Data::MaxSaveStates;
+        RequestCurrentThumbnail();
+      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
+        if (which_autosave_state_slot_ > 0) {
+          --which_autosave_state_slot_;
+          RequestCurrentThumbnail();
+        }
+      }
+    }
     return true;
   }
 
@@ -373,6 +529,7 @@ bool InGameMenu::HandleInputEvents(SDL_KeyboardEvent* k,
 void InGameMenu::MoveSelection(bool up) {
   if (!settings_entered_) {
     int selection = static_cast<int>(current_selection_);
+    MenuItem last_selection = static_cast<MenuItem>(selection);
     do {
       selection = up ? selection - 1 : selection + 1;
       if (selection < 0)
@@ -381,6 +538,19 @@ void InGameMenu::MoveSelection(bool up) {
         selection %= static_cast<int>(MenuItem::kMax);
     } while (hide_menus_.find(selection) != hide_menus_.end());
     current_selection_ = static_cast<MenuItem>(selection);
+
+    if (current_selection_ == MenuItem::kLoadAutoSave) {
+      which_autosave_state_slot_ = 0;
+      state_timestamp_ = 0;
+      RequestCurrentSaveStatesCount();
+      RequestCurrentThumbnail();
+    } else if ((current_selection_ == MenuItem::kSaveState ||
+                current_selection_ == MenuItem::kLoadState) &&
+               (last_selection != MenuItem::kSaveState &&
+                last_selection != MenuItem::kLoadState)) {
+      // When enter load/save state, request thumbnail.
+      RequestCurrentThumbnail();
+    }
   } else {
     int selection = static_cast<int>(current_setting_);
     selection = up ? selection - 1 : selection + 1;
@@ -397,22 +567,63 @@ void InGameMenu::Close() {
 }
 
 void InGameMenu::Show() {
+  SetFirstSelection();
   set_visible(true);
 }
 
-void InGameMenu::NotifyThumbnailChanged() {
-  if (!runtime_data_->saved_state.empty()) {
-    SDL_assert(!runtime_data_->saved_state_thumbnail.empty());
+void InGameMenu::RequestCurrentThumbnail() {
+  currently_has_snapshot_ = false;
+  is_loading_snapshot_ = true;
+  const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
+  // Settings menu also use this class, but no ROM is loaded.
+  if (rom_data) {
+    if (current_selection_ != MenuItem::kLoadState) {
+      runtime_data_->GetAutoSavedState(
+          rom_data->crc, which_autosave_state_slot_,
+          kiwi::base::BindOnce(&InGameMenu::OnGotState,
+                               kiwi::base::Unretained(this)));
+    } else {
+      runtime_data_->GetState(
+          rom_data->crc, which_state_,
+          kiwi::base::BindOnce(&InGameMenu::OnGotState,
+                               kiwi::base::Unretained(this)));
+    }
+  }
+}
+
+void InGameMenu::RequestCurrentSaveStatesCount() {
+  const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
+  if (rom_data) {
+    runtime_data_->GetAutoSavedStatesCount(
+        rom_data->crc, kiwi::base::BindOnce(
+                           [](InGameMenu* this_menu, int count) {
+                             this_menu->current_auto_states_count_ = count;
+                           },
+                           this));
+  }
+}
+
+void InGameMenu::OnGotState(const NESRuntime::Data::StateResult& state_result) {
+  is_loading_snapshot_ = false;
+  if (state_result.success && !state_result.state_data.empty()) {
+    currently_has_snapshot_ = true;
+    SDL_assert(!state_result.thumbnail_data.empty());
     if (!snapshot_) {
       snapshot_ = SDL_CreateTexture(
           window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
           SDL_TEXTUREACCESS_STREAMING, Canvas::kNESFrameDefaultWidth,
           Canvas::kNESFrameDefaultHeight);
     }
-    SDL_UpdateTexture(
-        snapshot_, nullptr, runtime_data_->saved_state_thumbnail.data(),
-        Canvas::kNESFrameDefaultWidth *
-            sizeof(runtime_data_->saved_state_thumbnail.data()[0]));
+
+    constexpr int kColorComponents = 4;
+    SDL_UpdateTexture(snapshot_, nullptr, state_result.thumbnail_data.data(),
+                      Canvas::kNESFrameDefaultWidth * kColorComponents *
+                          sizeof(state_result.thumbnail_data.data()[0]));
+
+    // state_timestamp_ will only be used in showing auto-saved state's title.
+    state_timestamp_ = state_result.slot_or_timestamp;
+  } else {
+    currently_has_snapshot_ = false;
   }
 }
 

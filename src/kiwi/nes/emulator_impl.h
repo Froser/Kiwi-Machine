@@ -50,6 +50,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void LoadFromFile(const base::FilePath& rom_path,
                     LoadCallback callback) override;
   void LoadFromBinary(const Bytes& data, LoadCallback callback) override;
+  const RomData* GetRomData() override;
   void Run() override;
   void RunOneFrame() override;
   void Pause() override;

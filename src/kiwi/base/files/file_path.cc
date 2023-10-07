@@ -20,12 +20,20 @@ std::string FilePath::AsUTF8Unsafe() const {
   return this->u8string();
 }
 
+FilePath FilePath::DirName() const {
+  return this->parent_path();
+}
+
 FilePath FilePath::BaseName() const {
   return this->filename().string();
 }
 
 FilePath::StringType FilePath::FinalExtension() const {
   return this->extension().c_str();
+}
+
+FilePath FilePath::RemoveExtension() const {
+  return this->DirName().Append(this->stem());
 }
 
 FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {

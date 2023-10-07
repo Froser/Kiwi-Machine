@@ -24,14 +24,6 @@ QtPlatformFactory::CreateThreadInterface(const std::string& thread_name) {
   return thread_interface;
 }
 
-std::unique_ptr<platform::FileInterface> QtPlatformFactory::CreateFileInterface(
-    const FilePath& file_path,
-    uint32_t flags) {
-  auto file_interface = std::make_unique<platform::QtFileInterface>();
-  file_interface->Open(file_path, flags);
-  return file_interface;
-}
-
 std::unique_ptr<platform::SingleThreadTaskExecutorInterface>
 QtPlatformFactory::CreateSingleThreadTaskExecutor(
     MessagePumpType message_pump_type) {

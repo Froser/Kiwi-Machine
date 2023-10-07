@@ -15,8 +15,10 @@
 
 #include <kiwi_nes.h>
 
-kiwi::nes::Bytes ReadFromZipBinary(const kiwi::nes::Byte* compressed_data,
-                                   size_t uncompressed_raw_size,
-                                   size_t compressed_data_size);
+namespace preset_roms {
+class PresetROM;
+}
+
+void FillRomDataFromZip(const preset_roms::PresetROM& rom_data);
 
 #endif  // UTILITY_ZIP_READER_H_

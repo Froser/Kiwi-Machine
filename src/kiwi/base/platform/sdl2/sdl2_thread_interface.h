@@ -13,6 +13,7 @@
 #ifndef BASE_PLATFORM_SDL2_SDL2_THREAD_INTERFACE_H_
 #define BASE_PLATFORM_SDL2_SDL2_THREAD_INTERFACE_H_
 
+#include <SDL.h>
 #include <atomic>
 #include <queue>
 
@@ -48,6 +49,7 @@ class SDL2ThreadInterface
   friend int ThreadEventFunc(void*);
   friend class SDL2SingleThreadTaskRunner;
 
+  SDL_TimerID timer_ = 0;
   std::atomic_bool is_running_;
   std::atomic_int exit_code_;
   std::queue<base::OnceClosure> tasks_;

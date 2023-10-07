@@ -13,6 +13,7 @@
 #include "ui/main_window.h"
 
 #include <gflags/gflags.h>
+#include <cmath>
 #include <filesystem>
 #include <queue>
 
@@ -24,6 +25,7 @@
 #include "ui/widgets/about_widget.h"
 #include "ui/widgets/canvas.h"
 #include "ui/widgets/controller_widget.h"
+#include "ui/widgets/demo_widget.h"
 #include "ui/widgets/disassembly_widget.h"
 #include "ui/widgets/export_widget.h"
 #include "ui/widgets/frame_rate_widget.h"
@@ -35,6 +37,7 @@
 #include "ui/widgets/nametable_widget.h"
 #include "ui/widgets/palette_widget.h"
 #include "ui/widgets/pattern_widget.h"
+#include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
 #include "utility/audio_effects.h"
@@ -44,6 +47,8 @@
 namespace {
 
 DEFINE_bool(has_menu, false, "Show a menu bar at the top of the window.");
+
+constexpr int kMaxScaleBeforeFullscreen = 4;
 
 kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
                                    size_t data_size) {
@@ -81,67 +86,44 @@ void ToastGameControllersAddedOrRemoved(WindowBase* window,
 
 bool ExportNES(const kiwi::base::FilePath& output_path,
                const std::string& title,
-               const kiwi::nes::Byte* compressed_data,
-               size_t uncompressed_raw_size,
-               size_t compressed_data_size,
-               const kiwi::nes::Byte* cover,
-               size_t cover_size) {
+               const kiwi::nes::Byte* zip_data,
+               size_t zip_size) {
   if (!std::filesystem::exists(output_path)) {
     std::filesystem::create_directories(output_path);
   }
 
-  kiwi::nes::Bytes nes_raw_data = ReadFromZipBinary(
-      compressed_data, uncompressed_raw_size, compressed_data_size);
-  kiwi::base::FilePath nes_file_path = output_path.Append(title + ".nes");
-  // Writes raw NES file.
-  SDL_RWops* file_handle =
-      SDL_RWFromFile(nes_file_path.AsUTF8Unsafe().c_str(), "w");
-  if (!file_handle)
+  kiwi::base::File output_zip_file(
+      output_path.Append(kiwi::base::FilePath::FromUTF8Unsafe(title + ".zip")),
+      kiwi::base::File::FLAG_CREATE_ALWAYS | kiwi::base::File::FLAG_WRITE);
+  if (zip_size != output_zip_file.Write(
+                      0, reinterpret_cast<const char*>(zip_data), zip_size))
     return false;
-
-  SDL_RWwrite(file_handle, nes_raw_data.data(), nes_raw_data.size(), 1);
-  SDL_RWclose(file_handle);
-
-  // Writes cover, if any.
-  if (cover && cover_size > 0) {
-    // Cover is always jpg.
-    kiwi::base::FilePath cover_file_path = output_path.Append(title + ".jpg");
-    SDL_RWops* cover_handle =
-        SDL_RWFromFile(cover_file_path.AsUTF8Unsafe().c_str(), "w");
-    if (!cover_handle)
-      return false;
-
-    SDL_RWwrite(cover_handle, cover, cover_size, 1);
-    SDL_RWclose(cover_handle);
-  }
 
   return true;
 }
 
-std::pair<bool, std::queue<preset_roms::PresetROM>> OnExportGameROM(
-    const kiwi::base::FilePath& export_path,
-    const std::queue<preset_roms::PresetROM>& roms_to_be_exported) {
-  preset_roms::PresetROM rom = roms_to_be_exported.front();
-  std::queue<preset_roms::PresetROM> remaining = roms_to_be_exported;
-  remaining.pop();
-
+std::pair<bool, int> OnExportGameROM(MainWindow* main_window,
+                                     const kiwi::base::FilePath& export_path,
+                                     int current_export_rom_index) {
+  const preset_roms::PresetROM& rom =
+      preset_roms::kPresetRoms[current_export_rom_index];
+  main_window->Exporting(kiwi::base::FilePath::FromUTF8Unsafe(rom.name));
   return std::make_pair(
-      ExportNES(export_path, rom.name, rom.data, rom.raw_size,
-                rom.compressed_size, rom.cover, rom.cover_size),
-      remaining);
+      ExportNES(export_path, rom.name, rom.zip_data, rom.zip_size),
+      current_export_rom_index + 1);
 }
 
-void OnGameROMExported(
-    MainWindow* main_window,
-    const kiwi::base::FilePath& export_path,
-    const std::pair<bool, std::queue<preset_roms::PresetROM>>& result) {
-  if (result.second.empty()) {
+void OnGameROMExported(MainWindow* main_window,
+                       const kiwi::base::FilePath& export_path,
+                       const std::pair<bool, int>& result) {
+  if (result.second >= preset_roms::kPresetRomsCount) {
     // No more roms to be exported.
     main_window->ExportDone();
     return;
   }
 
-  const std::string& next_rom_name = result.second.front().name;
+  const std::string& next_rom_name =
+      preset_roms::kPresetRoms[result.second].name;
   if (result.first) {
     main_window->ExportSucceeded(next_rom_name);
   } else {
@@ -152,15 +134,20 @@ void OnGameROMExported(
       Application::Get()->GetIOTaskRunner();
   io_task_runner->PostTaskAndReplyWithResult(
       FROM_HERE,
-      kiwi::base::BindOnce(&OnExportGameROM, export_path, result.second),
+      kiwi::base::BindOnce(&OnExportGameROM, main_window, export_path,
+                           result.second),
       kiwi::base::BindOnce(&OnGameROMExported, main_window, export_path));
 }
 
 }  // namespace
 
-MainWindow::MainWindow(const std::string& title, NESRuntimeID runtime_id)
-    : WindowBase(title) {
+MainWindow::MainWindow(const std::string& title,
+                       NESRuntimeID runtime_id,
+                       scoped_refptr<NESConfig> config,
+                       bool has_demo_widget)
+    : WindowBase(title), config_(config), has_demo_widget_(has_demo_widget) {
   Initialize(runtime_id);
+  InitializeAudio();
   InitializeUI();
   InitializeIODevices();
 }
@@ -184,6 +171,10 @@ void MainWindow::ExportSucceeded(const std::string& rom_name) {
 
 void MainWindow::ExportFailed(const std::string& rom_name) {
   export_widget_->Failed(kiwi::base::FilePath::FromUTF8Unsafe(rom_name));
+}
+
+void MainWindow::Exporting(const std::string& rom_name) {
+  export_widget_->SetCurrent(rom_name);
 }
 
 SDL_Rect MainWindow::Scaled(const SDL_Rect& rect) {
@@ -313,12 +304,20 @@ void MainWindow::HandleResizedEvent() {
     FillLayout(this, in_game_menu_);
   }
 
-  if (is_fullscreen_) {
+  if (is_fullscreen()) {
     // Calculate fullscreen's frame scale, and set.
     SDL_Rect client_bounds = GetClientBounds();
-    window_scale_ = static_cast<float>(client_bounds.h) / kDefaultWindowWidth;
-    OnScaleChanged();
+    float scale = static_cast<float>(client_bounds.h) / kDefaultWindowWidth;
+    if (config_->data().window_scale != scale) {
+      config_->data().window_scale = scale;
+      config_->SaveConfig();
+      OnScaleChanged();
+    }
   }
+
+  if (main_group_widget_)
+    main_group_widget_->RecalculateBounds();
+
   WindowBase::HandleResizedEvent();
 }
 
@@ -361,14 +360,17 @@ void MainWindow::Initialize(NESRuntimeID runtime_id) {
   runtime_id_ = runtime_id;
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
 
-  audio_ = std::make_unique<NESAudio>(runtime_id_);
-  audio_->Initialize();
-  audio_->Start();
+  if (FLAGS_has_menu) {
+    // If menu is visible, debug will be enabled as well. Otherwise, there's no
+    // entry to debug namespace, memory, and disassembly. In this scenario,
+    // there's no need to set a debug port.
+    runtime_data_->emulator->SetDebugPort(runtime_data_->debug_port.get());
 
-  SDL_assert(runtime_data_->debug_port);
-  runtime_data_->debug_port->set_on_breakpoint_callback(
-      kiwi::base::BindRepeating(&MainWindow::OnPause,
-                                kiwi::base::Unretained(this)));
+    SDL_assert(runtime_data_->debug_port);
+    runtime_data_->debug_port->set_on_breakpoint_callback(
+        kiwi::base::BindRepeating(&MainWindow::OnPause,
+                                  kiwi::base::Unretained(this)));
+  }
 }
 
 void MainWindow::ResetAudio() {
@@ -376,6 +378,14 @@ void MainWindow::ResetAudio() {
   if (runtime_data_->emulator && runtime_data_->emulator->GetIODevices()) {
     runtime_data_->emulator->GetIODevices()->set_audio_device(audio_.get());
   }
+}
+
+void MainWindow::InitializeAudio() {
+  SDL_assert(!audio_);
+  audio_ = std::make_unique<NESAudio>(runtime_id_);
+  audio_->Initialize();
+  audio_->Start();
+  OnSetAudioVolume(config_->data().volume);
 }
 
 void MainWindow::InitializeUI() {
@@ -417,32 +427,40 @@ void MainWindow::InitializeUI() {
   std::unique_ptr<KiwiItemsWidget> items_widget =
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
 
-  for (int i = 0; i < sizeof(preset_roms::kPresetRoms) /
-                          sizeof(preset_roms::kPresetRoms[0]);
-       ++i) {
-    items_widget->AddItem(
-        preset_roms::kPresetRoms[i].name, preset_roms::kPresetRoms[i].cover,
-        preset_roms::kPresetRoms[i].cover_size,
+  for (const auto& rom : preset_roms::kPresetRoms) {
+    FillRomDataFromZip(rom);
+    int main_item_index = items_widget->AddItem(
+        rom.name, rom.rom_cover.data(), rom.rom_cover.size(),
         kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                  kiwi::base::Unretained(this), i));
+                                  kiwi::base::Unretained(this), rom));
+
+    for (const auto& alternative_rom : rom.alternates) {
+      items_widget->AddSubItem(
+          main_item_index, alternative_rom.name,
+          alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
+          kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+                                    kiwi::base::Unretained(this),
+                                    alternative_rom));
+    }
   }
+
   main_group_widget_->AddWidget(std::move(items_widget));
 
   // Game items (special)
   std::unique_ptr<KiwiItemsWidget> specials_item_widget =
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
 
-  for (int i = 0; i < sizeof(preset_roms::specials::kPresetRoms) /
-                          sizeof(preset_roms::specials::kPresetRoms[0]);
-       ++i) {
+  for (const auto& rom : preset_roms::specials::kPresetRoms) {
+    FillRomDataFromZip(rom);
+
     specials_item_widget->AddItem(
-        preset_roms::specials::kPresetRoms[i].name,
-        preset_roms::specials::kPresetRoms[i].cover,
-        preset_roms::specials::kPresetRoms[i].cover_size,
-        kiwi::base::BindRepeating(&MainWindow::OnLoadSpecialROM,
-                                  kiwi::base::Unretained(this), i));
+        rom.name, rom.rom_cover.data(), rom.rom_cover.size(),
+        kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+                                  kiwi::base::Unretained(this), rom));
   }
-  main_group_widget_->AddWidget(std::move(specials_item_widget));
+
+  if (!specials_item_widget->IsEmpty())
+    main_group_widget_->AddWidget(std::move(specials_item_widget));
 
   // About
   std::unique_ptr<KiwiItemsWidget> settings_widget =
@@ -472,8 +490,8 @@ void MainWindow::InitializeUI() {
                 std::make_unique<InGameMenu>(
                     window, runtime_id,
                     kiwi::base::BindRepeating(
-                        [](StackWidget* stack_widget,
-                           InGameMenu::MenuItem item) {
+                        [](StackWidget* stack_widget, InGameMenu::MenuItem item,
+                           int param) {
                           // Mapping button 'B' will trigger kContinue.
                           if (item == InGameMenu::MenuItem::kToGameSelection ||
                               item == InGameMenu::MenuItem::kContinue) {
@@ -485,8 +503,10 @@ void MainWindow::InitializeUI() {
                         &MainWindow::OnInGameSettingsItemTrigger,
                         kiwi::base::Unretained(window)));
             in_game_menu->HideMenu(0);  // Hides 'Continue'
-            in_game_menu->HideMenu(1);  // Hides 'Load State'
-            in_game_menu->HideMenu(2);  // Hides 'Save State'
+            in_game_menu->HideMenu(1);  // Hides 'Load Auto Save'
+            in_game_menu->HideMenu(2);  // Hides 'Load State'
+            in_game_menu->HideMenu(3);  // Hides 'Save State'
+            in_game_menu->HideMenu(5);  // Hides 'Reset Game'
             FillLayout(window, in_game_menu.get());
             stack_widget->PushWidget(std::move(in_game_menu));
           },
@@ -591,9 +611,18 @@ void MainWindow::InitializeUI() {
   nametable_widget_->set_visible(false);
   AddWidget(std::move(nametable_widget));
 
-  // Set default scale, and move the window to the center.
-  OnSetScreenScale(3.f);
-  MoveToCenter();
+  if (has_demo_widget_)
+    AddWidget(std::make_unique<DemoWidget>(this));
+
+  // Splash
+  std::unique_ptr<Splash> splash =
+      std::make_unique<Splash>(this, stack_widget_, runtime_id_);
+  splash->Play();
+  stack_widget_->PushWidget(std::move(splash));
+
+  OnScaleChanged();
+  if (is_fullscreen())
+    OnSetFullscreen();
 }
 
 void MainWindow::InitializeIODevices() {
@@ -606,6 +635,19 @@ void MainWindow::InitializeIODevices() {
   io_devices->add_render_device(canvas_->render_device());
   io_devices->set_audio_device(audio_.get());
   runtime_data_->emulator->SetIODevices(std::move(io_devices));
+}
+
+void MainWindow::StartAutoSave() {
+  constexpr int kAutoSaveTimeDelta = 5000;
+  runtime_data_->StartAutoSave(
+      kiwi::base::Milliseconds(kAutoSaveTimeDelta),
+      kiwi::base::BindRepeating(
+          [](Canvas* canvas) { return canvas->frame()->buffer(); }, canvas_));
+}
+
+void MainWindow::StopAutoSave() {
+  SDL_assert(runtime_data_);
+  runtime_data_->StopAutoSave();
 }
 
 std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
@@ -671,14 +713,14 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
       states.sub_items.push_back(
           {"Save state",
            kiwi::base::BindRepeating(&MainWindow::OnSaveState,
-                                     kiwi::base::Unretained(this)),
+                                     kiwi::base::Unretained(this), 0),
            kNoCheck,
            kiwi::base::BindRepeating(&MainWindow::CanSaveOrLoadState,
                                      kiwi::base::Unretained(this))});
       states.sub_items.push_back(
           {"Load state",
            kiwi::base::BindRepeating(&MainWindow::OnLoadState,
-                                     kiwi::base::Unretained(this)),
+                                     kiwi::base::Unretained(this), 0),
            kNoCheck,
            kiwi::base::BindRepeating(&MainWindow::CanSaveOrLoadState,
                                      kiwi::base::Unretained(this))});
@@ -815,25 +857,26 @@ void MainWindow::ShowMainMenu(bool show) {
 }
 
 void MainWindow::OnScaleChanged() {
-  if (!is_fullscreen_) {
+  if (!is_fullscreen()) {
     const int default_menu_height = GetDefaultMenuHeight();
     if (menu_bar_) {
       if (menu_bar_->bounds().h > 0) {
         // Menu bar is painted, we can get exact menu height here.
-        Resize(kDefaultWindowWidth * window_scale_,
-               kDefaultWindowHeight * window_scale_ + menu_bar_->bounds().h);
+        Resize(kDefaultWindowWidth * window_scale(),
+               kDefaultWindowHeight * window_scale() + menu_bar_->bounds().h);
       } else {
-        Resize(kDefaultWindowWidth * window_scale_,
-               kDefaultWindowHeight * window_scale_ + default_menu_height);
+        Resize(kDefaultWindowWidth * window_scale(),
+               kDefaultWindowHeight * window_scale() + default_menu_height);
       }
     } else {
-      Resize(kDefaultWindowWidth * window_scale_,
-             kDefaultWindowHeight * window_scale_);
+      Resize(kDefaultWindowWidth * window_scale(),
+             kDefaultWindowHeight * window_scale());
     }
+    MoveToCenter();
   }
 
   if (canvas_)
-    canvas_->set_frame_scale(window_scale_);
+    canvas_->set_frame_scale(window_scale());
 }
 
 void MainWindow::UpdateGameControllerMapping() {
@@ -844,19 +887,11 @@ void MainWindow::UpdateGameControllerMapping() {
   }
 }
 
-void MainWindow::CleanupState() {
-  SDL_assert(runtime_data_);
-  runtime_data_->saved_state.clear();
-  runtime_data_->saved_state_thumbnail.clear();
-  SDL_assert(in_game_menu_);
-  in_game_menu_->NotifyThumbnailChanged();
-}
-
 void MainWindow::OnRomLoaded(const std::string& name) {
-  CleanupState();
   SetLoading(false);
   ShowMainMenu(false);
   SetTitle(name);
+  StartAutoSave();
 }
 
 void MainWindow::OnQuit() {
@@ -875,6 +910,7 @@ void MainWindow::OnBackToMainMenu() {
   // Unload ROM, and show main menu.
   SetTitle("Kiwi Machine");
   SetLoading(true);
+  StopAutoSave();
 
   SDL_assert(runtime_data_->emulator);
   runtime_data_->emulator->Unload(
@@ -887,37 +923,80 @@ void MainWindow::OnBackToMainMenu() {
                                           kiwi::base::Unretained(canvas_))));
 }
 
-void MainWindow::OnSaveState() {
+void MainWindow::OnSaveState(int which_state) {
   SDL_assert(runtime_data_->emulator);
   runtime_data_->emulator->SaveState(kiwi::base::BindOnce(
-      [](MainWindow* window, NESRuntime::Data* runtime_data,
+      [](MainWindow* window, NESRuntime::Data* runtime_data, int which_state,
          kiwi::nes::Bytes data) {
-        if (data.empty())
-          Toast::ShowToast(window, "State save failed.");
-        else
-          Toast::ShowToast(window, "State saved.");
-
-        runtime_data->saved_state = data;
-        runtime_data->saved_state_thumbnail =
-            window->canvas_->frame()->buffer();
-        window->in_game_menu_->NotifyThumbnailChanged();
+        SDL_assert(which_state < NESRuntime::Data::MaxSaveStates);
+        auto* rom_data = runtime_data->emulator->GetRomData();
+        SDL_assert(rom_data);
+        if (!data.empty()) {
+          runtime_data->SaveState(
+              rom_data->crc, which_state, data,
+              window->canvas_->frame()->buffer(),
+              kiwi::base::BindOnce(&MainWindow::OnStateSaved,
+                                   kiwi::base::Unretained(window)));
+        } else {
+          window->OnStateSaved(false);
+        }
       },
-      this, runtime_data_));
+      this, runtime_data_, which_state));
 }
 
-void MainWindow::OnLoadState() {
-  audio_->Reset();
-  runtime_data_->emulator->LoadState(
-      runtime_data_->saved_state,
-      kiwi::base::BindOnce(
-          [](MainWindow* window, bool success) {
-            if (success)
-              Toast::ShowToast(window, "State loaded.");
-            else
-              Toast::ShowToast(window, "State load failed.");
-          },
-          this));
-  audio_->Start();
+void MainWindow::OnLoadState(int which_state) {
+  SDL_assert(which_state < NESRuntime::Data::MaxSaveStates);
+  auto* rom_data = runtime_data_->emulator->GetRomData();
+  if (rom_data) {
+    runtime_data_->GetState(runtime_data_->emulator->GetRomData()->crc,
+                            which_state,
+                            kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
+                                                 kiwi::base::Unretained(this)));
+  } else {
+    NESRuntime::Data::StateResult failed_result{false};
+    OnStateLoaded(failed_result);
+  }
+}
+
+void MainWindow::OnLoadAutoSavedState(int timestamp) {
+  auto* rom_data = runtime_data_->emulator->GetRomData();
+  if (rom_data) {
+    runtime_data_->GetAutoSavedStateByTimestamp(
+        runtime_data_->emulator->GetRomData()->crc, timestamp,
+        kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
+                             kiwi::base::Unretained(this)));
+  } else {
+    NESRuntime::Data::StateResult failed_result{false};
+    OnStateLoaded(failed_result);
+  }
+}
+
+void MainWindow::OnStateSaved(bool succeed) {
+  if (succeed) {
+    SDL_assert(in_game_menu_);
+    in_game_menu_->RequestCurrentThumbnail();
+    Toast::ShowToast(this, "State saved.");
+  } else {
+    Toast::ShowToast(this, "State save failed.");
+  }
+}
+
+void MainWindow::OnStateLoaded(
+    const NESRuntime::Data::StateResult& state_result) {
+  if (state_result.success && !state_result.state_data.empty()) {
+    audio_->Reset();
+    runtime_data_->emulator->LoadState(
+        state_result.state_data,
+        kiwi::base::BindOnce(
+            [](MainWindow* window, bool success) {
+              if (success)
+                Toast::ShowToast(window, "State loaded.");
+              else
+                Toast::ShowToast(window, "State load failed.");
+            },
+            this));
+    audio_->Start();
+  }
 }
 
 bool MainWindow::CanSaveOrLoadState() {
@@ -947,48 +1026,14 @@ void MainWindow::OnResume() {
   runtime_data_->emulator->Run();
 }
 
-void MainWindow::OnLoadPresetROM(int which) {
+void MainWindow::OnLoadPresetROM(const preset_roms::PresetROM& rom) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
 
-  if (preset_roms::kPresetRoms[which].compressed) {
-    runtime_data_->emulator->LoadAndRun(
-        ReadFromZipBinary(preset_roms::kPresetRoms[which].data,
-                          preset_roms::kPresetRoms[which].raw_size,
-                          preset_roms::kPresetRoms[which].compressed_size),
-        kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                             kiwi::base::Unretained(this),
-                             preset_roms::kPresetRoms[which].name));
-  } else {
-    runtime_data_->emulator->LoadAndRun(
-        ReadFromRawBinary(preset_roms::kPresetRoms[which].data,
-                          preset_roms::kPresetRoms[which].raw_size),
-        kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                             kiwi::base::Unretained(this),
-                             preset_roms::kPresetRoms[which].name));
-  }
-}
-
-void MainWindow::OnLoadSpecialROM(int which) {
-  SDL_assert(runtime_data_->emulator);
-  SetLoading(true);
-
-  if (preset_roms::specials::kPresetRoms[which].compressed) {
-    runtime_data_->emulator->LoadAndRun(
-        ReadFromZipBinary(preset_roms::specials::kPresetRoms[which].data,
-                          preset_roms::specials::kPresetRoms[which].raw_size,
-                          preset_roms::specials::kPresetRoms[which].compressed_size),
-        kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                             kiwi::base::Unretained(this),
-                             preset_roms::specials::kPresetRoms[which].name));
-  } else {
-    runtime_data_->emulator->LoadAndRun(
-        ReadFromRawBinary(preset_roms::specials::kPresetRoms[which].data,
-                          preset_roms::specials::kPresetRoms[which].raw_size),
-        kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                             kiwi::base::Unretained(this),
-                             preset_roms::specials::kPresetRoms[which].name));
-  }
+  runtime_data_->emulator->LoadAndRun(
+      ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
+      kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                           kiwi::base::Unretained(this), rom.name));
 }
 
 void MainWindow::OnLoadDebugROM(kiwi::base::FilePath nes_path) {
@@ -1011,6 +1056,8 @@ void MainWindow::OnSetAudioVolume(float volume) {
   SDL_assert(runtime_data_->emulator);
   runtime_data_->emulator->SetVolume(volume);
   SetEffectVolume(volume);
+  config_->data().volume = volume;
+  config_->SaveConfig();
 }
 
 bool MainWindow::IsAudioEnabled() {
@@ -1030,20 +1077,26 @@ bool MainWindow::IsAudioChannelOn(kiwi::nes::AudioChannel which_mask) {
 
 void MainWindow::OnSetScreenScale(float scale) {
   SDL_assert(canvas_);
-  if (window_scale_ != scale) {
-    window_scale_ = scale;
+  if (config_->data().window_scale != scale) {
+    config_->data().window_scale = scale;
+    config_->SaveConfig();
     OnScaleChanged();
   }
 }
 
 void MainWindow::OnSetFullscreen() {
-  is_fullscreen_ = true;
+  config_->data().is_fullscreen = true;
+  config_->data().window_scale = kMaxScaleBeforeFullscreen;
+  config_->SaveConfig();
   SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN);
 }
 
 void MainWindow::OnUnsetFullscreen(float scale) {
-  is_fullscreen_ = false;
+  config_->data().is_fullscreen = false;
+  config_->data().window_scale = scale;
+  config_->SaveConfig();
   SDL_SetWindowFullscreen(native_window(), 0);
+  OnScaleChanged();
 }
 
 bool MainWindow::ScreenScaleIs(float scale) {
@@ -1083,30 +1136,20 @@ bool MainWindow::IsFrameRateWidgetShown() {
 }
 
 void MainWindow::OnExportGameROMs() {
-  kiwi::base::FilePath export_path = kiwi::base::FilePath::FromUTF8Unsafe(
-                                         SDL_GetPrefPath("Kiwi", "KiwiMachine"))
-                                         .Append("nes");
+  char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
+  kiwi::base::FilePath export_path =
+      kiwi::base::FilePath::FromUTF8Unsafe(pref_path).Append("nes");
+  SDL_free(pref_path);
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();
 
-  std::queue<preset_roms::PresetROM> roms_to_be_exported;
-  for (auto iter = std::begin(preset_roms::kPresetRoms);
-       iter != std::end(preset_roms::kPresetRoms); ++iter) {
-    roms_to_be_exported.push(*iter);
-  }
-
-  if (roms_to_be_exported.empty())
-    return;
-
-  export_widget_->Start(roms_to_be_exported.size(), export_path);
+  export_widget_->Start(preset_roms::kPresetRomsCount, export_path);
   export_widget_->SetCurrent(
-      kiwi::base::FilePath::FromUTF8Unsafe(roms_to_be_exported.front().name));
+      kiwi::base::FilePath::FromUTF8Unsafe(preset_roms::kPresetRoms[0].name));
 
   io_task_runner->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      kiwi::base::BindOnce(&OnExportGameROM, export_path, roms_to_be_exported),
-      kiwi::base::BindOnce(&OnGameROMExported, kiwi::base::Unretained(this),
-                           export_path));
+      FROM_HERE, kiwi::base::BindOnce(&OnExportGameROM, this, export_path, 0),
+      kiwi::base::BindOnce(&OnGameROMExported, this, export_path));
 }
 
 void MainWindow::OnDebugMemory() {
@@ -1128,19 +1171,31 @@ void MainWindow::OnInGameMenuTrigger() {
   OnPause();
 }
 
-void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item) {
+void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
   switch (item) {
     case InGameMenu::MenuItem::kContinue: {
       in_game_menu_->Close();
       OnResume();
     } break;
+    case InGameMenu::MenuItem::kLoadAutoSave: {
+      OnLoadAutoSavedState(param);
+      OnResume();
+      in_game_menu_->Close();
+    } break;
     case InGameMenu::MenuItem::kLoadState: {
-      OnLoadState();
+      SDL_assert(param < NESRuntime::Data::MaxSaveStates);
+      OnLoadState(param);
       OnResume();
       in_game_menu_->Close();
     } break;
     case InGameMenu::MenuItem::kSaveState: {
-      OnSaveState();
+      SDL_assert(param < NESRuntime::Data::MaxSaveStates);
+      OnSaveState(param);
+    } break;
+    case InGameMenu::MenuItem::kResetGame: {
+      OnResetROM();
+      OnResume();
+      in_game_menu_->Close();
     } break;
     case InGameMenu::MenuItem::kToGameSelection: {
       in_game_menu_->Close();
@@ -1165,18 +1220,18 @@ void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
       OnSetAudioVolume(volume);
     } break;
     case InGameMenu::SettingsItem::kWindowSize: {
-      if (is_fullscreen_ && !is_left)
+      if (is_fullscreen() && !is_left)
         return;
 
-      if (is_fullscreen_ && is_left) {
-        OnUnsetFullscreen(4);
+      if (is_fullscreen() && is_left) {
+        OnUnsetFullscreen(kMaxScaleBeforeFullscreen);
       } else {
         int scale = window_scale();
         scale = (is_left ? scale - 1 : scale + 1);
         if (scale < 2) {
           scale = 2;
           OnSetScreenScale(scale);
-        } else if (scale > 4) {
+        } else if (scale > kMaxScaleBeforeFullscreen) {
           OnSetFullscreen();
         } else {
           OnSetScreenScale(scale);

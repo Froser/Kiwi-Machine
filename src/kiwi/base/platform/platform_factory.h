@@ -39,16 +39,6 @@ class BASE_EXPORT ThreadInterface {
   virtual scoped_refptr<SingleThreadTaskRunner> task_runner() const = 0;
 };
 
-class BASE_EXPORT FileInterface {
- public:
-  FileInterface();
-  virtual ~FileInterface();
-
- public:
-  virtual int ReadAtCurrentPos(char* data, int size) = 0;
-  virtual bool IsValid() const = 0;
-};
-
 class BASE_EXPORT RunLoopInterface {
  public:
   RunLoopInterface();
@@ -70,10 +60,6 @@ class PlatformFactory {
  public:
   virtual std::unique_ptr<platform::ThreadInterface> CreateThreadInterface(
       const std::string& thread_name) = 0;
-
-  virtual std::unique_ptr<platform::FileInterface> CreateFileInterface(
-      const FilePath& file_path,
-      uint32_t flags) = 0;
 
   // An application must run CreateSingleThreadTaskExecutor(int&, char**,
   // MessagePumpType) or CreateSingleThreadTaskExecutor() once.

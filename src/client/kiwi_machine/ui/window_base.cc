@@ -91,6 +91,14 @@ void WindowBase::MoveToCenter() {
       display_bounds.y + (display_bounds.h - current_height) / 2);
 }
 
+void WindowBase::Hide() {
+  SDL_HideWindow(window_);
+}
+
+void WindowBase::Show() {
+  SDL_ShowWindow(window_);
+}
+
 uint32_t WindowBase::GetWindowID() {
   SDL_assert(window_);
   return SDL_GetWindowID(window_);

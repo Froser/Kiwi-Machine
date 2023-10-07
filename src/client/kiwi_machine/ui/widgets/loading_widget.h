@@ -29,8 +29,11 @@ class LoadingWidget : public Widget {
   void set_spinning_bounds(const SDL_Rect& bounds) {
     spinning_bounds_ = bounds;
   }
+  const SDL_Rect& spinning_bounds() { return spinning_bounds_; }
 
- protected:
+  SDL_Rect CalculateCircleAABB(int* indicator_radius_out);
+
+ public:
   void Paint() override;
 
  private:
@@ -39,7 +42,7 @@ class LoadingWidget : public Widget {
   SDL_Color color_ = {255, 255, 255, 255};
   SDL_Color backdrop_color_ = {0, 0, 0, 255};
   float speed_ = 0.005f;
-  SDL_Rect spinning_bounds_ = {3, 3, 20, 20};
+  SDL_Rect spinning_bounds_ = {6, 6, 20, 20};
 
   Timer timer_;
   bool first_paint_ = true;

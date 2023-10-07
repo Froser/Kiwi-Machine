@@ -34,6 +34,10 @@ class Mapper004 : public Mapper {
   void WriteCHR(Address address, Byte value) override;
   Byte ReadCHR(Address address) override;
 
+  // Some games (such as SMB3), has no extended RAM, but still write data to
+  // $6000-$7fff, so this mapper allocated a dedicate PRG RAM area here.
+  Byte ReadExtendedRAM(Address address) override;
+
   NametableMirroring GetNametableMirroring() override;
   void ScanlineIRQ() override;
   void PPUAddressChanged(Address address) override;
@@ -63,6 +67,7 @@ class Mapper004 : public Mapper {
   bool irq_reload_ = false;
   bool irq_flag_ = false;
 
+  Bytes prg_ram_;
   Bytes mirroring_ram_;
 
   // uint32_t chr_banks_[8] = {0};

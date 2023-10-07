@@ -16,9 +16,24 @@
 #include <filesystem>
 
 #include "base/base_export.h"
+#include "base/compiler_specific.h"
 #include "base/strings/string_piece.h"
 
 namespace kiwi::base {
+
+#if BUILDFLAG(IS_WIN)
+
+// The `FILE_PATH_LITERAL_INTERNAL` indirection allows `FILE_PATH_LITERAL` to
+// work correctly with macro parameters, for example
+// `FILE_PATH_LITERAL(TEST_FILE)` where `TEST_FILE` is a macro #defined as
+// "TestFile".
+#define FILE_PATH_LITERAL_INTERNAL(x) L##x
+#define FILE_PATH_LITERAL(x) FILE_PATH_LITERAL_INTERNAL(x)
+
+#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+#define FILE_PATH_LITERAL(x) x
+#endif  // BUILDFLAG(IS_WIN)
+
 class BASE_EXPORT FilePath : public std::filesystem::path {
   using std::filesystem::path::path;
   using StringType = std::filesystem::path::string_type;
@@ -31,6 +46,14 @@ class BASE_EXPORT FilePath : public std::filesystem::path {
   static FilePath FromUTF8Unsafe(StringPiece utf8);
 
   [[nodiscard]] FilePath Append(const FilePath& component) const;
+
+  // Returns a FilePath corresponding to the directory containing the path
+  // named by this object, stripping away the file component.  If this object
+  // only contains one component, returns a FilePath identifying
+  // kCurrentDirectory.  If this object already refers to the root directory,
+  // returns a FilePath identifying the root directory. Please note that this
+  // doesn't resolve directory navigation, e.g. the result for "../a" is "..".
+  [[nodiscard]] FilePath DirName() const;
 
   // Returns a FilePath corresponding to the last path component of this
   // object, either a file or a directory.  If this object already refers to
@@ -46,6 +69,10 @@ class BASE_EXPORT FilePath : public std::filesystem::path {
   // base name of the file path is either "." or "..", this method returns an
   // empty string.
   [[nodiscard]] StringType FinalExtension() const;
+
+  // Returns "C:\pics\jojo" for path "C:\pics\jojo.jpg"
+  [[nodiscard]] FilePath RemoveExtension() const;
+
 };
 }  // namespace kiwi::base
 

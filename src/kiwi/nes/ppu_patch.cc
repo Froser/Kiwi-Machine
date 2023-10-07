@@ -32,6 +32,7 @@ void PPUPatch::Set(uint32_t rom_crc) {
     case 0x127D76F4:  // Kirby's Adventure	Germany
     case 0x2C088DC5:  // Kirby's Adventure	Scandinavia
     case 0x5ED6F221:  // Kirby's Adventure	USA (Rev A)
+    case 0xE4A7D436:  // Hoshi no Kirby: Yume no Izumi no Monogatari
       scanline_irq_dot = 280;
       break;
     default:

@@ -40,9 +40,6 @@ SDL2RenderHandler g_sdl2_render_handler;
 ThreadInterface::ThreadInterface() = default;
 ThreadInterface::~ThreadInterface() = default;
 
-FileInterface::FileInterface() = default;
-FileInterface::~FileInterface() = default;
-
 RunLoopInterface::RunLoopInterface() = default;
 RunLoopInterface::~RunLoopInterface() = default;
 
