@@ -36,6 +36,7 @@ class Mapper004 : public Mapper {
 
   // Some games (such as SMB3), has no extended RAM, but still write data to
   // $6000-$7fff, so this mapper allocated a dedicate PRG RAM area here.
+  void WriteExtendedRAM(Address address, Byte value) override;
   Byte ReadExtendedRAM(Address address) override;
 
   NametableMirroring GetNametableMirroring() override;

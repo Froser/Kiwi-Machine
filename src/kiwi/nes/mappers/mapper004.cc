@@ -186,6 +186,16 @@ Byte Mapper004::ReadCHR(Address address) {
   return 0;
 }
 
+void Mapper004::WriteExtendedRAM(Address address, Byte value) {
+  if (HasExtendedRAM()) {
+    if (address >= 0x6000 && address <= 0x7fff) {
+      prg_ram_[address - 0x6000] = value;
+    }
+  } else {
+    WritePRG(address, value);
+  }
+}
+
 Byte Mapper004::ReadExtendedRAM(Address address) {
   // Some games will write data to the address less than 0x6000, for example:
   // Extra Mario Bros. So we don't check here.
