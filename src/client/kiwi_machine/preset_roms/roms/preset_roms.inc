@@ -32,6 +32,7 @@ EXTERN_ROM(kuniokun_no_nekketsu_soccer_league_japan)
 EXTERN_ROM(legend_of_zelda_usa_rev_a)
 EXTERN_ROM(lode_runner_usa)
 EXTERN_ROM(lunar_pool_usa)
+EXTERN_ROM(majou_densetsu_ii__daimashikyou_galious_japan)
 EXTERN_ROM(mappy_japan)
 EXTERN_ROM(mario_bros_usa_gamecube_edition)
 EXTERN_ROM(metroid_usa)
@@ -53,6 +54,7 @@ EXTERN_ROM(rockman_4__aratanaru_yabou_japan)
 EXTERN_ROM(rockman_5__blues_no_wana_japan)
 EXTERN_ROM(rockman_6__shijou_saidai_no_tatakai_japan)
 EXTERN_ROM(saiyuuki_world_japan)
+EXTERN_ROM(seirei_densetsu_lickle_japan)
 EXTERN_ROM(shin_jinrui__the_new_type_japan)
 EXTERN_ROM(sky_destroyer_japan)
 EXTERN_ROM(snow_brothers_usa)
@@ -112,6 +114,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(legend_of_zelda_usa_rev_a)},
   {PRESET_ROM(lode_runner_usa)},
   {PRESET_ROM(lunar_pool_usa)},
+  {PRESET_ROM(majou_densetsu_ii__daimashikyou_galious_japan)},
   {PRESET_ROM(mappy_japan)},
   {PRESET_ROM(mario_bros_usa_gamecube_edition)},
   {PRESET_ROM(metroid_usa)},
@@ -133,6 +136,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(rockman_5__blues_no_wana_japan)},
   {PRESET_ROM(rockman_6__shijou_saidai_no_tatakai_japan)},
   {PRESET_ROM(saiyuuki_world_japan)},
+  {PRESET_ROM(seirei_densetsu_lickle_japan)},
   {PRESET_ROM(shin_jinrui__the_new_type_japan)},
   {PRESET_ROM(sky_destroyer_japan)},
   {PRESET_ROM(snow_brothers_usa)},

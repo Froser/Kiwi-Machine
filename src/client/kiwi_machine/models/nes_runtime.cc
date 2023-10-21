@@ -229,10 +229,11 @@ NESRuntime::Data::StateResult GetStateByPathOnIOThread(
     const kiwi::base::FilePath& path_to_data,
     const kiwi::base::FilePath& path_to_thumbnail) {
   NESRuntime::Data::StateResult sr{false};
-  sr.state_data = ReadDataFromProfile(path_to_data);
+  sr.state_data = ReadDataFromProfile(path_to_data.AsUTF8Unsafe());
 
   // Thumbnail is JPEG format, convert it to pixel data:
-  kiwi::nes::Bytes source = ReadDataFromProfile(path_to_thumbnail);
+  kiwi::nes::Bytes source =
+      ReadDataFromProfile(path_to_thumbnail.AsUTF8Unsafe());
   if (!source.empty()) {
     SDL_RWops* rw = SDL_RWFromConstMem(source.data(), source.size());
     SDL_Surface* surface = IMG_Load_RW(rw, true);

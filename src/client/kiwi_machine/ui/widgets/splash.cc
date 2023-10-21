@@ -13,11 +13,12 @@
 #include "ui/widgets/splash.h"
 
 #include <cctype>
+#include <tuple>
+#include <vector>
 
 #include "ui/main_window.h"
 #include "ui/widgets/stack_widget.h"
 #include "utility/audio_effects.h"
-#include "utility/fonts.h"
 #include "utility/images.h"
 #include "utility/key_mapping_util.h"
 #include "utility/math.h"
@@ -26,11 +27,11 @@ constexpr int kSplashDurationMs = 2500;
 constexpr float kFadeDurationMs = 1000.f;
 constexpr float kClosingDurationMs = 200.f;
 
-constexpr char kHowToPlay[] = R"(How To Play)";
+constexpr char kHowToPlay[] = R"(How To Play
+)";
 constexpr char kControllerInstructions[] = R"(
-
-Controller instructions)";
-
+Controller instructions
+)";
 constexpr char kControllerInstructionsContent[] =
     R"(
  Player 1
@@ -46,17 +47,77 @@ constexpr char kControllerInstructionsContent[] =
  Joystick is also available if connected.
  You may change controller mapping from settings.
 
-
-
 )";
 
-constexpr char kMenuInstructions[] = "Menu instructions";
+constexpr char kMenuInstructions[] = R"(
+Menu instructions
+)";
 constexpr char kMenuInstructionsContent[] = R"(
 You can press UP, DOWN to change groups.
 System menu is at the end of the groups.
+
 )";
 
-constexpr char kContinue[] = "\n\n\nPress A or START to continue.";
+constexpr char kContinue[] = R"(
+Press A or START to continue.)";
+
+constexpr char kIntroduction[] = R"(Introduction
+)";
+
+constexpr char kRetroCollections[] = R"(
+Retro Game Collections
+)";
+
+constexpr char kRetroCollectionsContent[] = R"(
+Kiwi machine collects many retro NES games, and some
+of them has different versions and different names and
+languages, such as Dragon Quest and Dragon Warrior.
+
+You may press SELECT to choose the version you want to
+play.
+
+)";
+
+constexpr char kSpecialCollections[] = R"(
+Special Collections
+)";
+
+constexpr char kSpecialCollectionsContent[] = R"(
+Kiwi Machine also collected many special ROMs, such as
+hacked but popular SMB ROMs, Tank 1990, etc.
+
+You may press DOWN to switch to the special rom's group.
+
+)";
+
+Splash::SplashContent::SplashContent(Widget* widget) : widget_(widget) {}
+Splash::SplashContent::~SplashContent() = default;
+
+void Splash::SplashContent::AddContent(FontType font_type,
+                                       const char* content) {
+  if (contents_.empty())
+    start_pos_y_ = ImGui::GetCursorPosY();
+  else
+    ImGui::SetCursorPosY(current_pos_y);
+  const ImVec2 kSplashSize(widget_->bounds().w, widget_->bounds().h);
+  ScopedFont font(font_type);
+  ImVec2 fs = ImGui::CalcTextSize(content);
+  ImGui::Dummy(fs);
+  contents_.emplace_back(font.type(), (kSplashSize.x - fs.x) / 2, content);
+  current_pos_y = ImGui::GetCursorPosY();
+  ImGui::SetCursorPosY(start_pos_y_);
+}
+
+void Splash::SplashContent::DrawContents(ImColor font_color) {
+  int content_height = current_pos_y - start_pos_y_;
+  const ImVec2 kSplashSize(widget_->bounds().w, widget_->bounds().h);
+  ImGui::SetCursorPosY((kSplashSize.y - content_height) / 2);
+  for (const auto& content : contents_) {
+    ScopedFont font(std::get<0>(content));
+    ImGui::SetCursorPosX(std::get<1>(content));
+    ImGui::TextColored(font_color, "%s", std::get<2>(content));
+  }
+}
 
 Splash::Splash(MainWindow* main_window,
                StackWidget* stack_widget,
@@ -112,11 +173,10 @@ void Splash::Paint() {
       fade_timer_.Start();
       state_ = SplashState::kHowToPlay;
     }
-  } else {
+  } else if (state_ == SplashState::kHowToPlay ||
+             state_ == SplashState::kClosingHowToPlay) {
     ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), kSplashSize,
                                                   ImColor(IM_COL32_WHITE));
-
-    const int kTitleTop = 10 * main_window_->window_scale();
     int alpha =
         state_ == SplashState::kHowToPlay
             ? Lerp(0, 255,
@@ -124,52 +184,49 @@ void Splash::Paint() {
             : Lerp(255, 0,
                    fade_timer_.ElapsedInMilliseconds() / kClosingDurationMs);
 
-    if (state_ == SplashState::kClosing && !alpha)
-      stack_widget_->PopWidget();
+    SplashContent how_to_play_contents(this);
+    how_to_play_contents.AddContent(FontType::kDefault3x, kHowToPlay);
+    how_to_play_contents.AddContent(FontType::kDefault2x,
+                                    kControllerInstructions);
+    how_to_play_contents.AddContent(FontType::kDefault,
+                                    kControllerInstructionsContent);
+    how_to_play_contents.AddContent(FontType::kDefault2x, kMenuInstructions);
+    how_to_play_contents.AddContent(FontType::kDefault,
+                                    kMenuInstructionsContent);
+    how_to_play_contents.AddContent(FontType::kDefault, kContinue);
+
+    // Draw all contents
+    ImColor font_color(0, 0, 0, alpha);
+    how_to_play_contents.DrawContents(font_color);
+
+    if (state_ == SplashState::kClosingHowToPlay && !alpha) {
+      fade_timer_.Start();
+      state_ = SplashState::kIntroduction;
+    }
+  } else {
+    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), kSplashSize,
+                                                  ImColor(IM_COL32_WHITE));
+
+    int alpha =
+        state_ == SplashState::kIntroduction
+            ? Lerp(0, 255,
+                   fade_timer_.ElapsedInMilliseconds() / kFadeDurationMs)
+            : Lerp(255, 0,
+                   fade_timer_.ElapsedInMilliseconds() / kClosingDurationMs);
+
+    SplashContent introduction(this);
+    introduction.AddContent(FontType::kDefault3x, kIntroduction);
+    introduction.AddContent(FontType::kDefault2x, kRetroCollections);
+    introduction.AddContent(FontType::kDefault, kRetroCollectionsContent);
+    introduction.AddContent(FontType::kDefault2x, kSpecialCollections);
+    introduction.AddContent(FontType::kDefault, kSpecialCollectionsContent);
+    introduction.AddContent(FontType::kDefault, kContinue);
 
     ImColor font_color(0, 0, 0, alpha);
-    {
-      ScopedFont font(FontType::kDefault3x);
-      ImVec2 fs = ImGui::CalcTextSize(kHowToPlay);
-      ImVec2 logo_pos((kSplashSize.x - fs.x) / 2, kTitleTop);
-      ImGui::SetCursorPos(logo_pos);
-      ImGui::TextColored(font_color, "%s", kHowToPlay);
-    }
+    introduction.DrawContents(font_color);
 
-    {
-      ScopedFont font(FontType::kDefault2x);
-      ImVec2 fs = ImGui::CalcTextSize(kControllerInstructions);
-      ImGui::SetCursorPosX((kSplashSize.x - fs.x) / 2);
-      ImGui::TextColored(font_color, "%s", kControllerInstructions);
-    }
-
-    {
-      ScopedFont font(FontType::kDefault);
-      ImVec2 fs = ImGui::CalcTextSize(kControllerInstructionsContent);
-      ImGui::SetCursorPosX((kSplashSize.x - fs.x) / 2);
-      ImGui::TextColored(font_color, "%s", kControllerInstructionsContent);
-    }
-
-    {
-      ScopedFont font(FontType::kDefault2x);
-      ImVec2 fs = ImGui::CalcTextSize(kMenuInstructions);
-      ImGui::SetCursorPosX((kSplashSize.x - fs.x) / 2);
-      ImGui::TextColored(font_color, "%s", kMenuInstructions);
-    }
-
-    {
-      ScopedFont font(FontType::kDefault);
-      ImVec2 fs = ImGui::CalcTextSize(kMenuInstructionsContent);
-      ImGui::SetCursorPosX((kSplashSize.x - fs.x) / 2);
-      ImGui::TextColored(font_color, "%s", kMenuInstructionsContent);
-    }
-
-    {
-      ScopedFont font(FontType::kDefault);
-      ImVec2 fs = ImGui::CalcTextSize(kContinue);
-      ImGui::SetCursorPosX((kSplashSize.x - fs.x) / 2);
-      ImGui::TextColored(font_color, "%s", kContinue);
-    }
+    if (state_ == SplashState::kClosing && !alpha)
+      stack_widget_->PopWidget();
   }
 }
 
@@ -182,6 +239,13 @@ bool Splash::HandleInputEvents(SDL_KeyboardEvent* k,
       (c && c->button == SDL_CONTROLLER_BUTTON_A) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_START)) {
     if (state_ == SplashState::kHowToPlay) {
+      state_ = SplashState::kClosingHowToPlay;
+      fade_timer_.Start();
+      PlayEffect(audio_resources::AudioID::kStart);
+      return true;
+    }
+
+    if (state_ == SplashState::kIntroduction) {
       state_ = SplashState::kClosing;
       fade_timer_.Start();
       PlayEffect(audio_resources::AudioID::kStart);

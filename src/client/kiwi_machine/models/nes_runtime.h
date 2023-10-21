@@ -26,7 +26,7 @@ class NESRuntime {
   struct Data {
     enum {
       MaxSaveStates = 10,
-      MaxAutoSaveStates = 10,
+      MaxAutoSaveStates = 50,
     };
 
     union ControllerMapping {

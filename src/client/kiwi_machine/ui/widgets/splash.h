@@ -15,6 +15,7 @@
 
 #include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
+#include "utility/fonts.h"
 #include "utility/timer.h"
 
 class MainWindow;
@@ -37,6 +38,21 @@ class Splash : public Widget {
  private:
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
+  struct SplashContent {
+   public:
+    SplashContent(Widget* widget);
+    ~SplashContent();
+
+    void AddContent(FontType font_type, const char* content);
+    void DrawContents(ImColor font_color);
+
+   private:
+    Widget* widget_ = nullptr;
+    int start_pos_y_ = 0;
+    int current_pos_y = 0;
+    std::vector<std::tuple<FontType, int, const char*>> contents_;
+  };
+
  private:
   MainWindow* main_window_ = nullptr;
   StackWidget* stack_widget_ = nullptr;
@@ -47,6 +63,8 @@ class Splash : public Widget {
   enum class SplashState {
     kLogo,
     kHowToPlay,
+    kClosingHowToPlay,
+    kIntroduction,
     kClosing,
   };
   SplashState state_ = SplashState::kLogo;

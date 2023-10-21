@@ -31,6 +31,7 @@ class ScopedFont {
   explicit ScopedFont(FontType font);
   ~ScopedFont();
 
+  FontType type() { return type_; }
   ImFont* GetFont();
 
  private:

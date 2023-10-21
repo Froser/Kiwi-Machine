@@ -107,7 +107,7 @@ std::pair<bool, int> OnExportGameROM(MainWindow* main_window,
                                      int current_export_rom_index) {
   const preset_roms::PresetROM& rom =
       preset_roms::kPresetRoms[current_export_rom_index];
-  main_window->Exporting(kiwi::base::FilePath::FromUTF8Unsafe(rom.name));
+  main_window->Exporting(rom.name);
   return std::make_pair(
       ExportNES(export_path, rom.name, rom.zip_data, rom.zip_size),
       current_export_rom_index + 1);
@@ -615,10 +615,14 @@ void MainWindow::InitializeUI() {
     AddWidget(std::make_unique<DemoWidget>(this));
 
   // Splash
-  std::unique_ptr<Splash> splash =
-      std::make_unique<Splash>(this, stack_widget_, runtime_id_);
-  splash->Play();
-  stack_widget_->PushWidget(std::move(splash));
+  if (!FLAGS_has_menu) {
+    // If we have menu, we don't show splash screen, because we probably want to
+    // do some debug works.
+    std::unique_ptr<Splash> splash =
+        std::make_unique<Splash>(this, stack_widget_, runtime_id_);
+    splash->Play();
+    stack_widget_->PushWidget(std::move(splash));
+  }
 
   OnScaleChanged();
   if (is_fullscreen())
