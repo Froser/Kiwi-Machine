@@ -53,7 +53,8 @@ bool SaveConfigOnIOThread(const kiwi::base::FilePath& profile_path,
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
                                    window_scale,
                                    is_fullscreen,
-                                   volume);
+                                   volume,
+                                   last_index);
 
 NESConfig::NESConfig(const kiwi::base::FilePath& profile_path)
     : profile_path_(profile_path) {}

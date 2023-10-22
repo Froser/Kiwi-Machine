@@ -37,6 +37,8 @@ class InGameMenu : public Widget {
   enum class SettingsItem {
     kVolume,
     kWindowSize,
+    kJoyP1,
+    kJoyP2,
 
     kMax,
   };

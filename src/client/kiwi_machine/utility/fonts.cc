@@ -36,23 +36,38 @@ ImFont* ScopedFont::GetFont() {
   return g_fonts[static_cast<int>(type_)];
 }
 
-#define REGISTER_FONT(enumName, fontType, basicSize)              \
-  {                                                               \
-    ImFontConfig font_config;                                     \
-    font_config.FontDataOwnedByAtlas = false;                     \
-    for (FontType ft = enumName; ft <= enumName##6x;              \
-         ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {  \
-      int font_size = basicSize * (static_cast<int>(ft) + 1);     \
-      size_t data_size;                                           \
-      g_fonts[static_cast<int>(ft)] =                             \
-          ImGui::GetIO().Fonts->AddFontFromMemoryTTF(             \
-              const_cast<unsigned char*>(                         \
-                  font_resources::GetData(fontType, &data_size)), \
-              data_size, font_size, &font_config);                \
-    }                                                             \
+#define REGISTER_SYS_FONT(enumName, basicSize)                                 \
+  {                                                                            \
+    for (FontType ft = enumName; ft <= enumName##6x;                           \
+         ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {               \
+      int font_size =                                                          \
+          basicSize * (static_cast<int>(ft) - static_cast<int>(enumName) + 1); \
+      size_t data_size;                                                        \
+      ImFontConfig cfg;                                                        \
+      cfg.SizePixels = font_size;                                              \
+      g_fonts[static_cast<int>(ft)] =                                          \
+          ImGui::GetIO().Fonts->AddFontDefault(&cfg);                          \
+    }                                                                          \
+  }
+
+#define REGISTER_FONT(enumName, fontType, basicSize)                           \
+  {                                                                            \
+    ImFontConfig font_config;                                                  \
+    font_config.FontDataOwnedByAtlas = false;                                  \
+    for (FontType ft = enumName; ft <= enumName##6x;                           \
+         ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {               \
+      int font_size =                                                          \
+          basicSize * (static_cast<int>(ft) - static_cast<int>(enumName) + 1); \
+      size_t data_size;                                                        \
+      g_fonts[static_cast<int>(ft)] =                                          \
+          ImGui::GetIO().Fonts->AddFontFromMemoryTTF(                          \
+              const_cast<unsigned char*>(                                      \
+                  font_resources::GetData(fontType, &data_size)),              \
+              data_size, font_size, &font_config);                             \
+    }                                                                          \
   }
 
 void InitializeFonts() {
-  ImGui::GetIO().Fonts->AddFontDefault();
+  REGISTER_SYS_FONT(FontType::kSystemDefault, 13);
   REGISTER_FONT(FontType::kDefault, font_resources::FontID::kSupermario256, 16);
 }

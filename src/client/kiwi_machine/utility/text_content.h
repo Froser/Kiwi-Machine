@@ -10,41 +10,28 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_FONTS_H_
-#define UTILITY_FONTS_H_
+#ifndef UTILITY_TEXT_CONTENT_
+#define UTILITY_TEXT_CONTENT_
 
-#include <imgui.h>
+#include "utility/fonts.h"
 
-enum class FontType {
-  kSystemDefault,
-  kSystemDefault2x,
-  kSystemDefault3x,
-  kSystemDefault4x,
-  kSystemDefault5x,
-  kSystemDefault6x,
+#include <tuple>
+#include <vector>
 
-  kDefault,
-  kDefault2x,
-  kDefault3x,
-  kDefault4x,
-  kDefault5x,
-  kDefault6x,
-
-  kMax,
-};
-
-class ScopedFont {
+class Widget;
+struct TextContent {
  public:
-  explicit ScopedFont(FontType font);
-  ~ScopedFont();
+  TextContent(Widget* widget);
+  ~TextContent();
 
-  FontType type() { return type_; }
-  ImFont* GetFont();
+  void AddContent(FontType font_type, const char* content);
+  void DrawContents(ImColor font_color);
 
  private:
-  FontType type_;
+  Widget* widget_ = nullptr;
+  int start_pos_y_ = 0;
+  int current_pos_y = 0;
+  std::vector<std::tuple<FontType, int, const char*>> contents_;
 };
 
-void InitializeFonts();
-
-#endif  // UTILITY_FONTS_H_
+#endif  // UTILITY_TEXT_CONTENT_

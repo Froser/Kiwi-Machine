@@ -62,6 +62,16 @@ bool KiwiItemsWidget::IsEmpty() {
   return items_.empty();
 }
 
+int KiwiItemsWidget::GetItemCount() {
+  return items_.size();
+}
+
+void KiwiItemsWidget::SetIndex(int index) {
+  ResetSubItemIndex();
+  current_idx_ = index;
+  IndexChanged();
+}
+
 void KiwiItemsWidget::Paint() {
   if (first_paint_) {
     FirstFrame();
@@ -199,9 +209,7 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
     if (current_idx_ > 0) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      ResetSubItemIndex();
-      --current_idx_;
-      IndexChanged();
+      SetIndex(current_idx_ - 1);
     }
     return true;
   }
@@ -211,9 +219,7 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (current_idx_ < items_.size() - 1) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      ResetSubItemIndex();
-      ++current_idx_;
-      IndexChanged();
+      SetIndex(current_idx_ + 1);
     }
     return true;
   }

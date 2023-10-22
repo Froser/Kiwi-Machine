@@ -205,6 +205,8 @@ bool Mapper001::Deserialize(const EmulatorStates::Header& header,
       .ReadData(&chr_reg_1_)
       .ReadData(&prg_reg_)
       .ReadData(&mirroring_);
+
+  mirroring_changed_callback().Run();
   return Mapper::Deserialize(header, data);
 }
 

@@ -41,6 +41,7 @@ void Mapper007::WritePRG(Address address, Byte value) {
   if (address >= 0x6000) {
     select_prg_ = value & 7;
     select_mirror_ = (value >> 4) & 1;
+    mirroring_changed_callback().Run();
   } else {
     LOG(ERROR) << "Can't write value $" << Hex<16>{value} << " to PRG address $"
                << Hex<16>{address} << ", because it is read only.";
@@ -65,7 +66,7 @@ void Mapper007::WriteCHR(Address address, Byte value) {
 Byte Mapper007::ReadCHR(Address address) {
   if (uses_character_ram_)
     return character_ram_[address];
-  
+
   return cartridge()->GetRomData()->CHR[address];
 }
 
@@ -90,6 +91,7 @@ bool Mapper007::Deserialize(const EmulatorStates::Header& header,
   }
 
   data.ReadData(&select_prg_).ReadData(&select_mirror_);
+  mirroring_changed_callback().Run();
   return Mapper::Deserialize(header, data);
 }
 }  // namespace nes

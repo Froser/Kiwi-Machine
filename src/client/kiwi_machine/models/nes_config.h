@@ -26,6 +26,7 @@ class NESConfig : public kiwi::base::RefCounted<NESConfig> {
     float window_scale = 3.f;
     bool is_fullscreen = false;
     float volume = 1.f;
+    int last_index = 0;
   };
 
  private:

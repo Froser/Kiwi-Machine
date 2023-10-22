@@ -22,6 +22,7 @@
 #include "utility/audio_effects.h"
 #include "utility/images.h"
 #include "utility/key_mapping_util.h"
+#include "utility/text_content.h"
 
 AboutWidget::AboutWidget(MainWindow* main_window,
                          StackWidget* parent,
@@ -30,7 +31,8 @@ AboutWidget::AboutWidget(MainWindow* main_window,
   ImGuiWindowFlags window_flags =
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
       ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
-      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground;
+      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground |
+      ImGuiWindowFlags_NoInputs;
   set_flags(window_flags);
   set_title("About");
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
@@ -44,37 +46,25 @@ void AboutWidget::Close() {
 }
 
 void AboutWidget::Paint() {
-  constexpr int kContentWidth = 512;
-  constexpr int kContentHeight = 256;
-  constexpr int kLogoSize = 48;
-  constexpr int kLogoSpacing = 20;
   SDL_Rect client_bounds = window()->GetClientBounds();
   set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
-  SDL_Rect content_center{(bounds().w - kContentWidth) / 2,
-                          (bounds().h - kContentHeight) / 2, kContentWidth,
-                          kContentHeight};
 
-  SDL_Texture* logo_texture =
-      GetImage(window()->renderer(), image_resources::ImageID::kBackgroundLogo);
+  TextContent content(this);
+  content.AddContent(FontType::kDefault2x, "About Kiwi Machine");
+  content.AddContent(FontType::kDefault, R"(
+Kiwi machine is an open sources NES
+emulator with lots of preset games.
+Github: https://github.com/Froser/Kiwi-NES/
 
-  ImDrawList* draw_list = ImGui::GetWindowDrawList();
-  draw_list->AddImage(
-      logo_texture, ImVec2(content_center.x, content_center.y),
-      ImVec2(content_center.x + main_window_->Scaled(kLogoSize),
-             content_center.y + main_window_->Scaled(kLogoSize)));
+Core Version: Kiwi 1.0.0
+UI Version: 1.0.0
+Programmed by Yu Yisi
 
-  draw_list->AddText(
-      ImVec2(content_center.x + main_window_->Scaled(kLogoSize + kLogoSpacing),
-             content_center.y),
-      IM_COL32(0, 0, 0, 255),
-      "Kiwi Machine\n\n"
-      "Version: 1.0.0\n"
-      "Programmed by Yu Yisi\n"
-      "Kiwi machine is an open sources NES emulator with\n"
-      "lots of preset games.\n"
-      "Core: Kiwi 1.0.0\n"
-      "Github: https://github.com/Froser/Kiwi-NES/\n\n"
-      "Press joystick button 'B' to go back.");
+)");
+  content.AddContent(FontType::kDefault,
+                     "Press joystick button 'B' to go back.");
+
+  content.DrawContents(IM_COL32_BLACK);
 }
 
 void AboutWidget::OnWindowResized() {

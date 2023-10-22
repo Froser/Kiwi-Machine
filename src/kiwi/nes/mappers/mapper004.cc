@@ -278,6 +278,8 @@ bool Mapper004::Deserialize(const EmulatorStates::Header& header,
 
   if (uses_character_ram_)
     data.ReadData(&uses_character_ram_).ReadData(&character_ram_);
+
+  mirroring_changed_callback().Run();
   return Mapper::Deserialize(header, data);
 }
 

@@ -200,6 +200,9 @@ int GetAutoSavedStatesCountOnIOThread(const kiwi::base::FilePath& profile_path,
                                       int crc32) {
   kiwi::base::FilePath auto_saved_snapshot_path =
       GetAutoSavedStatePath(profile_path, crc32);
+  if (!std::filesystem::exists(auto_saved_snapshot_path))
+    std::filesystem::create_directories(auto_saved_snapshot_path);
+
   kiwi::base::FileEnumerator fe(auto_saved_snapshot_path, false,
                                 kiwi::base::FileEnumerator::DIRECTORIES);
   kiwi::base::FilePath path = fe.Next();

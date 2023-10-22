@@ -32,6 +32,7 @@ class StackWidget;
 class MemoryWidget;
 class DisassemblyWidget;
 class GroupWidget;
+class KiwiItemsWidget;
 
 namespace preset_roms {
 class PresetROM;
@@ -130,6 +131,8 @@ class MainWindow : public WindowBase,
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item, bool is_left);
 
+  void SaveConfig();
+
  private:
   std::set<int> pressing_keys_;
   bool has_demo_widget_ = false;
@@ -142,6 +145,7 @@ class MainWindow : public WindowBase,
   Widget* frame_rate_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
   GroupWidget* main_group_widget_ = nullptr;
+  KiwiItemsWidget* main_items_widget_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
   StackWidget* stack_widget_ = nullptr;

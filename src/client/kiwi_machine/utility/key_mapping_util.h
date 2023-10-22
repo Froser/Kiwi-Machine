@@ -34,4 +34,6 @@ void SetControllerMapping(NESRuntime::Data* runtime_data,
                           SDL_GameController* controller,
                           bool ab_reverse);
 
+std::vector<SDL_GameController*> GetControllerList();
+
 #endif  // UTILITY_KEY_MAPPING_UTIL_H_

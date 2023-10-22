@@ -65,8 +65,6 @@ set(Sources
         ui/widgets/canvas.h
         ui/widgets/canvas_observer.cc
         ui/widgets/canvas_observer.h
-        ui/widgets/controller_widget.cc
-        ui/widgets/controller_widget.h
         ui/widgets/disassembly_widget.cc
         ui/widgets/disassembly_widget.h
         ui/widgets/demo_widget.cc
@@ -121,6 +119,8 @@ set(Sources
         utility/key_mapping_util.h
         utility/math.cc
         utility/math.h
+        utility/text_content.cc
+        utility/text_content.h
         utility/timer.cc
         utility/timer.h
         utility/zip_reader.cc

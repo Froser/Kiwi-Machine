@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "utility/key_mapping_util.h"
+#include "ui/application.h"
 #include "utility/timer.h"
 
 bool IsJoystickButtonMatch(NESRuntime::Data* runtime_data,
@@ -129,4 +130,19 @@ void SetControllerMapping(NESRuntime::Data* runtime_data,
                         SDL_CONTROLLER_BUTTON_DPAD_LEFT,
                         SDL_CONTROLLER_BUTTON_DPAD_RIGHT};
   runtime_data->joystick_mappings[player] = {controller, joy_mapping};
+}
+
+std::vector<SDL_GameController*> GetControllerList() {
+  std::vector<SDL_GameController*> result;
+  std::set<SDL_GameController*> controllers =
+      Application::Get()->game_controllers();
+
+  // First controller means no joystick, or doesn't use any joysticks.
+  result.push_back(nullptr);
+
+  for (auto* controller : controllers) {
+    result.push_back(controller);
+  }
+
+  return result;
 }

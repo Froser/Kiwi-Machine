@@ -24,7 +24,6 @@
 #include "ui/application.h"
 #include "ui/widgets/about_widget.h"
 #include "ui/widgets/canvas.h"
-#include "ui/widgets/controller_widget.h"
 #include "ui/widgets/demo_widget.h"
 #include "ui/widgets/disassembly_widget.h"
 #include "ui/widgets/export_widget.h"
@@ -158,6 +157,7 @@ MainWindow::~MainWindow() {
   SDL_assert(canvas_);
   runtime_data_->emulator->PowerOff();
   canvas_->RemoveObserver(this);
+  SaveConfig();
 }
 
 void MainWindow::ExportDone() {
@@ -426,6 +426,7 @@ void MainWindow::InitializeUI() {
   // Game items
   std::unique_ptr<KiwiItemsWidget> items_widget =
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
+  main_items_widget_ = items_widget.get();
 
   for (const auto& rom : preset_roms::kPresetRoms) {
     FillRomDataFromZip(rom);
@@ -443,6 +444,10 @@ void MainWindow::InitializeUI() {
                                     alternative_rom));
     }
   }
+
+  int main_items_index = std::clamp(config_->data().last_index, 0,
+                                    items_widget->GetItemCount() - 1);
+  items_widget->SetIndex(main_items_index);
 
   main_group_widget_->AddWidget(std::move(items_widget));
 
@@ -469,16 +474,6 @@ void MainWindow::InitializeUI() {
   // Settings items
   std::unique_ptr<KiwiItemsWidget> controller_widget =
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
-  settings_widget->AddItem(
-      "Controller", image_resources::kJoystickLogo,
-      image_resources::kJoystickLogoSize,
-      kiwi::base::BindRepeating(
-          [](MainWindow* window, StackWidget* stack_widget,
-             NESRuntimeID runtime_id) {
-            stack_widget->PushWidget(std::make_unique<ControllerWidget>(
-                window, stack_widget, runtime_id));
-          },
-          this, stack_widget_, runtime_id_));
 
   settings_widget->AddItem(
       "Settings", image_resources::kSettingsLogo,
@@ -1241,10 +1236,32 @@ void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
           OnSetScreenScale(scale);
         }
       }
-    }
+    } break;
+    case InGameMenu::SettingsItem::kJoyP1:
+    case InGameMenu::SettingsItem::kJoyP2: {
+      std::vector<SDL_GameController*> controllers = GetControllerList();
+      int player_index = (item == InGameMenu::SettingsItem::kJoyP1 ? 0 : 1);
+      // Find next controller
+      auto iter =
+          std::find(controllers.begin(), controllers.end(),
+                    runtime_data_->joystick_mappings[player_index].which);
+      SDL_assert(iter != controllers.end());
+      SDL_GameController* next_controller =
+          ((iter != controllers.end() - 1) ? *(iter + 1)
+                                           : *controllers.begin());
+      SetControllerMapping(runtime_data_, player_index, next_controller, false);
+    } break;
     default:
       break;
   }
+}
+
+void MainWindow::SaveConfig() {
+  // Before main window destruct, save current game index.
+  // This happens when MainWindow is about to destroy, and has IO operation.
+  SDL_assert(main_items_widget_);
+  config_->data().last_index = main_items_widget_->current_index();
+  config_->SaveConfig();
 }
 
 bool MainWindow::IsPause() {

@@ -41,6 +41,9 @@ class KiwiItemsWidget : public Widget {
                  size_t cover_size,
                  kiwi::base::RepeatingClosure on_trigger);
   bool IsEmpty();
+  int GetItemCount();
+  void SetIndex(int index);
+  int current_index() { return current_idx_; }
 
  private:
   int GetItemMetrics(KiwiItemWidget::Metrics metrics);
