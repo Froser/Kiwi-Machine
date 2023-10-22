@@ -60,6 +60,7 @@ namespace preset_roms {
 #include "shin_jinrui__the_new_type_japan.inc"
 #include "sky_destroyer_japan.inc"
 #include "snow_brothers_usa.inc"
+#include "solstice__the_quest_for_the_staff_of_demnos_usa.inc"
 #include "star_soldier_japan.inc"
 #include "super_c_usa.inc"
 #include "super_mario_bros_world.inc"

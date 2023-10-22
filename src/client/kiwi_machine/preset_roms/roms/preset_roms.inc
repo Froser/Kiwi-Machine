@@ -58,6 +58,7 @@ EXTERN_ROM(seirei_densetsu_lickle_japan)
 EXTERN_ROM(shin_jinrui__the_new_type_japan)
 EXTERN_ROM(sky_destroyer_japan)
 EXTERN_ROM(snow_brothers_usa)
+EXTERN_ROM(solstice__the_quest_for_the_staff_of_demnos_usa)
 EXTERN_ROM(star_soldier_japan)
 EXTERN_ROM(super_c_usa)
 EXTERN_ROM(super_mario_bros_world)
@@ -140,6 +141,7 @@ const PresetROM kPresetRoms[] = {
   {PRESET_ROM(shin_jinrui__the_new_type_japan)},
   {PRESET_ROM(sky_destroyer_japan)},
   {PRESET_ROM(snow_brothers_usa)},
+  {PRESET_ROM(solstice__the_quest_for_the_staff_of_demnos_usa)},
   {PRESET_ROM(star_soldier_japan)},
   {PRESET_ROM(super_c_usa)},
   {PRESET_ROM(super_mario_bros_world)},

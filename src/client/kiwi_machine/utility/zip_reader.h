@@ -16,7 +16,7 @@
 #include <kiwi_nes.h>
 
 namespace preset_roms {
-class PresetROM;
+struct PresetROM;
 }
 
 void FillRomDataFromZip(const preset_roms::PresetROM& rom_data);

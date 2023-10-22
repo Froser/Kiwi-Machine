@@ -19,6 +19,7 @@
 #include "nes/mappers/mapper002.h"
 #include "nes/mappers/mapper003.h"
 #include "nes/mappers/mapper004.h"
+#include "nes/mappers/mapper007.h"
 #include "nes/mappers/mapper040.h"
 #include "nes/mappers/mapper066.h"
 #include "nes/mappers/mapper087.h"
@@ -56,6 +57,9 @@ std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
       return std::make_unique<Mapper003>(cartridge);
     case 4:
       return std::make_unique<Mapper004>(cartridge);
+      break;
+    case 7:
+      return std::make_unique<Mapper007>(cartridge);
       break;
     /*
   case Type::kAxROM:
