@@ -1,8 +1,6 @@
 /cmake-build-debug/
 /cmake-build-release/
 /.idea/
-/src/client/kiwi_machine/build/nes/
-/src/client/kiwi_machine/build/nes/specials
 **/.DS_Store
 /venv/
 /src/client/kiwi_machine/build/win/*.aps

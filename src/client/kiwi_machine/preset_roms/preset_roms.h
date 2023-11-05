@@ -37,7 +37,7 @@ struct PresetROM {
   extern size_t ROM_ZIP_SIZE;             \
   }
 
-#include "preset_roms/roms/preset_roms.inc"
+#include "preset_roms/preset_roms.inc"
 
 }  // namespace preset_roms
 

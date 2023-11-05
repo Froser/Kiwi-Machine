@@ -17,7 +17,7 @@ def GenNamespace(filename):
     return result
 
 
-def GenCPP(dir, filename, zip):
+def GenCPP(output_dir, dir, filename, zip):
     zip_filename = './nes' + dir + '/' + filename + '.zip'
     namespace = GenNamespace(filename)
     output_filename = namespace + '.inc'
@@ -32,7 +32,7 @@ def GenCPP(dir, filename, zip):
         rom_data = f.read()
         file_size = f.tell()
 
-    with open('../preset_roms/roms/' + output_filename, "w") as o:
+    with open(output_dir + '/' + output_filename, "w") as o:
         o.write('namespace ')
         o.write(namespace)
         o.write(' {\n')
@@ -57,13 +57,13 @@ def GenCPP(dir, filename, zip):
 
 def main():
     output_dir = sys.argv[1]
-    print("Font resources output dir is", output_dir)
+    print("Preset roms output dir is", output_dir)
 
-    if not os.path.isdir('../preset_roms/roms'):
-        os.mkdir('../preset_roms/roms')
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
     else:
-        shutil.rmtree('../preset_roms/roms')
-        os.mkdir('../preset_roms/roms')
+        shutil.rmtree(output_dir)
+        os.mkdir(output_dir)
 
     all_includes = ''
     all_externs = ''
@@ -78,7 +78,7 @@ def main():
     with zipfile.ZipFile(output_dir + '/' + main_package_name, 'w', zipfile.ZIP_DEFLATED) as main_zip:
         for f in sorted(Path('./nes').iterdir()):
             if f.suffix == '.zip':
-                output_filename, namespace = GenCPP('', f.stem, main_zip)
+                output_filename, namespace = GenCPP(output_dir, '', f.stem, main_zip)
                 all_includes += '#include "' + output_filename + '"\n'
                 all_externs += 'EXTERN_ROM(' + namespace + ')\n'
                 all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
@@ -92,7 +92,7 @@ def main():
                 with zipfile.ZipFile(output_dir + '/' + dir_name + '.pak', 'w', zipfile.ZIP_DEFLATED) as z:
                     for s in sorted(Path('./nes/' + dir_name).iterdir()):
                         if s.suffix == '.zip':
-                            output_filename, namespace = GenCPP('/' + dir_name, s.stem, z)
+                            output_filename, namespace = GenCPP(output_dir, '/' + dir_name, s.stem, z)
                             sub_all_includes += '#include "' + output_filename + '"\n'
                             sub_all_externs += 'EXTERN_ROM(' + namespace + ')\n'
                             sub_all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
@@ -104,7 +104,7 @@ def main():
                 }
     print(output_dir + '/' + main_package_name, "generated.")
 
-    with open('../preset_roms/roms/preset_roms.inc', "w") as o:
+    with open(output_dir + '/preset_roms.inc', "w") as o:
         o.write('#if !defined(KIWI_USE_EXTERNAL_PAK)\n')
 
         o.write('\n')
@@ -139,9 +139,9 @@ def main():
             o.write('}  // namespace ' + dir_ns + '\n')
         o.write('#endif  // KIWI_USE_EXTERNAL_PAK\n\n')
 
-    print("Generated: ../preset_roms/roms/preset_roms.inc")
+    print("Generated: preset_roms.inc")
 
-    with open('../preset_roms/roms/preset_roms.cc', "w") as o:
+    with open(output_dir + '/preset_roms.cc', "w") as o:
         o.write('#include "preset_roms/preset_roms.h"\n')
         o.write('\n')
         o.write('namespace preset_roms {\n')
@@ -166,7 +166,7 @@ def main():
         o.write('#endif  // KIWI_USE_EXTERNAL_PAK\n\n')
         o.write('}  // namespace preset_roms\n')
 
-    print("Generated: ../preset_roms/roms/preset_roms.cc")
+    print("Generated: preset_roms/preset_roms.cc")
 
 
 if __name__ == "__main__":
