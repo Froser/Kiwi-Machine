@@ -71,3 +71,8 @@ void MenuBar::PaintMenuItems(const std::vector<MenuItem> items) {
     }
   }
 }
+
+// For sorting.
+bool operator<(const MenuBar::MenuItem& lhs, const MenuBar::MenuItem& rhs) {
+  return lhs.title < rhs.title;
+}

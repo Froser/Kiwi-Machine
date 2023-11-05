@@ -53,4 +53,7 @@ class MenuBar : public Widget {
   std::vector<Menu> menu_;
 };
 
+// For sorting.
+bool operator<(const MenuBar::MenuItem& lhs, const MenuBar::MenuItem& rhs);
+
 #endif  // UI_WIDGETS_MENU_BAR_H_

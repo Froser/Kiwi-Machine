@@ -49,6 +49,7 @@ bool CreateMenuItemRecursively(MenuBar::MenuItem& menu_item,
         has_nes = true;
       }
     }
+    std::sort(menu_item.sub_items.begin(), menu_item.sub_items.end());
   }
 
   return has_subdirectory || has_nes;
