@@ -6,3 +6,5 @@
 **/.DS_Store
 /venv/
 /src/client/kiwi_machine/build/win/*.aps
+/cmake-build-release_noembed/
+/cmake-build-debug_noembed/

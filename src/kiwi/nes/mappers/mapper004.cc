@@ -47,7 +47,7 @@ void Mapper004::WritePRG(Address address, Byte value) {
   if (address >= 0x8000 && address <= 0x9fff) {
     if (is_even) {
       // Select bank
-      target_register_ = value & 0x7;
+      target_register_ = value & target_register_mask_;
       prg_mode_ = value & 0x40;
       chr_mode_ = value & 0x80;
     } else {
@@ -77,14 +77,12 @@ void Mapper004::WritePRG(Address address, Byte value) {
     if (is_even) {
       irq_latch_ = value;
     } else {
-      irq_counter_ = 0;
       irq_reload_ = true;
     }
   } else if (address >= 0xe000) {
     // IRQ enabled if odd.
     if (is_even) {
       irq_enabled_ = false;
-      irq_flag_ = false;
     } else {
       irq_enabled_ = true;
     }
@@ -174,16 +172,20 @@ Byte Mapper004::ReadCHR(Address address) {
         DCHECK(false) << "Shouldn't happen.";
     }
 
-    Address offset = address % 0x0400;
-    uint32_t index = ((kCHRBankSize * bank) | offset) %
-                     cartridge()->GetRomData()->CHR.size();
-    return cartridge()->GetRomData()->CHR[index];
+    return ReadCHRByBank(bank, address);
   } else if (address <= 0x2fff) {
     return mirroring_ram_[address - 0x2000];
   }
 
   DCHECK(false);
   return 0;
+}
+
+Byte Mapper004::ReadCHRByBank(int bank, Address address) {
+  Address offset = address % 0x0400;
+  uint32_t index =
+      ((kCHRBankSize * bank) | offset) % cartridge()->GetRomData()->CHR.size();
+  return cartridge()->GetRomData()->CHR[index];
 }
 
 void Mapper004::WriteExtendedRAM(Address address, Byte value) {
@@ -218,11 +220,7 @@ void Mapper004::PPUAddressChanged(Address address) {
 }
 
 void Mapper004::ScanlineIRQ() {
-  if (irq_flag_) {
-    irq_callback().Run();
-  } else {
-    StepIRQCounter();
-  }
+  StepIRQCounter();
 }
 
 void Mapper004::Serialize(EmulatorStates::SerializableStateData& data) {
@@ -243,7 +241,6 @@ void Mapper004::Serialize(EmulatorStates::SerializableStateData& data) {
       .WriteData(irq_counter_)
       .WriteData(irq_latch_)
       .WriteData(irq_reload_)
-      .WriteData(irq_flag_)
       .WriteData(prg_ram_)
       .WriteData(mirroring_ram_);
 
@@ -272,7 +269,6 @@ bool Mapper004::Deserialize(const EmulatorStates::Header& header,
       .ReadData(&irq_counter_)
       .ReadData(&irq_latch_)
       .ReadData(&irq_reload_)
-      .ReadData(&irq_flag_)
       .ReadData(&prg_ram_)
       .ReadData(&mirroring_ram_);
 
@@ -286,15 +282,15 @@ bool Mapper004::Deserialize(const EmulatorStates::Header& header,
 void Mapper004::StepIRQCounter() {
   if (irq_counter_ == 0 || irq_reload_) {
     irq_counter_ = irq_latch_;
+    irq_reload_ = false;
   } else {
-    irq_counter_ -= 1;
+    --irq_counter_;
   }
 
   if (irq_counter_ == 0 && irq_enabled_) {
-    irq_flag_ = true;
+    if (irq_callback())
+      irq_callback().Run();
   }
-
-  irq_reload_ = false;
 }
 
 }  // namespace nes

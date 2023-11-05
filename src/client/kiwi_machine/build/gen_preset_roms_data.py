@@ -1,6 +1,8 @@
 import shutil
+import sys
 from pathlib import Path
 import os
+import zipfile
 
 
 def GenNamespace(filename):
@@ -15,7 +17,7 @@ def GenNamespace(filename):
     return result
 
 
-def GenCPP(dir, filename):
+def GenCPP(dir, filename, zip):
     zip_filename = './nes' + dir + '/' + filename + '.zip'
     namespace = GenNamespace(filename)
     output_filename = namespace + '.inc'
@@ -23,6 +25,8 @@ def GenCPP(dir, filename):
     file_size = 0
 
     print("Generating: ", zip_filename)
+    package_name = filename + '.zip'
+    zip.write(zip_filename, package_name)
 
     with open(zip_filename, 'rb') as f:
         rom_data = f.read()
@@ -52,6 +56,9 @@ def GenCPP(dir, filename):
 
 
 def main():
+    output_dir = sys.argv[1]
+    print("Font resources output dir is", output_dir)
+
     if not os.path.isdir('../preset_roms/roms'):
         os.mkdir('../preset_roms/roms')
     else:
@@ -67,32 +74,39 @@ def main():
     other_roms = {}
 
     last_title = ''
-    for f in sorted(Path('./nes').iterdir()):
-        if f.suffix == '.zip':
-            output_filename, namespace = GenCPP('', f.stem)
-            all_includes += '#include "' + output_filename + '"\n'
-            all_externs += 'EXTERN_ROM(' + namespace + ')\n'
-            all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
+    main_package_name = 'main.pak'
+    with zipfile.ZipFile(output_dir + '/' + main_package_name, 'w', zipfile.ZIP_DEFLATED) as main_zip:
+        for f in sorted(Path('./nes').iterdir()):
+            if f.suffix == '.zip':
+                output_filename, namespace = GenCPP('', f.stem, main_zip)
+                all_includes += '#include "' + output_filename + '"\n'
+                all_externs += 'EXTERN_ROM(' + namespace + ')\n'
+                all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
 
-        # Create special ROMs (generally hacks):
-        if f.is_dir():
-            dir_name = f.name
-            sub_all_includes = ''
-            sub_all_externs = ''
-            sub_all_namespaces = ''
-            for s in sorted(Path('./nes/' + dir_name).iterdir()):
-                if s.suffix == '.zip':
-                    output_filename, namespace = GenCPP('/' + dir_name, s.stem)
-                    sub_all_includes += '#include "' + output_filename + '"\n'
-                    sub_all_externs += 'EXTERN_ROM(' + namespace + ')\n'
-                    sub_all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
-            other_roms[dir_name] = {
-                'all_includes': sub_all_includes,
-                'all_externs': sub_all_externs,
-                'all_namespaces': sub_all_namespaces
-            }
+            # Create special ROMs (generally hacks):
+            if f.is_dir():
+                dir_name = f.name
+                sub_all_includes = ''
+                sub_all_externs = ''
+                sub_all_namespaces = ''
+                with zipfile.ZipFile(output_dir + '/' + dir_name + '.pak', 'w', zipfile.ZIP_DEFLATED) as z:
+                    for s in sorted(Path('./nes/' + dir_name).iterdir()):
+                        if s.suffix == '.zip':
+                            output_filename, namespace = GenCPP('/' + dir_name, s.stem, z)
+                            sub_all_includes += '#include "' + output_filename + '"\n'
+                            sub_all_externs += 'EXTERN_ROM(' + namespace + ')\n'
+                            sub_all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
+                print(output_dir + '/' + dir_name + '.zip', "generated.")
+                other_roms[dir_name] = {
+                    'all_includes': sub_all_includes,
+                    'all_externs': sub_all_externs,
+                    'all_namespaces': sub_all_namespaces
+                }
+    print(output_dir + '/' + main_package_name, "generated.")
 
     with open('../preset_roms/roms/preset_roms.inc', "w") as o:
+        o.write('#if !defined(KIWI_USE_EXTERNAL_PAK)\n')
+
         o.write('\n')
         o.write(all_externs)
         o.write('\n')
@@ -100,7 +114,7 @@ def main():
         o.write('const PresetROM kPresetRoms[] = {\n')
         o.write(all_namespaces)
         o.write('};\n')
-        o.write('constexpr size_t kPresetRomsCount = sizeof(kPresetRoms) / sizeof(PresetROM);\n')
+        o.write('constexpr size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
 
         # Writes all other ROMs
         for dir_ns in other_roms:
@@ -110,8 +124,20 @@ def main():
             o.write('const PresetROM kPresetRoms[] = {\n')
             o.write(other_roms[dir_ns]['all_namespaces'])
             o.write('};\n')
-            o.write('constexpr size_t kPresetRomsCount = sizeof(kPresetRoms) / sizeof(PresetROM);\n')
+            o.write('constexpr size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
             o.write('} // namespace ' + dir_ns + '\n')
+
+        o.write('#else\n')
+        o.write('extern std::vector<PresetROM> kPresetRoms;\n')
+        o.write('extern const char kPackageName[];\n')
+        o.write('inline size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
+        for dir_ns in other_roms:
+            o.write('namespace ' + dir_ns + ' {\n')
+            o.write('extern std::vector<PresetROM> kPresetRoms;\n')
+            o.write('extern const char kPackageName[];\n')
+            o.write('inline size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
+            o.write('}  // namespace ' + dir_ns + '\n')
+        o.write('#endif  // KIWI_USE_EXTERNAL_PAK\n\n')
 
     print("Generated: ../preset_roms/roms/preset_roms.inc")
 
@@ -119,6 +145,7 @@ def main():
         o.write('#include "preset_roms/preset_roms.h"\n')
         o.write('\n')
         o.write('namespace preset_roms {\n')
+        o.write('#if !defined(KIWI_USE_EXTERNAL_PAK)\n')
         o.write(all_includes)
 
         # Writes all other ROMs
@@ -127,6 +154,16 @@ def main():
             o.write(other_roms[dir_ns]['all_includes'])
             o.write('}  // namespace ' + dir_ns + '\n')
 
+        o.write('#else\n')
+        o.write('std::vector<PresetROM> kPresetRoms;\n')
+        o.write('const char kPackageName[] = "' + main_package_name + '";\n')
+        for dir_ns in other_roms:
+            o.write('namespace ' + dir_ns + ' {\n')
+            o.write('std::vector<PresetROM> kPresetRoms;\n')
+            o.write('const char kPackageName[] = "' + dir_ns + '.pak";\n')
+            o.write('}  // namespace ' + dir_ns + '\n')
+
+        o.write('#endif  // KIWI_USE_EXTERNAL_PAK\n\n')
         o.write('}  // namespace preset_roms\n')
 
     print("Generated: ../preset_roms/roms/preset_roms.cc")

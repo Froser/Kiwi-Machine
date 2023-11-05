@@ -22,6 +22,7 @@
 #include "nes/mappers/mapper007.h"
 #include "nes/mappers/mapper040.h"
 #include "nes/mappers/mapper066.h"
+#include "nes/mappers/mapper074.h"
 #include "nes/mappers/mapper087.h"
 
 namespace kiwi {
@@ -57,25 +58,14 @@ std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
       return std::make_unique<Mapper003>(cartridge);
     case 4:
       return std::make_unique<Mapper004>(cartridge);
-      break;
     case 7:
       return std::make_unique<Mapper007>(cartridge);
-      break;
-    /*
-  case Type::kAxROM:
-    ret.reset(new MapperAxROM(cart, mirroring_cb));
-    break;
-  case Type::kColorDreams:
-    ret.reset(new MapperColorDreams(cart, mirroring_cb));
-    break;
-  case Type::kGxROM:
-    ret.reset(new MapperGxROM(cart, mirroring_cb));
-    break;
-    */
     case 40:
       return std::make_unique<Mapper040>(cartridge);
     case 66:
       return std::make_unique<Mapper066>(cartridge);
+    case 74:
+      return std::make_unique<Mapper074>(cartridge);
     case 87:
       return std::make_unique<Mapper087>(cartridge);
     default:

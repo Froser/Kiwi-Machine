@@ -22,8 +22,7 @@ bool IsJoystickButtonMatch(NESRuntime::Data* runtime_data,
                            kiwi::nes::ControllerButton button,
                            SDL_Keysym key);
 
-bool IsJoystickAxisMotionMatch(NESRuntime::Data* runtime_data,
-                               kiwi::nes::ControllerButton button);
+bool IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton button);
 
 bool IsKeyboardOrControllerAxisMotionMatch(NESRuntime::Data* runtime_data,
                                            kiwi::nes::ControllerButton button,

@@ -119,7 +119,40 @@ void KiwiItemWidget::Paint() {
           IM_COL32(0, 0, 0, 255), title_.c_str());
     }
 
-    if (has_sub_items_) {
+    if (sub_items_count_ > 0) {
+      // If a game has more than one version, paint the option list to show
+      // which version is currently selected.
+      constexpr int kSpacingBetweenSubItemPrompt = 10;
+      constexpr int kSubItemPromptSize = 15;
+      int total_item_count = sub_items_count_ + 1;
+      const int kPromptWidth =
+          kSpacingBetweenSubItemPrompt * (total_item_count - 1) +
+          kSubItemPromptSize * total_item_count;
+      const int kPromptLeftStart =
+          kBoundsToParent.x + (kBoundsToParent.w - kPromptWidth) / 2;
+      int prompt_left = kPromptLeftStart;
+
+      // -1 means no sub item is selected. It means the first prompt should be
+      // highlighted.
+      int current_selected_index = sub_item_index_ + 1;
+      for (int i = 0; i < total_item_count; ++i) {
+        ImVec2 pos0(prompt_left, cover_rect.y - kSpacingBetweenTitleAndCover -
+                                     kSubItemPromptSize);
+        ImVec2 pos1(pos0.x + kSubItemPromptSize, pos0.y + kSubItemPromptSize);
+        draw_list->AddRectFilled(pos0, pos1, IM_COL32_BLACK);
+        if (current_selected_index == i) {
+          draw_list->AddRectFilled(ImVec2(pos0.x + 2, pos0.y + 2),
+                                   ImVec2(pos1.x - 2, pos1.y - 2),
+                                   IM_COL32(1, 156, 218, 255));
+        } else {
+          draw_list->AddRectFilled(ImVec2(pos0.x + 2, pos0.y + 2),
+                                   ImVec2(pos1.x - 2, pos1.y - 2),
+                                   IM_COL32_WHITE);
+        }
+        prompt_left += kSubItemPromptSize + kSpacingBetweenSubItemPrompt;
+      }
+
+      // Draw title
       constexpr int kSpacingBetweenTitleAndHint = 13;
       constexpr char kVersionHintStr[] =
           "(Press select to switch game version)";

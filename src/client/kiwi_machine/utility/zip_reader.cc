@@ -91,11 +91,8 @@ void ReadNESOrCover(unzFile file,
     ReadCurrentFileFromZip(file, out.rom_cover);
 }
 
-}  // namespace
-
-void FillRomDataFromZip(const preset_roms::PresetROM& rom_data) {
-  SDL_RWops* ops = SDL_RWFromMem(
-      const_cast<kiwi::nes::Byte*>(rom_data.zip_data), rom_data.zip_size);
+unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
+  SDL_RWops* ops = SDL_RWFromMem(const_cast<kiwi::nes::Byte*>(data), size);
 
   // Filling zlib_filefunc_def struct by SDL_RWops.
   zlib_filefunc_def func;
@@ -107,6 +104,14 @@ void FillRomDataFromZip(const preset_roms::PresetROM& rom_data) {
   func.zerror_file = ErrorFileImpl;
 
   unzFile file = unzOpen2(reinterpret_cast<const char*>(ops), &func);
+  return file;
+}
+
+}  // namespace
+
+void FillRomDataFromZip(const preset_roms::PresetROM& rom_data) {
+  unzFile file = unzOpenFromMemory(
+      const_cast<kiwi::nes::Byte*>(rom_data.zip_data), rom_data.zip_size);
   if (file) {
     bool success = ReadRomAndCover(file, rom_data.name, rom_data.rom_data,
                                    rom_data.rom_cover);
@@ -163,3 +168,47 @@ void FillRomDataFromZip(const preset_roms::PresetROM& rom_data) {
                 "Can't load rom zip data of name %s", rom_data.name);
   }
 }
+
+#if defined(KIWI_USE_EXTERNAL_PAK)
+
+// Reads all roms' data from package file.
+void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
+                            const kiwi::base::FilePath& package) {
+  unzFile pak = unzOpen(package.AsUTF8Unsafe().c_str());
+  SDL_assert(pak);
+
+  int located = unzGoToFirstFile(pak);
+  std::string filename;
+  filename.resize(64);
+  while (located == UNZ_OK) {
+    unz_file_info fi;
+    unzGetCurrentFileInfo(pak, &fi, filename.data(), filename.size(), nullptr,
+                          0, nullptr, 0);
+    unzOpenCurrentFile(pak);
+
+    preset_roms::PresetROM rom;
+    kiwi::base::FilePath filepath =
+        kiwi::base::FilePath::FromUTF8Unsafe(filename.c_str());
+    std::string name = filepath.RemoveExtension().AsUTF8Unsafe();
+
+    rom.name = new char[name.size() + 1];
+    strncpy(const_cast<char*>(rom.name), name.data(), name.size() + 1);
+    rom.zip_size = fi.uncompressed_size;
+    rom.zip_data = new kiwi::nes::Byte[rom.zip_size];
+    unzReadCurrentFile(pak, const_cast<kiwi::nes::Byte*>(rom.zip_data),
+                       rom.zip_size);
+    unzCloseCurrentFile(pak);
+    roms.push_back(std::move(rom));
+    located = unzGoToNextFile(pak);
+  }
+
+  unzClose(pak);
+}
+
+void CloseRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms) {
+  for (auto& rom : roms) {
+    delete[] rom.name;
+    delete[] rom.zip_data;
+  }
+}
+#endif

@@ -51,6 +51,7 @@ class NES_EXPORT IODevices {
    public:
     enum {
       kFrequency = 44100,
+      kBufferMS = 65000,
     };
 
     AudioDevice();

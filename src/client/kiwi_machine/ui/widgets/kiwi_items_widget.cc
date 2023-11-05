@@ -189,7 +189,7 @@ void KiwiItemsWidget::ApplyItemBounds() {
         Lerp(items_bounds_current_[i], items_bounds_next_[i], animation_lerp_));
   }
 
-  items_[current_idx_]->set_has_sub_items(!sub_items_[current_idx_].empty());
+  items_[current_idx_]->set_sub_items_count(sub_items_[current_idx_].size());
 }
 
 void KiwiItemsWidget::FirstFrame() {
@@ -253,6 +253,8 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
         // Swap the item iff sub item is selected.
         items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
       }
+
+      items_[current_idx_]->set_sub_items_index(sub_item_index_);
     }
     return true;
   }
@@ -272,6 +274,7 @@ void KiwiItemsWidget::ResetSubItemIndex() {
 
   int last_sub_item_index = sub_item_index_;
   sub_item_index_ = -1;
+  items_[current_idx_]->set_sub_items_index(sub_item_index_);
   if (!sub_items_[current_idx_].empty()) {
     // Swaps back. Reset the current item.
     items_[current_idx_]->Swap(*sub_items_[current_idx_][last_sub_item_index]);

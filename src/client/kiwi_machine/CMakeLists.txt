@@ -15,6 +15,7 @@ project(kiwi_machine CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 OPTION(KIWI_MACHINE_PRESET_ROMS "Generate preset roms in 'build/nes' directory" OFF)
+OPTION(KIWI_EMBEDDED_ROMS "Embed roms data in code" ON)
 
 FIND_PACKAGE(Python3 REQUIRED)
 
@@ -193,6 +194,7 @@ if (${KIWI_MACHINE_PRESET_ROMS})
     add_custom_command(
             OUTPUT preset_roms/preset_roms.h __always_build_roms.h
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_preset_roms_data.py
+            ARGS $<TARGET_FILE_DIR:${PROJECT_NAME}>
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
             VERBATIM
     )
@@ -212,3 +214,9 @@ target_include_directories(${PROJECT_NAME}
         PRIVATE
         "../../third_party/imgui"
 )
+
+if (${KIWI_EMBEDDED_ROMS})
+    target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
+else ()
+    target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static PRIVATE KIWI_USE_EXTERNAL_PAK)
+endif ()

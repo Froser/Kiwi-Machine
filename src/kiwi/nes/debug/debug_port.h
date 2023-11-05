@@ -20,6 +20,7 @@
 #include "nes/cpu.h"
 #include "nes/io_devices.h"
 #include "nes/nes_export.h"
+#include "nes/ppu_patch.h"
 #include "nes/registers.h"
 
 namespace kiwi {
@@ -50,6 +51,7 @@ struct PPUContext {
   Palette* palette;
   int scanline;
   int pixel;
+  PPUPatch* patch_;
 };
 
 struct CPUContext {
@@ -148,6 +150,9 @@ class NES_EXPORT DebugPort {
   // Set audio channels.
   void SetAudioChannelMasks(int audio_channels);
   int GetAudioChannelMasks();
+
+  // Set PPU subtle behaviour:
+  void SetScanlineIRQCycle(int cycles);
 
  private:
   Attributes GetNametableAttributes(Address nametable_start);

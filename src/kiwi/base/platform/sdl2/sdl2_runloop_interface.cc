@@ -34,6 +34,10 @@ constexpr int kFPS = 60;
 SDL2RunLoopInterface::SDL2RunLoopInterface() {
   cond_ = SDL_CreateCond();
   frame_sync_mutex_ = SDL_CreateMutex();
+
+  // Lock sync mutex, waiting for signaling, or timeout.
+  SDL_LockMutex(frame_sync_mutex_);
+
   SDL_AddEventWatch(&SDL2RunLoopInterface::EventAddedWatcher, this);
 }
 
@@ -105,9 +109,6 @@ void SDL2RunLoopInterface::TryRender() {
     if (GetRenderHandlerForSDL2())
       GetRenderHandlerForSDL2().Run();
   } else {
-    // Lock sync mutex, waiting for signaling, or timeout.
-    SDL_LockMutex(frame_sync_mutex_);
-
     // When condition variable is signaled. It means a PostTask is called in
     // another thread. When condition variable is timeout, no task is post
     // duration this 'delay'.

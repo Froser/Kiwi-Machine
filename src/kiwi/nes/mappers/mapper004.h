@@ -48,10 +48,15 @@ class Mapper004 : public Mapper {
   bool Deserialize(const EmulatorStates::Header& header,
                    EmulatorStates::DeserializableStateData& data) override;
 
+ protected:
+  virtual Byte ReadCHRByBank(int bank, Address address);
+
  private:
   void StepIRQCounter();
 
- private:
+ protected:
+  Byte target_register_mask_ = 0x07;
+
   bool uses_character_ram_ = false;
   Bytes character_ram_;
 
@@ -60,18 +65,16 @@ class Mapper004 : public Mapper {
   Byte target_register_ = 0;
   bool prg_mode_ = false;
   bool chr_mode_ = false;
-  uint32_t bank_register_[8];
+  uint32_t bank_register_[8]{0, 2, 4, 5, 6, 7, 0, 1};
 
   bool irq_enabled_ = false;
   Byte irq_counter_ = 0;
   Byte irq_latch_ = 0;
   bool irq_reload_ = false;
-  bool irq_flag_ = false;
 
   Bytes prg_ram_;
   Bytes mirroring_ram_;
 
-  // uint32_t chr_banks_[8] = {0};
   NametableMirroring mirroring_ = NametableMirroring::kHorizontal;
 };
 

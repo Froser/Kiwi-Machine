@@ -117,7 +117,7 @@ void DisassemblyWidget::Paint() {
   ImGui::EndGroup();
 
   // Breakpoints
-  ImGui::InputText("CPU Address", breakpoint_address_input,
+  ImGui::InputText("##CPU Address", breakpoint_address_input,
                    sizeof(breakpoint_address_input),
                    ImGuiInputTextFlags_CharsHexadecimal);
   ImGui::BeginGroup();
@@ -183,6 +183,21 @@ void DisassemblyWidget::Paint() {
     UpdateDisassembly();
   }
   ImGui::EndDisabled();
+
+  // Patches
+  ImGui::Text("Follow settings are subtle:");
+  ImGui::Text("Scanline IRQ Cycle(Dot)");
+  ImGui::InputText("##Scanline IRQ Dot", ppu_scanline_irq_dot_,
+                   sizeof(ppu_scanline_irq_dot_),
+                   ImGuiInputTextFlags_CharsDecimal);
+  ImGui::SameLine();
+  if (ImGui::Button("Ok")) {
+    uint64_t delay;
+    bool converted = kiwi::base::StringToUint64(
+        kiwi::base::StringPiece(ppu_scanline_irq_dot_), &delay);
+    if (converted)
+      runtime_data_->debug_port->SetScanlineIRQCycle(delay);
+  }
 
   ImGui::EndGroup();
 }

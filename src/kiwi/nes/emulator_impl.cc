@@ -566,7 +566,7 @@ PPUContext EmulatorImpl::GetPPUContext() {
   return PPUContext{ppu_->registers(),    ppu_->data_address(),
                     ppu_->write_toggle(), ppu_->sprite_data_address(),
                     ppu_->palette(),      ppu_->scanline(),
-                    ppu_->pixel()};
+                    ppu_->pixel(),        ppu_->patch()};
 }
 
 CPUContext EmulatorImpl::GetCPUContext() {

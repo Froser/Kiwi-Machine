@@ -61,7 +61,6 @@ void Mapper001::WritePRG(Address address, Byte value) {
     shift_register_ = 0;
     write_count_ = 0;
     prg_mode_ = 3;
-    mirroring_ = NametableMirroring::kOneScreenLower;
   }
 }
 

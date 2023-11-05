@@ -696,7 +696,7 @@ void InGameMenu::RequestCurrentThumbnail() {
   const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
   // Settings menu also use this class, but no ROM is loaded.
   if (rom_data) {
-    if (current_selection_ != MenuItem::kLoadState) {
+    if (current_selection_ == MenuItem::kLoadAutoSave) {
       runtime_data_->GetAutoSavedState(
           rom_data->crc, which_autosave_state_slot_,
           kiwi::base::BindOnce(&InGameMenu::OnGotState,

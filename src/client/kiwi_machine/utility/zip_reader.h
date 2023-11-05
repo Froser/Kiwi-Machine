@@ -21,4 +21,11 @@ struct PresetROM;
 
 void FillRomDataFromZip(const preset_roms::PresetROM& rom_data);
 
+#if defined(KIWI_USE_EXTERNAL_PAK)
+void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
+                            const kiwi::base::FilePath& package);
+
+void CloseRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms);
+#endif
+
 #endif  // UTILITY_ZIP_READER_H_

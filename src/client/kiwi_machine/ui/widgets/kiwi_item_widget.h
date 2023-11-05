@@ -20,7 +20,7 @@
 // KiwiItemWidget presents a ROM label.
 class KiwiItemWidget : public Widget {
  public:
-  enum Metrics{
+  enum Metrics {
     kItemSelectedWidth = 120,
     kItemSelectedHeight = 140,
     kItemWidth = 90,
@@ -48,7 +48,16 @@ class KiwiItemWidget : public Widget {
   }
 
   void set_selected(bool is_selected) { selected_ = is_selected; }
-  void set_has_sub_items(bool has_sub_items) { has_sub_items_ = has_sub_items; }
+
+  void set_sub_items_count(int sub_items_count) {
+    sub_items_count_ = sub_items_count;
+  }
+
+  // Set current sub item index.
+  // -1 means no sub item is selected.
+  void set_sub_items_index(int sub_item_index) {
+    sub_item_index_ = sub_item_index;
+  }
 
   // Swaps cover, title, and callback.
   void Swap(KiwiItemWidget& rhs);
@@ -68,7 +77,8 @@ class KiwiItemWidget : public Widget {
   kiwi::base::RepeatingClosure on_trigger_callback_;
 
   bool selected_ = false;
-  int has_sub_items_ = false;
+  int sub_items_count_ = 0;
+  int sub_item_index_ = -1;
   SDL_Surface* cover_surface_ = nullptr;
   SDL_Texture* cover_texture_ = nullptr;
   int cover_width_ = 0;

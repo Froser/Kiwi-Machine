@@ -114,7 +114,7 @@ void DebugPort::SetNametableRenderer(IODevices::RenderDevice* render_device) {
 Colors DebugPort::GetPatternTableBGRA(PaletteName palette_name) {
   if (emulator_->GetRunningState() == Emulator::RunningState::kStopped)
     return Colors();
-  
+
   // See https://www.nesdev.org/wiki/PPU_pattern_tables for tiles generation.
   // $0xx0-0xx7 are plane 0, $0xx8-0xxF are plane 1.
   Colors bgra(kPatternTableRows * kTwoPatternTablePixelsPerLine);
@@ -395,6 +395,10 @@ void DebugPort::SetAudioChannelMasks(int audio_channels) {
 
 int DebugPort::GetAudioChannelMasks() {
   return emulator_->GetAudioChannelMasks();
+}
+
+void DebugPort::SetScanlineIRQCycle(int cycles) {
+  emulator_->GetPPUContext().patch_->scanline_irq_dot = cycles;
 }
 
 // A nametable is a 1024 byte area of memory used by the PPU to lay out

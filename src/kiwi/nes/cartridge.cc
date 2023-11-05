@@ -134,8 +134,12 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
   } else {
     LOG(INFO) << "Cartridge with CHR-RAM.";
   }
-  crc_ = crc32_z(crc, rom_data_->CHR.data(), rom_data_->CHR.size());
-  rom_data_->crc = crc_;
+
+  // Some roms don't have CHR.
+  if (!rom_data_->CHR.empty())
+    crc = crc32_z(crc, rom_data_->CHR.data(), rom_data_->CHR.size());
+  crc_ = crc;
+  rom_data_->crc = crc;
 
   rom_path_ = rom_path;
   is_loaded_ = true;
@@ -179,8 +183,12 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
 
   const Byte* crc32_prg_chr_end = data_ptr;
   uLong crc = crc32_z(0L, Z_NULL, 0);
-  crc_ = crc32_z(crc, crc32_prg_chr_start,
-                 crc32_prg_chr_end - crc32_prg_chr_start);
+  // Some roms don't have CHR.
+  if (crc32_prg_chr_end - crc32_prg_chr_start > 0) {
+    crc = crc32_z(crc, crc32_prg_chr_start,
+                  crc32_prg_chr_end - crc32_prg_chr_start);
+  }
+  crc_ = crc;
   rom_data_->crc = crc_;
 
   is_loaded_ = true;

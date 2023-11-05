@@ -61,6 +61,7 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   void set_cpu_nmi_callback(base::RepeatingClosure callback) {
     cpu_nmi_callback_ = callback;
   }
+  PPUPatch* patch() { return &patch_; }
 
   void SetObserver(PPUObserver* observer);
   void RemoveObserver();
@@ -109,6 +110,8 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   // Increase scanline and notify observers that the scanline has finished.
   void IncreaseScanline();
 
+  void NMIChange();
+
  private:
   base::RepeatingClosure cpu_nmi_callback_;
   Bus* ppu_bus_ = nullptr;
@@ -121,6 +124,7 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   Byte fine_scroll_pos_x_ = 0;
   Byte data_buffer_ = 0xff;
   bool write_toggle_ = false;
+  int nmi_delay_ = 3;
 
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that
   // contains a display list of up to 64 sprites, where each sprite's

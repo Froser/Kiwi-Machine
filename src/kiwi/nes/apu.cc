@@ -44,7 +44,8 @@ APU::APU(EmulatorImpl* emulator, Bus* cpu_bus)
   CHECK(emulator_);
   CHECK(cpu_bus_);
   apu_impl_.reset(false);
-  buffer_.sample_rate(IODevices::AudioDevice::kFrequency);
+  buffer_.sample_rate(IODevices::AudioDevice::kFrequency,
+                      IODevices::AudioDevice::kBufferMS);
   buffer_.clock_rate(kNTSCClockRate);
   apu_impl_.output(&buffer_);
   apu_impl_.dmc_reader(&ReadDMC, cpu_bus_);

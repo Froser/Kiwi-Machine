@@ -115,7 +115,7 @@ std::pair<bool, int> OnExportGameROM(MainWindow* main_window,
 void OnGameROMExported(MainWindow* main_window,
                        const kiwi::base::FilePath& export_path,
                        const std::pair<bool, int>& result) {
-  if (result.second >= preset_roms::kPresetRomsCount) {
+  if (result.second >= preset_roms::GetPresetRomsCount()) {
     // No more roms to be exported.
     main_window->ExportDone();
     return;
@@ -158,6 +158,11 @@ MainWindow::~MainWindow() {
   runtime_data_->emulator->PowerOff();
   canvas_->RemoveObserver(this);
   SaveConfig();
+
+#if defined(KIWI_USE_EXTERNAL_PAK)
+  CloseRomDataFromPackage(preset_roms::kPresetRoms);
+  CloseRomDataFromPackage(preset_roms::specials::kPresetRoms);
+#endif
 }
 
 void MainWindow::ExportDone() {
@@ -211,6 +216,12 @@ bool MainWindow::IsKeyDown(int controller_id,
     // If mapping is available, cast it to game controller interface.
     SDL_GameController* game_controller =
         reinterpret_cast<SDL_GameController*>(joystick_mapping.which);
+
+    // Unknown type may have wrong axis behaviour.
+    if (SDL_GameControllerGetType(game_controller) ==
+        SDL_CONTROLLER_TYPE_UNKNOWN)
+      return false;
+
     matched = SDL_GameControllerGetButton(
         game_controller, static_cast<SDL_GameControllerButton>(
                              runtime_data_->joystick_mappings[controller_id]
@@ -428,6 +439,13 @@ void MainWindow::InitializeUI() {
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
   main_items_widget_ = items_widget.get();
 
+#if defined(KIWI_USE_EXTERNAL_PAK)
+  OpenRomDataFromPackage(preset_roms::kPresetRoms, preset_roms::kPackageName);
+  OpenRomDataFromPackage(preset_roms::specials::kPresetRoms,
+                         preset_roms::specials::kPackageName);
+#endif
+
+  SDL_assert(preset_roms::GetPresetRomsCount() > 0);
   for (const auto& rom : preset_roms::kPresetRoms) {
     FillRomDataFromZip(rom);
     int main_item_index = items_widget->AddItem(
@@ -455,6 +473,7 @@ void MainWindow::InitializeUI() {
   std::unique_ptr<KiwiItemsWidget> specials_item_widget =
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
 
+  SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
   for (const auto& rom : preset_roms::specials::kPresetRoms) {
     FillRomDataFromZip(rom);
 
@@ -882,7 +901,27 @@ void MainWindow::UpdateGameControllerMapping() {
   const auto& game_controllers = Application::Get()->game_controllers();
   int index = 0;
   for (auto* game_controller : game_controllers) {
-    SetControllerMapping(runtime_data_, index++, game_controller, false);
+    // If one's controller is already set, we don't change it.
+    if (runtime_data_->joystick_mappings[0].which != game_controller &&
+        runtime_data_->joystick_mappings[1].which != game_controller) {
+      SetControllerMapping(runtime_data_, index++, game_controller, false);
+    }
+    if (index >= 2)
+      break;
+  }
+
+  // If any game controller is removed, remove it from joystick mapping as well.
+  if (std::find(game_controllers.begin(), game_controllers.end(),
+                reinterpret_cast<SDL_GameController*>(
+                    runtime_data_->joystick_mappings[0].which)) ==
+      game_controllers.end()) {
+    runtime_data_->joystick_mappings[0].which = nullptr;
+  }
+  if (std::find(game_controllers.begin(), game_controllers.end(),
+                reinterpret_cast<SDL_GameController*>(
+                    runtime_data_->joystick_mappings[1].which)) ==
+      game_controllers.end()) {
+    runtime_data_->joystick_mappings[1].which = nullptr;
   }
 }
 
@@ -1087,7 +1126,15 @@ void MainWindow::OnSetFullscreen() {
   config_->data().is_fullscreen = true;
   config_->data().window_scale = kMaxScaleBeforeFullscreen;
   config_->SaveConfig();
+
+  // Windows system use a fake fullscreen to avoid changing resolution.
+  // While MacOS can use the real fullscreen to avoid fullscreen's
+  // window animation.
+#if defined(WIN32)
+  SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN_DESKTOP);
+#else
   SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN);
+#endif
 }
 
 void MainWindow::OnUnsetFullscreen(float scale) {
@@ -1142,7 +1189,7 @@ void MainWindow::OnExportGameROMs() {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();
 
-  export_widget_->Start(preset_roms::kPresetRomsCount, export_path);
+  export_widget_->Start(preset_roms::GetPresetRomsCount(), export_path);
   export_widget_->SetCurrent(
       kiwi::base::FilePath::FromUTF8Unsafe(preset_roms::kPresetRoms[0].name));
 

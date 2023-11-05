@@ -25,8 +25,7 @@ bool IsJoystickButtonMatch(NESRuntime::Data* runtime_data,
   return false;
 }
 
-bool IsJoystickAxisMotionMatch(NESRuntime::Data* runtime_data,
-                               kiwi::nes::ControllerButton button) {
+bool IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton button) {
   // An array to cache last trigger timestamp for X and Y axis motion, avoiding
   // trigger to fast.
   enum TriggerCache { kX, kY, kMax };
@@ -34,16 +33,21 @@ bool IsJoystickAxisMotionMatch(NESRuntime::Data* runtime_data,
   constexpr int kGapMs = 100;
 
   bool matched = false;
-  for (auto joystick_mappings : runtime_data->joystick_mappings) {
-    // This mapping is not available, because its controller is not connected.
-    if (!joystick_mappings.which)
+  std::set<SDL_GameController*> controllers =
+      Application::Get()->game_controllers();
+  for (auto game_controller : controllers) {
+    // Unknown type may have wrong axis behaviour.
+    if (SDL_GameControllerGetType(game_controller) ==
+        SDL_CONTROLLER_TYPE_UNKNOWN)
       continue;
 
-    SDL_GameController* game_controller =
-        reinterpret_cast<SDL_GameController*>(joystick_mappings.which);
     constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
     switch (button) {
       case kiwi::nes::ControllerButton::kLeft: {
+        if (!SDL_GameControllerHasAxis(game_controller,
+                                       SDL_CONTROLLER_AXIS_LEFTX))
+          break;
+
         if (g_last_trigger[kX].ElapsedInMilliseconds() < kGapMs)
           break;
 
@@ -55,6 +59,10 @@ bool IsJoystickAxisMotionMatch(NESRuntime::Data* runtime_data,
         }
       } break;
       case kiwi::nes::ControllerButton::kRight: {
+        if (!SDL_GameControllerHasAxis(game_controller,
+                                       SDL_CONTROLLER_AXIS_LEFTX))
+          break;
+
         if (g_last_trigger[kX].ElapsedInMilliseconds() < kGapMs)
           break;
 
@@ -66,6 +74,10 @@ bool IsJoystickAxisMotionMatch(NESRuntime::Data* runtime_data,
         }
       } break;
       case kiwi::nes::ControllerButton::kUp: {
+        if (!SDL_GameControllerHasAxis(game_controller,
+                                       SDL_CONTROLLER_AXIS_LEFTY))
+          break;
+
         if (g_last_trigger[kY].ElapsedInMilliseconds() < kGapMs)
           break;
 
@@ -77,6 +89,10 @@ bool IsJoystickAxisMotionMatch(NESRuntime::Data* runtime_data,
         }
       } break;
       case kiwi::nes::ControllerButton::kDown: {
+        if (!SDL_GameControllerHasAxis(game_controller,
+                                       SDL_CONTROLLER_AXIS_LEFTY))
+          break;
+
         if (g_last_trigger[kY].ElapsedInMilliseconds() < kGapMs)
           break;
 
@@ -102,7 +118,7 @@ bool IsKeyboardOrControllerAxisMotionMatch(NESRuntime::Data* runtime_data,
                                            kiwi::nes::ControllerButton button,
                                            SDL_KeyboardEvent* k) {
   return (k && IsJoystickButtonMatch(runtime_data, button, k->keysym)) ||
-         IsJoystickAxisMotionMatch(runtime_data, button);
+         IsJoystickAxisMotionMatch(button);
 }
 
 void SetControllerMapping(NESRuntime::Data* runtime_data,

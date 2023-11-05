@@ -18,23 +18,23 @@ namespace nes {
 PPUPatch::PPUPatch() {
   Reset();
 }
+
 PPUPatch::~PPUPatch() = default;
 
 void PPUPatch::Reset() {
-  scanline_irq_dot = 260;
+  // Many games assume IRQ starts at the scanline 280, while according to wiki,
+  // it should happen on 260.
+  // IRQ on 280 has no side-effects for supported games currently, so if there's
+  // any game needs a 260-scanline-IRQ, put its CRC32 to Set() and set the
+  // expected IRQ scanline.
+  scanline_irq_dot = 280;
+  scanline_irq_dot_ex = -100;
 }
 
 void PPUPatch::Set(uint32_t rom_crc) {
   switch (rom_crc) {
-    case 0x37088EFF:  // Kirby's Adventure	Canada
-    case 0xD7794AFC:  // Kirby's Adventure	USA
-    case 0xB2EF7F4B:  // Kirby's Adventure	France
-    case 0x127D76F4:  // Kirby's Adventure	Germany
-    case 0x2C088DC5:  // Kirby's Adventure	Scandinavia
-    case 0x5ED6F221:  // Kirby's Adventure	USA (Rev A)
-    case 0xE4A7D436:  // Hoshi no Kirby: Yume no Izumi no Monogatari
-    case 0xF6898A59:  // James Bond Jr.
-      scanline_irq_dot = 280;
+    case 0x5104833E:  // Kick master
+      scanline_irq_dot_ex = 238;
       break;
     default:
       Reset();

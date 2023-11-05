@@ -12,5 +12,4 @@
 
 add_subdirectory(client)
 add_subdirectory(kiwi)
-add_subdirectory(debugger)
 add_subdirectory(third_party)

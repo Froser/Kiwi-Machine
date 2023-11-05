@@ -35,7 +35,7 @@ class GroupWidget;
 class KiwiItemsWidget;
 
 namespace preset_roms {
-class PresetROM;
+struct PresetROM;
 }
 
 class MainWindow : public WindowBase,

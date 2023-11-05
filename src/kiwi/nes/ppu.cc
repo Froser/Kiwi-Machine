@@ -59,6 +59,9 @@ void PPU::Step() {
   // https://www.nesdev.org/w/images/default/d/d1/Ntsc_timing.png for details.
   constexpr int kScanlineEndCycle = 340;
 
+  if (--nmi_delay_ == 0)
+    cpu_nmi_callback_.Run();
+
   // Notify when scanline start.
   if (cycles_ == 0) {
     if (observer_)
@@ -72,7 +75,8 @@ void PPU::Step() {
         if (observer_)
           observer_->OnPPUFrameStart();
       } else if (cycles_ == 1) {
-        registers_.PPUSTATUS.V = registers_.PPUSTATUS.S = 0;
+        registers_.PPUSTATUS.V = registers_.PPUSTATUS.S =
+            registers_.PPUSTATUS.O = 0;
       } else if (cycles_ == 257 && is_render_enabled()) {  // Dot 257
         data_address_ &= ~0x41f;
         data_address_ |= temp_address_ & 0x41f;
@@ -90,7 +94,9 @@ void PPU::Step() {
           observer_->OnPPUScanlineEnd(261);
         cycles_ = -1;
         scanline_ = 0;
-      } else if (cycles_ == patch_.scanline_irq_dot && is_render_enabled()) {
+      } else if ((cycles_ == patch_.scanline_irq_dot ||
+                  cycles_ == patch_.scanline_irq_dot_ex) &&
+                 is_render_enabled()) {
         // add IRQ support for MMC3
         ppu_bus_->GetMapper()->ScanlineIRQ();
       }
@@ -242,7 +248,7 @@ void PPU::Step() {
 
             // Sets S flag if zero hit.
             if (!registers_.PPUSTATUS.S && is_render_background() && i == 0 &&
-                is_sprite_opaque && is_background_opaque) {
+                is_sprite_opaque /* && is_background_opaque*/) {
               registers_.PPUSTATUS.S = 1;
             }
 
@@ -292,7 +298,9 @@ void PPU::Step() {
       } else if (cycles_ == 257 && is_render_background()) {  // Dot 257
         data_address_ &= ~0x41f;
         data_address_ |= temp_address_ & 0x41f;
-      } else if (cycles_ == patch_.scanline_irq_dot && is_render_background()) {
+      } else if ((cycles_ == patch_.scanline_irq_dot ||
+                  cycles_ == patch_.scanline_irq_dot_ex) &&
+                 is_render_background()) {
         ppu_bus_->GetMapper()->ScanlineIRQ();
       }
 
@@ -315,7 +323,8 @@ void PPU::Step() {
         for (std::size_t i = sprite_data_address_ / 4; i < 64; ++i) {
           auto diff = (scanline_ - sprite_memory_[i * 4]);
           if (0 <= diff && diff < range) {
-            if (j >= 8) {
+            // Sprite overflow shouldn't be set when all rendering is off
+            if (j >= 8 && is_render_enabled()) {
               registers_.PPUSTATUS.O = 1;
               break;
             }
@@ -348,7 +357,7 @@ void PPU::Step() {
       if (cycles_ == 1 && scanline_ == 241) {
         registers_.PPUSTATUS.V = 1;
         if (registers_.PPUCTRL.V) {
-          cpu_nmi_callback_.Run();
+          NMIChange();
         }
       }
 
@@ -438,6 +447,7 @@ void PPU::Serialize(EmulatorStates::SerializableStateData& data) {
       .WriteData(fine_scroll_pos_x_)
       .WriteData(data_buffer_)
       .WriteData(write_toggle_)
+      .WriteData(nmi_delay_)
       .WriteData(sprite_memory_)
       .WriteData(pipeline_state_)
       .WriteData(cycles_)
@@ -455,6 +465,7 @@ bool PPU::Deserialize(const EmulatorStates::Header& header,
         .ReadData(&fine_scroll_pos_x_)
         .ReadData(&data_buffer_)
         .ReadData(&write_toggle_)
+        .ReadData(&nmi_delay_)
         .ReadData(&sprite_memory_)
         .ReadData(&pipeline_state_)
         .ReadData(&cycles_)
@@ -537,7 +548,7 @@ void PPU::SetCtrl(Byte ctrl) {
   // will immediately generate an NMI.
   if (pipeline_state_ == PipelineState::kVerticalBlank &&
       registers_.PPUSTATUS.V == 1 && v_has_changed) {
-    cpu_nmi_callback_.Run();
+    NMIChange();
   }
 }
 
@@ -621,6 +632,10 @@ void PPU::IncreaseScanline() {
 
   ++scanline_;
   cycles_ = -1;
+}
+
+void PPU::NMIChange() {
+  nmi_delay_ = 15;
 }
 
 }  // namespace nes

@@ -42,7 +42,6 @@ ImFont* ScopedFont::GetFont() {
          ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {               \
       int font_size =                                                          \
           basicSize * (static_cast<int>(ft) - static_cast<int>(enumName) + 1); \
-      size_t data_size;                                                        \
       ImFontConfig cfg;                                                        \
       cfg.SizePixels = font_size;                                              \
       g_fonts[static_cast<int>(ft)] =                                          \

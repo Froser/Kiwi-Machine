@@ -42,6 +42,7 @@ class DisassemblyWidget : public Widget {
   std::string disassembly_string_;
   char breakpoint_address_input[5];
   std::string item_getter_buffer_;
+  char ppu_scanline_irq_dot_[5];
 };
 
 #endif  // UI_WIDGETS_DISASSEMBLY_WIDGET_H_
