@@ -6,7 +6,7 @@ import zipfile
 
 
 def GenNamespace(filename):
-    result = ''
+    result = '_'
     for char in filename:
         if char.isalpha():
             result += char.lower()

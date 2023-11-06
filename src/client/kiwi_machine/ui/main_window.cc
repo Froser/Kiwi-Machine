@@ -381,6 +381,9 @@ void MainWindow::Initialize(NESRuntimeID runtime_id) {
     runtime_data_->debug_port->set_on_breakpoint_callback(
         kiwi::base::BindRepeating(&MainWindow::OnPause,
                                   kiwi::base::Unretained(this)));
+  } else {
+    // If there's no menu, disable text input.
+    SDL_StopTextInput();
   }
 }
 
