@@ -54,7 +54,7 @@ void AboutWidget::Paint() {
   content.AddContent(FontType::kDefault, R"(
 Kiwi machine is an open sources NES
 emulator with lots of preset games.
-Github: https://github.com/Froser/Kiwi-NES/
+Github: https://github.com/Froser/Kiwi-Machine/
 
 Core Version: Kiwi 1.0.0
 UI Version: 1.0.0
