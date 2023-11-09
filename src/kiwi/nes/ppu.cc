@@ -298,9 +298,11 @@ void PPU::Step() {
       } else if (cycles_ == 257 && is_render_background()) {  // Dot 257
         data_address_ &= ~0x41f;
         data_address_ |= temp_address_ & 0x41f;
-      } else if ((cycles_ == patch_.scanline_irq_dot ||
-                  cycles_ == patch_.scanline_irq_dot_ex) &&
-                 is_render_background()) {
+      }
+
+      if ((cycles_ == patch_.scanline_irq_dot ||
+           cycles_ == patch_.scanline_irq_dot_ex) &&
+          is_render_enabled()) {
         ppu_bus_->GetMapper()->ScanlineIRQ();
       }
 
