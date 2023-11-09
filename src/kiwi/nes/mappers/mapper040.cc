@@ -65,6 +65,10 @@ void Mapper040::WritePRG(Address address, Byte value) {
 
 Byte Mapper040::ReadPRG(Address address) {
   DCHECK(address >= 0x6000);
+  // SMB2J will read PRG with an address less than 0x6000.
+  if (address < 0x6000)
+    return 0;
+
   if (address < 0x8000)
     return cartridge()
         ->GetRomData()

@@ -49,6 +49,7 @@ void PPU::Reset() {
       registers_.PPUSTATUS.value = registers_.PPUSCROLL = 0;
   pipeline_state_ = PipelineState::kPreRender;
   scanline_ = 0;
+  nmi_delay_ = 0;
 }
 
 void PPU::Step() {
@@ -59,7 +60,7 @@ void PPU::Step() {
   // https://www.nesdev.org/w/images/default/d/d1/Ntsc_timing.png for details.
   constexpr int kScanlineEndCycle = 340;
 
-  if (--nmi_delay_ == 0)
+  if (nmi_delay_ > 0 && --nmi_delay_ == 0)
     cpu_nmi_callback_.Run();
 
   // Notify when scanline start.

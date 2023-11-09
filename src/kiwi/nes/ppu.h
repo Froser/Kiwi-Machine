@@ -124,7 +124,7 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   Byte fine_scroll_pos_x_ = 0;
   Byte data_buffer_ = 0xff;
   bool write_toggle_ = false;
-  int nmi_delay_ = 3;
+  int nmi_delay_ = 0;
 
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that
   // contains a display list of up to 64 sprites, where each sprite's
