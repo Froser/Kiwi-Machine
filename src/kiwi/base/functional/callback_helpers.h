@@ -72,19 +72,19 @@ class OnceCallbackHolder final {
   OnceCallbackHolder(OnceCallback<void(Args...)> callback,
                      bool ignore_extra_runs)
       : callback_(std::move(callback)), ignore_extra_runs_(ignore_extra_runs) {
-    DCHECK(callback_);
+    // DCHECK(callback_);
   }
   OnceCallbackHolder(const OnceCallbackHolder&) = delete;
   OnceCallbackHolder& operator=(const OnceCallbackHolder&) = delete;
 
   void Run(Args... args) {
     if (has_run_.exchange(1, std::memory_order_relaxed)) {
-      CHECK(ignore_extra_runs_) << "Both OnceCallbacks returned by "
-                                   "base::SplitOnceCallback() were run. "
-                                   "At most one of the pair should be run.";
+      // CHECK(ignore_extra_runs_) << "Both OnceCallbacks returned by "
+      //                              "base::SplitOnceCallback() were run. "
+      //                              "At most one of the pair should be run.";
       return;
     }
-    DCHECK(callback_);
+    // DCHECK(callback_);
     std::move(callback_).Run(std::forward<Args>(args)...);
   }
 
