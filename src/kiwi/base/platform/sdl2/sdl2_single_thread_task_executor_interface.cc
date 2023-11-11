@@ -14,6 +14,7 @@
 
 #include <atomic>
 
+#include "base/check.h"
 #include "base/platform/sdl2/sdl2_runloop_interface.h"
 #include "third_party/SDL2/include/SDL.h"
 

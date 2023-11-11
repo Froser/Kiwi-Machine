@@ -14,12 +14,7 @@ include (FindPackageHandleStandardArgs)
 
 set(Kiwi_INCLUDE_DIR
         ${CMAKE_CURRENT_LIST_DIR}/../../include
-        ${kiwi_SOURCE_DIR}
-        ${kiwi_BINARY_DIR}
-
-        # For glog
-        ${glog_SOURCE_DIR}/src
-        ${glog_BINARY_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/../../src/kiwi
 )
 
 set(Kiwi_LIBRARY kiwi)

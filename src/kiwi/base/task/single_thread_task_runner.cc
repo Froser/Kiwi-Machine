@@ -12,6 +12,8 @@
 
 #include "base/task/single_thread_task_runner.h"
 
+#include "base/check.h"
+
 namespace kiwi::base {
 namespace {
 thread_local scoped_refptr<SingleThreadTaskRunner>

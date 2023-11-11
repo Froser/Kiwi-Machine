@@ -9,7 +9,6 @@
 
 #include <utility>
 
-#include "base/check.h"
 #include "base/atomic_ref_count.h"
 #include "base/base_export.h"
 #include "base/memory/scoped_refptr.h"
@@ -110,9 +109,7 @@ class BASE_EXPORT RefCountedThreadSafeBase {
     ref_count_.Increment();
   }
 
-  void AddRefWithCheckImpl() const {
-    CHECK_GT(ref_count_.Increment(), 0);
-  }
+  void AddRefWithCheckImpl() const;
 
   bool ReleaseImpl() const {
     if (!ref_count_.Decrement()) {

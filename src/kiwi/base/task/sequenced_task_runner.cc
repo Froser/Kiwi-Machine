@@ -12,6 +12,8 @@
 
 #include "base/task/sequenced_task_runner.h"
 
+#include "base/check.h"
+
 namespace kiwi::base {
 namespace {
 thread_local scoped_refptr<SequencedTaskRunner> g_task_runner_for_this_thread;

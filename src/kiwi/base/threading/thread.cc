@@ -11,6 +11,8 @@
 // GNU General Public License for more details.
 
 #include "base/threading/thread.h"
+
+#include "base/check.h"
 #include "base/platform/platform_factory.h"
 
 namespace kiwi::base {

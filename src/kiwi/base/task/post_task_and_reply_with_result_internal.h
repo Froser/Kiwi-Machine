@@ -26,7 +26,7 @@ void ReturnAsParamAdapter(OnceCallback<ReturnType()> func,
 template <typename TaskReturnType, typename ReplyArgType>
 void ReplyAdapter(OnceCallback<void(ReplyArgType)> callback,
                   std::unique_ptr<TaskReturnType>* result) {
-  DCHECK(result->get());
+  // DCHECK(result->get());
   std::move(callback).Run(std::move(**result));
 }
 

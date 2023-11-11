@@ -12,6 +12,7 @@
 
 #include "base/platform/sdl2/sdl2_runloop_interface.h"
 
+#include "base/check.h"
 #include "base/platform/sdl2/sdl2_single_thread_task_executor_interface.h"
 #include "third_party/SDL2/include/SDL_events.h"
 #include "third_party/SDL2/include/SDL_timer.h"

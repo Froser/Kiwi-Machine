@@ -8,6 +8,8 @@
 #include <ostream>
 #include <type_traits>
 
+#include "base/check.h"
+
 namespace kiwi::base {
 
 namespace subtle {
@@ -29,5 +31,9 @@ void RefCountedThreadSafeBase::AddRef() const {
 void RefCountedThreadSafeBase::AddRefWithCheck() const {
   AddRefWithCheckImpl();
 }
+void RefCountedThreadSafeBase::AddRefWithCheckImpl() const {
+  CHECK_GT(ref_count_.Increment(), 0);
+}
+
 }  // namespace subtle
 }  // namespace kiwi::base

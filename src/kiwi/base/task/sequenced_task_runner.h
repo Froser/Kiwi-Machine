@@ -118,8 +118,8 @@ class BASE_EXPORT SequencedTaskRunner
   bool PostTaskAndReplyWithResult(const Location& from_here,
                                   TaskCallbackType<TaskReturnType()> task,
                                   ReplyCallbackType<void(ReplyArgType)> reply) {
-    DCHECK(task);
-    DCHECK(reply);
+    // DCHECK(task);
+    // DCHECK(reply);
     // std::unique_ptr used to avoid the need of a default constructor.
     auto* result = new std::unique_ptr<TaskReturnType>();
     return PostTaskAndReply(

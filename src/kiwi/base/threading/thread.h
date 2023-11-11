@@ -19,7 +19,6 @@
 #include <string>
 
 #include "base/base_export.h"
-#include "base/check.h"
 #include "base/functional/callback.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/task/single_thread_task_runner.h"

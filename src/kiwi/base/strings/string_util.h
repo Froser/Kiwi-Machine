@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "base/base_export.h"
-#include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/cxx20_to_address.h"
 #include "base/strings/string_piece.h"  // For implicit conversions.
@@ -311,7 +310,7 @@ inline bool IsHexDigit(Char c) {
 // Assumes the input is a valid hex character.
 BASE_EXPORT char HexDigitToInt(char c);
 inline char HexDigitToInt(char16_t c) {
-  DCHECK(IsHexDigit(c));
+  // DCHECK(IsHexDigit(c));
   return HexDigitToInt(static_cast<char>(c));
 }
 

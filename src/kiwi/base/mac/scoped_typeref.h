@@ -5,7 +5,6 @@
 #ifndef BASE_MAC_SCOPED_TYPEREF_H_
 #define BASE_MAC_SCOPED_TYPEREF_H_
 
-#include "base/check.h"
 #include "base/memory/scoped_policy.h"
 
 namespace kiwi::base {
@@ -92,7 +91,7 @@ class ScopedTypeRef {
   // by pass-by-pointer create functions. To enforce this, require that the
   // object be reset to NULL before this may be used.
   [[nodiscard]] element_type* InitializeInto() {
-    DCHECK(!object_);
+    // DCHECK(!object_);
     return &object_;
   }
 
