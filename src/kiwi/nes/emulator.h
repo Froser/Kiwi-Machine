@@ -128,7 +128,7 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual int GetAudioChannelMasks() = 0;
 };
 
-// Creates a emulator. If |emulate_on_working_thread| is true, emulation will be
+// Creates an emulator. If |emulate_on_working_thread| is true, emulation will be
 // run on a dedicate thread. If |emulate_on_working_thread| is false, emulation
 // will be run on UI thread.
 NES_EXPORT scoped_refptr<Emulator> CreateEmulator(

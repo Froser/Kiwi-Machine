@@ -20,138 +20,11 @@ FIND_PACKAGE(Python3 REQUIRED)
 
 include_directories(
         .
-
-        # Generation directory
-        ${CMAKE_CURRENT_BINARY_DIR}/
-
-        # GFlags
-        ../..
-        ${CMAKE_CURRENT_BINARY_DIR}/../third_party/gflags/include
+        ../kiwi_machine_core
 )
-
-# Include zlib directory
-include_directories(${zlib_BINARY_DIR})
-
-list(APPEND
-        CMAKE_MODULE_PATH
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../build/cmake"
-)
-find_package(Kiwi REQUIRED)
 
 set(Sources
-        debug/debug_port.cc
-        debug/debug_port.h
-        debug/debug_roms.cc
-        debug/debug_roms.h
-        models/nes_audio.cc
-        models/nes_audio.h
-        models/nes_config.cc
-        models/nes_config.h
-        models/nes_frame.cc
-        models/nes_frame.h
-        models/nes_runtime.cc
-        models/nes_runtime.h
-        preset_roms/preset_roms.h
-        preset_roms/preset_roms.cc
-        resources/audio_resources.cc
-        resources/audio_resources.h
-        resources/font_resources.cc
-        resources/font_resources.h
-        resources/image_resources.cc
-        resources/image_resources.h
-        ui/widgets/about_widget.cc
-        ui/widgets/about_widget.h
-        ui/widgets/canvas.cc
-        ui/widgets/canvas.h
-        ui/widgets/canvas_observer.cc
-        ui/widgets/canvas_observer.h
-        ui/widgets/disassembly_widget.cc
-        ui/widgets/disassembly_widget.h
-        ui/widgets/demo_widget.cc
-        ui/widgets/demo_widget.h
-        ui/widgets/export_widget.cc
-        ui/widgets/export_widget.h
-        ui/widgets/frame_rate_widget.cc
-        ui/widgets/frame_rate_widget.h
-        ui/widgets/in_game_menu.cc
-        ui/widgets/in_game_menu.h
-        ui/widgets/group_widget.cc
-        ui/widgets/group_widget.h
-        ui/widgets/kiwi_bg_widget.cc
-        ui/widgets/kiwi_bg_widget.h
-        ui/widgets/kiwi_item_widget.cc
-        ui/widgets/kiwi_item_widget.h
-        ui/widgets/kiwi_items_widget.cc
-        ui/widgets/kiwi_items_widget.h
-        ui/widgets/loading_widget.cc
-        ui/widgets/loading_widget.h
-        ui/widgets/memory_widget.cc
-        ui/widgets/memory_widget.h
-        ui/widgets/menu_bar.cc
-        ui/widgets/menu_bar.h
-        ui/widgets/nametable_widget.cc
-        ui/widgets/nametable_widget.h
-        ui/widgets/palette_widget.cc
-        ui/widgets/palette_widget.h
-        ui/widgets/pattern_widget.cc
-        ui/widgets/pattern_widget.h
-        ui/widgets/splash.cc
-        ui/widgets/splash.h
-        ui/widgets/stack_widget.cc
-        ui/widgets/stack_widget.h
-        ui/widgets/toast.cc
-        ui/widgets/toast.h
-        ui/widgets/widget.cc
-        ui/widgets/widget.h
-        ui/application.cc
-        ui/application.h
-        ui/main_window.cc
-        ui/main_window.h
-        ui/window_base.cc
-        ui/window_base.h
-        utility/audio_effects.cc
-        utility/audio_effects.h
-        utility/fonts.cc
-        utility/fonts.h
-        utility/images.cc
-        utility/images.h
-        utility/key_mapping_util.cc
-        utility/key_mapping_util.h
-        utility/math.cc
-        utility/math.h
-        utility/text_content.cc
-        utility/text_content.h
-        utility/timer.cc
-        utility/timer.h
-        utility/zip_reader.cc
-        utility/zip_reader.h
         main.cc
-)
-
-# Resources generation:
-# Use '__always_buildx.h' as a fake output, to make the command run every time.
-add_custom_command(
-        OUTPUT resources/image_resources.h resources/image_resources.cc __always_build0.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_image_resources.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        VERBATIM
-)
-
-add_custom_command(
-        OUTPUT resources/audio_resources.h resources/audio_resources.cc __always_build1.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_audio_resources.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        VERBATIM
-)
-
-add_custom_command(
-        OUTPUT resources/font_resources.h resources/font_resources.cc __always_build2.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_font_resources.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        VERBATIM
 )
 
 if (WIN32)
@@ -189,31 +62,7 @@ if (APPLE)
     )
 endif ()
 
-add_custom_command(
-        OUTPUT preset_roms/preset_roms.cc __always_build_roms.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_preset_roms_data.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/preset_roms
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
-        VERBATIM
-)
-
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
-        Kiwi::kiwi_static imgui
-        gflags_nothreads_static
-        SDL2_image
-        SDL2_mixer
-        minizip
+        kiwi_machine_core
 )
-target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
-target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
-target_include_directories(${PROJECT_NAME}
-        PRIVATE
-        "../../third_party/imgui"
-)
-
-if (${KIWI_EMBEDDED_ROMS})
-    target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
-else ()
-    target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static PRIVATE KIWI_USE_EXTERNAL_PAK)
-endif ()

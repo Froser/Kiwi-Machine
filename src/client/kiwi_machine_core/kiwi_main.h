@@ -10,17 +10,20 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include <kiwi_main.h>
+#ifndef KIWI_MAIN_H_
+#define KIWI_MAIN_H_
 
 #if defined(_WIN32)
 #include <windows.h>
-int WINAPI wWinMain(HINSTANCE hInstance,
+
+int WINAPI KiwiMain(HINSTANCE hInstance,
                     HINSTANCE hPrevInstance,
                     PWSTR pCmdLine,
-                    int nCmdShow) {
-  return KiwiMain();
+                    int nCmdShow);
 #else
-int main(int argc, char** argv) {
-  return KiwiMain(argc, argv);
-#endif
-}
+
+int KiwiMain(int argc, char** argv);
+
+#endif  // _WIN32
+
+#endif  // KIWI_MAIN_H_
