@@ -12,8 +12,8 @@
 
 #include "ui/widgets/widget.h"
 
-#include <algorithm>
 #include <imgui.h>
+#include <algorithm>
 
 #include "ui/window_base.h"
 
@@ -127,9 +127,12 @@ bool Widget::HandleKeyEvents(SDL_KeyboardEvent* event) {
     case SDL_KEYDOWN: {
       if (visible() && enabled()) {
         handled = OnKeyPressed(event);
-        for (auto& widget : widgets_) {
-          if (widget->HandleKeyEvents(event))
-            break;
+        if (!handled) {
+          for (auto& widget : widgets_) {
+            handled = widget->HandleKeyEvents(event);
+            if (handled)
+              break;
+          }
         }
       }
       break;
@@ -137,9 +140,12 @@ bool Widget::HandleKeyEvents(SDL_KeyboardEvent* event) {
     case SDL_KEYUP: {
       if (visible() && enabled()) {
         handled = OnKeyReleased(event);
-        for (auto& widget : widgets_) {
-          if (widget->HandleKeyEvents(event))
-            break;
+        if (!handled) {
+          for (auto& widget : widgets_) {
+            handled = widget->HandleKeyEvents(event);
+            if (handled)
+              break;
+          }
         }
       }
       break;
@@ -155,9 +161,12 @@ bool Widget::HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event) {
   bool handled = false;
   if (visible() && enabled()) {
     handled = OnControllerAxisMotionEvents(event);
-    for (auto& widget : widgets_) {
-      if (widget->HandleJoystickAxisMotionEvents(event))
-        break;
+    if (!handled) {
+      for (auto& widget : widgets_) {
+        handled = widget->HandleJoystickAxisMotionEvents(event);
+        if (handled)
+          break;
+      }
     }
   }
   return handled;
@@ -209,6 +218,30 @@ void Widget::HandleDisplayEvent() {
   }
 }
 
+bool Widget::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
+  bool handled = false;
+  if (enabled() && visible()) {
+    if (event->type == SDL_FINGERUP)
+      handled = OnTouchFingerUp(event);
+    else if (event->type == SDL_FINGERDOWN)
+      handled = OnTouchFingerDown(event);
+    else if (event->type == SDL_FINGERMOTION)
+      handled = OnTouchFingerMove(event);
+    else
+      SDL_assert(false);
+
+    if (!handled) {
+      for (auto& widget : widgets_) {
+        handled = widget->HandleTouchFingerEvent(event);
+        if (handled)
+          break;
+      }
+    }
+  }
+
+  return handled;
+}
+
 void Widget::RemovePendingWidgets() {
   bool anything_removed = false;
   for (auto iter = children().begin(); iter != children().end(); ++iter) {
@@ -254,3 +287,15 @@ void Widget::OnWindowResized() {}
 void Widget::OnWidgetsRemoved() {}
 
 void Widget::OnDisplayChanged() {}
+
+bool Widget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  return false;
+}
+
+bool Widget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
+  return false;
+}
+
+bool Widget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
+  return false;
+}

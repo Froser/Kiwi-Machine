@@ -77,7 +77,18 @@ void KiwiItemsWidget::Paint() {
     FirstFrame();
   }
 
-  Layout();
+  if (window()->exclusive_touch_manager().IsMoving() &&
+      window()->exclusive_touch_manager().GetMovingDirection() ==
+          MovingDirection::kHorizontal) {
+    FingerMotion motion = window()->exclusive_touch_manager().GetMotion();
+    if (Contains(bounds(), motion.x, motion.y)) {
+      // Do not update animation counter (by just reset it).
+      animation_counter_.ElapsedInMillisecondsAndReset();
+      ApplyItemBoundsByFinger();
+    }
+  } else {
+    Layout();
+  }
 }
 
 bool KiwiItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
@@ -104,6 +115,35 @@ void KiwiItemsWidget::OnWindowResized() {
   ApplyItemBounds();
 
   Widget::OnWindowResized();
+}
+
+bool KiwiItemsWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
+  if (window()->exclusive_touch_manager().IsMoving() &&
+      window()->exclusive_touch_manager().GetMovingDirection() ==
+          MovingDirection::kHorizontal) {
+    SetIndex(GetNearestIndexByFinger());
+    for (size_t i = 0; i < children().size(); ++i) {
+      items_bounds_next_[i] = children()[i]->bounds();
+    }
+    IndexChanged();
+  } else {
+    int x, y;
+    if (window()->exclusive_touch_manager().GetTouchPoint(&x, &y)) {
+      for (size_t i = 0; i < children().size(); ++i) {
+        SDL_Rect bounds = children()[i]->bounds();
+        if (Contains(bounds, x, y)) {
+          if (i == current_idx_) {
+            // Clicking current item can trigger it.
+            items_[current_idx_]->Trigger();
+          } else {
+            SetIndex(i);
+          }
+          break;
+        }
+      }
+    }
+  }
+  return false;
 }
 
 int KiwiItemsWidget::GetItemMetrics(KiwiItemWidget::Metrics metrics) {
@@ -192,6 +232,15 @@ void KiwiItemsWidget::ApplyItemBounds() {
   items_[current_idx_]->set_sub_items_count(sub_items_[current_idx_].size());
 }
 
+void KiwiItemsWidget::ApplyItemBoundsByFinger() {
+  FingerMotion motion = window()->exclusive_touch_manager().GetMotion();
+  for (size_t i = 0; i < children().size(); ++i) {
+    children()[i]->set_bounds(SDL_Rect{
+        items_bounds_current_[i].x + motion.dx, items_bounds_current_[i].y,
+        items_bounds_current_[i].w, items_bounds_current_[i].h});
+  }
+}
+
 void KiwiItemsWidget::FirstFrame() {
   // Calculates current bounds in first frame.
   animation_lerp_ = 0.f;
@@ -204,62 +253,85 @@ void KiwiItemsWidget::FirstFrame() {
 
 bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
                                         SDL_ControllerButtonEvent* c) {
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
-    if (current_idx_ > 0) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetIndex(current_idx_ - 1);
-    }
-    return true;
-  }
-
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
-    if (current_idx_ < items_.size() - 1) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetIndex(current_idx_ + 1);
-    }
-    return true;
-  }
-
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_START ||
-      IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_A) {
-    PlayEffect(audio_resources::AudioID::kStart);
-    items_[current_idx_]->Trigger();
-    return true;
-  }
-
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
-    if (!sub_items_[current_idx_].empty()) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      if (sub_item_index_ > -1) {
-        // Sub item is currently selected. We have to swap it back first.
-        items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
+  if (!window()->exclusive_touch_manager().is_finger_down()) {
+    if (IsKeyboardOrControllerAxisMotionMatch(
+            runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
+        c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
+      if (current_idx_ > 0) {
+        PlayEffect(audio_resources::AudioID::kSelect);
+        SetIndex(current_idx_ - 1);
       }
-
-      // Increase the sub item index, to select the next one.
-      ++sub_item_index_;
-      if (sub_item_index_ >= sub_items_[current_idx_].size())
-        sub_item_index_ = -1;
-
-      if (sub_item_index_ > -1) {
-        // Swap the item iff sub item is selected.
-        items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
-      }
-
-      items_[current_idx_]->set_sub_items_index(sub_item_index_);
+      return true;
     }
-    return true;
+
+    if (IsKeyboardOrControllerAxisMotionMatch(
+            runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
+        c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+      if (current_idx_ < items_.size() - 1) {
+        PlayEffect(audio_resources::AudioID::kSelect);
+        SetIndex(current_idx_ + 1);
+      }
+      return true;
+    }
+
+    if (IsKeyboardOrControllerAxisMotionMatch(
+            runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
+        c && c->button == SDL_CONTROLLER_BUTTON_START ||
+        IsKeyboardOrControllerAxisMotionMatch(
+            runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
+        c && c->button == SDL_CONTROLLER_BUTTON_A) {
+      PlayEffect(audio_resources::AudioID::kStart);
+      items_[current_idx_]->Trigger();
+      return true;
+    }
+
+    if (IsKeyboardOrControllerAxisMotionMatch(
+            runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
+      if (!sub_items_[current_idx_].empty()) {
+        PlayEffect(audio_resources::AudioID::kSelect);
+        if (sub_item_index_ > -1) {
+          // Sub item is currently selected. We have to swap it back first.
+          items_[current_idx_]->Swap(
+              *sub_items_[current_idx_][sub_item_index_]);
+        }
+
+        // Increase the sub item index, to select the next one.
+        ++sub_item_index_;
+        if (sub_item_index_ >= sub_items_[current_idx_].size())
+          sub_item_index_ = -1;
+
+        if (sub_item_index_ > -1) {
+          // Swap the item iff sub item is selected.
+          items_[current_idx_]->Swap(
+              *sub_items_[current_idx_][sub_item_index_]);
+        }
+
+        items_[current_idx_]->set_sub_items_index(sub_item_index_);
+      }
+      return true;
+    }
   }
 
   return false;
+}
+
+int KiwiItemsWidget::GetNearestIndexByFinger() {
+  SDL_assert(!children().empty());
+  if (children().size() == 1)
+    return 0;
+
+  const int kCenter = bounds().w / 2;
+  int t = std::abs(children()[0]->bounds().x - kCenter);
+
+  for (size_t i = 1; i < children().size(); ++i) {
+    int dis = std::abs(children()[i]->bounds().x - kCenter);
+    if (dis < t)
+      t = dis;
+    else
+      return i - 1;
+  }
+
+  return 0;
 }
 
 void KiwiItemsWidget::IndexChanged() {

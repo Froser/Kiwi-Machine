@@ -13,6 +13,7 @@
 #include "ui/widgets/group_widget.h"
 
 #include <imgui.h>
+#include <math.h>
 
 #include "ui/main_window.h"
 #include "ui/widgets/kiwi_item_widget.h"
@@ -100,6 +101,25 @@ void GroupWidget::ApplyItemBounds() {
   }
 }
 
+void GroupWidget::ApplyItemBoundsByFinger() {
+  FingerMotion motion = window()->exclusive_touch_manager().GetMotion();
+  for (size_t i = 0; i < children().size(); ++i) {
+    children()[i]->set_bounds(
+        SDL_Rect{bounds_current_[i].x, bounds_current_[i].y + motion.dy,
+                 bounds_current_[i].w, bounds_current_[i].h});
+  }
+}
+
+int GroupWidget::GetNearestIndexByFinger() {
+  constexpr float kScrollingThreshold = .5f;
+  for (size_t i = 0; i < children().size(); ++i) {
+    if (std::abs(children()[i]->bounds().y) <
+        (bounds().h * kScrollingThreshold))
+      return i;
+  }
+  return 0;
+}
+
 void GroupWidget::Paint() {
   if (children().empty())
     return;
@@ -108,7 +128,15 @@ void GroupWidget::Paint() {
     FirstFrame();
   }
 
-  Layout();
+  if (window()->exclusive_touch_manager().IsMoving() &&
+      window()->exclusive_touch_manager().GetMovingDirection() ==
+          MovingDirection::kVertical) {
+    // Do not update animation counter (by just reset it).
+    animation_counter_.ElapsedInMillisecondsAndReset();
+    ApplyItemBoundsByFinger();
+  } else {
+    Layout();
+  }
 }
 
 bool GroupWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
@@ -123,28 +151,39 @@ bool GroupWidget::OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) {
   return HandleInputEvents(nullptr, nullptr);
 }
 
+bool GroupWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
+  SetCurrent(GetNearestIndexByFinger());
+  for (size_t i = 0; i < children().size(); ++i) {
+    bounds_next_[i] = children()[i]->bounds();
+  }
+  IndexChanged();
+  return false;
+}
+
 bool GroupWidget::HandleInputEvents(SDL_KeyboardEvent* k,
                                     SDL_ControllerButtonEvent* c) {
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
-    if (current_idx_ > 0) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetCurrent(current_idx_ - 1);
-      IndexChanged();
+  if (!window()->exclusive_touch_manager().is_finger_down()) {
+    if (IsKeyboardOrControllerAxisMotionMatch(
+            runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
+        c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
+      if (current_idx_ > 0) {
+        PlayEffect(audio_resources::AudioID::kSelect);
+        SetCurrent(current_idx_ - 1);
+        IndexChanged();
+      }
+      return true;
     }
-    return true;
-  }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kDown, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
-    if (current_idx_ < children().size() - 1) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetCurrent(current_idx_ + 1);
-      IndexChanged();
+    if (IsKeyboardOrControllerAxisMotionMatch(
+            runtime_data_, kiwi::nes::ControllerButton::kDown, k) ||
+        c && c->button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
+      if (current_idx_ < children().size() - 1) {
+        PlayEffect(audio_resources::AudioID::kSelect);
+        SetCurrent(current_idx_ + 1);
+        IndexChanged();
+      }
+      return true;
     }
-    return true;
   }
 
   return false;

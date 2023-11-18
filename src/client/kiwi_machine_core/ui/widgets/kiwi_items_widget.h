@@ -50,8 +50,10 @@ class KiwiItemsWidget : public Widget {
   void CalculateItemsBounds(std::vector<SDL_Rect>& container);
   void Layout();
   void ApplyItemBounds();
+  void ApplyItemBoundsByFinger();
   void FirstFrame();
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  int GetNearestIndexByFinger();
   void IndexChanged();
   void ResetSubItemIndex();
 
@@ -61,6 +63,7 @@ class KiwiItemsWidget : public Widget {
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
   void OnWindowResized() override;
+  bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
 
  private:
   MainWindow* main_window_ = nullptr;

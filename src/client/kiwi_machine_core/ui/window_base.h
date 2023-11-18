@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "ui/widgets/widget.h"
+#include "utility/touch_manager.h"
 
 class WindowBase {
  public:
@@ -39,6 +40,9 @@ class WindowBase {
   void Resize(int width, int height);
   SDL_Renderer* renderer() { return renderer_; }
   SDL_Window* native_window() { return window_; }
+  const ExclusiveTouchManager& exclusive_touch_manager() {
+    return exclusive_touch_manager_;
+  }
 
   // Events pipeline
   virtual void HandleKeyEvents(SDL_KeyboardEvent* event);
@@ -47,9 +51,10 @@ class WindowBase {
   virtual void HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event);
   virtual void HandleResizedEvent();
   virtual void HandleDisplayEvent(SDL_DisplayEvent* event);
+  virtual void HandlePostEvent();
+  virtual void HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
   virtual SDL_Rect GetClientBounds();
   virtual void Render();
-  virtual void HandlePostEvent();
 
  protected:
   virtual void OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event);
@@ -65,6 +70,7 @@ class WindowBase {
   std::vector<std::unique_ptr<Widget>> widgets_;
   std::set<Widget*> widgets_to_be_removed_;
   std::string title_;
+  ExclusiveTouchManager exclusive_touch_manager_;
 };
 
 #endif  // UI_WINDOW_BASE_H_

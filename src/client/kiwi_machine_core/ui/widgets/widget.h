@@ -62,6 +62,7 @@ class Widget {
   bool HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event);
   void HandleResizedEvent();
   void HandleDisplayEvent();
+  bool HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
 
  protected:
   WindowBase* window() { return window_; }
@@ -84,6 +85,9 @@ class Widget {
   virtual void OnWindowResized();
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();
+  virtual bool OnTouchFingerDown(SDL_TouchFingerEvent* event);
+  virtual bool OnTouchFingerUp(SDL_TouchFingerEvent* event);
+  virtual bool OnTouchFingerMove(SDL_TouchFingerEvent* event);
 
  private:
   WindowBase* window_ = nullptr;

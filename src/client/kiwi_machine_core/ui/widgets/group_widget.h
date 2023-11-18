@@ -34,6 +34,8 @@ class GroupWidget : public Widget {
   void CalculateItemsBounds(std::vector<SDL_Rect>& container);
   void Layout();
   void ApplyItemBounds();
+  void ApplyItemBoundsByFinger();
+  int GetNearestIndexByFinger();
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void IndexChanged();
 
@@ -43,6 +45,7 @@ class GroupWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
 
  private:
   MainWindow* main_window_ = nullptr;

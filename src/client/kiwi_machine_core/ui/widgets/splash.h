@@ -34,6 +34,7 @@ class Splash : public Widget {
   void Paint() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
 
  private:
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);

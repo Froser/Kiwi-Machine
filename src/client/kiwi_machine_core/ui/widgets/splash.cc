@@ -33,6 +33,9 @@ constexpr char kHowToPlay[] = R"(How To Play
 constexpr char kControllerInstructions[] = R"(
 Controller instructions
 )";
+
+#if !defined(ANDROID)
+
 constexpr char kControllerInstructionsContent[] =
     R"(
  Player 1
@@ -51,14 +54,39 @@ constexpr char kControllerInstructionsContent[] =
 
 )";
 
+#else
+
+constexpr char kControllerInstructionsContent[] =
+    R"(
+ Joystick is available if connected.
+ Press L+R to call menu when playing games.
+ You may change controller from settings.
+
+)";
+
+#endif
+
 constexpr char kMenuInstructions[] = R"(
 Menu instructions
 )";
+
+#if !defined(ANDROID)
+
 constexpr char kMenuInstructionsContent[] = R"(
 You can press UP, DOWN to change groups.
 System menu is at the end of the groups.
 
 )";
+
+#else
+
+constexpr char kMenuInstructionsContent[] = R"(
+You can swipe up or down to change groups.
+System menu is at the end of the groups.
+
+)";
+
+#endif
 
 constexpr char kContinue[] = R"(
 Press A or START to continue.)";
@@ -250,4 +278,10 @@ bool Splash::OnKeyPressed(SDL_KeyboardEvent* event) {
 
 bool Splash::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
   return HandleInputEvents(nullptr, event);
+}
+
+bool Splash::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  SDL_ControllerButtonEvent c;
+  c.button = SDL_CONTROLLER_BUTTON_A;
+  return HandleInputEvents(nullptr, &c);
 }

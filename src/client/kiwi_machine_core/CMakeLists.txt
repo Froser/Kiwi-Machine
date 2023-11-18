@@ -125,6 +125,8 @@ set(Sources
         utility/text_content.h
         utility/timer.cc
         utility/timer.h
+        utility/touch_manager.cc
+        utility/touch_manager.h
         utility/zip_reader.cc
         utility/zip_reader.h
 )

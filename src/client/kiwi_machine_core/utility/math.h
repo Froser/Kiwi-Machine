@@ -24,4 +24,9 @@ inline float Lerp(float start, float end, float percentage) {
   return start + (end - start) * percentage;
 }
 
+inline bool Contains(const SDL_Rect& rect, int x, int y) {
+  return (rect.x <= x && x <= rect.x + rect.w && rect.y <= y &&
+          y <= rect.y + rect.h);
+}
+
 #endif  // UTILITY_MATH_H_

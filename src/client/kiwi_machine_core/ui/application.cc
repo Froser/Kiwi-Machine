@@ -28,8 +28,11 @@ Application* g_app_instance = nullptr;
 }  // namespace
 
 ApplicationObserver::ApplicationObserver() = default;
+
 ApplicationObserver::~ApplicationObserver() = default;
+
 void ApplicationObserver::OnPreRender(int since_last_frame_ms) {}
+
 void ApplicationObserver::OnPostRender(int render_elapsed_ms) {}
 
 #if defined(_WIN32)
@@ -120,6 +123,13 @@ void Application::HandleEvent(SDL_Event* event) {
         w.second->HandleDisplayEvent(&event->display);
       }
     } break;
+    case SDL_FINGERDOWN:
+    case SDL_FINGERUP:
+    case SDL_FINGERMOTION: {
+      WindowBase* target = FindWindowFromID(event->tfinger.windowID);
+      if (target)
+        target->HandleTouchFingerEvent(&event->tfinger);
+    }
     default:
       break;
   }

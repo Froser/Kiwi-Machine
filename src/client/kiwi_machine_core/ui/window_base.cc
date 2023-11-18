@@ -18,7 +18,8 @@
 
 #include "ui/application.h"
 
-WindowBase::WindowBase(const std::string& title) {
+WindowBase::WindowBase(const std::string& title)
+    : exclusive_touch_manager_(this) {
 #if !defined(ANDROID)
   window_ =
       SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
@@ -209,6 +210,16 @@ void WindowBase::Render() {
 }
 
 void WindowBase::HandlePostEvent() {}
+
+void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
+  for (auto& widget : widgets_) {
+    if (widget->visible() && widget->enabled() &&
+        widget->HandleTouchFingerEvent(event)) {
+      break;
+    }
+    exclusive_touch_manager_.Handle(event);
+  }
+}
 
 void WindowBase::RemovePendingWidgets() {
   for (Widget* widget : widgets_to_be_removed_) {
