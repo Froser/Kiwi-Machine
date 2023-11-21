@@ -42,6 +42,9 @@ class MainWindow : public WindowBase,
                    public kiwi::nes::IODevices::InputDevice,
                    public CanvasObserver {
  public:
+  enum class VirtualTouchButton { kStart, kSelect };
+
+ public:
   explicit MainWindow(const std::string& title,
                       NESRuntimeID runtime_id,
                       scoped_refptr<NESConfig> config,
@@ -53,6 +56,7 @@ class MainWindow : public WindowBase,
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
+  void SetVirtualTouchButtonVisible(VirtualTouchButton button, bool visible);
 
   // Export ROMs
   void ExportDone();
@@ -91,6 +95,8 @@ class MainWindow : public WindowBase,
   void ShowMainMenu(bool show);
   void OnScaleChanged();
   void UpdateGameControllerMapping();
+  void CreateVirtualTouchButtons();
+  void LayoutVirtualTouchButtons();
 
   // Menu callbacks:
   void OnRomLoaded(const std::string& name);
@@ -153,6 +159,9 @@ class MainWindow : public WindowBase,
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;
+
+  Widget* vtb_start_ = nullptr;
+  Widget* vtb_select_ = nullptr;
 
   NESRuntimeID runtime_id_ = NESRuntimeID();
   NESRuntime::Data* runtime_data_ = nullptr;

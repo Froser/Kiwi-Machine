@@ -103,6 +103,8 @@ set(Sources
         ui/widgets/stack_widget.h
         ui/widgets/toast.cc
         ui/widgets/toast.h
+        ui/widgets/touch_button.cc
+        ui/widgets/touch_button.h
         ui/widgets/widget.cc
         ui/widgets/widget.h
         ui/application.cc
@@ -125,8 +127,6 @@ set(Sources
         utility/text_content.h
         utility/timer.cc
         utility/timer.h
-        utility/touch_manager.cc
-        utility/touch_manager.h
         utility/zip_reader.cc
         utility/zip_reader.h
 )

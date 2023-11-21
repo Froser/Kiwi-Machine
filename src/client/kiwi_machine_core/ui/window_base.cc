@@ -18,8 +18,7 @@
 
 #include "ui/application.h"
 
-WindowBase::WindowBase(const std::string& title)
-    : exclusive_touch_manager_(this) {
+WindowBase::WindowBase(const std::string& title) {
 #if !defined(ANDROID)
   window_ =
       SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
@@ -217,7 +216,6 @@ void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
         widget->HandleTouchFingerEvent(event)) {
       break;
     }
-    exclusive_touch_manager_.Handle(event);
   }
 }
 

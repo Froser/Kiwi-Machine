@@ -102,10 +102,13 @@ void GroupWidget::ApplyItemBounds() {
 }
 
 void GroupWidget::ApplyItemBoundsByFinger() {
-  FingerMotion motion = window()->exclusive_touch_manager().GetMotion();
+  SDL_assert(is_finger_moving_);
+  SDL_Rect rect = window()->GetClientBounds();
+  int dy = (finger_y_ - finger_down_y_) * rect.h;
+
   for (size_t i = 0; i < children().size(); ++i) {
     children()[i]->set_bounds(
-        SDL_Rect{bounds_current_[i].x, bounds_current_[i].y + motion.dy,
+        SDL_Rect{bounds_current_[i].x, bounds_current_[i].y + dy,
                  bounds_current_[i].w, bounds_current_[i].h});
   }
 }
@@ -128,9 +131,7 @@ void GroupWidget::Paint() {
     FirstFrame();
   }
 
-  if (window()->exclusive_touch_manager().IsMoving() &&
-      window()->exclusive_touch_manager().GetMovingDirection() ==
-          MovingDirection::kVertical) {
+  if (is_finger_moving_ && is_moving_vertically_) {
     // Do not update animation counter (by just reset it).
     animation_counter_.ElapsedInMillisecondsAndReset();
     ApplyItemBoundsByFinger();
@@ -151,18 +152,54 @@ bool GroupWidget::OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) {
   return HandleInputEvents(nullptr, nullptr);
 }
 
-bool GroupWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
-  SetCurrent(GetNearestIndexByFinger());
-  for (size_t i = 0; i < children().size(); ++i) {
-    bounds_next_[i] = children()[i]->bounds();
+bool GroupWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  if (!is_finger_down_) {
+    is_finger_down_ = true;
+    finger_id_ = event->fingerId;
+    finger_x_ = finger_down_x_ = event->x;
+    finger_y_ = finger_down_y_ = event->y;
+    is_moving_vertically_ = false;
   }
-  IndexChanged();
+
   return false;
+}
+
+bool GroupWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
+  if (event->fingerId == finger_id_) {
+    SetCurrent(GetNearestIndexByFinger());
+    for (size_t i = 0; i < children().size(); ++i) {
+      bounds_next_[i] = children()[i]->bounds();
+    }
+    IndexChanged();
+    is_finger_down_ = false;
+    is_finger_moving_ = false;
+    is_moving_vertically_ = false;
+  }
+  return false;
+}
+
+bool GroupWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
+  if (is_finger_down_ && event->fingerId == finger_id_) {
+    finger_x_ = event->x;
+    finger_y_ = event->y;
+
+    if (!is_finger_moving_) {
+      SDL_Rect rect = window()->GetClientBounds();
+      is_moving_vertically_ = std::abs((finger_y_ - finger_down_y_) * rect.h) >
+                              std::abs((finger_x_ - finger_down_x_) * rect.w);
+      is_finger_moving_ = true;
+    }
+
+    // Propagates the event to the next widget.
+    if (!is_moving_vertically_)
+      return false;
+  }
+  return true;
 }
 
 bool GroupWidget::HandleInputEvents(SDL_KeyboardEvent* k,
                                     SDL_ControllerButtonEvent* c) {
-  if (!window()->exclusive_touch_manager().is_finger_down()) {
+  if (!is_finger_moving_) {
     if (IsKeyboardOrControllerAxisMotionMatch(
             runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
         c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {

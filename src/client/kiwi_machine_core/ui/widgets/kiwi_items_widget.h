@@ -45,6 +45,9 @@ class KiwiItemsWidget : public Widget {
   void SetIndex(int index);
   int current_index() { return current_idx_; }
 
+  void TriggerCurrentItem();
+  void SwapCurrentItem();
+
  private:
   int GetItemMetrics(KiwiItemWidget::Metrics metrics);
   void CalculateItemsBounds(std::vector<SDL_Rect>& container);
@@ -63,7 +66,9 @@ class KiwiItemsWidget : public Widget {
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
   void OnWindowResized() override;
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
 
  private:
   MainWindow* main_window_ = nullptr;
@@ -78,6 +83,16 @@ class KiwiItemsWidget : public Widget {
   bool first_paint_ = true;
   int current_idx_ = 0;
   NESRuntime::Data* runtime_data_ = nullptr;
+
+  // Fingers
+  bool is_finger_down_ = false;
+  bool is_finger_moving_ = false;
+  int finger_id_ = 0;
+  float finger_down_x_ = 0;
+  float finger_down_y_ = 0;
+  float finger_x_ = 0;
+  float finger_y_ = 0;
+  bool is_moving_horizontally_ = false;
 };
 
 #endif  // UI_WIDGETS_KIWI_ITEMS_WIDGET_H_

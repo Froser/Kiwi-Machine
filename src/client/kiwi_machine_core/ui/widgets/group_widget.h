@@ -45,7 +45,9 @@ class GroupWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
 
  private:
   MainWindow* main_window_ = nullptr;
@@ -56,6 +58,16 @@ class GroupWidget : public Widget {
   int current_idx_ = 0;
   float animation_lerp_ = 0.f;
   Timer animation_counter_;
+
+  // Fingers
+  bool is_finger_down_ = false;
+  bool is_finger_moving_ = false;
+  int finger_id_ = 0;
+  float finger_down_x_ = 0;
+  float finger_down_y_ = 0;
+  float finger_x_ = 0;
+  float finger_y_ = 0;
+  bool is_moving_vertically_ = false;
 };
 
 #endif  // UI_WIDGETS_GROUP_WIDGET_H_

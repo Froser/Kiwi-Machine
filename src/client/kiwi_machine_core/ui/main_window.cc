@@ -39,6 +39,7 @@
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
+#include "ui/widgets/touch_button.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/zip_reader.h"
@@ -60,6 +61,7 @@ kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
 constexpr int kDefaultWindowWidth = Canvas::kNESFrameDefaultWidth;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
+constexpr int kVirtualTouchButtonPadding = 20;
 
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
@@ -315,6 +317,8 @@ void MainWindow::HandleResizedEvent() {
     FillLayout(this, in_game_menu_);
   }
 
+  LayoutVirtualTouchButtons();
+
   if (is_fullscreen()) {
     // Calculate fullscreen's frame scale, and set.
     SDL_Rect client_bounds = GetClientBounds();
@@ -477,6 +481,10 @@ void MainWindow::InitializeUI() {
   items_widget->SetIndex(main_items_index);
 
   main_group_widget_->AddWidget(std::move(items_widget));
+
+  // Create virtual touch buttons, which will invoke main items_widget's
+  // methods.
+  CreateVirtualTouchButtons();
 
   // Game items (special)
   std::unique_ptr<KiwiItemsWidget> specials_item_widget =
@@ -650,6 +658,7 @@ void MainWindow::InitializeUI() {
   OnScaleChanged();
   if (is_fullscreen())
     OnSetFullscreen();
+  LayoutVirtualTouchButtons();
 }
 
 void MainWindow::InitializeIODevices() {
@@ -880,6 +889,8 @@ void MainWindow::ShowMainMenu(bool show) {
   SDL_assert(canvas_);
   canvas_->set_visible(!show);
   bg_widget_->set_visible(show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kStart, show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kSelect, show);
   SetLoading(false);
 }
 
@@ -932,6 +943,74 @@ void MainWindow::UpdateGameControllerMapping() {
       game_controllers.end()) {
     runtime_data_->joystick_mappings[1].which = nullptr;
   }
+}
+
+void MainWindow::CreateVirtualTouchButtons() {
+#if defined(ANDROID)
+  SDL_assert(main_items_widget_);
+  {
+    std::unique_ptr<TouchButton> vtb_start = std::make_unique<TouchButton>(
+        this, image_resources::ImageID::kVtbStart);
+    vtb_start_ = vtb_start.get();
+    vtb_start->set_trigger_callback(
+        kiwi::base::BindRepeating(&KiwiItemsWidget::TriggerCurrentItem,
+                                  kiwi::base::Unretained(main_items_widget_)));
+    AddWidget(std::move(vtb_start));
+  }
+
+  {
+    std::unique_ptr<TouchButton> vtb_select = std::make_unique<TouchButton>(
+        this, image_resources::ImageID::kVtbSelect);
+    vtb_select_ = vtb_select.get();
+    vtb_select->set_trigger_callback(
+        kiwi::base::BindRepeating(&KiwiItemsWidget::SwapCurrentItem,
+                                  kiwi::base::Unretained(main_items_widget_)));
+    AddWidget(std::move(vtb_select));
+  }
+#endif
+}
+
+void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
+                                              bool visible) {
+#if defined(ANDROID)
+  switch (button) {
+    case VirtualTouchButton::kStart:
+      if (vtb_start_)
+        vtb_start_->set_visible(visible);
+      break;
+    case VirtualTouchButton::kSelect:
+      if (vtb_select_)
+        vtb_select_->set_visible(visible);
+      break;
+    default:
+      SDL_assert(false);
+      break;
+  }
+#endif
+}
+
+void MainWindow::LayoutVirtualTouchButtons() {
+#if defined(ANDROID)
+  const int kSize = 45 * window_scale();
+  const int kPadding = kVirtualTouchButtonPadding * window_scale();
+  const SDL_Rect kClientBounds = GetClientBounds();
+
+  if (vtb_start_) {
+    SDL_Rect bounds;
+    bounds.h = bounds.w = kSize;
+    bounds.x = kClientBounds.w - bounds.w - kPadding;
+    bounds.y = kClientBounds.h - bounds.h - kPadding;
+    vtb_start_->set_bounds(bounds);
+  }
+
+  if (vtb_select_) {
+    SDL_Rect bounds;
+    bounds.h = bounds.w = kSize;
+    bounds.x = kClientBounds.w - bounds.w * 2 - kPadding * 2;
+    bounds.y = kClientBounds.h - bounds.h - kPadding;
+    vtb_select_->set_bounds(bounds);
+  }
+#endif
 }
 
 void MainWindow::OnRomLoaded(const std::string& name) {

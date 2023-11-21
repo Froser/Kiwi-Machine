@@ -71,6 +71,7 @@ class Application {
   void HandleEvent(SDL_Event* event);
   void HandlePostEvent();
   WindowBase* FindWindowFromID(uint32_t id);
+  uint32_t FindIDFromWindow(WindowBase* window);
   void Render();
 
  public:

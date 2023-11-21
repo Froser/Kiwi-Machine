@@ -143,6 +143,14 @@ WindowBase* Application::FindWindowFromID(uint32_t id) {
   return window->second;
 }
 
+uint32_t Application::FindIDFromWindow(WindowBase* window) {
+  for (const auto& w : windows_) {
+    if (w.second == window)
+      return w.first;
+  }
+  return -1;
+}
+
 void Application::Render() {
   int elapsed_ms_ = frame_elapsed_counter_.ElapsedInMillisecondsAndReset();
   render_counter_.Start();

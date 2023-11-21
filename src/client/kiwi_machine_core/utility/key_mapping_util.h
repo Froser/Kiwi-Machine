@@ -35,4 +35,8 @@ void SetControllerMapping(NESRuntime::Data* runtime_data,
 
 std::vector<SDL_GameController*> GetControllerList();
 
+int GetKeyCodeFromControllerButton(NESRuntime::Data* runtime_data,
+                                   kiwi::nes::ControllerButton button,
+                                   int which);
+
 #endif  // UTILITY_KEY_MAPPING_UTIL_H_

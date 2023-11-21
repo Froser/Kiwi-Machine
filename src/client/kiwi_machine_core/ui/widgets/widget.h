@@ -85,6 +85,9 @@ class Widget {
   virtual void OnWindowResized();
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();
+
+  // Finger events are global events. No matter the finger is on the widget or
+  // not, it will be triggered.
   virtual bool OnTouchFingerDown(SDL_TouchFingerEvent* event);
   virtual bool OnTouchFingerUp(SDL_TouchFingerEvent* event);
   virtual bool OnTouchFingerMove(SDL_TouchFingerEvent* event);
