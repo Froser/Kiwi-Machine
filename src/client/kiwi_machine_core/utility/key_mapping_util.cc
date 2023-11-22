@@ -162,11 +162,3 @@ std::vector<SDL_GameController*> GetControllerList() {
 
   return result;
 }
-
-int GetKeyCodeFromControllerButton(NESRuntime::Data* runtime_data,
-                                   kiwi::nes::ControllerButton button,
-                                   int which) {
-  SDL_assert(which >= 0 && which < 2);
-  return runtime_data->keyboard_mappings[which]
-      .mapping[static_cast<int>(button)];
-}

@@ -40,6 +40,7 @@
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
 #include "ui/widgets/touch_button.h"
+#include "ui/widgets/virtual_joystick.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/zip_reader.h"
@@ -61,7 +62,6 @@ kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
 constexpr int kDefaultWindowWidth = Canvas::kNESFrameDefaultWidth;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
-constexpr int kVirtualTouchButtonPadding = 20;
 
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
@@ -208,6 +208,10 @@ bool MainWindow::IsKeyDown(int controller_id,
                               .mapping[static_cast<int>(button)]) !=
       pressing_keys_.cend();
 
+  if (matched)
+    return true;
+
+  matched = IsVirtualJoystickButtonPressed(controller_id, button);
   if (matched)
     return true;
 
@@ -891,6 +895,7 @@ void MainWindow::ShowMainMenu(bool show) {
   bg_widget_->set_visible(show);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kStart, show);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kSelect, show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kJoystick, !show);
   SetLoading(false);
 }
 
@@ -967,6 +972,17 @@ void MainWindow::CreateVirtualTouchButtons() {
                                   kiwi::base::Unretained(main_items_widget_)));
     AddWidget(std::move(vtb_select));
   }
+
+  {
+    std::unique_ptr<VirtualJoystick> vtb_joystick =
+        std::make_unique<VirtualJoystick>(this);
+    vtb_joystick_ = vtb_joystick.get();
+    vtb_joystick->set_visible(false);
+    vtb_joystick->set_joystick_callback(
+        kiwi::base::BindRepeating(&MainWindow::OnVirtualJoystickChanged,
+        kiwi::base::Unretained(this)));
+    AddWidget(std::move(vtb_joystick));
+  }
 #endif
 }
 
@@ -982,6 +998,10 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
       if (vtb_select_)
         vtb_select_->set_visible(visible);
       break;
+    case VirtualTouchButton::kJoystick:
+      if (vtb_joystick_)
+        vtb_joystick_->set_visible(visible);
+      break;
     default:
       SDL_assert(false);
       break;
@@ -990,27 +1010,56 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
 }
 
 void MainWindow::LayoutVirtualTouchButtons() {
-#if defined(ANDROID)
-  const int kSize = 45 * window_scale();
-  const int kPadding = kVirtualTouchButtonPadding * window_scale();
   const SDL_Rect kClientBounds = GetClientBounds();
+#if defined(ANDROID)
+  {
+    const int kSize = 45 * window_scale();
+    const int kPadding = 20 * window_scale();
 
-  if (vtb_start_) {
-    SDL_Rect bounds;
-    bounds.h = bounds.w = kSize;
-    bounds.x = kClientBounds.w - bounds.w - kPadding;
-    bounds.y = kClientBounds.h - bounds.h - kPadding;
-    vtb_start_->set_bounds(bounds);
+    if (vtb_start_) {
+      SDL_Rect bounds;
+      bounds.h = bounds.w = kSize;
+      bounds.x = kClientBounds.w - bounds.w - kPadding;
+      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      vtb_start_->set_bounds(bounds);
+    }
+
+    if (vtb_select_) {
+      SDL_Rect bounds;
+      bounds.h = bounds.w = kSize;
+      bounds.x = kClientBounds.w - bounds.w * 2 - kPadding * 2;
+      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      vtb_select_->set_bounds(bounds);
+    }
   }
 
-  if (vtb_select_) {
-    SDL_Rect bounds;
-    bounds.h = bounds.w = kSize;
-    bounds.x = kClientBounds.w - bounds.w * 2 - kPadding * 2;
-    bounds.y = kClientBounds.h - bounds.h - kPadding;
-    vtb_select_->set_bounds(bounds);
+  {
+    const int kSize = 180 * window_scale();
+    const int kPadding = 25 * window_scale();
+
+    if (vtb_joystick_) {
+      SDL_Rect bounds;
+      bounds.h = bounds.w = kSize;
+      bounds.x = kPadding;
+      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      vtb_joystick_->set_bounds(bounds);
+    }
   }
 #endif
+}
+
+void MainWindow::SetVirtualJoystickButton(int which,
+                                          kiwi::nes::ControllerButton button,
+                                          bool pressed) {
+  SDL_assert(which == 0 || which == 1);
+  virtual_controller_button_states_[which][static_cast<int>(button)] = pressed;
+}
+
+bool MainWindow::IsVirtualJoystickButtonPressed(
+    int which,
+    kiwi::nes::ControllerButton button) {
+  SDL_assert(which == 0 || which == 1);
+  return virtual_controller_button_states_[which][static_cast<int>(button)];
 }
 
 void MainWindow::OnRomLoaded(const std::string& name) {
@@ -1216,7 +1265,7 @@ void MainWindow::OnSetFullscreen() {
   config_->SaveConfig();
 
   // Windows system use a fake fullscreen to avoid changing resolution.
-  // While MacOS can use the real fullscreen to avoid fullscreen's
+  // While macOS can use the real fullscreen to avoid fullscreen's
   // window animation.
 #if defined(WIN32)
   SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN_DESKTOP);
@@ -1397,6 +1446,24 @@ void MainWindow::SaveConfig() {
   SDL_assert(main_items_widget_);
   config_->data().last_index = main_items_widget_->current_index();
   config_->SaveConfig();
+}
+
+void MainWindow::OnVirtualJoystickChanged(int state) {
+#if defined(ANDROID)
+  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kLeft, false);
+  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kRight, false);
+  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kUp, false);
+  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kDown, false);
+
+  if (state & VirtualJoystick::kLeft)
+    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kLeft, true);
+  if (state & VirtualJoystick::kRight)
+    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kRight, true);
+  if (state & VirtualJoystick::kUp)
+    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kUp, true);
+  if (state & VirtualJoystick::kDown)
+    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kDown, true);
+#endif
 }
 
 bool MainWindow::IsPause() {

@@ -105,6 +105,8 @@ set(Sources
         ui/widgets/toast.h
         ui/widgets/touch_button.cc
         ui/widgets/touch_button.h
+        ui/widgets/virtual_joystick.cc
+        ui/widgets/virtual_joystick.h
         ui/widgets/widget.cc
         ui/widgets/widget.h
         ui/application.cc

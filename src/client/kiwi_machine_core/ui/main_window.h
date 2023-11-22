@@ -42,7 +42,7 @@ class MainWindow : public WindowBase,
                    public kiwi::nes::IODevices::InputDevice,
                    public CanvasObserver {
  public:
-  enum class VirtualTouchButton { kStart, kSelect };
+  enum class VirtualTouchButton { kStart, kSelect, kJoystick };
 
  public:
   explicit MainWindow(const std::string& title,
@@ -57,7 +57,11 @@ class MainWindow : public WindowBase,
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
   void SetVirtualTouchButtonVisible(VirtualTouchButton button, bool visible);
-
+  void SetVirtualJoystickButton(int which,
+                                kiwi::nes::ControllerButton button,
+                                bool pressed);
+  bool IsVirtualJoystickButtonPressed(int which,
+                                      kiwi::nes::ControllerButton button);
   // Export ROMs
   void ExportDone();
   void ExportSucceeded(const std::string& rom_name);
@@ -137,8 +141,8 @@ class MainWindow : public WindowBase,
   void OnInGameMenuTrigger();
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item, bool is_left);
-
   void SaveConfig();
+  void OnVirtualJoystickChanged(int state);
 
  private:
   std::set<int> pressing_keys_;
@@ -162,11 +166,15 @@ class MainWindow : public WindowBase,
 
   Widget* vtb_start_ = nullptr;
   Widget* vtb_select_ = nullptr;
+  Widget* vtb_joystick_ = nullptr;
 
   NESRuntimeID runtime_id_ = NESRuntimeID();
   NESRuntime::Data* runtime_data_ = nullptr;
   std::unique_ptr<NESAudio> audio_;
   scoped_refptr<NESConfig> config_;
+
+  bool virtual_controller_button_states_[2][static_cast<int>(
+      kiwi::nes::ControllerButton::kMax)]{0};
 };
 
 #endif  // UI_MAIN_WINDOW_H_
