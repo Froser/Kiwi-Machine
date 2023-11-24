@@ -28,9 +28,16 @@ class TouchButton : public Widget {
                        image_resources::ImageID image_id);
   ~TouchButton() override;
 
+  void set_finger_down_callback(const kiwi::base::RepeatingClosure& callback) {
+    finger_down_callback_ = callback;
+  }
+
   void set_trigger_callback(const kiwi::base::RepeatingClosure& callback) {
     trigger_callback_ = callback;
   }
+
+  // |opcacity| is from 0 to 1.
+  void set_opacity(float opacity) { opacity_ = opacity; }
 
  protected:
   // Widget:
@@ -53,12 +60,15 @@ class TouchButton : public Widget {
     int touch_point_y;
   };
 
+  kiwi::base::RepeatingClosure finger_down_callback_;
   kiwi::base::RepeatingClosure trigger_callback_;
-  bool first_paint_ = true;
   SDL_Texture* texture_ = nullptr;
+  int texture_width_ = 0;
+  int texture_height_ = 0;
   image_resources::ImageID image_id_;
   std::map<int, TouchDetail> triggered_fingers_;
   ButtonState button_state_ = ButtonState::kNormal;
+  float opacity_ = .75f;
 };
 
 #endif  // UI_WIDGETS_TOUCH_BUTTON_H_

@@ -42,7 +42,17 @@ class MainWindow : public WindowBase,
                    public kiwi::nes::IODevices::InputDevice,
                    public CanvasObserver {
  public:
-  enum class VirtualTouchButton { kStart, kSelect, kJoystick };
+  enum class VirtualTouchButton {
+    kStart,
+    kSelect,
+    kJoystick,
+    kA,
+    kB,
+    kAB,
+    kStartBar,
+    kSelectBar,
+    kPause,
+  };
 
  public:
   explicit MainWindow(const std::string& title,
@@ -164,9 +174,20 @@ class MainWindow : public WindowBase,
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;
 
+#if defined(ANDROID)
+  // Main menu buttons
   Widget* vtb_start_ = nullptr;
   Widget* vtb_select_ = nullptr;
   Widget* vtb_joystick_ = nullptr;
+
+  // Virtual buttons in game
+  Widget* vtb_a_ = nullptr;
+  Widget* vtb_b_ = nullptr;
+  Widget* vtb_ab_ = nullptr;
+  Widget* vtb_start_bar_ = nullptr;
+  Widget* vtb_select_bar_ = nullptr;
+  Widget* vtb_pause_ = nullptr;
+#endif
 
   NESRuntimeID runtime_id_ = NESRuntimeID();
   NESRuntime::Data* runtime_data_ = nullptr;

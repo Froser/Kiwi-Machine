@@ -896,6 +896,12 @@ void MainWindow::ShowMainMenu(bool show) {
   SetVirtualTouchButtonVisible(VirtualTouchButton::kStart, show);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kSelect, show);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kJoystick, !show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kA, !show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kB, !show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kAB, !show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kStartBar, !show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kSelectBar, !show);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kPause, !show);
   SetLoading(false);
 }
 
@@ -957,6 +963,7 @@ void MainWindow::CreateVirtualTouchButtons() {
     std::unique_ptr<TouchButton> vtb_start = std::make_unique<TouchButton>(
         this, image_resources::ImageID::kVtbStart);
     vtb_start_ = vtb_start.get();
+    vtb_start->set_opacity(1.f);
     vtb_start->set_trigger_callback(
         kiwi::base::BindRepeating(&KiwiItemsWidget::TriggerCurrentItem,
                                   kiwi::base::Unretained(main_items_widget_)));
@@ -967,6 +974,7 @@ void MainWindow::CreateVirtualTouchButtons() {
     std::unique_ptr<TouchButton> vtb_select = std::make_unique<TouchButton>(
         this, image_resources::ImageID::kVtbSelect);
     vtb_select_ = vtb_select.get();
+    vtb_select->set_opacity(1.f);
     vtb_select->set_trigger_callback(
         kiwi::base::BindRepeating(&KiwiItemsWidget::SwapCurrentItem,
                                   kiwi::base::Unretained(main_items_widget_)));
@@ -978,11 +986,128 @@ void MainWindow::CreateVirtualTouchButtons() {
         std::make_unique<VirtualJoystick>(this);
     vtb_joystick_ = vtb_joystick.get();
     vtb_joystick->set_visible(false);
-    vtb_joystick->set_joystick_callback(
-        kiwi::base::BindRepeating(&MainWindow::OnVirtualJoystickChanged,
-        kiwi::base::Unretained(this)));
+    vtb_joystick->set_joystick_callback(kiwi::base::BindRepeating(
+        &MainWindow::OnVirtualJoystickChanged, kiwi::base::Unretained(this)));
     AddWidget(std::move(vtb_joystick));
   }
+
+  {
+    std::unique_ptr<TouchButton> vtb_a =
+        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbA);
+    vtb_a_ = vtb_a.get();
+    vtb_a->set_finger_down_callback(kiwi::base::BindRepeating(
+        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
+        kiwi::nes::ControllerButton::kA, true));
+    vtb_a->set_trigger_callback(kiwi::base::BindRepeating(
+        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
+        kiwi::nes::ControllerButton::kA, false));
+    vtb_a->set_visible(false);
+    AddWidget(std::move(vtb_a));
+  }
+
+  {
+    std::unique_ptr<TouchButton> vtb_b =
+        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbB);
+    vtb_b_ = vtb_b.get();
+    vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
+        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
+        kiwi::nes::ControllerButton::kB, true));
+    vtb_b->set_trigger_callback(kiwi::base::BindRepeating(
+        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
+        kiwi::nes::ControllerButton::kB, false));
+    vtb_b->set_visible(false);
+    AddWidget(std::move(vtb_b));
+  }
+
+  {
+    std::unique_ptr<TouchButton> vtb_ab =
+        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbAb);
+    vtb_ab_ = vtb_ab.get();
+    vtb_ab->set_finger_down_callback(
+        kiwi::base::BindRepeating(&MainWindow::SetVirtualJoystickButton,
+                                  kiwi::base::Unretained(this), 0,
+                                  kiwi::nes::ControllerButton::kA, true)
+            .Then(kiwi::base::BindRepeating(
+                &MainWindow::SetVirtualJoystickButton,
+                kiwi::base::Unretained(this), 0,
+                kiwi::nes::ControllerButton::kB, true)));
+    vtb_ab->set_trigger_callback(
+        kiwi::base::BindRepeating(&MainWindow::SetVirtualJoystickButton,
+                                  kiwi::base::Unretained(this), 0,
+                                  kiwi::nes::ControllerButton::kA, false)
+            .Then(kiwi::base::BindRepeating(
+                &MainWindow::SetVirtualJoystickButton,
+                kiwi::base::Unretained(this), 0,
+                kiwi::nes::ControllerButton::kB, false)));
+    vtb_ab->set_visible(false);
+    AddWidget(std::move(vtb_ab));
+  }
+
+  {
+    std::unique_ptr<TouchButton> vtb_b =
+        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbB);
+    vtb_b_ = vtb_b.get();
+    vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
+        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
+        kiwi::nes::ControllerButton::kB, true));
+    vtb_b->set_trigger_callback(kiwi::base::BindRepeating(
+        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
+        kiwi::nes::ControllerButton::kB, false));
+    vtb_b->set_visible(false);
+    AddWidget(std::move(vtb_b));
+  }
+
+  {
+    constexpr float kScaling = .4f;
+    {
+      std::unique_ptr<TouchButton> vtb_select_bar =
+          std::make_unique<TouchButton>(
+              this, image_resources::ImageID::kVtbSelectBar);
+      vtb_select_bar_ = vtb_select_bar.get();
+      vtb_select_bar->set_finger_down_callback(kiwi::base::BindRepeating(
+          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
+          0, kiwi::nes::ControllerButton::kSelect, true));
+      vtb_select_bar->set_trigger_callback(kiwi::base::BindRepeating(
+          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
+          0, kiwi::nes::ControllerButton::kSelect, false));
+      SDL_Rect bounds = vtb_select_bar->bounds();
+      bounds.w *= window_scale() * kScaling;
+      bounds.h *= window_scale() * kScaling;
+      vtb_select_bar->set_bounds(bounds);
+      vtb_select_bar->set_visible(false);
+      AddWidget(std::move(vtb_select_bar));
+    }
+
+    {
+      std::unique_ptr<TouchButton> vtb_start_bar =
+          std::make_unique<TouchButton>(this,
+                                        image_resources::ImageID::kVtbStartBar);
+      vtb_start_bar_ = vtb_start_bar.get();
+      vtb_start_bar->set_finger_down_callback(kiwi::base::BindRepeating(
+          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
+          0, kiwi::nes::ControllerButton::kStart, true));
+      vtb_start_bar->set_trigger_callback(kiwi::base::BindRepeating(
+          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
+          0, kiwi::nes::ControllerButton::kStart, false));
+      SDL_Rect bounds = vtb_start_bar->bounds();
+      bounds.w *= window_scale() * kScaling;
+      bounds.h *= window_scale() * kScaling;
+      vtb_start_bar->set_bounds(bounds);
+      vtb_start_bar->set_visible(false);
+      AddWidget(std::move(vtb_start_bar));
+    }
+
+    {
+      std::unique_ptr<TouchButton> vtb_pause = std::make_unique<TouchButton>(
+          this, image_resources::ImageID::kVtbPause);
+      vtb_pause_ = vtb_pause.get();
+      vtb_pause->set_trigger_callback(kiwi::base::BindRepeating(
+          &MainWindow::OnInGameMenuTrigger, kiwi::base::Unretained(this)));
+      vtb_pause->set_visible(false);
+      AddWidget(std::move(vtb_pause));
+    }
+  }
+
 #endif
 }
 
@@ -1001,6 +1126,30 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
     case VirtualTouchButton::kJoystick:
       if (vtb_joystick_)
         vtb_joystick_->set_visible(visible);
+      break;
+    case VirtualTouchButton::kA:
+      if (vtb_a_)
+        vtb_a_->set_visible(visible);
+      break;
+    case VirtualTouchButton::kB:
+      if (vtb_b_)
+        vtb_b_->set_visible(visible);
+      break;
+    case VirtualTouchButton::kAB:
+      if (vtb_ab_)
+        vtb_ab_->set_visible(visible);
+      break;
+    case VirtualTouchButton::kSelectBar:
+      if (vtb_select_bar_)
+        vtb_select_bar_->set_visible(visible);
+      break;
+    case VirtualTouchButton::kStartBar:
+      if (vtb_start_bar_)
+        vtb_start_bar_->set_visible(visible);
+      break;
+    case VirtualTouchButton::kPause:
+      if (vtb_pause_)
+        vtb_pause_->set_visible(visible);
       break;
     default:
       SDL_assert(false);
@@ -1044,6 +1193,62 @@ void MainWindow::LayoutVirtualTouchButtons() {
       bounds.y = kClientBounds.h - bounds.h - kPadding;
       vtb_joystick_->set_bounds(bounds);
     }
+  }
+
+  {
+    const int kSize = 45 * window_scale();
+    const int kPadding = 80 * window_scale();
+    const int kSpacing = 20 * window_scale();
+    if (vtb_a_) {
+      SDL_Rect bounds;
+      bounds.h = bounds.w = kSize;
+      bounds.x = kClientBounds.w - bounds.w - kPadding;
+      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      vtb_a_->set_bounds(bounds);
+    }
+
+    if (vtb_b_) {
+      SDL_Rect bounds;
+      bounds.h = bounds.w = kSize;
+      bounds.x = kClientBounds.w - bounds.w * 2 - kPadding - kSpacing;
+      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      vtb_b_->set_bounds(bounds);
+    }
+
+    if (vtb_ab_) {
+      SDL_Rect bounds;
+      bounds.h = bounds.w = kSize;
+      bounds.x = kClientBounds.w - bounds.w - kPadding;
+      bounds.y = kClientBounds.h - bounds.h * 2 - kPadding - kSpacing;
+      vtb_ab_->set_bounds(bounds);
+    }
+  }
+
+  {
+    const int kMiddleSpacing = 5 * window_scale();
+    const int kPaddingBottom = 60 * window_scale();
+    if (vtb_select_bar_) {
+      SDL_Rect bounds = vtb_select_bar_->bounds();
+      bounds.x = kClientBounds.w / 2 - bounds.w - kMiddleSpacing;
+      bounds.y = kClientBounds.h - bounds.h - kPaddingBottom;
+      vtb_select_bar_->set_bounds(bounds);
+    }
+
+    if (vtb_start_bar_) {
+      SDL_Rect bounds = vtb_select_bar_->bounds();
+      bounds.x = kClientBounds.w / 2 + kMiddleSpacing;
+      bounds.y = kClientBounds.h - bounds.h - kPaddingBottom;
+      vtb_start_bar_->set_bounds(bounds);
+    }
+  }
+
+  if (vtb_pause_) {
+    const int kPadding = 25 * window_scale();
+    const int kSize = 45 * window_scale();
+    SDL_Rect bounds;
+    bounds.h = bounds.w = kSize;
+    bounds.x = bounds.y = kPadding;
+    vtb_pause_->set_bounds(bounds);
   }
 #endif
 }

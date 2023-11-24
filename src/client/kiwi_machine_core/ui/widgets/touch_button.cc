@@ -29,24 +29,26 @@ TouchButton::TouchButton(WindowBase* window_base,
       ImGuiWindowFlags_NoBackground;
   set_flags(window_flags);
   set_title("##TouchButton");
+  texture_ = GetImage(window()->renderer(), image_id_);
+
+  SDL_QueryTexture(texture_, nullptr, nullptr, &texture_width_,
+                   &texture_height_);
+  SDL_Rect b = bounds();
+  b.w = texture_width_;
+  b.h = texture_height_;
+  set_bounds(b);
 }
 
 TouchButton::~TouchButton() = default;
 
 void TouchButton::Paint() {
-  if (first_paint_) {
-    SDL_assert(!texture_);
-    texture_ = GetImage(window()->renderer(), image_id_);
-    first_paint_ = false;
-  }
-
   ImU32 color = button_state_ == ButtonState::kNormal
-                    ? IM_COL32_WHITE
-                    : IM_COL32(255, 255, 255, 128);
+                    ? IM_COL32(255, 255, 255, opacity_ * 255)
+                    : IM_COL32(255, 255, 255, opacity_ * 128);
   SDL_Rect rect = bounds();
   ImGui::GetBackgroundDrawList()->AddImage(
       texture_, ImVec2(rect.x, rect.y),
-      ImVec2(rect.x + rect.h, rect.y + rect.h), ImVec2(0, 0), ImVec2(1, 1),
+      ImVec2(rect.x + rect.w, rect.y + rect.h), ImVec2(0, 0), ImVec2(1, 1),
       color);
 }
 
@@ -58,6 +60,9 @@ bool TouchButton::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
     triggered_fingers_.insert(std::make_pair(
         event->fingerId, TouchDetail{static_cast<int>(touch_pt.x),
                                      static_cast<int>(touch_pt.y)}));
+    if (finger_down_callback_)
+      finger_down_callback_.Run();
+
     handled = true;
   }
 
