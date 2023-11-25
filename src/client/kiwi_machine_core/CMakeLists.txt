@@ -77,6 +77,8 @@ set(Sources
         ui/widgets/frame_rate_widget.h
         ui/widgets/in_game_menu.cc
         ui/widgets/in_game_menu.h
+        ui/widgets/joystick_button.cc
+        ui/widgets/joystick_button.h
         ui/widgets/group_widget.cc
         ui/widgets/group_widget.h
         ui/widgets/kiwi_bg_widget.cc
@@ -136,6 +138,7 @@ set(Sources
 if (ANDROID)
     list(APPEND Sources
             ui/main_window_android.cc
+            ui/widgets/in_game_menu_android.cc
     )
 endif ()
 

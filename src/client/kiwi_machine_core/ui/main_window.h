@@ -63,6 +63,9 @@ class MainWindow : public WindowBase,
 
   float window_scale() { return config_->data().window_scale; }
   bool is_fullscreen() { return config_->data().is_fullscreen; }
+#if defined(ANDROID)
+  bool is_stretch_mode() { return config_->data().is_stretch_mode; }
+#endif
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
@@ -201,7 +204,7 @@ class MainWindow : public WindowBase,
   scoped_refptr<NESConfig> config_;
 
   bool virtual_controller_button_states_[2][static_cast<int>(
-      kiwi::nes::ControllerButton::kMax)]{0};
+      kiwi::nes::ControllerButton::kMax)]{false};
 };
 
 #endif  // UI_MAIN_WINDOW_H_

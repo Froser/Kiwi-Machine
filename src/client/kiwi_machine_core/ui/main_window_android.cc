@@ -15,6 +15,7 @@
 #include <SDL.h>
 
 #include "ui/widgets/canvas.h"
+#include "ui/widgets/joystick_button.h"
 #include "ui/widgets/kiwi_items_widget.h"
 #include "ui/widgets/touch_button.h"
 #include "ui/widgets/virtual_joystick.h"
@@ -59,8 +60,8 @@ void MainWindow::CreateVirtualTouchButtons() {
   }
 
   {
-    std::unique_ptr<TouchButton> vtb_a =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbA);
+    std::unique_ptr<JoystickButton> vtb_a =
+        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbA);
     vtb_a_ = vtb_a.get();
     vtb_a->set_finger_down_callback(kiwi::base::BindRepeating(
         &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
@@ -73,8 +74,8 @@ void MainWindow::CreateVirtualTouchButtons() {
   }
 
   {
-    std::unique_ptr<TouchButton> vtb_b =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbB);
+    std::unique_ptr<JoystickButton> vtb_b =
+        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbB);
     vtb_b_ = vtb_b.get();
     vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
         &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
@@ -87,8 +88,8 @@ void MainWindow::CreateVirtualTouchButtons() {
   }
 
   {
-    std::unique_ptr<TouchButton> vtb_ab =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbAb);
+    std::unique_ptr<JoystickButton> vtb_ab = std::make_unique<JoystickButton>(
+        this, image_resources::ImageID::kVtbAb);
     vtb_ab_ = vtb_ab.get();
     vtb_ab->set_finger_down_callback(
         kiwi::base::BindRepeating(&MainWindow::SetVirtualJoystickButton,
@@ -111,8 +112,8 @@ void MainWindow::CreateVirtualTouchButtons() {
   }
 
   {
-    std::unique_ptr<TouchButton> vtb_b =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbB);
+    std::unique_ptr<JoystickButton> vtb_b =
+        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbB);
     vtb_b_ = vtb_b.get();
     vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
         &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
@@ -180,7 +181,6 @@ void MainWindow::CreateVirtualTouchButtons() {
 
 void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
                                               bool visible) {
-#if defined(ANDROID)
   switch (button) {
     case VirtualTouchButton::kStart:
       if (vtb_start_)
@@ -222,7 +222,6 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
       SDL_assert(false);
       break;
   }
-#endif
 }
 
 void MainWindow::LayoutVirtualTouchButtons() {
@@ -351,18 +350,15 @@ void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
 
 void MainWindow::OnScaleModeChanged() {
   if (canvas_) {
+    float canvas_scale = 2.f;
     if (config_->data().is_stretch_mode) {
       SDL_Rect rect = GetClientBounds();
-      float canvas_scale = 1.f;
       if (rect.w > rect.h) {
-        float scale = static_cast<float>(rect.h) / kDefaultWindowWidth;
-        canvas_->set_frame_scale(scale);
+        canvas_scale = static_cast<float>(rect.h) / kDefaultWindowWidth;
       } else {
-        float scale = static_cast<float>(rect.h) / kDefaultWindowWidth;
-        canvas_->set_frame_scale(scale);
+        canvas_scale = static_cast<float>(rect.w) / kDefaultWindowHeight;
       }
-    } else {
-      canvas_->set_frame_scale(1.f);
     }
+    canvas_->set_frame_scale(canvas_scale);
   }
 }

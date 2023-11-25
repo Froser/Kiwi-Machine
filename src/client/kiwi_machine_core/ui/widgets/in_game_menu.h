@@ -15,6 +15,10 @@
 
 #include <kiwi_nes.h>
 
+#if defined(ANDROID)
+#include <unordered_map>
+#endif
+
 #include "models/nes_runtime.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
@@ -61,6 +65,7 @@ class InGameMenu : public Widget {
 
  private:
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  void HandleMenuItemForCurrentSelection();
   void MoveSelection(bool up);
   void SetFirstSelection();
 
@@ -70,6 +75,13 @@ class InGameMenu : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+
+#if defined(ANDROID)
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
+  bool HandleFingerDownOrMove(SDL_TouchFingerEvent* event,
+                              bool suppress_trigger);
+#endif
 
  private:
   MainWindow* main_window_ = nullptr;
@@ -91,6 +103,11 @@ class InGameMenu : public Widget {
   SDL_Texture* snapshot_ = nullptr;
   bool currently_has_snapshot_ = false;
   int current_auto_states_count_ = 0;
+
+#if defined(ANDROID)
+  // Menu positions to handle finger touch events
+  std::unordered_map<int, SDL_Rect> menu_positions_;
+#endif
 };
 
 #endif  // UI_WIDGETS_IN_GAME_MENU_H_

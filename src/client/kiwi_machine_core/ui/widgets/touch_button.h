@@ -21,7 +21,6 @@
 #include "ui/widgets/widget.h"
 #include "utility/timer.h"
 
-// A demo widget shows IMGui's demo.
 class TouchButton : public Widget {
  public:
   explicit TouchButton(WindowBase* window_base,
@@ -49,7 +48,7 @@ class TouchButton : public Widget {
  private:
   void CalculateButtonState();
 
- private:
+ protected:
   enum class ButtonState {
     kNormal,
     kDown,

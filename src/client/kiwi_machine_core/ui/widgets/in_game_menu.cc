@@ -287,6 +287,7 @@ void InGameMenu::Paint() {
                             : (main_window_->window_scale() > 2.f
                                    ? FontType::kSystemDefault2x
                                    : FontType::kSystemDefault));
+
     int window_scaling_for_settings =
         static_cast<int>(main_window_->window_scale());
     if (window_scaling_for_settings < 2)
@@ -369,12 +370,20 @@ void InGameMenu::Paint() {
                                    : (main_window_->window_scale() > 2.f
                                           ? FontType::kDefault2x
                                           : FontType::kDefault));
+#if !defined(ANDROID)
           const char* kWindowSizes[] = {"Small", "Normal", "Large",
                                         "Fullscreen"};
           const char* kSizeStr =
               main_window_->is_fullscreen()
                   ? kWindowSizes[3]
                   : kWindowSizes[window_scaling_for_settings - 2];
+#else
+          // Android and mobile apps only has two modes: streching mode and
+          // non-streching mode.
+          const char* kSizeStr =
+              main_window_->is_stretch_mode() ? "Stretch" : "Original";
+#endif
+
           ImVec2 window_text_size = ImGui::CalcTextSize(kSizeStr);
           ImGui::SetCursorPosX(kCenterX + kMargin +
                                (kCenterX - window_text_size.x) / 2);
@@ -390,7 +399,15 @@ void InGameMenu::Paint() {
                 window_pos.x + kCenterX + kMargin + prompt_width + kMargin,
                 window_pos.y + text_y);
 
-            if (window_scaling_for_settings <= 2) {
+#if !defined(ANDROID)
+            bool has_no_left = window_scaling_for_settings <= 2;
+            bool has_right = !main_window_->is_fullscreen();
+#else
+            bool has_no_left = !main_window_->is_stretch_mode();
+            bool has_right = has_no_left;
+#endif
+
+            if (has_no_left) {
               ImGui::GetWindowDrawList()->AddTriangle(
                   ImVec2(triangle_p0.x - prompt_width - kVolumeBarSpacing,
                          triangle_p0.y + prompt_height / 2),
@@ -408,7 +425,7 @@ void InGameMenu::Paint() {
                   IM_COL32_WHITE);
             }
 
-            if (!main_window_->is_fullscreen()) {
+            if (has_right) {
               ImGui::GetWindowDrawList()->AddTriangleFilled(
                   ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
                          triangle_p0.y),
@@ -531,6 +548,26 @@ void InGameMenu::Paint() {
              window_pos.y + selection_rect_pt1.y + kSelectionPadding +
                  menu_font_size),
       IM_COL32_WHITE);
+
+#if defined(ANDROID)
+  // Register menu position to response finger touch events.
+  // The responding area is exactly the 'draw-selection area'.
+  if (menu_positions_.empty()) {
+    int i = 0;
+    for (const char* item : kMenuItems) {
+      if (hide_menus_.find(i) != hide_menus_.end()) {
+        // The current menu 'i' is hidden.
+        ++i;
+      } else {
+        int menu_top = menu_tops[i];
+        menu_positions_[i] =
+            SDL_Rect{0, menu_top - kSelectionPadding, kCenterX - 1,
+                     2 * kSelectionPadding + menu_font_size};
+        ++i;
+      }
+    }
+  }
+#endif
 }
 
 bool InGameMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
@@ -566,22 +603,7 @@ bool InGameMenu::HandleInputEvents(SDL_KeyboardEvent* k,
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_A) {
-    if (current_selection_ == MenuItem::kOptions) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      settings_entered_ = true;
-    } else {
-      PlayEffect(audio_resources::AudioID::kStart);
-      if (current_selection_ == MenuItem::kLoadState ||
-          current_selection_ == MenuItem::kSaveState) {
-        // Saving or loading states will pass a parameter to show which state
-        // to be saved.
-        menu_callback_.Run(current_selection_, which_state_);
-      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
-        menu_callback_.Run(current_selection_, state_timestamp_);
-      } else {
-        menu_callback_.Run(current_selection_, 0);
-      }
-    }
+    HandleMenuItemForCurrentSelection();
     return true;
   }
 
@@ -643,6 +665,25 @@ bool InGameMenu::HandleInputEvents(SDL_KeyboardEvent* k,
   }
 
   return false;
+}
+
+void InGameMenu::HandleMenuItemForCurrentSelection() {
+  if (current_selection_ == MenuItem::kOptions) {
+    PlayEffect(audio_resources::AudioID::kSelect);
+    settings_entered_ = true;
+  } else {
+    PlayEffect(audio_resources::AudioID::kStart);
+    if (current_selection_ == MenuItem::kLoadState ||
+        current_selection_ == MenuItem::kSaveState) {
+      // Saving or loading states will pass a parameter to show which state
+      // to be saved.
+      menu_callback_.Run(current_selection_, which_state_);
+    } else if (current_selection_ == MenuItem::kLoadAutoSave) {
+      menu_callback_.Run(current_selection_, state_timestamp_);
+    } else {
+      menu_callback_.Run(current_selection_, 0);
+    }
+  }
 }
 
 void InGameMenu::MoveSelection(bool up) {

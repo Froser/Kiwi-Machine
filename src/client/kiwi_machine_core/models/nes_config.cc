@@ -88,7 +88,7 @@ void NESConfig::LoadFromUTF8Json(const std::string& utf8_json) {
   }
 
 #if defined(ANDROID)
-  // On mobile, window scale factor always sets to 3.0, because it is the best
+  // On mobile, window scale factor always sets to 4.0, because it is the best
   // scaling.
   data_.window_scale = 4.f;
 #endif
