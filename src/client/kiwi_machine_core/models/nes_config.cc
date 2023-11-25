@@ -54,7 +54,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
                                    window_scale,
                                    is_fullscreen,
                                    volume,
-                                   last_index);
+                                   last_index
+#if defined(ANDROID)
+                                   , is_stretch_mode
+#endif
+);
 
 NESConfig::NESConfig(const kiwi::base::FilePath& profile_path)
     : profile_path_(profile_path) {}
@@ -82,6 +86,12 @@ void NESConfig::LoadFromUTF8Json(const std::string& utf8_json) {
   if (!utf8_json.empty()) {
     data_ = nlohmann::json::parse(utf8_json);
   }
+
+#if defined(ANDROID)
+  // On mobile, window scale factor always sets to 3.0, because it is the best
+  // scaling.
+  data_.window_scale = 4.f;
+#endif
 }
 
 void NESConfig::OnConfigSaved(bool success) {

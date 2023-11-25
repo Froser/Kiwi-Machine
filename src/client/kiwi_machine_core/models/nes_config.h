@@ -27,6 +27,9 @@ class NESConfig : public kiwi::base::RefCounted<NESConfig> {
     bool is_fullscreen = false;
     float volume = 1.f;
     int last_index = 0;
+#if defined(ANDROID)
+    bool is_stretch_mode = true;
+#endif
   };
 
  private:

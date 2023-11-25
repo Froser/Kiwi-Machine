@@ -39,8 +39,6 @@
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
-#include "ui/widgets/touch_button.h"
-#include "ui/widgets/virtual_joystick.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/zip_reader.h"
@@ -659,9 +657,13 @@ void MainWindow::InitializeUI() {
     stack_widget_->PushWidget(std::move(splash));
   }
 
+#if !defined(ANDROID)
   OnScaleChanged();
   if (is_fullscreen())
     OnSetFullscreen();
+#else
+  OnScaleModeChanged();
+#endif
   LayoutVirtualTouchButtons();
 }
 
@@ -895,13 +897,7 @@ void MainWindow::ShowMainMenu(bool show) {
   bg_widget_->set_visible(show);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kStart, show);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kSelect, show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kJoystick, !show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kA, !show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kB, !show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kAB, !show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kStartBar, !show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kSelectBar, !show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kPause, !show);
+  SetVirtualButtonsVisible(!show);
   SetLoading(false);
 }
 
@@ -956,301 +952,26 @@ void MainWindow::UpdateGameControllerMapping() {
   }
 }
 
-void MainWindow::CreateVirtualTouchButtons() {
-#if defined(ANDROID)
-  SDL_assert(main_items_widget_);
-  {
-    std::unique_ptr<TouchButton> vtb_start = std::make_unique<TouchButton>(
-        this, image_resources::ImageID::kVtbStart);
-    vtb_start_ = vtb_start.get();
-    vtb_start->set_opacity(1.f);
-    vtb_start->set_trigger_callback(
-        kiwi::base::BindRepeating(&KiwiItemsWidget::TriggerCurrentItem,
-                                  kiwi::base::Unretained(main_items_widget_)));
-    AddWidget(std::move(vtb_start));
-  }
-
-  {
-    std::unique_ptr<TouchButton> vtb_select = std::make_unique<TouchButton>(
-        this, image_resources::ImageID::kVtbSelect);
-    vtb_select_ = vtb_select.get();
-    vtb_select->set_opacity(1.f);
-    vtb_select->set_trigger_callback(
-        kiwi::base::BindRepeating(&KiwiItemsWidget::SwapCurrentItem,
-                                  kiwi::base::Unretained(main_items_widget_)));
-    AddWidget(std::move(vtb_select));
-  }
-
-  {
-    std::unique_ptr<VirtualJoystick> vtb_joystick =
-        std::make_unique<VirtualJoystick>(this);
-    vtb_joystick_ = vtb_joystick.get();
-    vtb_joystick->set_visible(false);
-    vtb_joystick->set_joystick_callback(kiwi::base::BindRepeating(
-        &MainWindow::OnVirtualJoystickChanged, kiwi::base::Unretained(this)));
-    AddWidget(std::move(vtb_joystick));
-  }
-
-  {
-    std::unique_ptr<TouchButton> vtb_a =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbA);
-    vtb_a_ = vtb_a.get();
-    vtb_a->set_finger_down_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kA, true));
-    vtb_a->set_trigger_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kA, false));
-    vtb_a->set_visible(false);
-    AddWidget(std::move(vtb_a));
-  }
-
-  {
-    std::unique_ptr<TouchButton> vtb_b =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbB);
-    vtb_b_ = vtb_b.get();
-    vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kB, true));
-    vtb_b->set_trigger_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kB, false));
-    vtb_b->set_visible(false);
-    AddWidget(std::move(vtb_b));
-  }
-
-  {
-    std::unique_ptr<TouchButton> vtb_ab =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbAb);
-    vtb_ab_ = vtb_ab.get();
-    vtb_ab->set_finger_down_callback(
-        kiwi::base::BindRepeating(&MainWindow::SetVirtualJoystickButton,
-                                  kiwi::base::Unretained(this), 0,
-                                  kiwi::nes::ControllerButton::kA, true)
-            .Then(kiwi::base::BindRepeating(
-                &MainWindow::SetVirtualJoystickButton,
-                kiwi::base::Unretained(this), 0,
-                kiwi::nes::ControllerButton::kB, true)));
-    vtb_ab->set_trigger_callback(
-        kiwi::base::BindRepeating(&MainWindow::SetVirtualJoystickButton,
-                                  kiwi::base::Unretained(this), 0,
-                                  kiwi::nes::ControllerButton::kA, false)
-            .Then(kiwi::base::BindRepeating(
-                &MainWindow::SetVirtualJoystickButton,
-                kiwi::base::Unretained(this), 0,
-                kiwi::nes::ControllerButton::kB, false)));
-    vtb_ab->set_visible(false);
-    AddWidget(std::move(vtb_ab));
-  }
-
-  {
-    std::unique_ptr<TouchButton> vtb_b =
-        std::make_unique<TouchButton>(this, image_resources::ImageID::kVtbB);
-    vtb_b_ = vtb_b.get();
-    vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kB, true));
-    vtb_b->set_trigger_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kB, false));
-    vtb_b->set_visible(false);
-    AddWidget(std::move(vtb_b));
-  }
-
-  {
-    constexpr float kScaling = .4f;
-    {
-      std::unique_ptr<TouchButton> vtb_select_bar =
-          std::make_unique<TouchButton>(
-              this, image_resources::ImageID::kVtbSelectBar);
-      vtb_select_bar_ = vtb_select_bar.get();
-      vtb_select_bar->set_finger_down_callback(kiwi::base::BindRepeating(
-          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
-          0, kiwi::nes::ControllerButton::kSelect, true));
-      vtb_select_bar->set_trigger_callback(kiwi::base::BindRepeating(
-          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
-          0, kiwi::nes::ControllerButton::kSelect, false));
-      SDL_Rect bounds = vtb_select_bar->bounds();
-      bounds.w *= window_scale() * kScaling;
-      bounds.h *= window_scale() * kScaling;
-      vtb_select_bar->set_bounds(bounds);
-      vtb_select_bar->set_visible(false);
-      AddWidget(std::move(vtb_select_bar));
-    }
-
-    {
-      std::unique_ptr<TouchButton> vtb_start_bar =
-          std::make_unique<TouchButton>(this,
-                                        image_resources::ImageID::kVtbStartBar);
-      vtb_start_bar_ = vtb_start_bar.get();
-      vtb_start_bar->set_finger_down_callback(kiwi::base::BindRepeating(
-          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
-          0, kiwi::nes::ControllerButton::kStart, true));
-      vtb_start_bar->set_trigger_callback(kiwi::base::BindRepeating(
-          &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
-          0, kiwi::nes::ControllerButton::kStart, false));
-      SDL_Rect bounds = vtb_start_bar->bounds();
-      bounds.w *= window_scale() * kScaling;
-      bounds.h *= window_scale() * kScaling;
-      vtb_start_bar->set_bounds(bounds);
-      vtb_start_bar->set_visible(false);
-      AddWidget(std::move(vtb_start_bar));
-    }
-
-    {
-      std::unique_ptr<TouchButton> vtb_pause = std::make_unique<TouchButton>(
-          this, image_resources::ImageID::kVtbPause);
-      vtb_pause_ = vtb_pause.get();
-      vtb_pause->set_trigger_callback(kiwi::base::BindRepeating(
-          &MainWindow::OnInGameMenuTrigger, kiwi::base::Unretained(this)));
-      vtb_pause->set_visible(false);
-      AddWidget(std::move(vtb_pause));
-    }
-  }
-
-#endif
-}
+#if !defined(ANDROID)
+void MainWindow::CreateVirtualTouchButtons() {}
 
 void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
-                                              bool visible) {
-#if defined(ANDROID)
-  switch (button) {
-    case VirtualTouchButton::kStart:
-      if (vtb_start_)
-        vtb_start_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kSelect:
-      if (vtb_select_)
-        vtb_select_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kJoystick:
-      if (vtb_joystick_)
-        vtb_joystick_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kA:
-      if (vtb_a_)
-        vtb_a_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kB:
-      if (vtb_b_)
-        vtb_b_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kAB:
-      if (vtb_ab_)
-        vtb_ab_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kSelectBar:
-      if (vtb_select_bar_)
-        vtb_select_bar_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kStartBar:
-      if (vtb_start_bar_)
-        vtb_start_bar_->set_visible(visible);
-      break;
-    case VirtualTouchButton::kPause:
-      if (vtb_pause_)
-        vtb_pause_->set_visible(visible);
-      break;
-    default:
-      SDL_assert(false);
-      break;
-  }
+                                              bool visible) {}
+
+void MainWindow::LayoutVirtualTouchButtons() {}
+
+void MainWindow::OnVirtualJoystickChanged(int state) {}
+
 #endif
-}
 
-void MainWindow::LayoutVirtualTouchButtons() {
-  const SDL_Rect kClientBounds = GetClientBounds();
-#if defined(ANDROID)
-  {
-    const int kSize = 45 * window_scale();
-    const int kPadding = 20 * window_scale();
-
-    if (vtb_start_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w - kPadding;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
-      vtb_start_->set_bounds(bounds);
-    }
-
-    if (vtb_select_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w * 2 - kPadding * 2;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
-      vtb_select_->set_bounds(bounds);
-    }
-  }
-
-  {
-    const int kSize = 180 * window_scale();
-    const int kPadding = 25 * window_scale();
-
-    if (vtb_joystick_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = kPadding;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
-      vtb_joystick_->set_bounds(bounds);
-    }
-  }
-
-  {
-    const int kSize = 45 * window_scale();
-    const int kPadding = 80 * window_scale();
-    const int kSpacing = 20 * window_scale();
-    if (vtb_a_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w - kPadding;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
-      vtb_a_->set_bounds(bounds);
-    }
-
-    if (vtb_b_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w * 2 - kPadding - kSpacing;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
-      vtb_b_->set_bounds(bounds);
-    }
-
-    if (vtb_ab_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w - kPadding;
-      bounds.y = kClientBounds.h - bounds.h * 2 - kPadding - kSpacing;
-      vtb_ab_->set_bounds(bounds);
-    }
-  }
-
-  {
-    const int kMiddleSpacing = 5 * window_scale();
-    const int kPaddingBottom = 60 * window_scale();
-    if (vtb_select_bar_) {
-      SDL_Rect bounds = vtb_select_bar_->bounds();
-      bounds.x = kClientBounds.w / 2 - bounds.w - kMiddleSpacing;
-      bounds.y = kClientBounds.h - bounds.h - kPaddingBottom;
-      vtb_select_bar_->set_bounds(bounds);
-    }
-
-    if (vtb_start_bar_) {
-      SDL_Rect bounds = vtb_select_bar_->bounds();
-      bounds.x = kClientBounds.w / 2 + kMiddleSpacing;
-      bounds.y = kClientBounds.h - bounds.h - kPaddingBottom;
-      vtb_start_bar_->set_bounds(bounds);
-    }
-  }
-
-  if (vtb_pause_) {
-    const int kPadding = 25 * window_scale();
-    const int kSize = 45 * window_scale();
-    SDL_Rect bounds;
-    bounds.h = bounds.w = kSize;
-    bounds.x = bounds.y = kPadding;
-    vtb_pause_->set_bounds(bounds);
-  }
-#endif
+void MainWindow::SetVirtualButtonsVisible(bool visible) {
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kJoystick, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kA, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kB, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kAB, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kStartBar, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kSelectBar, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kPause, visible);
 }
 
 void MainWindow::SetVirtualJoystickButton(int which,
@@ -1400,10 +1121,12 @@ void MainWindow::OnPause() {
   runtime_data_->emulator->Pause();
   memory_widget_->UpdateMemory();
   disassembly_widget_->UpdateDisassembly();
+  SetVirtualButtonsVisible(false);
 }
 
 void MainWindow::OnResume() {
   runtime_data_->emulator->Run();
+  SetVirtualButtonsVisible(true);
 }
 
 void MainWindow::OnLoadPresetROM(const preset_roms::PresetROM& rom) {
@@ -1607,25 +1330,9 @@ void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
         volume = 1.f;
       OnSetAudioVolume(volume);
     } break;
-    case InGameMenu::SettingsItem::kWindowSize: {
-      if (is_fullscreen() && !is_left)
-        return;
-
-      if (is_fullscreen() && is_left) {
-        OnUnsetFullscreen(kMaxScaleBeforeFullscreen);
-      } else {
-        int scale = window_scale();
-        scale = (is_left ? scale - 1 : scale + 1);
-        if (scale < 2) {
-          scale = 2;
-          OnSetScreenScale(scale);
-        } else if (scale > kMaxScaleBeforeFullscreen) {
-          OnSetFullscreen();
-        } else {
-          OnSetScreenScale(scale);
-        }
-      }
-    } break;
+    case InGameMenu::SettingsItem::kWindowSize:
+      OnInGameSettingsHandleWindowSize(is_left);
+      break;
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
       std::vector<SDL_GameController*> controllers = GetControllerList();
@@ -1645,30 +1352,34 @@ void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
   }
 }
 
+#if !defined(ANDROID)
+void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
+  if (is_fullscreen() && !is_left)
+    return;
+
+  if (is_fullscreen() && is_left) {
+    OnUnsetFullscreen(kMaxScaleBeforeFullscreen);
+  } else {
+    int scale = window_scale();
+    scale = (is_left ? scale - 1 : scale + 1);
+    if (scale < 2) {
+      scale = 2;
+      OnSetScreenScale(scale);
+    } else if (scale > kMaxScaleBeforeFullscreen) {
+      OnSetFullscreen();
+    } else {
+      OnSetScreenScale(scale);
+    }
+  }
+}
+#endif
+
 void MainWindow::SaveConfig() {
   // Before main window destruct, save current game index.
   // This happens when MainWindow is about to destroy, and has IO operation.
   SDL_assert(main_items_widget_);
   config_->data().last_index = main_items_widget_->current_index();
   config_->SaveConfig();
-}
-
-void MainWindow::OnVirtualJoystickChanged(int state) {
-#if defined(ANDROID)
-  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kLeft, false);
-  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kRight, false);
-  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kUp, false);
-  SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kDown, false);
-
-  if (state & VirtualJoystick::kLeft)
-    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kLeft, true);
-  if (state & VirtualJoystick::kRight)
-    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kRight, true);
-  if (state & VirtualJoystick::kUp)
-    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kUp, true);
-  if (state & VirtualJoystick::kDown)
-    SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kDown, true);
-#endif
 }
 
 bool MainWindow::IsPause() {

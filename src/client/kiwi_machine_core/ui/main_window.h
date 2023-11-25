@@ -111,6 +111,8 @@ class MainWindow : public WindowBase,
   void UpdateGameControllerMapping();
   void CreateVirtualTouchButtons();
   void LayoutVirtualTouchButtons();
+  void SetVirtualButtonsVisible(bool visible);
+  void SaveConfig();
 
   // Menu callbacks:
   void OnRomLoaded(const std::string& name);
@@ -151,8 +153,12 @@ class MainWindow : public WindowBase,
   void OnInGameMenuTrigger();
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item, bool is_left);
-  void SaveConfig();
+  void OnInGameSettingsHandleWindowSize(bool is_left);
   void OnVirtualJoystickChanged(int state);
+
+#if defined(ANDROID)
+  void OnScaleModeChanged();
+#endif
 
  private:
   std::set<int> pressing_keys_;

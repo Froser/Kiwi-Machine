@@ -133,6 +133,12 @@ set(Sources
         utility/zip_reader.h
 )
 
+if (ANDROID)
+    list(APPEND Sources
+            ui/main_window_android.cc
+    )
+endif ()
+
 # Resources generation:
 # Use '__always_buildx.h' as a fake output, to make the command run every time.
 add_custom_command(
