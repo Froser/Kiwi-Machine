@@ -67,6 +67,10 @@ void InGameMenu::Paint() {
     first_paint_ = false;
   }
 
+#if defined(ANDROID)
+  CleanUpSettingsItemRects();
+#endif
+
   // Draw background
   ImDrawList* bg_draw_list = ImGui::GetBackgroundDrawList();
   ImVec2 window_pos = ImGui::GetWindowPos();
@@ -186,6 +190,7 @@ void InGameMenu::Paint() {
     }
 
     // Left
+
     if (left_enabled) {
       ImGui::GetWindowDrawList()->AddTriangleFilled(
           ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing -
@@ -339,13 +344,15 @@ void InGameMenu::Paint() {
 
       switch (i) {
         case 0: {  // Volume:
-          // Draw volume bar
+#if !defined(ANDROID)
+          // PC application has a volume bar
           float prompt_height = kVolumeBarHeight;
           float prompt_width = prompt_height * .8f;
           ImVec2 p0(window_pos.x + kCenterX + kMargin + prompt_width + kMargin,
                     window_pos.y + ImGui::GetCursorPosY());
           ImVec2 p1(window_pos.x + window_size.x - kMargin,
                     window_pos.y + ImGui::GetCursorPosY() + kVolumeBarHeight);
+
           ImGui::GetWindowDrawList()->AddRect(p0, p1, IM_COL32_WHITE);
           ImGui::Dummy(ImVec2(p1.x - p0.x, p1.y - p0.y));
 
@@ -363,6 +370,88 @@ void InGameMenu::Paint() {
                 ImVec2(p0.x - kVolumeBarSpacing, p0.y + prompt_height / 2),
                 IM_COL32_WHITE);
           }
+#else
+          // There are only 2 options on mobiles: On or Off.
+          ScopedFont size_font(main_window_->window_scale() > 3.f
+                                   ? FontType::kDefault3x
+                                   : (main_window_->window_scale() > 2.f
+                                          ? FontType::kDefault2x
+                                          : FontType::kDefault));
+          float prompt_height = ImGui::GetFontSize();
+          float prompt_width = prompt_height * .8f;
+          float volume = runtime_data_->emulator->GetVolume();
+          const char* kVolumeStr = volume > 0 ? "On" : "Off";
+
+          ImVec2 window_text_size = ImGui::CalcTextSize(kVolumeStr);
+          ImGui::SetCursorPosX(kCenterX + kMargin +
+                               (kCenterX - window_text_size.x) / 2);
+          int text_y = ImGui::GetCursorPosY();
+          ImGui::Text("%s", kVolumeStr);
+
+          settings_positions_[SettingsItem::kVolume] =
+              SDL_Rect{kCenterX, text_y, kCenterX,
+                       static_cast<int>(ImGui::GetCursorPosY() - text_y)};
+
+          if (settings_entered_ && current_setting_ == SettingsItem::kVolume) {
+            bool has_no_left = volume <= 0.f;
+            bool has_right = has_no_left;
+
+            ImVec2 triangle_p0(
+                window_pos.x + kCenterX + kMargin + prompt_width + kMargin,
+                window_pos.y + text_y);
+
+            AddRectForSettingsItem(
+                0,
+                SDL_Rect{static_cast<int>(triangle_p0.x - prompt_width -
+                                          window_pos.x),
+                         static_cast<int>(triangle_p0.y),
+                         static_cast<int>(prompt_width),
+                         static_cast<int>(prompt_height)},
+                SDL_Rect{
+                    static_cast<int>(window_size.x - kMargin - prompt_width),
+                    static_cast<int>(triangle_p0.y),
+                    static_cast<int>(prompt_width),
+                    static_cast<int>(prompt_height)});
+
+            if (has_no_left) {
+              ImGui::GetWindowDrawList()->AddTriangle(
+                  ImVec2(triangle_p0.x - prompt_width - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height / 2),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing, triangle_p0.y),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height),
+                  IM_COL32_WHITE);
+            } else {
+              ImGui::GetWindowDrawList()->AddTriangleFilled(
+                  ImVec2(triangle_p0.x - prompt_width - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height / 2),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing, triangle_p0.y),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height),
+                  IM_COL32_WHITE);
+            }
+
+            if (has_right) {
+              ImGui::GetWindowDrawList()->AddTriangleFilled(
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y),
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y + prompt_height),
+                  ImVec2(window_pos.x + window_size.x - kMargin,
+                         triangle_p0.y + prompt_height / 2),
+                  IM_COL32_WHITE);
+            } else {
+              ImGui::GetWindowDrawList()->AddTriangle(
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y),
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y + prompt_height),
+                  ImVec2(window_pos.x + window_size.x - kMargin,
+                         triangle_p0.y + prompt_height / 2),
+                  IM_COL32_WHITE);
+            }
+          }
+#endif
         } break;
         case 1: {  // Window size:
           ScopedFont size_font(main_window_->window_scale() > 3.f
@@ -390,6 +479,12 @@ void InGameMenu::Paint() {
           int text_y = ImGui::GetCursorPosY();
           ImGui::Text("%s", kSizeStr);
 
+#if defined(ANDROID)
+          settings_positions_[SettingsItem::kWindowSize] =
+              SDL_Rect{kCenterX, text_y, kCenterX,
+                       static_cast<int>(ImGui::GetCursorPosY() - text_y)};
+#endif
+
           if (settings_entered_ &&
               current_setting_ == SettingsItem::kWindowSize) {
             float prompt_height = ImGui::GetFontSize();
@@ -405,6 +500,19 @@ void InGameMenu::Paint() {
 #else
             bool has_no_left = !main_window_->is_stretch_mode();
             bool has_right = has_no_left;
+
+            AddRectForSettingsItem(
+                1,
+                SDL_Rect{static_cast<int>(triangle_p0.x - prompt_width -
+                                          window_pos.x),
+                         static_cast<int>(triangle_p0.y),
+                         static_cast<int>(prompt_width),
+                         static_cast<int>(prompt_height)},
+                SDL_Rect{
+                    static_cast<int>(window_size.x - kMargin - prompt_width),
+                    static_cast<int>(triangle_p0.y),
+                    static_cast<int>(prompt_width),
+                    static_cast<int>(prompt_height)});
 #endif
 
             if (has_no_left) {
@@ -448,9 +556,14 @@ void InGameMenu::Paint() {
         } break;
         case 2: {  // Joysticks
           for (int j = 0; j < 2; ++j) {
+            const int kJoyDescSpacing = 3 * main_window_->window_scale();
+#if !defined(ANDROID)
             ScopedFont joy_font(main_window_->is_fullscreen()
                                     ? FontType::kDefault2x
                                     : FontType::kDefault);
+#else
+            ScopedFont joy_font(FontType::kDefault2x);
+#endif
             std::string joyname =
                 std::string("P") + kiwi::base::NumberToString(j + 1) +
                 std::string(": ") +
@@ -467,12 +580,34 @@ void InGameMenu::Paint() {
             float prompt_height = ImGui::GetFontSize();
             float prompt_width = prompt_height * .8f;
 
+#if defined(ANDROID)
+            settings_positions_[static_cast<SettingsItem>(
+                j + static_cast<int>(SettingsItem::kJoyP1))] =
+                SDL_Rect{kCenterX, text_y, kCenterX,
+                         static_cast<int>(ImGui::GetCursorPosY() - text_y)};
+#endif
+
             if (settings_entered_ &&
                     (j == 0 && current_setting_ == SettingsItem::kJoyP1) ||
                 (j == 1 && current_setting_ == SettingsItem::kJoyP2)) {
               ImVec2 triangle_p0(
                   window_pos.x + kCenterX + kMargin + prompt_width + kMargin,
                   window_pos.y + text_y);
+
+#if defined(ANDROID)
+              AddRectForSettingsItem(
+                  static_cast<int>(current_setting_),
+                  SDL_Rect{static_cast<int>(triangle_p0.x - prompt_width -
+                                            kVolumeBarSpacing),
+                           static_cast<int>(triangle_p0.y),
+                           static_cast<int>(prompt_width),
+                           static_cast<int>(prompt_height)},
+                  SDL_Rect{static_cast<int>(window_pos.x + window_size.x -
+                                            kMargin - prompt_width),
+                           static_cast<int>(triangle_p0.y),
+                           static_cast<int>(prompt_width),
+                           static_cast<int>(prompt_height)});
+#endif
 
               bool has_left = false, has_right = false;
               auto controllers = GetControllerList();
@@ -525,6 +660,7 @@ void InGameMenu::Paint() {
                     IM_COL32_WHITE);
               }
             }
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + kJoyDescSpacing);
           }
 
         } break;
@@ -560,7 +696,7 @@ void InGameMenu::Paint() {
         ++i;
       } else {
         int menu_top = menu_tops[i];
-        menu_positions_[i] =
+        menu_positions_[static_cast<MenuItem>(i)] =
             SDL_Rect{0, menu_top - kSelectionPadding, kCenterX - 1,
                      2 * kSelectionPadding + menu_font_size};
         ++i;
@@ -621,46 +757,14 @@ bool InGameMenu::HandleInputEvents(SDL_KeyboardEvent* k,
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
-    if (settings_entered_) {
-      settings_callback_.Run(current_setting_, true);
-    } else {
-      if (current_selection_ == MenuItem::kSaveState ||
-          current_selection_ == MenuItem::kLoadState) {
-        --which_state_;
-        if (which_state_ < 0)
-          which_state_ = NESRuntime::Data::MaxSaveStates - 1;
-        RequestCurrentThumbnail();
-      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
-        const kiwi::nes::RomData* rom_data =
-            runtime_data_->emulator->GetRomData();
-        SDL_assert(rom_data);
-        RequestCurrentSaveStatesCount();
-        if (which_autosave_state_slot_ < current_auto_states_count_) {
-          ++which_autosave_state_slot_;
-          RequestCurrentThumbnail();
-        }
-      }
-    }
+    HandleSettingsItemForCurrentSelection(true);
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
-    if (settings_entered_) {
-      settings_callback_.Run(current_setting_, false);
-    } else {
-      if (current_selection_ == MenuItem::kSaveState ||
-          current_selection_ == MenuItem::kLoadState) {
-        which_state_ = (which_state_ + 1) % NESRuntime::Data::MaxSaveStates;
-        RequestCurrentThumbnail();
-      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
-        if (which_autosave_state_slot_ > 0) {
-          --which_autosave_state_slot_;
-          RequestCurrentThumbnail();
-        }
-      }
-    }
+    HandleSettingsItemForCurrentSelection(false);
     return true;
   }
 
@@ -682,6 +786,46 @@ void InGameMenu::HandleMenuItemForCurrentSelection() {
       menu_callback_.Run(current_selection_, state_timestamp_);
     } else {
       menu_callback_.Run(current_selection_, 0);
+    }
+  }
+}
+
+void InGameMenu::HandleSettingsItemForCurrentSelection(bool go_left) {
+  if (go_left) {
+    if (settings_entered_) {
+      settings_callback_.Run(current_setting_, true);
+    } else {
+      if (current_selection_ == MenuItem::kSaveState ||
+          current_selection_ == MenuItem::kLoadState) {
+        --which_state_;
+        if (which_state_ < 0)
+          which_state_ = NESRuntime::Data::MaxSaveStates - 1;
+        RequestCurrentThumbnail();
+      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
+        const kiwi::nes::RomData* rom_data =
+            runtime_data_->emulator->GetRomData();
+        SDL_assert(rom_data);
+        RequestCurrentSaveStatesCount();
+        if (which_autosave_state_slot_ < current_auto_states_count_) {
+          ++which_autosave_state_slot_;
+          RequestCurrentThumbnail();
+        }
+      }
+    }
+  } else {
+    if (settings_entered_) {
+      settings_callback_.Run(current_setting_, false);
+    } else {
+      if (current_selection_ == MenuItem::kSaveState ||
+          current_selection_ == MenuItem::kLoadState) {
+        which_state_ = (which_state_ + 1) % NESRuntime::Data::MaxSaveStates;
+        RequestCurrentThumbnail();
+      } else if (current_selection_ == MenuItem::kLoadAutoSave) {
+        if (which_autosave_state_slot_ > 0) {
+          --which_autosave_state_slot_;
+          RequestCurrentThumbnail();
+        }
+      }
     }
   }
 }

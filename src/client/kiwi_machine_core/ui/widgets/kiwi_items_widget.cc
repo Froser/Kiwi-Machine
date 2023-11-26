@@ -38,7 +38,7 @@ void KiwiItemsWidget::AddSubItem(int main_item_index,
                                  size_t cover_size,
                                  kiwi::base::RepeatingClosure on_trigger) {
   std::unique_ptr<KiwiItemWidget> item =
-      std::make_unique<KiwiItemWidget>(window(), title, on_trigger);
+      std::make_unique<KiwiItemWidget>(main_window_, this, title, on_trigger);
   item->set_cover(cover_img_ref, cover_size);
   sub_items_[main_item_index].push_back(std::move(item));
 }
@@ -48,7 +48,7 @@ size_t KiwiItemsWidget::AddItem(const std::string& title,
                                 size_t cover_size,
                                 kiwi::base::RepeatingClosure on_trigger) {
   std::unique_ptr<KiwiItemWidget> item =
-      std::make_unique<KiwiItemWidget>(window(), title, on_trigger);
+      std::make_unique<KiwiItemWidget>(main_window_, this, title, on_trigger);
   item->set_cover(cover_img_ref, cover_size);
   items_.push_back(item.get());
   AddWidget(std::move(item));
@@ -77,28 +77,34 @@ void KiwiItemsWidget::TriggerCurrentItem() {
 }
 
 void KiwiItemsWidget::SwapCurrentItem() {
+  SwapCurrentItemTo(sub_item_index_ + 1);
+}
+
+void KiwiItemsWidget::SwapCurrentItemTo(int sub_item_index) {
   if (sub_item_index_ > -1) {
     // Sub item is currently selected. We have to swap it back first.
     items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
   }
 
   // Increase the sub item index, to select the next one.
-  ++sub_item_index_;
-  if (sub_item_index_ >= sub_items_[current_idx_].size())
-    sub_item_index_ = -1;
+  if (sub_item_index >= sub_items_[current_idx_].size())
+    sub_item_index = -1;
 
-  if (sub_item_index_ > -1) {
+  if (sub_item_index > -1) {
     // Swap the item iff sub item is selected.
-    items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
+    items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index]);
   }
 
-  items_[current_idx_]->set_sub_items_index(sub_item_index_);
+  items_[current_idx_]->set_sub_items_index(sub_item_index);
+  sub_item_index_ = sub_item_index;
 }
 
 void KiwiItemsWidget::Paint() {
   if (first_paint_) {
     FirstFrame();
   }
+
+  CleanSubItemTouchAreas();
 
   if (is_finger_moving_ && is_moving_horizontally_) {
     if (Contains(bounds(), finger_x_, finger_y_)) {
@@ -143,32 +149,53 @@ bool KiwiItemsWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
     finger_x_ = finger_down_x_ = event->x;
     finger_y_ = finger_down_y_ = event->y;
     is_moving_horizontally_ = false;
+    ignore_this_finger_event_ = false;
+
+    // Checks if inside the sub item's area
+    SDL_Rect client_rect = window()->GetClientBounds();
+    int x = event->x * client_rect.w, y = event->y * client_rect.h;
+    for (const auto& sub_item : sub_items_touch_areas_) {
+      if (Contains(sub_item.second, x, y)) {
+        // Parameter |sub_item_index| in SwapCurrentItemTo() starts from -1.
+        // -1 means the original version, and 0 means the first alternative
+        // version in sub item's list.
+        SwapCurrentItemTo(sub_item.first - 1);
+        // When the event processes sub item's swapping, it won't process any
+        // other thing.
+        ignore_this_finger_event_ = true;
+        break;
+      }
+    }
   }
 
   return false;
 }
 
 bool KiwiItemsWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
-  if (event->fingerId == finger_id_) {
-    if (is_moving_horizontally_) {
-      // When moving horizontally:
-      SetIndex(GetNearestIndexByFinger());
-      for (size_t i = 0; i < children().size(); ++i) {
-        items_bounds_next_[i] = children()[i]->bounds();
-      }
-      IndexChanged();
-    } else {
-      // When clicking:
-      for (size_t i = 0; i < children().size(); ++i) {
-        SDL_Rect bounds = children()[i]->bounds();
-        if (Contains(bounds, finger_down_x_, finger_down_y_)) {
-          if (i == current_idx_) {
-            // Clicking current item can trigger it.
-            items_[current_idx_]->Trigger();
-          } else {
-            SetIndex(i);
+  if (is_finger_down_ && event->fingerId == finger_id_) {
+    if (!ignore_this_finger_event_) {
+      if (is_moving_horizontally_) {
+        // When moving horizontally:
+        SetIndex(GetNearestIndexByFinger());
+        for (size_t i = 0; i < children().size(); ++i) {
+          items_bounds_next_[i] = children()[i]->bounds();
+        }
+        IndexChanged();
+      } else {
+        // When clicking, only if finger is not moving will trigger the item.
+        for (size_t i = 0; i < children().size(); ++i) {
+          SDL_Rect client_rect = window()->GetClientBounds();
+          SDL_Rect child_bounds = children()[i]->bounds();
+          int x = finger_down_x_ * client_rect.w,
+              y = finger_down_y_ * client_rect.h;
+          if (Contains(child_bounds, x, y)) {
+            if (i == current_idx_) {
+              items_[current_idx_]->OnFingerDown(x, y);
+            } else {
+              SetIndex(i);
+            }
+            break;
           }
-          break;
         }
       }
     }
@@ -181,6 +208,9 @@ bool KiwiItemsWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
 }
 
 bool KiwiItemsWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
+  if (ignore_this_finger_event_)
+    return true;
+
   if (is_finger_down_ && event->fingerId == finger_id_) {
     finger_x_ = event->x;
     finger_y_ = event->y;
@@ -285,8 +315,6 @@ void KiwiItemsWidget::ApplyItemBounds() {
 
   size_t sub_items_count = sub_items_[current_idx_].size();
   items_[current_idx_]->set_sub_items_count(sub_items_count);
-  main_window_->SetVirtualTouchButtonVisible(
-      MainWindow::VirtualTouchButton::kSelect, sub_items_count > 0);
 }
 
 void KiwiItemsWidget::ApplyItemBoundsByFinger() {
@@ -394,4 +422,13 @@ void KiwiItemsWidget::ResetSubItemIndex() {
     // Swaps back. Reset the current item.
     items_[current_idx_]->Swap(*sub_items_[current_idx_][last_sub_item_index]);
   }
+}
+
+void KiwiItemsWidget::AddSubItemTouchArea(int sub_item_index,
+                                          const SDL_Rect& rect) {
+  sub_items_touch_areas_[sub_item_index] = rect;
+}
+
+void KiwiItemsWidget::CleanSubItemTouchAreas() {
+  sub_items_touch_areas_.clear();
 }

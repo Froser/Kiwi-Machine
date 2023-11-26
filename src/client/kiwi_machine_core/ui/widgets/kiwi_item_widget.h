@@ -17,7 +17,8 @@
 
 #include <kiwi_nes.h>
 
-// KiwiItemWidget presents a ROM label.
+class MainWindow;
+class KiwiItemsWidget;
 class KiwiItemWidget : public Widget {
  public:
   enum Metrics {
@@ -31,13 +32,15 @@ class KiwiItemWidget : public Widget {
     kItemMoveSpeed = 400,
   };
 
-  explicit KiwiItemWidget(WindowBase* window_base,
+  explicit KiwiItemWidget(MainWindow* main_window,
+                          KiwiItemsWidget* parent,
                           const std::string& title,
                           kiwi::base::RepeatingClosure on_trigger);
   ~KiwiItemWidget() override;
 
  public:
   void Trigger();
+  void OnFingerDown(int x, int y);
 
   // Sets the cover image data, perhaps jpeg raw data or PNG raw data.
   // Caller must ensure that |cover_img| is never release when KiwiItemWidget is
@@ -71,6 +74,8 @@ class KiwiItemWidget : public Widget {
   void CreateTextureIfNotExists();
 
  private:
+  MainWindow* main_window_ = nullptr;
+  KiwiItemsWidget* parent_ = nullptr;
   std::string title_;
   const kiwi::nes::Byte* cover_img_ = nullptr;
   size_t cover_size_ = 0u;
@@ -83,6 +88,7 @@ class KiwiItemWidget : public Widget {
   SDL_Texture* cover_texture_ = nullptr;
   int cover_width_ = 0;
   int cover_height_ = 0;
+  SDL_Rect cover_bounds_;
 };
 
 #endif  // UI_WIDGETS_KIWI_ITEM_WIDGET_H_

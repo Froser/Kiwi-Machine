@@ -17,6 +17,7 @@
 
 #if defined(ANDROID)
 #include <unordered_map>
+#include <vector>
 #endif
 
 #include "models/nes_runtime.h"
@@ -66,6 +67,7 @@ class InGameMenu : public Widget {
  private:
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void HandleMenuItemForCurrentSelection();
+  void HandleSettingsItemForCurrentSelection(bool go_left);
   void MoveSelection(bool up);
   void SetFirstSelection();
 
@@ -79,8 +81,13 @@ class InGameMenu : public Widget {
 #if defined(ANDROID)
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
-  bool HandleFingerDownOrMove(SDL_TouchFingerEvent* event,
-                              bool suppress_trigger);
+  bool HandleFingerDownOrMove(SDL_TouchFingerEvent* event);
+
+ private:
+  void AddRectForSettingsItem(int settings_index,
+                              const SDL_Rect& rect_for_left,
+                              const SDL_Rect& rect_for_right);
+  void CleanUpSettingsItemRects();
 #endif
 
  private:
@@ -105,8 +112,14 @@ class InGameMenu : public Widget {
   int current_auto_states_count_ = 0;
 
 #if defined(ANDROID)
-  // Menu positions to handle finger touch events
-  std::unordered_map<int, SDL_Rect> menu_positions_;
+  // Menu and settings positions to handle finger touch events
+  std::unordered_map<MenuItem, SDL_Rect> menu_positions_;
+  std::unordered_map<SettingsItem, SDL_Rect> settings_positions_;
+
+  // std::pair<SDL_Rect, bool> saves button's position and whether it is
+  // left or right button.
+  std::unordered_map<SettingsItem, std::vector<std::pair<SDL_Rect, bool>>>
+      settings_prompt_positions_;
 #endif
 };
 

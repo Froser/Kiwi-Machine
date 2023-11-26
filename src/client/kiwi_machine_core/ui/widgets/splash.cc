@@ -78,6 +78,9 @@ System menu is at the end of the groups.
 
 )";
 
+constexpr char kContinue[] = R"(
+Press A or START to continue.)";
+
 #else
 
 constexpr char kMenuInstructionsContent[] = R"(
@@ -86,10 +89,10 @@ System menu is at the end of the groups.
 
 )";
 
-#endif
-
 constexpr char kContinue[] = R"(
-Press A or START to continue.)";
+Touch screen to continue.)";
+
+#endif
 
 constexpr char kIntroduction[] = R"(Introduction
 )";
@@ -97,6 +100,8 @@ constexpr char kIntroduction[] = R"(Introduction
 constexpr char kRetroCollections[] = R"(
 Retro Game Collections
 )";
+
+#if !defined(ANDROID)
 
 constexpr char kRetroCollectionsContent[] = R"(
 Kiwi machine collects many retro NES games,
@@ -108,6 +113,21 @@ You may press SELECT to choose the version
 you want to play.
 
 )";
+
+#else
+
+constexpr char kRetroCollectionsContent[] = R"(
+Kiwi machine collects many retro NES games,
+and some of them has different versions and
+different names and languages, such as
+Dragon Quest and Dragon Warrior.
+
+You may touch the version square to choose
+the version you want to play.
+
+)";
+
+#endif
 
 constexpr char kSpecialCollections[] = R"(
 Special Collections
@@ -151,11 +171,15 @@ void Splash::Paint() {
   constexpr float kLogoScaling = .2f;
   const ImVec2 kSplashSize(bounds().w, bounds().h);
   auto AdjustFont = [this](FontType font) {
+#if !defined(ANDROID)
     float scale = main_window_->window_scale();
     int adjust = scale < 3.f ? 1 : 0;
     return font == FontType::kDefault
                ? FontType::kDefault
                : (static_cast<FontType>(static_cast<int>(font) - adjust));
+#else
+    return static_cast<FontType>(static_cast<int>(font) + 1);
+#endif
   };
 
   if (state_ == SplashState::kLogo) {

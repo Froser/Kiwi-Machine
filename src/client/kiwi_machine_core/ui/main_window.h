@@ -49,8 +49,6 @@ class MainWindow : public WindowBase,
     kA,
     kB,
     kAB,
-    kStartBar,
-    kSelectBar,
     kPause,
   };
 
@@ -69,12 +67,7 @@ class MainWindow : public WindowBase,
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
-  void SetVirtualTouchButtonVisible(VirtualTouchButton button, bool visible);
-  void SetVirtualJoystickButton(int which,
-                                kiwi::nes::ControllerButton button,
-                                bool pressed);
-  bool IsVirtualJoystickButtonPressed(int which,
-                                      kiwi::nes::ControllerButton button);
+
   // Export ROMs
   void ExportDone();
   void ExportSucceeded(const std::string& rom_name);
@@ -116,6 +109,12 @@ class MainWindow : public WindowBase,
   void LayoutVirtualTouchButtons();
   void SetVirtualButtonsVisible(bool visible);
   void SaveConfig();
+  void SetVirtualTouchButtonVisible(VirtualTouchButton button, bool visible);
+  void SetVirtualJoystickButton(int which,
+                                kiwi::nes::ControllerButton button,
+                                bool pressed);
+  bool IsVirtualJoystickButtonPressed(int which,
+                                      kiwi::nes::ControllerButton button);
 
   // Menu callbacks:
   void OnRomLoaded(const std::string& name);
@@ -157,6 +156,7 @@ class MainWindow : public WindowBase,
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item, bool is_left);
   void OnInGameSettingsHandleWindowSize(bool is_left);
+  void OnInGameSettingsHandleVolume(bool is_left);
   void OnVirtualJoystickChanged(int state);
 
 #if defined(ANDROID)
@@ -185,16 +185,12 @@ class MainWindow : public WindowBase,
 
 #if defined(ANDROID)
   // Main menu buttons
-  Widget* vtb_start_ = nullptr;
-  Widget* vtb_select_ = nullptr;
   Widget* vtb_joystick_ = nullptr;
-
-  // Virtual buttons in game
   Widget* vtb_a_ = nullptr;
   Widget* vtb_b_ = nullptr;
   Widget* vtb_ab_ = nullptr;
-  Widget* vtb_start_bar_ = nullptr;
-  Widget* vtb_select_bar_ = nullptr;
+  Widget* vtb_start_ = nullptr;
+  Widget* vtb_select_ = nullptr;
   Widget* vtb_pause_ = nullptr;
 #endif
 

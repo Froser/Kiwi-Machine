@@ -16,13 +16,20 @@
 #include <imgui.h>
 #include <utility>
 
-#include "ui/window_base.h"
+#include "ui/main_window.h"
+#include "ui/widgets/kiwi_items_widget.h"
 #include "utility/fonts.h"
+#include "utility/math.h"
 
-KiwiItemWidget::KiwiItemWidget(WindowBase* window_base,
+KiwiItemWidget::KiwiItemWidget(MainWindow* main_window,
+                               KiwiItemsWidget* parent,
                                const std::string& title,
                                kiwi::base::RepeatingClosure on_trigger)
-    : Widget(window_base), title_(title), on_trigger_callback_(on_trigger) {}
+    : Widget(main_window),
+      main_window_(main_window),
+      parent_(parent),
+      title_(title),
+      on_trigger_callback_(on_trigger) {}
 
 KiwiItemWidget::~KiwiItemWidget() {
   if (cover_surface_)
@@ -35,6 +42,11 @@ KiwiItemWidget::~KiwiItemWidget() {
 void KiwiItemWidget::Trigger() {
   if (on_trigger_callback_)
     on_trigger_callback_.Run();
+}
+
+void KiwiItemWidget::OnFingerDown(int x, int y) {
+  if (Contains(cover_bounds_, x, y))
+    Trigger();
 }
 
 void KiwiItemWidget::Swap(KiwiItemWidget& rhs) {
@@ -93,15 +105,15 @@ void KiwiItemWidget::Paint() {
   }
 
   // Move cover to the center of the kCoverBound
-  SDL_Rect cover_rect = {
-      kCoverBound.x + (kCoverBound.w - cover_scaled_width) / 2,
-      kCoverBound.y + (kCoverBound.h - cover_scaled_height) / 2,
-      cover_scaled_width, cover_scaled_height};
+  cover_bounds_ = {kCoverBound.x + (kCoverBound.w - cover_scaled_width) / 2,
+                   kCoverBound.y + (kCoverBound.h - cover_scaled_height) / 2,
+                   cover_scaled_width, cover_scaled_height};
+  const SDL_Rect& kCoverRect = cover_bounds_;
 
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
-  draw_list->AddImage(cover_texture_, ImVec2(cover_rect.x, cover_rect.y),
-                      ImVec2(cover_rect.x + cover_scaled_width,
-                             cover_rect.y + cover_scaled_height));
+  draw_list->AddImage(cover_texture_, ImVec2(kCoverRect.x, kCoverRect.y),
+                      ImVec2(kCoverRect.x + cover_scaled_width,
+                             kCoverRect.y + cover_scaled_height));
 
   if (selected_) {
     constexpr int kSpacingBetweenTitleAndCover = 16;
@@ -114,7 +126,7 @@ void KiwiItemWidget::Paint() {
       draw_list->AddText(
           font, font->FontSize,
           ImVec2(kBoundsToParent.x + (kBoundsToParent.w - title_rect.x) / 2,
-                 cover_rect.y + cover_scaled_height +
+                 kCoverRect.y + cover_scaled_height +
                      kSpacingBetweenTitleAndCover),
           IM_COL32(0, 0, 0, 255), title_.c_str());
     }
@@ -123,7 +135,13 @@ void KiwiItemWidget::Paint() {
       // If a game has more than one version, paint the option list to show
       // which version is currently selected.
       constexpr int kSpacingBetweenSubItemPrompt = 10;
-      constexpr int kSubItemPromptSize = 15;
+#if !defined(ANDROID)
+      const int kSubItemPromptSize = 4 * main_window_->window_scale();
+#else
+      // On mobiles, this area will response finger touch events, so it is a
+      // little bit larger.
+      const int kSubItemPromptSize = 8 * main_window_->window_scale();
+#endif
       int total_item_count = sub_items_count_ + 1;
       const int kPromptWidth =
           kSpacingBetweenSubItemPrompt * (total_item_count - 1) +
@@ -136,7 +154,7 @@ void KiwiItemWidget::Paint() {
       // highlighted.
       int current_selected_index = sub_item_index_ + 1;
       for (int i = 0; i < total_item_count; ++i) {
-        ImVec2 pos0(prompt_left, cover_rect.y - kSpacingBetweenTitleAndCover -
+        ImVec2 pos0(prompt_left, kCoverRect.y - kSpacingBetweenTitleAndCover -
                                      kSubItemPromptSize);
         ImVec2 pos1(pos0.x + kSubItemPromptSize, pos0.y + kSubItemPromptSize);
         draw_list->AddRectFilled(pos0, pos1, IM_COL32_BLACK);
@@ -149,19 +167,30 @@ void KiwiItemWidget::Paint() {
                                    ImVec2(pos1.x - 2, pos1.y - 2),
                                    IM_COL32_WHITE);
         }
+
+        // Adding the responding area for switch the game version.
+        parent_->AddSubItemTouchArea(
+            i, SDL_Rect{static_cast<int>(pos0.x), static_cast<int>(pos0.y),
+                        static_cast<int>(pos1.x - pos0.x),
+                        static_cast<int>(pos1.y - pos0.y)});
         prompt_left += kSubItemPromptSize + kSpacingBetweenSubItemPrompt;
       }
 
       // Draw title
       constexpr int kSpacingBetweenTitleAndHint = 13;
+#if !defined(ANDROID)
       constexpr char kVersionHintStr[] =
           "(Press select to switch game version)";
+#else
+      constexpr char kVersionHintStr[] =
+          "(Touch the index square to switch game version)";
+#endif
       ImVec2 title_rect =
           font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, kVersionHintStr);
       draw_list->AddText(
           font, font->FontSize,
           ImVec2(kBoundsToParent.x + (kBoundsToParent.w - title_rect.x) / 2,
-                 cover_rect.y + cover_scaled_height +
+                 kCoverRect.y + cover_scaled_height +
                      kSpacingBetweenTitleAndCover + font->FontSize +
                      kSpacingBetweenTitleAndHint),
           IM_COL32(255, 51, 153, 255), kVersionHintStr);

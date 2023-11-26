@@ -895,8 +895,6 @@ void MainWindow::ShowMainMenu(bool show) {
   SDL_assert(canvas_);
   canvas_->set_visible(!show);
   bg_widget_->set_visible(show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kStart, show);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kSelect, show);
   SetVirtualButtonsVisible(!show);
   SetLoading(false);
 }
@@ -969,8 +967,8 @@ void MainWindow::SetVirtualButtonsVisible(bool visible) {
   SetVirtualTouchButtonVisible(VirtualTouchButton::kA, visible);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kB, visible);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kAB, visible);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kStartBar, visible);
-  SetVirtualTouchButtonVisible(VirtualTouchButton::kSelectBar, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kStart, visible);
+  SetVirtualTouchButtonVisible(VirtualTouchButton::kSelect, visible);
   SetVirtualTouchButtonVisible(VirtualTouchButton::kPause, visible);
 }
 
@@ -1320,16 +1318,10 @@ void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
 void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
                                              bool is_left) {
   switch (item) {
-    case InGameMenu::SettingsItem::kVolume: {
+    case InGameMenu::SettingsItem::kVolume:
       PlayEffect(audio_resources::AudioID::kSelect);
-      float volume = runtime_data_->emulator->GetVolume();
-      volume = (is_left ? volume - .1f : volume + .1f);
-      if (volume < 0)
-        volume = 0;
-      else if (volume > 1.f)
-        volume = 1.f;
-      OnSetAudioVolume(volume);
-    } break;
+      OnInGameSettingsHandleVolume(is_left);
+      break;
     case InGameMenu::SettingsItem::kWindowSize:
       OnInGameSettingsHandleWindowSize(is_left);
       break;
@@ -1341,11 +1333,15 @@ void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
       auto iter =
           std::find(controllers.begin(), controllers.end(),
                     runtime_data_->joystick_mappings[player_index].which);
-      SDL_assert(iter != controllers.end());
-      SDL_GameController* next_controller =
-          ((iter != controllers.end() - 1) ? *(iter + 1)
-                                           : *controllers.begin());
-      SetControllerMapping(runtime_data_, player_index, next_controller, false);
+      if (is_left && iter != controllers.begin()) {
+        SDL_GameController* next_controller = *(iter - 1);
+        SetControllerMapping(runtime_data_, player_index, next_controller,
+                             false);
+      } else if (!is_left && (iter != controllers.end() - 1)) {
+        SDL_GameController* next_controller = *(iter + 1);
+        SetControllerMapping(runtime_data_, player_index, next_controller,
+                             false);
+      }
     } break;
     default:
       break;
@@ -1371,6 +1367,16 @@ void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
       OnSetScreenScale(scale);
     }
   }
+}
+
+void MainWindow::OnInGameSettingsHandleVolume(bool is_left) {
+  float volume = runtime_data_->emulator->GetVolume();
+  volume = (is_left ? volume - .1f : volume + .1f);
+  if (volume < 0)
+    volume = 0;
+  else if (volume > 1.f)
+    volume = 1.f;
+  OnSetAudioVolume(volume);
 }
 #endif
 
