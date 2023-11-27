@@ -63,6 +63,7 @@ class MainWindow : public WindowBase,
   bool is_fullscreen() { return config_->data().is_fullscreen; }
 #if defined(ANDROID)
   bool is_stretch_mode() { return config_->data().is_stretch_mode; }
+  bool IsLandscape();
 #endif
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);

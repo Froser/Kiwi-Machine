@@ -146,7 +146,7 @@ endif ()
 # Use '__always_buildx.h' as a fake output, to make the command run every time.
 add_custom_command(
         OUTPUT resources/image_resources.h resources/image_resources.cc __always_build0.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_image_resources.py
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_image_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         VERBATIM
@@ -154,7 +154,7 @@ add_custom_command(
 
 add_custom_command(
         OUTPUT resources/audio_resources.h resources/audio_resources.cc __always_build1.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_audio_resources.py
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_audio_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         VERBATIM
@@ -162,7 +162,7 @@ add_custom_command(
 
 add_custom_command(
         OUTPUT resources/font_resources.h resources/font_resources.cc __always_build2.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/resources/gen_font_resources.py
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         VERBATIM

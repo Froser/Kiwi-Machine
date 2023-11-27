@@ -349,6 +349,7 @@ void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
     HandleResizedEvent();
 }
 
+#if !defined(ANDROID)
 void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
                                       scoped_refptr<NESFrame> frame) {
   // Always adjusts the canvas to the middle of the render area (excludes menu
@@ -377,6 +378,7 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
     Resize(dest_rect.w, dest_rect.h);
   }
 }
+#endif
 
 void MainWindow::Initialize(NESRuntimeID runtime_id) {
   SDL_assert(runtime_id >= 0);
@@ -1177,7 +1179,6 @@ bool MainWindow::IsAudioChannelOn(kiwi::nes::AudioChannel which_mask) {
 }
 
 void MainWindow::OnSetScreenScale(float scale) {
-  SDL_assert(canvas_);
   if (config_->data().window_scale != scale) {
     config_->data().window_scale = scale;
     config_->SaveConfig();

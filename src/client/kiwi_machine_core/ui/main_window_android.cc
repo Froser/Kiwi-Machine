@@ -25,6 +25,11 @@ constexpr int kDefaultWindowWidth = Canvas::kNESFrameDefaultWidth;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 }  // namespace
 
+bool MainWindow::IsLandscape() {
+  const SDL_Rect kClientBounds = GetClientBounds();
+  return kClientBounds.w > kClientBounds.h;
+}
+
 void MainWindow::CreateVirtualTouchButtons() {
   {
     std::unique_ptr<VirtualJoystick> vtb_joystick =
@@ -193,45 +198,52 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
 
 void MainWindow::LayoutVirtualTouchButtons() {
   const SDL_Rect kClientBounds = GetClientBounds();
+  bool is_landscape = IsLandscape();
 
   {
     const int kSize = 135 * window_scale();
-    const int kPadding = 18 * window_scale();
+    const int kPaddingX =
+        is_landscape ? 18 * window_scale() : 10 * window_scale();
+    const int kPaddingY =
+        is_landscape ? 18 * window_scale() : 40 * window_scale();
 
     if (vtb_joystick_) {
       SDL_Rect bounds;
       bounds.h = bounds.w = kSize;
-      bounds.x = kPadding;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      bounds.x = kPaddingX;
+      bounds.y = kClientBounds.h - bounds.h - kPaddingY;
       vtb_joystick_->set_bounds(bounds);
     }
   }
 
   {
     const int kSize = 33 * window_scale();
-    const int kPadding = 60 * window_scale();
+    const int kPaddingX =
+        is_landscape ? 60 * window_scale() : 30 * window_scale();
+    const int kPaddingY =
+        is_landscape ? 60 * window_scale() : 80 * window_scale();
     const int kSpacing = 15 * window_scale();
     if (vtb_a_) {
       SDL_Rect bounds;
       bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w - kPadding;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      bounds.x = kClientBounds.w - bounds.w - kPaddingX;
+      bounds.y = kClientBounds.h - bounds.h - kPaddingY;
       vtb_a_->set_bounds(bounds);
     }
 
     if (vtb_b_) {
       SDL_Rect bounds;
       bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w * 2 - kPadding - kSpacing;
-      bounds.y = kClientBounds.h - bounds.h - kPadding;
+      bounds.x = kClientBounds.w - bounds.w * 2 - kPaddingX - kSpacing;
+      bounds.y = kClientBounds.h - bounds.h - kPaddingY;
       vtb_b_->set_bounds(bounds);
     }
 
     if (vtb_ab_) {
       SDL_Rect bounds;
       bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w - kPadding;
-      bounds.y = kClientBounds.h - bounds.h * 2 - kPadding - kSpacing;
+      bounds.x = kClientBounds.w - bounds.w - kPaddingX;
+      bounds.y = kClientBounds.h - bounds.h * 2 - kPaddingY - kSpacing;
       vtb_ab_->set_bounds(bounds);
     }
   }
@@ -297,16 +309,60 @@ void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
 
 void MainWindow::OnScaleModeChanged() {
   if (canvas_) {
+    bool is_landscape = IsLandscape();
+    if (!is_landscape) {
+      const int kPadding = 80 * window_scale();
+      SDL_Rect canvas_bounds = canvas_->bounds();
+      canvas_bounds.y = kPadding;
+      canvas_->set_bounds(canvas_bounds);
+    }
+
     float canvas_scale = 2.f;
     if (config_->data().is_stretch_mode) {
       SDL_Rect rect = GetClientBounds();
-      if (rect.w > rect.h) {
+      if (is_landscape) {
         canvas_scale = static_cast<float>(rect.h) / kDefaultWindowWidth;
       } else {
         canvas_scale = static_cast<float>(rect.w) / kDefaultWindowHeight;
       }
     }
     canvas_->set_frame_scale(canvas_scale);
+  }
+}
+
+void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
+                                      scoped_refptr<NESFrame> frame) {
+  SDL_Rect dest_rect;
+  if (IsLandscape()) {
+    // Always adjusts the canvas to the middle of the render area (excludes menu
+    // bar).
+    SDL_Rect render_bounds = GetClientBounds();
+    SDL_Rect src_rect = {0, 0, frame->width(), frame->height()};
+    dest_rect = {
+        static_cast<int>(
+            (render_bounds.w - src_rect.w * canvas->frame_scale()) / 2) +
+            render_bounds.x,
+        static_cast<int>(
+            (render_bounds.h - src_rect.h * canvas->frame_scale()) / 2) +
+            render_bounds.y,
+        static_cast<int>(frame->width() * canvas->frame_scale()),
+        static_cast<int>(frame->height() * canvas->frame_scale())};
+    canvas->set_bounds(dest_rect);
+  } else {
+    dest_rect = {canvas->bounds().x, canvas->bounds().y,
+                 static_cast<int>(frame->width() * canvas->frame_scale()),
+                 static_cast<int>(frame->height() * canvas->frame_scale())};
+    canvas->set_bounds(dest_rect);
+  }
+
+  // Updates window size, to fit the frame.
+  if (menu_bar_) {
+    SDL_Rect menu_rect = menu_bar_->bounds();
+    int desired_window_width = dest_rect.w;
+    int desired_window_height = menu_rect.h + dest_rect.h;
+    Resize(desired_window_width, desired_window_height);
+  } else {
+    Resize(dest_rect.w, dest_rect.h);
   }
 }
 

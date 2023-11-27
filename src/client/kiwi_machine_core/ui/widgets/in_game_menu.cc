@@ -189,12 +189,24 @@ void InGameMenu::Paint() {
         left_enabled = false;
     }
 
-    // Left
+#if defined(ANDROID)
+    AddRectForSettingsItem(
+        static_cast<int>(current_selection_),
+        SDL_Rect{static_cast<int>(window_pos.x + p0.x - kSnapshotPromptSpacing -
+                                  kSnapshotPromptWidth),
+                 static_cast<int>(window_pos.y + kSnapshotPromptY +
+                                  kSnapshotPromptHeight / 2),
+                 kSnapshotPromptWidth, kSnapshotPromptHeight},
+        SDL_Rect{static_cast<int>(window_pos.x + p1.x + kSnapshotPromptSpacing),
+                 static_cast<int>(window_pos.y + kSnapshotPromptY),
+                 kSnapshotPromptWidth, kSnapshotPromptHeight});
+#endif
 
+    // Left
     if (left_enabled) {
       ImGui::GetWindowDrawList()->AddTriangleFilled(
           ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing -
-                     kSnapshotPromptHeight,
+                     kSnapshotPromptWidth,
                  window_pos.y + kSnapshotPromptY + kSnapshotPromptHeight / 2),
           ImVec2(window_pos.x + p0.x - kSnapshotPromptSpacing,
                  window_pos.y + kSnapshotPromptY),
