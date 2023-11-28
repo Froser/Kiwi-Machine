@@ -250,7 +250,8 @@ void MainWindow::LayoutVirtualTouchButtons() {
 
   {
     const int kMiddleSpacing = 4 * window_scale();
-    const int kPaddingBottom = 30 * window_scale();
+    const int kPaddingBottom =
+        is_landscape ? 30 * window_scale() : 10 * window_scale();
     if (vtb_select_) {
       SDL_Rect bounds = vtb_select_->bounds();
       bounds.x = kClientBounds.w / 2 - bounds.w - kMiddleSpacing;
