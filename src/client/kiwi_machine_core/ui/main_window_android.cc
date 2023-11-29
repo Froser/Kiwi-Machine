@@ -205,7 +205,7 @@ void MainWindow::LayoutVirtualTouchButtons() {
     const int kPaddingX =
         is_landscape ? 18 * window_scale() : 10 * window_scale();
     const int kPaddingY =
-        is_landscape ? 18 * window_scale() : 40 * window_scale();
+        is_landscape ? 10 * window_scale() : 40 * window_scale();
 
     if (vtb_joystick_) {
       SDL_Rect bounds;
@@ -217,11 +217,11 @@ void MainWindow::LayoutVirtualTouchButtons() {
   }
 
   {
-    const int kSize = 33 * window_scale();
+    const int kSize = 40 * window_scale();
     const int kPaddingX =
-        is_landscape ? 60 * window_scale() : 30 * window_scale();
+        is_landscape ? 40 * window_scale() : 30 * window_scale();
     const int kPaddingY =
-        is_landscape ? 60 * window_scale() : 80 * window_scale();
+        is_landscape ? 40 * window_scale() : 60 * window_scale();
     const int kSpacing = 15 * window_scale();
     if (vtb_a_) {
       SDL_Rect bounds;

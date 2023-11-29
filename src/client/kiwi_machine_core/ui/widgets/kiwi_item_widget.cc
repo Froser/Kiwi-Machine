@@ -116,8 +116,13 @@ void KiwiItemWidget::Paint() {
                              kCoverRect.y + cover_scaled_height));
 
   if (selected_) {
+#if !defined(ANDROID)
     constexpr int kSpacingBetweenTitleAndCover = 16;
     ScopedFont scoped_font(FontType::kDefault);
+#else
+    constexpr int kSpacingBetweenTitleAndCover = 48;
+    ScopedFont scoped_font(FontType::kDefault2x);
+#endif
     ImFont* font = scoped_font.GetFont();
     {
       ImVec2 title_rect =

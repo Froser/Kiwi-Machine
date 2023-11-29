@@ -402,7 +402,7 @@ int KiwiItemsWidget::GetNearestIndexByFinger() {
       return i - 1;
   }
 
-  return 0;
+  return children().size() - 1;
 }
 
 void KiwiItemsWidget::IndexChanged() {

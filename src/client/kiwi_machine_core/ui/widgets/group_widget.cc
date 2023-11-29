@@ -114,13 +114,16 @@ void GroupWidget::ApplyItemBoundsByFinger() {
 }
 
 int GroupWidget::GetNearestIndexByFinger() {
-  constexpr float kScrollingThreshold = .5f;
-  for (size_t i = 0; i < children().size(); ++i) {
-    if (std::abs(children()[i]->bounds().y) <
-        (bounds().h * kScrollingThreshold))
-      return i;
-  }
-  return 0;
+  constexpr float kScrollingThreshold = .3f;
+  int dy = (finger_y_ - finger_down_y_) * window()->GetClientBounds().h;
+  if (dy > bounds().h * kScrollingThreshold)
+    return current_idx_ > 0 ? current_idx_ - 1 : 0;
+
+  if (dy < -bounds().h * kScrollingThreshold)
+    return current_idx_ < children().size() - 1 ? current_idx_ + 1
+                                                : children().size() - 1;
+
+  return current_idx_;
 }
 
 void GroupWidget::Paint() {
