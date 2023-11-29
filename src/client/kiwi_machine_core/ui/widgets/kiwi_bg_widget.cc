@@ -80,7 +80,7 @@ void KiwiBgWidget::Paint() {
     }
 
     // Draw 'kiwi machine' logo.
-    constexpr int kKiwiPos = 20;
+    constexpr int kKiwiPos = 30;
     const float kKiwiScale = 0.08f * main_window_->window_scale();
     SDL_Texture* bg_kiwi =
         GetImage(window()->renderer(), image_resources::ImageID::kKiwiMachine);
