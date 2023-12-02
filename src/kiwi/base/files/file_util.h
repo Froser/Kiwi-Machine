@@ -20,6 +20,10 @@
 #include "base/base_export.h"
 #include "base/files/file.h"
 
+#if defined(CreateDirectory)
+#undef CreateDirectory
+#endif
+
 namespace kiwi::base {
 
 class FilePath;

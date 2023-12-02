@@ -42,7 +42,8 @@ struct FilePathSorter {
 kiwi::base::FilePath GetProfilePath(const std::string& name) {
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
   kiwi::base::FilePath profile_path =
-      kiwi::base::FilePath::FromUTF8Unsafe(pref_path).Append(name);
+      kiwi::base::FilePath::FromUTF8Unsafe(pref_path).Append(
+          kiwi::base::FilePath::FromUTF8Unsafe(name));
   SDL_free(pref_path);
   return profile_path;
 }
@@ -50,8 +51,9 @@ kiwi::base::FilePath GetProfilePath(const std::string& name) {
 kiwi::base::FilePath GetStatesPath(const kiwi::base::FilePath& profile_path,
                                    int crc32) {
   kiwi::base::FilePath path_to_states =
-      profile_path.Append(kiwi::base::FilePath::FromUTF8Unsafe("States"));
-  path_to_states = path_to_states.Append(kiwi::base::NumberToString(crc32));
+      profile_path.Append(FILE_PATH_LITERAL("States"));
+  path_to_states = path_to_states.Append(
+      kiwi::base::FilePath::FromUTF8Unsafe(kiwi::base::NumberToString(crc32)));
   return path_to_states;
 }
 
@@ -60,7 +62,8 @@ kiwi::base::FilePath GetAutoSavedStatePath(
     int crc32) {
   kiwi::base::FilePath auto_saved_snapshot_path =
       GetStatesPath(profile_path, crc32);
-  auto_saved_snapshot_path = auto_saved_snapshot_path.Append("AutoSaved");
+  auto_saved_snapshot_path =
+      auto_saved_snapshot_path.Append(FILE_PATH_LITERAL("AutoSaved"));
   return auto_saved_snapshot_path;
 }
 
@@ -71,17 +74,18 @@ kiwi::base::FilePath GetSnapshotPath(const kiwi::base::FilePath& profile_path,
                                      int crc32,
                                      int slot) {
   kiwi::base::FilePath path_to_snapshot = GetStatesPath(profile_path, crc32);
-  path_to_snapshot = path_to_snapshot.Append(kiwi::base::NumberToString(slot));
+  path_to_snapshot = path_to_snapshot.Append(
+      kiwi::base::FilePath::FromUTF8Unsafe(kiwi::base::NumberToString(slot)));
   return path_to_snapshot;
 }
 
 kiwi::base::FilePath GetSnapshotDataPath(const kiwi::base::FilePath& path) {
-  return path.Append("data");
+  return path.Append(FILE_PATH_LITERAL("data"));
 }
 
 kiwi::base::FilePath GetSnapshotThumbnailPath(
     const kiwi::base::FilePath& path) {
-  return path.Append("thumbnail");
+  return path.Append(FILE_PATH_LITERAL("thumbnail"));
 }
 
 kiwi::base::FilePath GetSnapshotDataPath(

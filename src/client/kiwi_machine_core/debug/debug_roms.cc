@@ -12,6 +12,7 @@
 
 #include "debug/debug_roms.h"
 
+#include <algorithm>
 #include <gflags/gflags.h>
 #include <kiwi_nes.h>
 

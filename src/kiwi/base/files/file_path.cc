@@ -15,6 +15,10 @@
 #include "base/check.h"
 #include "base/strings/string_util.h"
 
+#if BUILDFLAG(IS_WIN)
+#include <codecvt>
+#endif
+
 namespace kiwi::base {
 
 using StringType = FilePath::StringType;
@@ -22,9 +26,19 @@ using StringPieceType = FilePath::StringPieceType;
 
 namespace {
 
-const char* const kCommonDoubleExtensionSuffixes[] = {
-    "bz", "bz2", "gz", "lz", "lzma", "lzo", "xz", "z", "zst"};
-const char* const kCommonDoubleExtensions[] = {"user.js"};
+#if BUILDFLAG(IS_WIN)
+
+std::string WideToUTF8(const std::wstring_view& wide) {
+  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+  return converter.to_bytes(wide.data());
+}
+
+std::wstring UTF8ToWide(const std::string_view& utf8) {
+  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+  return converter.from_bytes(utf8.data());
+}
+
+#endif
 
 // If this FilePath contains a drive letter specification, returns the
 // position of the last character of the drive letter specification,
@@ -94,22 +108,6 @@ FilePath::StringType::size_type ExtensionSeparatorPosition(
     return last_dot;
   }
 
-  for (auto* i : kCommonDoubleExtensions) {
-    FilePath::StringType extension(path, penultimate_dot + 1);
-    if (EqualsCaseInsensitiveASCII(extension, i))
-      return penultimate_dot;
-  }
-
-  FilePath::StringType extension(path, last_dot + 1);
-  for (auto* i : kCommonDoubleExtensionSuffixes) {
-    if (EqualsCaseInsensitiveASCII(extension, i)) {
-      if ((last_dot - penultimate_dot) <= 5U &&
-          (last_dot - penultimate_dot) > 1U) {
-        return penultimate_dot;
-      }
-    }
-  }
-
   return last_dot;
 }
 }  // namespace
@@ -150,7 +148,11 @@ FilePath FilePath::StripTrailingSeparators() const {
 }
 
 std::string FilePath::AsUTF8Unsafe() const {
+#if BUILDFLAG(IS_WIN)
+  return WideToUTF8(value());
+#else
   return value();
+#endif
 }
 
 FilePath FilePath::DirName() const {
@@ -211,7 +213,7 @@ FilePath FilePath::BaseName() const {
 }
 
 std::ostream& operator<<(std::ostream& out, const FilePath& file_path) {
-  return out << file_path.value();
+  return out << file_path.AsUTF8Unsafe();
 }
 
 // static
@@ -255,7 +257,11 @@ FilePath FilePath::RemoveExtension() const {
 }
 
 FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {
+#if BUILDFLAG(IS_WIN)
+  return FilePath(UTF8ToWide(utf8));
+#else
   return FilePath(utf8);
+#endif
 }
 
 [[nodiscard]] FilePath FilePath::Append(StringPieceType component) const {

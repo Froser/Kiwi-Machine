@@ -1247,7 +1247,8 @@ bool MainWindow::IsFrameRateWidgetShown() {
 void MainWindow::OnExportGameROMs() {
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
   kiwi::base::FilePath export_path =
-      kiwi::base::FilePath::FromUTF8Unsafe(pref_path).Append("nes");
+      kiwi::base::FilePath::FromUTF8Unsafe(pref_path).Append(
+          FILE_PATH_LITERAL("nes"));
   SDL_free(pref_path);
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();

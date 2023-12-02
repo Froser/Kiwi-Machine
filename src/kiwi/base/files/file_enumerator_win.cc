@@ -8,6 +8,14 @@
 
 #include "base/files/file_enumerator.h"
 
+#include "base/check.h"
+#include "base/win/shlwapi.h"
+#include "base/win/windows_types.h"
+
+#if defined(max)
+#undef max
+#endif
+
 namespace kiwi::base {
 
 namespace {
@@ -23,7 +31,7 @@ FilePath BuildSearchFilter(FileEnumerator::FolderSearchPolicy policy,
     case FileEnumerator::FolderSearchPolicy::ALL:
       return root_path.Append(FILE_PATH_LITERAL("*"));
   }
-  NOTREACHED();
+  CHECK(false);
   return {};
 }
 
@@ -50,10 +58,6 @@ int64_t FileEnumerator::FileInfo::GetSize() const {
   DCHECK_LE(size.QuadPart,
             static_cast<ULONGLONG>(std::numeric_limits<int64_t>::max()));
   return static_cast<int64_t>(size.QuadPart);
-}
-
-Time FileEnumerator::FileInfo::GetLastModifiedTime() const {
-  return Time::FromFileTime(find_data().ftLastWriteTime);
 }
 
 // FileEnumerator --------------------------------------------------------------
@@ -122,7 +126,7 @@ FileEnumerator::~FileEnumerator() {
 FileEnumerator::FileInfo FileEnumerator::GetInfo() const {
   DCHECK(!(file_type_ & FileType::NAMES_ONLY));
   if (!has_find_data_) {
-    NOTREACHED();
+    CHECK(false);
     return FileInfo();
   }
   FileInfo ret;
@@ -131,8 +135,6 @@ FileEnumerator::FileInfo FileEnumerator::GetInfo() const {
 }
 
 FilePath FileEnumerator::Next() {
-  ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
-
   while (has_find_data_ || !pending_paths_.empty()) {
     if (!has_find_data_) {
       // The last find FindFirstFile operation is done, prepare a new one.
@@ -216,7 +218,7 @@ bool FileEnumerator::IsPatternMatched(const FilePath& src) const {
       // manually.
       return PathMatchSpec(src.value().c_str(), pattern_.c_str()) == TRUE;
   }
-  NOTREACHED();
+  CHECK(false);
   return false;
 }
 

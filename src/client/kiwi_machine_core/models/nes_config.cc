@@ -17,7 +17,7 @@
 
 namespace {
 kiwi::base::FilePath GetSettingsFile(const kiwi::base::FilePath& profile_path) {
-  return profile_path.Append("Settings");
+  return profile_path.Append(FILE_PATH_LITERAL("Settings"));
 }
 
 std::string LoadConfigBlocked(const kiwi::base::FilePath& profile_path) {
@@ -51,16 +51,20 @@ bool SaveConfigOnIOThread(const kiwi::base::FilePath& profile_path,
 
 }  // namespace
 
+#if KIWI_MOBILE
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
                                    window_scale,
                                    is_fullscreen,
                                    volume,
-                                   last_index
-#if KIWI_MOBILE
-                                   ,
-                                   is_stretch_mode
+                                   last_index,
+                                   is_stretch_mode);
+#else
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
+                                   window_scale,
+                                   is_fullscreen,
+                                   volume,
+                                   last_index);
 #endif
-);
 
 NESConfig::NESConfig(const kiwi::base::FilePath& profile_path)
     : profile_path_(profile_path) {}

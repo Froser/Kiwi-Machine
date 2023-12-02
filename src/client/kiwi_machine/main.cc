@@ -18,7 +18,7 @@ int WINAPI wWinMain(HINSTANCE hInstance,
                     HINSTANCE hPrevInstance,
                     PWSTR pCmdLine,
                     int nCmdShow) {
-  return KiwiMain();
+  return KiwiMain(hInstance, hPrevInstance, pCmdLine, nCmdShow);
 #else
 int main(int argc, char** argv) {
   return KiwiMain(argc, argv);

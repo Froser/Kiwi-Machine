@@ -20,6 +20,10 @@
 #include "base/base_export.h"
 #include "base/platform/platform_factory.h"
 
+#if BUILDFLAG(IS_WIN)
+#include "base/win/windows_types.h"
+#endif
+
 #if BUILDFLAG(IS_BSD) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_NACL) || \
     BUILDFLAG(IS_FUCHSIA) || (BUILDFLAG(IS_ANDROID))
 struct stat;

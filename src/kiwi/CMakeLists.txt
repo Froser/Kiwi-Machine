@@ -112,6 +112,9 @@ endif ()
 if (WIN32)
     list(APPEND base_sources
             base/files/file_enumerator_win.cc
+            base/files/file_util_win.cc
+            base/files/file_win.cc
+            base/win/shlwapi.h
             base/win/windows_types.h
             base/win/win_handle_types.h
     )
@@ -234,6 +237,10 @@ if (USE_QT6)
     KIWI_USE_QT6(${STATIC_PROJECT_NAME})
 endif ()
 
+if (WIN32)
+    target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC UNICODE _UNICODE)
+endif()
+
 # Setup for dynamic library
 KIWI_ADD_LIBRARY(${PROJECT_NAME} SHARED ${sources})
 target_compile_definitions(${PROJECT_NAME} PRIVATE KIWI_IMPL)
@@ -244,6 +251,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zli
 if (USE_QT6)
     KIWI_USE_QT6(${PROJECT_NAME})
 endif ()
+
+if (WIN32)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC UNICODE _UNICODE)
+endif()
 
 # Disable warnings in MSVC
 if (MSVC)
