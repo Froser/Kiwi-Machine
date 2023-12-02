@@ -112,6 +112,8 @@ endif ()
 if (WIN32)
     list(APPEND base_sources
             base/files/file_enumerator_win.cc
+            base/win/windows_types.h
+            base/win/win_handle_types.h
     )
 endif ()
 
