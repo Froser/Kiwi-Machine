@@ -16,9 +16,11 @@
 #include <SDL_mixer.h>
 #include <string.h>
 
+#include "build/kiwi_defines.h"
+
 namespace {
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
 Mix_Music* g_all_effects[static_cast<int>(audio_resources::AudioID::kLast)];
 bool g_is_mute = false;
 
@@ -41,7 +43,7 @@ void LoadAudioEffectFromMemory(audio_resources::AudioID type,
 }  // namespace
 
 void InitializeAudioEffects() {
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
   int flags = MIX_INIT_MP3;
   if (Mix_Init(flags) == flags) {
     // Is all effects loaded?
@@ -73,7 +75,7 @@ void InitializeAudioEffects() {
 }
 
 void UninitializeAudioEffects() {
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
   for (Mix_Music* m : g_all_effects) {
     Mix_FreeMusic(m);
   }
@@ -84,13 +86,13 @@ void UninitializeAudioEffects() {
 }
 
 void SetEffectVolume(float volume) {
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
   Mix_VolumeMusic(MIX_MAX_VOLUME * volume);
 #endif
 }
 
 void PlayEffect(audio_resources::AudioID aid) {
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
   if (!g_is_mute) {
     int index = static_cast<int>(aid);
     if (g_all_effects[index]) {

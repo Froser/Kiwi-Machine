@@ -173,6 +173,16 @@ BASE_EXPORT constexpr int CompareCaseInsensitiveASCII(StringPiece16 a,
   return internal::CompareCaseInsensitiveASCIIT(a, b);
 }
 
+// Equality for ASCII case-insensitive comparisons. For full Unicode support,
+// use base::i18n::ToLower or base::i18n::FoldCase and then compare with either
+// == or !=.
+inline bool EqualsCaseInsensitiveASCII(StringPiece a, StringPiece b) {
+  return internal::EqualsCaseInsensitiveASCIIT(a, b);
+}
+inline bool EqualsCaseInsensitiveASCII(StringPiece16 a, StringPiece16 b) {
+  return internal::EqualsCaseInsensitiveASCIIT(a, b);
+}
+
 // Contains the set of characters representing whitespace in the corresponding
 // encoding. Null-terminated. The ASCII versions are the whitespaces as defined
 // by HTML5, and don't include control characters.

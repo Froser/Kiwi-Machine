@@ -15,11 +15,12 @@
 
 #include <kiwi_nes.h>
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
 #include <unordered_map>
 #include <vector>
 #endif
 
+#include "build/kiwi_defines.h"
 #include "models/nes_runtime.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
@@ -78,7 +79,7 @@ class InGameMenu : public Widget {
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
   bool HandleFingerDownOrMove(SDL_TouchFingerEvent* event);
@@ -111,7 +112,7 @@ class InGameMenu : public Widget {
   bool currently_has_snapshot_ = false;
   int current_auto_states_count_ = 0;
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
   // Menu and settings positions to handle finger touch events
   std::unordered_map<MenuItem, SDL_Rect> menu_positions_;
   std::unordered_map<SettingsItem, SDL_Rect> settings_positions_;

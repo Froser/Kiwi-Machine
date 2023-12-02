@@ -10,64 +10,19 @@
 #include "base/check.h"
 
 namespace kiwi::base {
-FileEnumerator::FileInfo::FileInfo() = default;
+
 FileEnumerator::FileInfo::~FileInfo() = default;
 
-bool FileEnumerator::FileInfo::IsDirectory() const {
-  DCHECK(fe_ && fe_->find_data_);
-  return fe_->find_data_->is_directory();
+bool FileEnumerator::ShouldSkip(const FilePath& path) {
+  FilePath::StringType basename = path.BaseName().value();
+  return basename == FILE_PATH_LITERAL(".") ||
+         (basename == FILE_PATH_LITERAL("..") &&
+          !(INCLUDE_DOT_DOT & file_type_));
 }
 
-int64_t FileEnumerator::FileInfo::GetSize() const {
-  DCHECK(fe_ && fe_->find_data_);
-  return fe_->find_data_->file_size();
-}
-
-FileEnumerator::FileEnumerator(const FilePath& root_path,
-                               bool recursive,
-                               int file_type)
-    : recursive_(recursive), file_type_(file_type) {
-  if (!recursive) {
-    di_ = std::filesystem::directory_iterator(root_path);
-  } else {
-    rdi_ = std::filesystem::recursive_directory_iterator(root_path);
-  }
-}
-
-FilePath FileEnumerator::Next() {
-  FilePath path;
-  if (!recursive_) {
-    if (di_ != std::filesystem::directory_iterator()) {
-      std::filesystem::directory_entry entry = *di_;
-      ++di_;
-      if (((file_type_ & FILES) && entry.is_regular_file()) ||
-          (file_type_ & DIRECTORIES) && entry.is_directory()) {
-        path = entry.path();
-        find_data_ = std::make_unique<std::filesystem::directory_entry>(entry);
-      } else {
-        return Next();
-      }
-    }
-  } else {
-    if (rdi_ != std::filesystem::recursive_directory_iterator()) {
-      std::filesystem::directory_entry entry = *rdi_;
-      ++rdi_;
-      if (((file_type_ & FILES) && entry.is_regular_file()) ||
-          (file_type_ & DIRECTORIES) && entry.is_directory()) {
-        path = entry.path();
-        find_data_ = std::make_unique<std::filesystem::directory_entry>(entry);
-      } else {
-        return Next();
-      }
-    }
-  }
-  return path;
-}
-
-FileEnumerator::FileInfo FileEnumerator::GetInfo() const {
-  FileEnumerator::FileInfo fi;
-  fi.fe_ = this;
-  return fi;
+bool FileEnumerator::IsTypeMatched(bool is_dir) const {
+  return (file_type_ &
+          (is_dir ? FileEnumerator::DIRECTORIES : FileEnumerator::FILES)) != 0;
 }
 
 }  // namespace kiwi::base

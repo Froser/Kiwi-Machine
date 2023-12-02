@@ -15,6 +15,7 @@
 #include <imgui.h>
 #include <climits>
 
+#include "build/kiwi_defines.h"
 #include "ui/application.h"
 #include "ui/main_window.h"
 #include "ui/widgets/canvas.h"
@@ -67,7 +68,7 @@ void InGameMenu::Paint() {
     first_paint_ = false;
   }
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
   CleanUpSettingsItemRects();
 #endif
 
@@ -189,7 +190,7 @@ void InGameMenu::Paint() {
         left_enabled = false;
     }
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
     AddRectForSettingsItem(
         static_cast<int>(current_selection_),
         SDL_Rect{static_cast<int>(window_pos.x + p0.x - kSnapshotPromptSpacing -
@@ -356,7 +357,7 @@ void InGameMenu::Paint() {
 
       switch (i) {
         case 0: {  // Volume:
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
           // PC application has a volume bar
           float prompt_height = kVolumeBarHeight;
           float prompt_width = prompt_height * .8f;
@@ -471,7 +472,7 @@ void InGameMenu::Paint() {
                                    : (main_window_->window_scale() > 2.f
                                           ? FontType::kDefault2x
                                           : FontType::kDefault));
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
           const char* kWindowSizes[] = {"Small", "Normal", "Large",
                                         "Fullscreen"};
           const char* kSizeStr =
@@ -491,7 +492,7 @@ void InGameMenu::Paint() {
           int text_y = ImGui::GetCursorPosY();
           ImGui::Text("%s", kSizeStr);
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
           settings_positions_[SettingsItem::kWindowSize] =
               SDL_Rect{kCenterX, text_y, kCenterX,
                        static_cast<int>(ImGui::GetCursorPosY() - text_y)};
@@ -506,7 +507,7 @@ void InGameMenu::Paint() {
                 window_pos.x + kCenterX + kMargin + prompt_width + kMargin,
                 window_pos.y + text_y);
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
             bool has_no_left = window_scaling_for_settings <= 2;
             bool has_right = !main_window_->is_fullscreen();
 #else
@@ -569,7 +570,7 @@ void InGameMenu::Paint() {
         case 2: {  // Joysticks
           for (int j = 0; j < 2; ++j) {
             const int kJoyDescSpacing = 3 * main_window_->window_scale();
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
             ScopedFont joy_font(main_window_->is_fullscreen()
                                     ? FontType::kDefault2x
                                     : FontType::kDefault);
@@ -592,7 +593,7 @@ void InGameMenu::Paint() {
             float prompt_height = ImGui::GetFontSize();
             float prompt_width = prompt_height * .8f;
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
             settings_positions_[static_cast<SettingsItem>(
                 j + static_cast<int>(SettingsItem::kJoyP1))] =
                 SDL_Rect{kCenterX, text_y, kCenterX,
@@ -606,7 +607,7 @@ void InGameMenu::Paint() {
                   window_pos.x + kCenterX + kMargin + prompt_width + kMargin,
                   window_pos.y + text_y);
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
               AddRectForSettingsItem(
                   static_cast<int>(current_setting_),
                   SDL_Rect{static_cast<int>(triangle_p0.x - prompt_width -
@@ -697,7 +698,7 @@ void InGameMenu::Paint() {
                  menu_font_size),
       IM_COL32_WHITE);
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
   // Register menu position to response finger touch events.
   // The responding area is exactly the 'draw-selection area'.
   if (menu_positions_.empty()) {

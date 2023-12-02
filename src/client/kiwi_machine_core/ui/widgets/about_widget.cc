@@ -83,7 +83,7 @@ bool AboutWidget::HandleInputEvents(SDL_KeyboardEvent* k,
                                     SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_B) {
+      (c && c->button == SDL_CONTROLLER_BUTTON_B)) {
     PlayEffect(audio_resources::AudioID::kBack);
     Close();
     return true;

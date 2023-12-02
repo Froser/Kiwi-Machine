@@ -39,6 +39,7 @@ list(APPEND
 find_package(Kiwi REQUIRED)
 
 set(Sources
+        build/kiwi_defines.h
         debug/debug_port.cc
         debug/debug_port.h
         debug/debug_roms.cc
@@ -135,10 +136,16 @@ set(Sources
         utility/zip_reader.h
 )
 
-if (ANDROID)
+if (IOS OR ANDROID)
+    set(KIWI_MOBILE TRUE)
+else ()
+    set(KIWI_MOBILE FALSE)
+endif ()
+
+if (KIWI_MOBILE)
     list(APPEND Sources
-            ui/main_window_android.cc
-            ui/widgets/in_game_menu_android.cc
+            ui/main_window_mobile.cc
+            ui/widgets/in_game_menu_mobile.cc
     )
 endif ()
 
@@ -187,7 +194,6 @@ target_link_libraries(${PROJECT_NAME}
         minizip
 )
 target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
-target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
 target_include_directories(${PROJECT_NAME}
         PRIVATE
         "../../third_party/imgui"

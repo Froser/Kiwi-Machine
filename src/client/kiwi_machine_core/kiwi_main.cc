@@ -20,7 +20,19 @@
 #include "ui/application.h"
 #include "ui/main_window.h"
 
+#if defined(__IPHONEOS__)
+#include <SDL_main.h>
+#endif
+
 DEFINE_bool(demo_window, false, "Show ImGui demo window.");
+
+#if defined(__IPHONEOS__)
+int KiwiMain(int argc, char** argv) {
+  int KiwiMainReal(int argc, char** argv);
+  return SDL_UIKitRunApp(argc, argv, KiwiMainReal);
+}
+#define KiwiMain KiwiMainReal
+#endif
 
 #if defined(_WIN32)
 #include <windows.h>

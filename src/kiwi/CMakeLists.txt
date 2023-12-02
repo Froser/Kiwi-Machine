@@ -35,6 +35,7 @@ set(base_sources
         base/base_export.h
         base/check.h
         base/compiler_specific.h
+        base/containers/adapters.h
         base/cxx20_to_address.h
         base/dcheck_is_on.h
         base/location.cc
@@ -46,6 +47,8 @@ set(base_sources
         base/files/file_enumerator.h
         base/files/file_path.cc
         base/files/file_path.h
+        base/files/file_util.cc
+        base/files/file_util.h
         base/functional/bind.h
         base/functional/bind_internal.h
         base/functional/callback.h
@@ -97,6 +100,21 @@ if (MACOSX)
             base/mac/scoped_typeref.h
     )
 endif ()
+
+if (UNIX)
+    list(APPEND base_sources
+            base/files/file_enumerator_posix.cc
+            base/files/file_posix.cc
+            base/files/file_util_posix.cc
+    )
+endif ()
+
+if (WIN32)
+    list(APPEND base_sources
+            base/files/file_enumerator_win.cc
+    )
+endif ()
+
 if (USE_SDL2)
     list(APPEND base_sources
             base/platform/sdl2/sdl2_platform_factory.cc

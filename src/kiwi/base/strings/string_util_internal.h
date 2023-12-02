@@ -43,6 +43,12 @@ constexpr int CompareCaseInsensitiveASCIIT(T a, T b) {
   return 1;
 }
 
+template <typename CharT, typename CharU>
+inline bool EqualsCaseInsensitiveASCIIT(BasicStringPiece<CharT> a,
+                                        BasicStringPiece<CharU> b) {
+  return CompareCaseInsensitiveASCIIT(a, b);
+}
+
 }  // namespace kiwi::base::internal
 
 #endif  // BASE_STRINGS_STRING_UTIL_INTERNAL_H_

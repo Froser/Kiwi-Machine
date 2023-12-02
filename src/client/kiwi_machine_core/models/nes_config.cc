@@ -12,6 +12,7 @@
 
 #include "models/nes_config.h"
 
+#include "build/kiwi_defines.h"
 #include "ui/application.h"
 
 namespace {
@@ -55,8 +56,9 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
                                    is_fullscreen,
                                    volume,
                                    last_index
-#if defined(ANDROID)
-                                   , is_stretch_mode
+#if KIWI_MOBILE
+                                   ,
+                                   is_stretch_mode
 #endif
 );
 
@@ -87,7 +89,7 @@ void NESConfig::LoadFromUTF8Json(const std::string& utf8_json) {
     data_ = nlohmann::json::parse(utf8_json);
   }
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
   // On mobile, window scale factor always sets to 4.0, because it is the best
   // scaling.
   data_.window_scale = 4.f;

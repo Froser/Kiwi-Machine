@@ -15,6 +15,7 @@
 
 #include <SDL.h>
 
+#include "build/kiwi_defines.h"
 #include "models/nes_audio.h"
 #include "models/nes_frame.h"
 #include "models/nes_runtime.h"
@@ -61,7 +62,7 @@ class MainWindow : public WindowBase,
 
   float window_scale() { return config_->data().window_scale; }
   bool is_fullscreen() { return config_->data().is_fullscreen; }
-#if defined(ANDROID)
+#if KIWI_MOBILE
   bool is_stretch_mode() { return config_->data().is_stretch_mode; }
   bool IsLandscape();
 #endif
@@ -160,7 +161,7 @@ class MainWindow : public WindowBase,
   void OnInGameSettingsHandleVolume(bool is_left);
   void OnVirtualJoystickChanged(int state);
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
   void OnScaleModeChanged();
 #endif
 
@@ -184,7 +185,7 @@ class MainWindow : public WindowBase,
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;
 
-#if defined(ANDROID)
+#if KIWI_MOBILE
   // Main menu buttons
   Widget* vtb_joystick_ = nullptr;
   Widget* vtb_a_ = nullptr;

@@ -16,6 +16,7 @@
 #include <kiwi_nes.h>
 #include <string>
 
+#include "build/kiwi_defines.h"
 #include "third_party/nlohmann_json/json.hpp"
 
 class NESConfig : public kiwi::base::RefCounted<NESConfig> {
@@ -27,7 +28,7 @@ class NESConfig : public kiwi::base::RefCounted<NESConfig> {
     bool is_fullscreen = false;
     float volume = 1.f;
     int last_index = 0;
-#if defined(ANDROID)
+#if KIWI_MOBILE
     bool is_stretch_mode = true;
 #endif
   };

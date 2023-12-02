@@ -16,6 +16,7 @@
 #include <tuple>
 #include <vector>
 
+#include "build/kiwi_defines.h"
 #include "ui/main_window.h"
 #include "ui/widgets/stack_widget.h"
 #include "utility/audio_effects.h"
@@ -34,7 +35,7 @@ constexpr char kControllerInstructions[] = R"(
 Controller instructions
 )";
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
 
 constexpr char kControllerInstructionsContent[] =
     R"(
@@ -70,7 +71,7 @@ constexpr char kMenuInstructions[] = R"(
 Menu instructions
 )";
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
 
 constexpr char kMenuInstructionsContent[] = R"(
 You can press UP, DOWN to change groups.
@@ -101,7 +102,7 @@ constexpr char kRetroCollections[] = R"(
 Retro Game Collections
 )";
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
 
 constexpr char kRetroCollectionsContent[] = R"(
 Kiwi machine collects many retro NES games,
@@ -171,7 +172,7 @@ void Splash::Paint() {
   constexpr float kLogoScaling = .2f;
   const ImVec2 kSplashSize(bounds().w, bounds().h);
   auto AdjustFont = [this](FontType font) {
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
     float scale = main_window_->window_scale();
     int adjust = scale < 3.f ? 1 : 0;
     return font == FontType::kDefault

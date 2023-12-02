@@ -10,19 +10,12 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "base/files/file.h"
-#include "base/files/file_enumerator.h"
-#include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/platform/platform_factory.h"
-#include "base/runloop.h"
-#include "base/strings/string_number_conversions.h"
-#include "base/strings/string_util.h"
-#include "base/task/single_thread_task_executor.h"
-#include "nes/debug/debug_port.h"
-#include "nes/debug/disassembly.h"
-#include "nes/emulator.h"
-#include "nes/io_devices.h"
-#include "nes/palette.h"
-#include "nes/registers.h"
-#include "nes/rom_data.h"
+
+namespace kiwi::base {
+
+bool CreateDirectory(const FilePath& full_path) {
+  return CreateDirectoryAndGetError(full_path, nullptr);
+}
+
+}

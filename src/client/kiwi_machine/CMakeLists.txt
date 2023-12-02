@@ -48,18 +48,26 @@ else ()
 endif ()
 
 if (APPLE)
-    set_target_properties(${PROJECT_NAME}
-            PROPERTIES
-            MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Info.plist
-            RESOURCE ${RESOURCES}
-    )
+    if (IOS)
+        set_target_properties(${PROJECT_NAME}
+                PROPERTIES
+                MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/build/ios/Info.plist
+                RESOURCE ${RESOURCES}
+        )
+    else ()
+        set_target_properties(${PROJECT_NAME}
+                PROPERTIES
+                MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Info.plist
+                RESOURCE ${RESOURCES}
+        )
 
-    add_custom_target(
-            "KiwiMachine_MakeDMG"
-            ALL
-            COMMAND hdiutil create ./KiwiMachine.dmg -volname "Kiwi Machine" -ov -srcfolder ./kiwi_machine.app
-            WORKING_DIRECTORY "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/.."
-    )
+        add_custom_target(
+                "KiwiMachine_MakeDMG"
+                ALL
+                COMMAND hdiutil create ./KiwiMachine.dmg -volname "Kiwi Machine" -ov -srcfolder ./kiwi_machine.app
+                WORKING_DIRECTORY "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/.."
+        )
+    endif ()
 endif ()
 
 target_link_libraries(${PROJECT_NAME}

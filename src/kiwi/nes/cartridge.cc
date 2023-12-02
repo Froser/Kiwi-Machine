@@ -90,12 +90,13 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
 
   base::File rom_file(rom_path, base::File::FLAG_OPEN | base::File::FLAG_READ);
   if (!rom_file.IsValid()) {
-    LOG(ERROR) << "Could not open ROM file from path: " << rom_path;
+    LOG(ERROR) << "Could not open ROM file from path: "
+               << rom_path.AsUTF8Unsafe();
     return LoadResult::failed();
   }
 
   Bytes headers;
-  LOG(INFO) << "Reading ROM from path: " << rom_path;
+  LOG(INFO) << "Reading ROM from path: " << rom_path.AsUTF8Unsafe();
 
   // Header
   headers.resize(0x10);

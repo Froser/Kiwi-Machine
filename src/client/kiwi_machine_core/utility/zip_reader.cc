@@ -132,18 +132,18 @@ void FillRomDataFromZip(const preset_roms::PresetROM& rom_data) {
                             nullptr, 0, nullptr, 0);
       alter_rom_path = kiwi::base::FilePath::FromUTF8Unsafe(filename.c_str());
 
-      if (alter_rom_path.RemoveExtension().BaseName() ==
+      if (alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe() ==
           kiwi::base::StringPiece(rom_data.name)) {
         located = unzGoToNextFile(file);
         continue;
       }
 
-      auto alternative_rom_iter =
-          std::find_if(rom_data.alternates.begin(), rom_data.alternates.end(),
-                       [&alter_rom_path](const preset_roms::PresetROM& lhs) {
-                         return alter_rom_path.RemoveExtension().BaseName() ==
-                                kiwi::base::StringPiece(lhs.name);
-                       });
+      auto alternative_rom_iter = std::find_if(
+          rom_data.alternates.begin(), rom_data.alternates.end(),
+          [&alter_rom_path](const preset_roms::PresetROM& lhs) {
+            return alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe() ==
+                   kiwi::base::StringPiece(lhs.name);
+          });
 
       if (alternative_rom_iter != rom_data.alternates.end()) {
         // Use the existing alternative rom struct.

@@ -16,13 +16,24 @@
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
 
+#include "build/kiwi_defines.h"
 #include "ui/application.h"
 
 WindowBase::WindowBase(const std::string& title) {
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
   window_ =
       SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
                        SDL_WINDOWPOS_CENTERED, 1, 1, SDL_WINDOW_ALLOW_HIGHDPI);
+#elif KIWI_IOS
+  SDL_Rect display_rect;
+  SDL_GetDisplayBounds(0, &display_rect);
+  float hdpi, vdpi;
+  SDL_GetDisplayDPI(0, nullptr, &hdpi, &vdpi);
+
+  window_ = SDL_CreateWindow(
+      nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 480, 320,
+      SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN |
+          SDL_WINDOW_BORDERLESS | SDL_WINDOW_MAXIMIZED);
 #else
   window_ = SDL_CreateWindow(
       nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1, 1,

@@ -16,6 +16,7 @@
 #include <imgui.h>
 #include <utility>
 
+#include "build/kiwi_defines.h"
 #include "ui/main_window.h"
 #include "ui/widgets/kiwi_items_widget.h"
 #include "utility/fonts.h"
@@ -116,7 +117,7 @@ void KiwiItemWidget::Paint() {
                              kCoverRect.y + cover_scaled_height));
 
   if (selected_) {
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
     constexpr int kSpacingBetweenTitleAndCover = 16;
     ScopedFont scoped_font(FontType::kDefault);
 #else
@@ -140,7 +141,7 @@ void KiwiItemWidget::Paint() {
       // If a game has more than one version, paint the option list to show
       // which version is currently selected.
       constexpr int kSpacingBetweenSubItemPrompt = 10;
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
       const int kSubItemPromptSize = 4 * main_window_->window_scale();
 #else
       // On mobiles, this area will response finger touch events, so it is a
@@ -183,7 +184,7 @@ void KiwiItemWidget::Paint() {
 
       // Draw title
       constexpr int kSpacingBetweenTitleAndHint = 13;
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
       constexpr char kVersionHintStr[] =
           "(Press select to switch game version)";
 #else

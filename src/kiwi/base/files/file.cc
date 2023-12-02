@@ -41,7 +41,7 @@ void File::Open(const FilePath& file_path, uint32_t flags) {
                                                   : std::ios_base::openmode());
   open_mode |= ((flags & File::Flags::FLAG_APPEND) ? std::ios_base::app
                                                    : std::ios_base::openmode());
-  file_.open(file_path, open_mode);
+  file_.open(file_path.AsUTF8Unsafe(), open_mode);
 }
 
 int64_t File::GetLength() {

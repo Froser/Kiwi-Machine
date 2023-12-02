@@ -22,5 +22,7 @@
 	<string>0.0.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 </dict>
 </plist>

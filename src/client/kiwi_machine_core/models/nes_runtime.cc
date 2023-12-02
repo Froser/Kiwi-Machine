@@ -103,8 +103,8 @@ bool SaveStateByPathOnIOThread(
     const kiwi::base::FilePath& path_to_thumbnail,
     const kiwi::nes::Bytes& state_data,
     const kiwi::nes::IODevices::RenderDevice::Buffer& thumbnail_data) {
-  if (!std::filesystem::exists(path_to_data.DirName()))
-    std::filesystem::create_directories(path_to_data.DirName());
+  if (!kiwi::base::PathExists(path_to_data.DirName()))
+    kiwi::base::CreateDirectory(path_to_data.DirName());
 
   {
     kiwi::base::File file(path_to_data, kiwi::base::File::FLAG_CREATE |
@@ -180,7 +180,7 @@ bool SaveAutoSavedStateOnIOThread(
 
     int max_auto_save_states = NESRuntime::Data::MaxAutoSaveStates;
     while (files.size() > max_auto_save_states) {
-      bool deleted = std::filesystem::remove_all(*files.rbegin());
+      bool deleted = kiwi::base::DeletePathRecursively(*files.rbegin());
       SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "Delete %s %s.",
                    files.begin()->BaseName().AsUTF8Unsafe().c_str(),
                    deleted ? "successfully" : "failed");
@@ -200,8 +200,8 @@ int GetAutoSavedStatesCountOnIOThread(const kiwi::base::FilePath& profile_path,
                                       int crc32) {
   kiwi::base::FilePath auto_saved_snapshot_path =
       GetAutoSavedStatePath(profile_path, crc32);
-  if (!std::filesystem::exists(auto_saved_snapshot_path))
-    std::filesystem::create_directories(auto_saved_snapshot_path);
+  if (!kiwi::base::PathExists(auto_saved_snapshot_path))
+    kiwi::base::CreateDirectory(auto_saved_snapshot_path);
 
   kiwi::base::FileEnumerator fe(auto_saved_snapshot_path, false,
                                 kiwi::base::FileEnumerator::DIRECTORIES);
@@ -219,7 +219,8 @@ int GetAutoSavedStatesCountOnIOThread(const kiwi::base::FilePath& profile_path,
 
 kiwi::nes::Bytes ReadDataFromProfile(const std::string& path) {
   kiwi::nes::Bytes data;
-  kiwi::base::File file(path, kiwi::base::File::FLAG_READ);
+  kiwi::base::File file(kiwi::base::FilePath::FromUTF8Unsafe(path),
+                        kiwi::base::File::FLAG_READ);
   if (!file.IsValid())
     return data;
 
@@ -304,9 +305,8 @@ NESRuntime::Data::StateResult GetAutoSavedStateOnIOThread(
   NESRuntime::Data::StateResult sr{false};
   kiwi::base::FilePath auto_saved_snapshot_path =
       GetAutoSavedStatePath(profile_path, crc32);
-  if (!std::filesystem::exists(auto_saved_snapshot_path)) {
-    bool created =
-        std::filesystem::create_directories(auto_saved_snapshot_path);
+  if (!kiwi::base::PathExists(auto_saved_snapshot_path)) {
+    bool created = kiwi::base::CreateDirectory(auto_saved_snapshot_path);
     if (!created) {
       SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                    "Can't open or create auto saved entry at %s",
@@ -513,8 +513,8 @@ NESRuntimeID NESRuntime::CreateData(const std::string& name) {
 void NESRuntime::CreateProfileIfNotExist(
     Data* data,
     const kiwi::base::FilePath& profile_path) {
-  if (!std::filesystem::exists(profile_path)) {
-    bool created = std::filesystem::create_directory(profile_path);
+  if (!kiwi::base::PathExists(profile_path)) {
+    bool created = kiwi::base::CreateDirectory(profile_path);
     if (!created) {
       SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                    "Can't open or create profile file at %s",

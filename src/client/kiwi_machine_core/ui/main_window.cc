@@ -14,10 +14,9 @@
 
 #include <gflags/gflags.h>
 #include <cmath>
-#include <filesystem>
 #include <queue>
 
-#include "base/strings/string_number_conversions.h"
+#include "build/kiwi_defines.h"
 #include "debug/debug_roms.h"
 #include "preset_roms/preset_roms.h"
 #include "resources/image_resources.h"
@@ -87,8 +86,8 @@ bool ExportNES(const kiwi::base::FilePath& output_path,
                const std::string& title,
                const kiwi::nes::Byte* zip_data,
                size_t zip_size) {
-  if (!std::filesystem::exists(output_path)) {
-    std::filesystem::create_directories(output_path);
+  if (!kiwi::base::PathExists(output_path)) {
+    kiwi::base::CreateDirectory(output_path);
   }
 
   kiwi::base::File output_zip_file(
@@ -179,7 +178,7 @@ void MainWindow::ExportFailed(const std::string& rom_name) {
 }
 
 void MainWindow::Exporting(const std::string& rom_name) {
-  export_widget_->SetCurrent(rom_name);
+  export_widget_->SetCurrent(kiwi::base::FilePath::FromUTF8Unsafe(rom_name));
 }
 
 SDL_Rect MainWindow::Scaled(const SDL_Rect& rect) {
@@ -349,7 +348,7 @@ void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
     HandleResizedEvent();
 }
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
 void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
                                       scoped_refptr<NESFrame> frame) {
   // Always adjusts the canvas to the middle of the render area (excludes menu
@@ -659,7 +658,7 @@ void MainWindow::InitializeUI() {
     stack_widget_->PushWidget(std::move(splash));
   }
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
   OnScaleChanged();
   if (is_fullscreen())
     OnSetFullscreen();
@@ -952,7 +951,7 @@ void MainWindow::UpdateGameControllerMapping() {
   }
 }
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
 void MainWindow::CreateVirtualTouchButtons() {}
 
 void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
@@ -1349,7 +1348,7 @@ void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
   }
 }
 
-#if !defined(ANDROID)
+#if !KIWI_MOBILE
 void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
   if (is_fullscreen() && !is_left)
     return;
