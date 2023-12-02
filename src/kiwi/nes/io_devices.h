@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <set>
 
+#include "build/build_config.h"
 #include "nes/nes_export.h"
 #include "nes/types.h"
 
