@@ -93,10 +93,14 @@ void NESConfig::LoadFromUTF8Json(const std::string& utf8_json) {
     data_ = nlohmann::json::parse(utf8_json);
   }
 
-#if KIWI_MOBILE
-  // On mobile, window scale factor always sets to 4.0, because it is the best
+#if KIWI_ANDROID
+  // On android, window scale factor always sets to 4.0, because it is the best
   // scaling.
   data_.window_scale = 4.f;
+#elif KIWI_IOS
+  // On iOS, SDL_WINDOW_ALLOW_HIGHDPI is set, the bounds will be in points
+  // instead of pixels.
+  data_.window_scale = 1.f;
 #endif
 }
 

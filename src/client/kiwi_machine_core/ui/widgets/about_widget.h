@@ -37,6 +37,10 @@ class AboutWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
 
+#if KIWI_MOBILE
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+#endif
+
  private:
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 

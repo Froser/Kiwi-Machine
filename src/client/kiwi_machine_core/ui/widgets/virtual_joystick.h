@@ -62,7 +62,7 @@ class VirtualJoystick : public Widget {
   image_resources::ImageID image_id_;
   float finger_x_ = 0;
   float finger_y_ = 0;
-  int finger_id_ = 0;
+  SDL_FingerID finger_id_ = 0;
   bool is_finger_down_ = false;
   JoystickCallback callback_;
 };

@@ -94,7 +94,7 @@ class KiwiItemsWidget : public Widget {
   // Fingers
   bool is_finger_down_ = false;
   bool is_finger_moving_ = false;
-  int finger_id_ = 0;
+  SDL_FingerID finger_id_ = 0;
   float finger_down_x_ = 0;
   float finger_down_y_ = 0;
   float finger_x_ = 0;

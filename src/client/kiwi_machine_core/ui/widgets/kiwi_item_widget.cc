@@ -18,6 +18,7 @@
 
 #include "build/kiwi_defines.h"
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "ui/widgets/kiwi_items_widget.h"
 #include "utility/fonts.h"
 #include "utility/math.h"
@@ -117,13 +118,9 @@ void KiwiItemWidget::Paint() {
                              kCoverRect.y + cover_scaled_height));
 
   if (selected_) {
-#if !KIWI_MOBILE
-    constexpr int kSpacingBetweenTitleAndCover = 16;
-    ScopedFont scoped_font(FontType::kDefault);
-#else
-    constexpr int kSpacingBetweenTitleAndCover = 48;
-    ScopedFont scoped_font(FontType::kDefault2x);
-#endif
+    const int kSpacingBetweenTitleAndCover =
+        styles::kiwi_item_widget::GetSpacingBetweenTitleAndCover();
+    ScopedFont scoped_font(styles::kiwi_item_widget::GetGameTitleFontType());
     ImFont* font = scoped_font.GetFont();
     {
       ImVec2 title_rect =

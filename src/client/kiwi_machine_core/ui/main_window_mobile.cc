@@ -14,6 +14,7 @@
 
 #include <SDL.h>
 
+#include "ui/styles.h"
 #include "ui/widgets/canvas.h"
 #include "ui/widgets/joystick_button.h"
 #include "ui/widgets/kiwi_items_widget.h"
@@ -108,7 +109,7 @@ void MainWindow::CreateVirtualTouchButtons() {
   }
 
   {
-    constexpr float kScaling = .4f;
+    constexpr float kScaling = .5f;
     {
       std::unique_ptr<TouchButton> vtb_select = std::make_unique<TouchButton>(
           this, image_resources::ImageID::kVtbSelect);
@@ -122,7 +123,7 @@ void MainWindow::CreateVirtualTouchButtons() {
       SDL_Rect bounds = vtb_select->bounds();
       bounds.w *= window_scale() * kScaling;
       bounds.h *= window_scale() * kScaling;
-      vtb_select->set_opacity(.3f);
+      vtb_select->set_opacity(.4f);
       vtb_select->set_bounds(bounds);
       vtb_select->set_visible(false);
       AddWidget(std::move(vtb_select));
@@ -141,7 +142,7 @@ void MainWindow::CreateVirtualTouchButtons() {
       SDL_Rect bounds = vtb_start->bounds();
       bounds.w *= window_scale() * kScaling;
       bounds.h *= window_scale() * kScaling;
-      vtb_start->set_opacity(.3f);
+      vtb_start->set_opacity(.4f);
       vtb_start->set_bounds(bounds);
       vtb_start->set_visible(false);
       AddWidget(std::move(vtb_start));
@@ -201,11 +202,11 @@ void MainWindow::LayoutVirtualTouchButtons() {
   bool is_landscape = IsLandscape();
 
   {
-    const int kSize = 135 * window_scale();
-    const int kPaddingX =
-        is_landscape ? 18 * window_scale() : 10 * window_scale();
-    const int kPaddingY =
-        is_landscape ? 10 * window_scale() : 40 * window_scale();
+    const int kSize = styles::main_window::GetJoystickSize(window_scale());
+    const int kPaddingX = styles::main_window::GetJoystickPaddingX(
+        window_scale(), is_landscape, GetSafeAreaInsets());
+    const int kPaddingY = styles::main_window::GetJoystickPaddingY(
+        window_scale(), is_landscape, GetSafeAreaInsets());
 
     if (vtb_joystick_) {
       SDL_Rect bounds;
@@ -218,10 +219,10 @@ void MainWindow::LayoutVirtualTouchButtons() {
 
   {
     const int kSize = 40 * window_scale();
-    const int kPaddingX =
-        is_landscape ? 40 * window_scale() : 30 * window_scale();
-    const int kPaddingY =
-        is_landscape ? 40 * window_scale() : 60 * window_scale();
+    const int kPaddingX = styles::main_window::GetJoystickButtonPaddingX(
+        window_scale(), is_landscape, GetSafeAreaInsets());
+    const int kPaddingY = styles::main_window::GetJoystickButtonPaddingY(
+        window_scale(), is_landscape, GetSafeAreaInsets());
     const int kSpacing = 15 * window_scale();
     if (vtb_a_) {
       SDL_Rect bounds;
@@ -251,7 +252,8 @@ void MainWindow::LayoutVirtualTouchButtons() {
   {
     const int kMiddleSpacing = 4 * window_scale();
     const int kPaddingBottom =
-        is_landscape ? 30 * window_scale() : 10 * window_scale();
+        styles::main_window::GetJoystickSelectStartButtonPaddingBottom(
+            window_scale(), is_landscape, GetSafeAreaInsets());
     if (vtb_select_) {
       SDL_Rect bounds = vtb_select_->bounds();
       bounds.x = kClientBounds.w / 2 - bounds.w - kMiddleSpacing;
@@ -268,11 +270,15 @@ void MainWindow::LayoutVirtualTouchButtons() {
   }
 
   if (vtb_pause_) {
-    const int kPadding = 33 * window_scale();
+    const int kPaddingX = styles::main_window::GetJoystickPauseButtonPaddingX(
+        window_scale(), GetSafeAreaInsets());
+    const int kPaddingY = styles::main_window::GetJoystickPauseButtonPaddingY(
+        window_scale(), GetSafeAreaInsets());
     const int kSize = 33 * window_scale();
     SDL_Rect bounds;
     bounds.h = bounds.w = kSize;
-    bounds.x = bounds.y = kPadding;
+    bounds.x = kPaddingX;
+    bounds.y = kPaddingY;
     vtb_pause_->set_bounds(bounds);
   }
 }
@@ -312,13 +318,21 @@ void MainWindow::OnScaleModeChanged() {
   if (canvas_) {
     bool is_landscape = IsLandscape();
     if (!is_landscape) {
-      const int kPadding = 80 * window_scale();
+      LayoutVirtualTouchButtons();
+      const int kPadding =
+          vtb_pause_->bounds().y + vtb_pause_->bounds().h + 10 * window_scale();
       SDL_Rect canvas_bounds = canvas_->bounds();
       canvas_bounds.y = kPadding;
       canvas_->set_bounds(canvas_bounds);
     }
 
+#if KIWI_IOS
+    // In iOS, canvas's dimension is represented as point, not pixel, so it has
+    // a smaller scale.
+    float canvas_scale = 1.f;
+#else
     float canvas_scale = 2.f;
+#endif
     if (config_->data().is_stretch_mode) {
       SDL_Rect rect = GetClientBounds();
       if (is_landscape) {
@@ -329,6 +343,8 @@ void MainWindow::OnScaleModeChanged() {
     }
     canvas_->set_frame_scale(canvas_scale);
   }
+
+  HandleResizedEvent();
 }
 
 void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
@@ -350,9 +366,21 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
         static_cast<int>(frame->height() * canvas->frame_scale())};
     canvas->set_bounds(dest_rect);
   } else {
-    dest_rect = {canvas->bounds().x, canvas->bounds().y,
+    // Horizontal center align:
+    SDL_Rect safe_area_bounds = GetSafeAreaClientBounds();
+    int canvas_x =
+        safe_area_bounds.x + (safe_area_bounds.w - frame->width()) / 2;
+    dest_rect = {canvas_x, canvas->bounds().y,
                  static_cast<int>(frame->width() * canvas->frame_scale()),
                  static_cast<int>(frame->height() * canvas->frame_scale())};
+
+    if (dest_rect.w > safe_area_bounds.w) {
+      float s = static_cast<float>(safe_area_bounds.w) / dest_rect.w;
+      dest_rect.x = 0;
+      dest_rect.w *= s;
+      dest_rect.h *= s;
+    }
+
     canvas->set_bounds(dest_rect);
   }
 

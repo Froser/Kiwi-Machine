@@ -25,13 +25,8 @@ WindowBase::WindowBase(const std::string& title) {
       SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
                        SDL_WINDOWPOS_CENTERED, 1, 1, SDL_WINDOW_ALLOW_HIGHDPI);
 #elif KIWI_IOS
-  SDL_Rect display_rect;
-  SDL_GetDisplayBounds(0, &display_rect);
-  float hdpi, vdpi;
-  SDL_GetDisplayDPI(0, nullptr, &hdpi, &vdpi);
-
   window_ = SDL_CreateWindow(
-      nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 480, 320,
+      nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1, 1,
       SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN |
           SDL_WINDOW_BORDERLESS | SDL_WINDOW_MAXIMIZED);
 #else
@@ -241,4 +236,19 @@ void WindowBase::RemovePendingWidgets() {
     }
   }
   widgets_to_be_removed_.clear();
+}
+
+#if !KIWI_IOS
+SDL_Rect WindowBase::GetSafeAreaInsets() {
+  return SDL_Rect{0};
+}
+#endif
+
+SDL_Rect WindowBase::GetSafeAreaClientBounds() {
+  SDL_Rect safe_area_insets = GetSafeAreaInsets();
+  SDL_Rect client_bounds = GetClientBounds();
+  return SDL_Rect{client_bounds.x + safe_area_insets.x,
+                  client_bounds.y + safe_area_insets.y,
+                  client_bounds.w - safe_area_insets.x - safe_area_insets.w,
+                  client_bounds.h - safe_area_insets.y - safe_area_insets.h};
 }

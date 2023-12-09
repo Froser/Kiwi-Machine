@@ -6,4 +6,4 @@
 /src/client/kiwi_machine/build/win/*.aps
 /cmake-build-release_noembed/
 /cmake-build-debug_noembed/
-/cmake-build-debug_ios/
+/cmake-build-ios/

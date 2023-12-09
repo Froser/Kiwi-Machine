@@ -116,6 +116,8 @@ set(Sources
         ui/application.h
         ui/main_window.cc
         ui/main_window.h
+        ui/styles.cc
+        ui/styles.h
         ui/window_base.cc
         ui/window_base.h
         utility/audio_effects.cc
@@ -146,6 +148,12 @@ if (KIWI_MOBILE)
     list(APPEND Sources
             ui/main_window_mobile.cc
             ui/widgets/in_game_menu_mobile.cc
+    )
+endif ()
+
+if (IOS)
+    list(APPEND Sources
+            ui/window_base_ios.mm
     )
 endif ()
 

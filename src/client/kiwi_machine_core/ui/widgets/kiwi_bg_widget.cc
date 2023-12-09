@@ -15,6 +15,7 @@
 #include <SDL_image.h>
 
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "ui/window_base.h"
 #include "utility/images.h"
 
@@ -80,14 +81,18 @@ void KiwiBgWidget::Paint() {
     }
 
     // Draw 'kiwi machine' logo.
-    constexpr int kKiwiPos = 30;
-    const float kKiwiScale = 0.08f * main_window_->window_scale();
+    const int kKiwiPosX = styles::kiwi_bg_widget::GetKiwiPositionX(
+        main_window_->GetSafeAreaInsets());
+    const int kKiwiPosY = styles::kiwi_bg_widget::GetKiwiPositionY(
+        main_window_->GetSafeAreaInsets());
+    const float kKiwiScale =
+        styles::kiwi_bg_widget::GetKiwiScale(main_window_->window_scale());
     SDL_Texture* bg_kiwi =
         GetImage(window()->renderer(), image_resources::ImageID::kKiwiMachine);
     int tex_width, tex_height;
     SDL_QueryTexture(bg_kiwi, nullptr, nullptr, &tex_width, &tex_height);
     SDL_Rect src_rect{0, 0, tex_width, tex_height};
-    SDL_Rect dest_rect{render_bounds.x + kKiwiPos, render_bounds.y + kKiwiPos,
+    SDL_Rect dest_rect{render_bounds.x + kKiwiPosX, render_bounds.y + kKiwiPosY,
                        static_cast<int>(tex_width * kKiwiScale),
                        static_cast<int>(tex_height * kKiwiScale)};
     SDL_RenderCopy(window()->renderer(), bg_kiwi, &src_rect, &dest_rect);

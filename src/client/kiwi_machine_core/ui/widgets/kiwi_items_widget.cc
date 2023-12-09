@@ -15,6 +15,7 @@
 #include <imgui.h>
 
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "ui/widgets/kiwi_item_widget.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
@@ -232,7 +233,8 @@ bool KiwiItemsWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
 
 int KiwiItemsWidget::GetItemMetrics(KiwiItemWidget::Metrics metrics) {
   SDL_assert(main_window_ && main_window_ == window());
-  return static_cast<int>(metrics) * main_window_->window_scale();
+  return styles::kiwi_item_widget::GetItemMetrics(main_window_->window_scale(),
+                                                  metrics);
 }
 
 void KiwiItemsWidget::CalculateItemsBounds(std::vector<SDL_Rect>& container) {

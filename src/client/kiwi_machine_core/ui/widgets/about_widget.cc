@@ -61,8 +61,12 @@ UI Version: 1.0.0
 Programmed by Yu Yisi
 
 )");
+#if !KIWI_MOBILE
   content.AddContent(FontType::kDefault,
                      "Press joystick button 'B' to go back.");
+#else
+  content.AddContent(FontType::kDefault, "Press touch screen to go back");
+#endif
 
   content.DrawContents(IM_COL32_BLACK);
 }
@@ -78,6 +82,14 @@ bool AboutWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
 bool AboutWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
   return HandleInputEvents(nullptr, event);
 }
+
+#if KIWI_MOBILE
+bool AboutWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  PlayEffect(audio_resources::AudioID::kBack);
+  Close();
+  return true;
+}
+#endif
 
 bool AboutWidget::HandleInputEvents(SDL_KeyboardEvent* k,
                                     SDL_ControllerButtonEvent* c) {

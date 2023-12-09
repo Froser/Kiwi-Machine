@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "build/kiwi_defines.h"
 #include "ui/widgets/widget.h"
 
 class WindowBase {
@@ -39,6 +40,12 @@ class WindowBase {
   void Resize(int width, int height);
   SDL_Renderer* renderer() { return renderer_; }
   SDL_Window* native_window() { return window_; }
+
+  // Get the insets that you use to determine the safe area for this view.
+  // SDL_Rect's x, y, width and height represents left, top, right, and bottom
+  // respectively.
+  SDL_Rect GetSafeAreaInsets();
+  SDL_Rect GetSafeAreaClientBounds();
 
   // Events pipeline
   virtual void HandleKeyEvents(SDL_KeyboardEvent* event);

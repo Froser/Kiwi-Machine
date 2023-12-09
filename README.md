@@ -64,13 +64,30 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 
 ## 构建方式
 
-直接使用CMake可进行构建。主要的产物有`kiwi`和`kiwi_machine`。
-
-### 支持的操作系统
+### 支持的平台
 
 - MacOS
 - Windows
 - Linux
+- Android
+- iOS
+
+### MacOS, Windows, Linux构建方式
+
+直接使用CMake可进行构建。主要的产物有`kiwi`和`kiwi_machine`。
+
+### Android 构建方式
+
+直接打开`src/client/kiwi_machine_android`中的gradle工程进行构建。
+
+### iOS 构建方式
+
+通过CMake进行构建：
+```
+-G Xcode -DCMAKE_TOOLCHAIN_FILE=build/cmake/ios.toolchain.cmake -DPLATFORM=SIMULATORARM64 -DENABLE_ARC=OFF -DSDL2IMAGE_BACKEND_IMAGEIO=OFF
+```
+
+你可以将PLATFORM替换为自己的iOS平台，详见`build/ios.toolchain.cmake`
 
 ### 产物介绍
 

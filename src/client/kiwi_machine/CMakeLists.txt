@@ -28,21 +28,29 @@ set(Sources
 )
 
 if (WIN32)
-    set(RESOURCES
+    set(Resources
             build/win/kiwi_machine.rc
     )
 endif ()
 
 if (APPLE)
-    set(RESOURCES
-            build/macos/kiwi.icns
-    )
+    if (IOS)
+        set(Resources
+                ../../../kiwi.png
+                build/ios/Assets.xcassets
+                build/ios/KiwiMachineLaunchScreen.storyboard
+        )
+    else ()
+        set(Resources
+                build/macos/kiwi.icns
+        )
+    endif ()
 endif ()
 
 if (WIN32)
-    KIWI_ADD_EXECUTABLE(${PROJECT_NAME} WIN32 ${Sources} ${RESOURCES})
+    KIWI_ADD_EXECUTABLE(${PROJECT_NAME} WIN32 ${Sources} ${Resources})
 elseif (APPLE)
-    KIWI_ADD_EXECUTABLE(${PROJECT_NAME} MACOSX_BUNDLE ${Sources} ${RESOURCES})
+    KIWI_ADD_EXECUTABLE(${PROJECT_NAME} MACOSX_BUNDLE ${Sources} ${Resources})
 else ()
     KIWI_ADD_EXECUTABLE(${PROJECT_NAME} ${Sources})
 endif ()
@@ -52,13 +60,17 @@ if (APPLE)
         set_target_properties(${PROJECT_NAME}
                 PROPERTIES
                 MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/build/ios/Info.plist
-                RESOURCE ${RESOURCES}
+                XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
+                RESOURCE "${Resources}"
+        )
+        set_source_files_properties(build/ios/Assets.xcassets PROPERTIES
+                MACOSX_PACKAGE_LOCATION Resources/Assets.xcassets
         )
     else ()
         set_target_properties(${PROJECT_NAME}
                 PROPERTIES
                 MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Info.plist
-                RESOURCE ${RESOURCES}
+                RESOURCE "${Resources}"
         )
 
         add_custom_target(

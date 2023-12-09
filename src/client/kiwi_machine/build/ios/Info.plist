@@ -8,8 +8,6 @@
 	<string>kiwi_machine</string>
 	<key>CFBundleVersion</key>
 	<string>1.0.0</string>
-	<key>CFBundleIconFile</key>
-	<string>kiwi.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>yu.yisi.kiwi-machine</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -24,5 +22,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>KiwiMachineLaunchScreen</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>

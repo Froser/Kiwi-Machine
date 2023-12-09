@@ -164,6 +164,12 @@ MainWindow::~MainWindow() {
 #endif
 }
 
+#if !KIWI_MOBILE
+bool MainWindow::IsLandscape() {
+  return true;
+}
+#endif
+
 void MainWindow::ExportDone() {
   SDL_assert(export_widget_);
   export_widget_->Done();
@@ -557,10 +563,13 @@ void MainWindow::InitializeUI() {
           },
           this, stack_widget_, runtime_id_));
 
+#if !KIWI_IOS
+  // iOS needn't quit the application manually.
   settings_widget->AddItem(
       "Quit", image_resources::kExitLogo, image_resources::kExitLogoSize,
       kiwi::base::BindRepeating(&MainWindow::OnQuit,
                                 kiwi::base::Unretained(this)));
+#endif
 
   // End of settings items
   main_group_widget_->AddWidget(std::move(settings_widget));
@@ -648,6 +657,8 @@ void MainWindow::InitializeUI() {
   if (has_demo_widget_)
     AddWidget(std::make_unique<DemoWidget>(this));
 
+#if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
+               // here.
   // Splash
   if (!FLAGS_has_menu) {
     // If we have menu, we don't show splash screen, because we probably want to
@@ -657,6 +668,7 @@ void MainWindow::InitializeUI() {
     splash->Play();
     stack_widget_->PushWidget(std::move(splash));
   }
+#endif
 
 #if !KIWI_MOBILE
   OnScaleChanged();

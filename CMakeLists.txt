@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 
 cmake_minimum_required(VERSION 3.13)
-project(KIWI_NES)
+project(KiwiMachine)
 
 OPTION(USE_SDL2 "Use SDL2 as Kiwi's backend." ON)
 
