@@ -20,12 +20,15 @@
 #include "utility/audio_effects.h"
 #include "utility/fonts.h"
 #include "utility/images.h"
+#include "utility/localization.h"
 
 namespace {
 constexpr int kInitializeSDLFailed = -1;
 constexpr int kInitializeSDLImageFailed = -2;
 Application* g_app_instance = nullptr;
 }  // namespace
+
+DEFINE_string(lang, "", "Set application's language.");
 
 ApplicationObserver::ApplicationObserver() = default;
 
@@ -208,6 +211,8 @@ void Application::InitializeApplication(int& argc, char** argv) {
 
   // Using gflags to parse command line.
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+  if (!FLAGS_lang.empty())
+    SetLanguage(FLAGS_lang.c_str());
 
   kiwi::base::InitializePlatformFactory(argc, argv);
   if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {

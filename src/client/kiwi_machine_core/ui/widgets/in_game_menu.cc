@@ -23,6 +23,7 @@
 #include "utility/audio_effects.h"
 #include "utility/fonts.h"
 #include "utility/key_mapping_util.h"
+#include "utility/localization.h"
 
 constexpr int kMoveSpeed = 200;
 
@@ -104,17 +105,26 @@ void InGameMenu::Paint() {
 
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
                       ImVec2(0, styles::in_game_menu::GetOptionsSpacing()));
-  ScopedFont font(main_window_->window_scale() > 3.f
-                      ? FontType::kDefault3x
-                      : (main_window_->window_scale() > 2.f
-                             ? FontType::kDefault2x
-                             : FontType::kDefault));
+  PreferredFontSize font_size(main_window_->window_scale() > 3.f
+                                  ? PreferredFontSize::k3x
+                                  : (main_window_->window_scale() > 2.f
+                                         ? PreferredFontSize::k2x
+                                         : PreferredFontSize::k1x));
 
   // Draw main menu
   const char* kMenuItems[] = {
-      "Continue", "Load Auto Save", "Load State",   "Save State",
-      "Options",  "Reset Game",     "Back To Main",
+      GetLocalizedString(string_resources::IDR_IN_GAME_MENU_CONTINUE).c_str(),
+      GetLocalizedString(string_resources::IDR_IN_GAME_MENU_LOAD_AUTO_SAVE)
+          .c_str(),
+      GetLocalizedString(string_resources::IDR_IN_GAME_MENU_LOAD_STATE).c_str(),
+      GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SAVE_STATE).c_str(),
+      GetLocalizedString(string_resources::IDR_IN_GAME_MENU_OPTIONS).c_str(),
+      GetLocalizedString(string_resources::IDR_IN_GAME_MENU_RESET_GAME).c_str(),
+      GetLocalizedString(string_resources::IDR_IN_GAME_MENU_BACK_TO_MAIN)
+          .c_str(),
   };
+
+  ScopedFont font = GetPreferredFont(font_size, kMenuItems[0]);
   int menu_tops[static_cast<int>(MenuItem::kMax)];
   int menu_font_size = font.GetFont()->FontSize;
 
@@ -277,7 +287,9 @@ void InGameMenu::Paint() {
         no_state_font = std::make_unique<ScopedFont>(FontType::kSystemDefault);
       }
 #endif
-      constexpr char kNoStateStr[] = "No State.";
+      const char* kNoStateStr =
+          GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NO_STATE)
+              .c_str();
       ImVec2 text_size = ImGui::CalcTextSize(kNoStateStr);
       ImGui::SetCursorPos(ImVec2(p0.x + (p1.x - p0.x - text_size.x) / 2,
                                  p0.y + (p1.y - p0.y - text_size.y) / 2));
@@ -296,12 +308,14 @@ void InGameMenu::Paint() {
         }
       } else {
         // Slot number in string starts at 1.
-        state_slot_str = "Slot " + kiwi::base::NumberToString(which_state_ + 1);
+        state_slot_str =
+            GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SLOT) +
+            kiwi::base::NumberToString(which_state_ + 1);
       }
 
       {
         ScopedFont slot_font(styles::in_game_menu::GetSlotNameFontType(
-            main_window_->IsLandscape()));
+            main_window_->IsLandscape(), state_slot_str.c_str()));
         ImVec2 text_size = ImGui::CalcTextSize(state_slot_str.c_str());
         constexpr int kSlotSpacing = 10;
         ImGui::SetCursorPos(ImVec2(p0.x + (p1.x - p0.x - text_size.x) / 2,
@@ -315,11 +329,23 @@ void InGameMenu::Paint() {
 
   // Draw settings
   if (current_selection_ == MenuItem::kOptions) {
-    ScopedFont sys_font(main_window_->window_scale() > 3.f
-                            ? FontType::kSystemDefault3x
-                            : (main_window_->window_scale() > 2.f
-                                   ? FontType::kSystemDefault2x
-                                   : FontType::kSystemDefault));
+    // Beginning of calculating settings' position
+    // Including main settings, volume bar, window sizes, joysticks, etc.
+    const char* kSettingsItems[] = {
+        GetLocalizedString(string_resources::IDR_IN_GAME_MENU_VOLUME).c_str(),
+        GetLocalizedString(string_resources::IDR_IN_GAME_MENU_WINDOW_SIZE)
+            .c_str(),
+        GetLocalizedString(string_resources::IDR_IN_GAME_MENU_JOYSTICKS)
+            .c_str(),
+    };
+
+    PreferredFontSize options_font_size(
+        main_window_->window_scale() > 3.f
+            ? PreferredFontSize::k3x
+            : (main_window_->window_scale() > 2.f ? PreferredFontSize::k2x
+                                                  : PreferredFontSize::k1x));
+    ScopedFont option_font = GetPreferredFont(
+        options_font_size, kSettingsItems[0], FontType::kSystemDefault);
 
     int window_scaling_for_settings =
         static_cast<int>(main_window_->window_scale());
@@ -328,9 +354,6 @@ void InGameMenu::Paint() {
     else if (window_scaling_for_settings > 4)
       window_scaling_for_settings = 4;
 
-    // Beginning of calculating settings' position
-    // Including main settings, volume bar, window sizes, joysticks, etc.
-    const char* kSettingsItems[] = {"Volume", "Window Size", "Joysticks"};
     const int kSettingsY = ImGui::GetCursorPosY();
     for (const char* item : kSettingsItems) {
       ImVec2 text_size = ImGui::CalcTextSize(item);
@@ -343,17 +366,22 @@ void InGameMenu::Paint() {
     ImGui::Dummy(ImVec2(1, kVolumeBarHeight));
     // Window size
     {
-      ScopedFont size_font(main_window_->window_scale() > 3.f
-                               ? FontType::kDefault3x
-                               : (main_window_->window_scale() > 2.f
-                                      ? FontType::kDefault2x
-                                      : FontType::kDefault));
+      PreferredFontSize preferred_font_size(
+          main_window_->window_scale() > 3.f
+              ? PreferredFontSize::k3x
+              : (main_window_->window_scale() > 2.f ? PreferredFontSize::k2x
+                                                    : PreferredFontSize::k1x));
+      ScopedFont scoped_font(
+          GetPreferredFontType(preferred_font_size, kSettingsItems[0]));
       ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
     }
     // Joysticks
     {
-      ScopedFont joy_font(main_window_->is_fullscreen() ? FontType::kDefault2x
-                                                        : FontType::kDefault);
+      PreferredFontSize preferred_font_size(main_window_->is_fullscreen()
+                                                ? PreferredFontSize::k2x
+                                                : PreferredFontSize::k1x);
+      ScopedFont scoped_font(
+          GetPreferredFontType(preferred_font_size, kSettingsItems[0]));
       ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
     }
 
@@ -402,15 +430,25 @@ void InGameMenu::Paint() {
           }
 #else
           // There are only 2 options on mobiles: On or Off.
-          ScopedFont size_font(main_window_->window_scale() > 3.f
-                                   ? FontType::kDefault3x
-                                   : (main_window_->window_scale() > 2.f
-                                          ? FontType::kDefault2x
-                                          : FontType::kDefault));
+          PreferredFontSize preferred_size(
+              main_window_->window_scale() > 3.f
+                  ? PreferredFontSize::k3x
+                  : (main_window_->window_scale() > 2.f
+                         ? PreferredFontSize::k2x
+                         : PreferredFontSize::k1x));
+
+          float volume = runtime_data_->emulator->GetVolume();
+          const char* kVolumeStr =
+              volume > 0
+                  ? GetLocalizedString(string_resources::IDR_IN_GAME_MENU_ON)
+                        .c_str()
+                  : GetLocalizedString(string_resources::IDR_IN_GAME_MENU_OFF)
+                        .c_str();
+
+          ScopedFont scoped_font(
+              GetPreferredFontType(preferred_size, kVolumeStr));
           float prompt_height = ImGui::GetFontSize();
           float prompt_width = prompt_height * .8f;
-          float volume = runtime_data_->emulator->GetVolume();
-          const char* kVolumeStr = volume > 0 ? "On" : "Off";
 
           ImVec2 window_text_size = ImGui::CalcTextSize(kVolumeStr);
           ImGui::SetCursorPosX(kCenterX + kMargin +
@@ -483,14 +521,23 @@ void InGameMenu::Paint() {
 #endif
         } break;
         case 1: {  // Window size:
-          ScopedFont size_font(main_window_->window_scale() > 3.f
-                                   ? FontType::kDefault3x
-                                   : (main_window_->window_scale() > 2.f
-                                          ? FontType::kDefault2x
-                                          : FontType::kDefault));
+          PreferredFontSize preferred_font_size(
+              main_window_->window_scale() > 3.f
+                  ? PreferredFontSize::k3x
+                  : (main_window_->window_scale() > 2.f
+                         ? PreferredFontSize::k2x
+                         : PreferredFontSize::k1x));
+
 #if !KIWI_MOBILE
-          const char* kWindowSizes[] = {"Small", "Normal", "Large",
-                                        "Fullscreen"};
+          const char* kWindowSizes[] = {
+              GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SMALL)
+                  .c_str(),
+              GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NORMAL)
+                  .c_str(),
+              GetLocalizedString(string_resources::IDR_IN_GAME_MENU_LARGE)
+                  .c_str(),
+              GetLocalizedString(string_resources::IDR_IN_GAME_MENU_FULLSCREEN)
+                  .c_str()};
           const char* kSizeStr =
               main_window_->is_fullscreen()
                   ? kWindowSizes[3]
@@ -499,8 +546,17 @@ void InGameMenu::Paint() {
           // Android and mobile apps only has two modes: streching mode and
           // non-streching mode.
           const char* kSizeStr =
-              main_window_->is_stretch_mode() ? "Stretch" : "Original";
+              main_window_->is_stretch_mode()
+                  ? GetLocalizedString(
+                        string_resources::IDR_IN_GAME_MENU_STRETCH)
+                        .c_str()
+                  : GetLocalizedString(
+                        string_resources::IDR_IN_GAME_MENU_ORIGINAL)
+                        .c_str();
 #endif
+
+          ScopedFont scoped_font =
+              GetPreferredFont(preferred_font_size, kSizeStr);
 
           ImVec2 window_text_size = ImGui::CalcTextSize(kSizeStr);
           ImGui::SetCursorPosX(kCenterX + kMargin +
@@ -585,8 +641,11 @@ void InGameMenu::Paint() {
         case 2: {  // Joysticks
           for (int j = 0; j < 2; ++j) {
             const int kJoyDescSpacing = 3 * main_window_->window_scale();
+            const char* kStrNone =
+                GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NONE)
+                    .c_str();
             ScopedFont joy_font(styles::in_game_menu::GetJoystickFontType(
-                main_window_->is_fullscreen()));
+                main_window_->is_fullscreen(), kStrNone));
             std::string joyname =
                 std::string("P") + kiwi::base::NumberToString(j + 1) +
                 std::string(": ") +
@@ -594,7 +653,7 @@ void InGameMenu::Paint() {
                      ? (SDL_GameControllerName(
                            reinterpret_cast<SDL_GameController*>(
                                runtime_data_->joystick_mappings[j].which)))
-                     : "None");
+                     : kStrNone);
             ImVec2 window_text_size = ImGui::CalcTextSize(joyname.c_str());
             ImGui::SetCursorPosX(kCenterX + kMargin +
                                  (window_size.x / 2 - window_text_size.x) / 2);

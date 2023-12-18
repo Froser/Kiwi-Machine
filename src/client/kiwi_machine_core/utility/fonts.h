@@ -30,6 +30,13 @@ enum class FontType {
   kDefault5x,
   kDefault6x,
 
+  kStxihei,
+  kStxihei2x,
+  kStxihei3x,
+  kStxihei4x,
+  kStxihei5x,
+  kStxihei6x,
+
   kMax,
 };
 
@@ -46,5 +53,21 @@ class ScopedFont {
 };
 
 void InitializeFonts();
+
+enum PreferredFontSize {
+  k1x,
+  k2x,
+  k3x,
+  k4x,
+  k5x,
+  k6x,
+};
+
+FontType GetPreferredFontType(PreferredFontSize size,
+                              const char* text_hint,
+                              FontType default_type = FontType::kDefault);
+ScopedFont GetPreferredFont(PreferredFontSize size,
+                            const char* text_hint,
+                            FontType default_type = FontType::kDefault);
 
 #endif  // UTILITY_FONTS_H_

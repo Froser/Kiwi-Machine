@@ -12,7 +12,9 @@
 
 #ifndef PRESET_ROMS_DEFINES_H
 #define PRESET_ROMS_DEFINES_H
+
 #include <kiwi_nes.h>
+#include <unordered_map>
 
 namespace preset_roms {
 struct PresetROM {
@@ -23,6 +25,9 @@ struct PresetROM {
   // Uncompressed data. Filled by FillRomDataFromZip().
   mutable kiwi::nes::Bytes rom_data;
   mutable kiwi::nes::Bytes rom_cover;
+
+  // i18 names
+  mutable std::unordered_map<std::string, std::string> i18n_names;
 
   // Switch ROM version.
   mutable std::vector<PresetROM> alternates;

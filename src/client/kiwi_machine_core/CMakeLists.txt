@@ -60,6 +60,8 @@ set(Sources
         resources/audio_resources.h
         resources/font_resources.cc
         resources/font_resources.h
+        resources/string_resources.cc
+        resources/string_resources.h
         resources/image_resources.cc
         resources/image_resources.h
         ui/widgets/about_widget.cc
@@ -128,6 +130,8 @@ set(Sources
         utility/images.h
         utility/key_mapping_util.cc
         utility/key_mapping_util.h
+        utility/localization.cc
+        utility/localization.h
         utility/math.cc
         utility/math.h
         utility/text_content.cc
@@ -178,6 +182,14 @@ add_custom_command(
 add_custom_command(
         OUTPUT resources/font_resources.h resources/font_resources.cc __always_build2.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
+        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        VERBATIM
+)
+
+add_custom_command(
+        OUTPUT resources/string_resources.h resources/string_resources.cc __always_build3.h
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         VERBATIM

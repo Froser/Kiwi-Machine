@@ -17,6 +17,8 @@
 
 #include <kiwi_nes.h>
 
+#include "utility/fonts.h"
+
 class MainWindow;
 class KiwiItemsWidget;
 class KiwiItemWidget : public Widget {
@@ -89,6 +91,8 @@ class KiwiItemWidget : public Widget {
   int cover_width_ = 0;
   int cover_height_ = 0;
   SDL_Rect cover_bounds_;
+
+  FontType title_font_;
 };
 
 #endif  // UI_WIDGETS_KIWI_ITEM_WIDGET_H_

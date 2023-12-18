@@ -22,6 +22,7 @@
 #include "utility/audio_effects.h"
 #include "utility/images.h"
 #include "utility/key_mapping_util.h"
+#include "utility/localization.h"
 #include "utility/text_content.h"
 
 AboutWidget::AboutWidget(MainWindow* main_window,
@@ -36,6 +37,20 @@ AboutWidget::AboutWidget(MainWindow* main_window,
   set_flags(window_flags);
   set_title("About");
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
+
+  str_title_ = GetLocalizedString(string_resources::IDR_ABOUT_TITLE);
+  font_title_ =
+      GetPreferredFontType(PreferredFontSize::k2x, str_title_.c_str());
+  str_contents_ = GetLocalizedString(string_resources::IDR_ABOUT_CONTENTS);
+  font_contents_ =
+      GetPreferredFontType(PreferredFontSize::k1x, str_contents_.c_str());
+#if !KIWI_MOBILE
+  str_go_back_ = GetLocalizedString(string_resources::IDR_ABOUT_GO_BACK);
+#else
+  str_go_back_ = GetLocalizedString(string_resources::IDR_ABOUT_GO_BACK_MOBILE);
+#endif
+  font_go_back_ =
+      GetPreferredFontType(PreferredFontSize::k1x, str_go_back_.c_str());
 }
 
 AboutWidget::~AboutWidget() = default;
@@ -50,24 +65,9 @@ void AboutWidget::Paint() {
   set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
 
   TextContent content(this);
-  content.AddContent(FontType::kDefault2x, "About Kiwi Machine");
-  content.AddContent(FontType::kDefault, R"(
-Kiwi machine is an open sources NES
-emulator with lots of preset games.
-Github: https://github.com/Froser/Kiwi-Machine/
-
-Core Version: Kiwi 1.0.0
-UI Version: 1.0.0
-Programmed by Yu Yisi
-
-)");
-#if !KIWI_MOBILE
-  content.AddContent(FontType::kDefault,
-                     "Press joystick button 'B' to go back.");
-#else
-  content.AddContent(FontType::kDefault, "Press touch screen to go back");
-#endif
-
+  content.AddContent(font_title_, str_title_.c_str());
+  content.AddContent(font_contents_, str_contents_.c_str());
+  content.AddContent(font_go_back_, str_go_back_.c_str());
   content.DrawContents(IM_COL32_BLACK);
 }
 

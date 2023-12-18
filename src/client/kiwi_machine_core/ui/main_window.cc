@@ -40,6 +40,7 @@
 #include "ui/widgets/toast.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
+#include "utility/localization.h"
 #include "utility/zip_reader.h"
 
 namespace {
@@ -471,13 +472,13 @@ void MainWindow::InitializeUI() {
   for (const auto& rom : preset_roms::kPresetRoms) {
     FillRomDataFromZip(rom);
     int main_item_index = items_widget->AddItem(
-        rom.name, rom.rom_cover.data(), rom.rom_cover.size(),
+        GetROMLocalizedTitle(rom), rom.rom_cover.data(), rom.rom_cover.size(),
         kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                   kiwi::base::Unretained(this), rom));
 
     for (const auto& alternative_rom : rom.alternates) {
       items_widget->AddSubItem(
-          main_item_index, alternative_rom.name,
+          main_item_index, GetROMLocalizedTitle(alternative_rom),
           alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                     kiwi::base::Unretained(this),
@@ -521,8 +522,8 @@ void MainWindow::InitializeUI() {
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
 
   settings_widget->AddItem(
-      "Settings", image_resources::kSettingsLogo,
-      image_resources::kSettingsLogoSize,
+      GetLocalizedString(string_resources::IDR_MAIN_WINDOW_SETTINGS),
+      image_resources::kSettingsLogo, image_resources::kSettingsLogoSize,
       kiwi::base::BindRepeating(
           [](MainWindow* window, StackWidget* stack_widget,
              NESRuntimeID runtime_id) {
@@ -553,8 +554,8 @@ void MainWindow::InitializeUI() {
           this, stack_widget_, runtime_id_));
 
   settings_widget->AddItem(
-      "About Kiwi Machine", image_resources::kBackgroundLogo,
-      image_resources::kBackgroundLogoSize,
+      GetLocalizedString(string_resources::IDR_MAIN_WINDOW_ABOUT),
+      image_resources::kBackgroundLogo, image_resources::kBackgroundLogoSize,
       kiwi::base::BindRepeating(
           [](MainWindow* window, StackWidget* stack_widget,
              NESRuntimeID runtime_id) {
@@ -566,7 +567,8 @@ void MainWindow::InitializeUI() {
 #if !KIWI_IOS
   // iOS needn't quit the application manually.
   settings_widget->AddItem(
-      "Quit", image_resources::kExitLogo, image_resources::kExitLogoSize,
+      GetLocalizedString(string_resources::IDR_MAIN_WINDOW_QUIT),
+      image_resources::kExitLogo, image_resources::kExitLogoSize,
       kiwi::base::BindRepeating(&MainWindow::OnQuit,
                                 kiwi::base::Unretained(this)));
 #endif

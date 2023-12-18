@@ -37,6 +37,7 @@ class Splash : public Widget {
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
 
  private:
+  void InitializeStrings();
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
  private:
@@ -54,6 +55,30 @@ class Splash : public Widget {
     kClosing,
   };
   SplashState state_ = SplashState::kLogo;
+
+  // String lists
+  std::string str_how_to_play_;
+  FontType font_how_to_play_;
+  std::string str_controller_instructions_;
+  FontType font_controller_instructions_;
+  std::string str_controller_instructions_contents_;
+  FontType font_controller_instructions_contents_;
+  std::string str_menu_instructions_;
+  FontType font_menu_instructions_;
+  std::string str_menu_instructions_contents_;
+  FontType font_menu_instructions_contents_;
+  std::string str_continue_;
+  FontType font_continue_;
+  std::string str_introductions_;
+  FontType font_introductions_;
+  std::string str_retro_collections_;
+  FontType font_retro_collections_;
+  std::string str_retro_collections_contents_;
+  FontType font_retro_collections_contents_;
+  std::string str_special_collections_;
+  FontType font_special_collections_;
+  std::string str_special_collections_contents_;
+  FontType font_special_collections_contents_;
 };
 
 #endif  // UI_WIDGETS_SPLASH_H_

@@ -22,127 +22,13 @@
 #include "utility/audio_effects.h"
 #include "utility/images.h"
 #include "utility/key_mapping_util.h"
+#include "utility/localization.h"
 #include "utility/math.h"
 #include "utility/text_content.h"
 
 constexpr int kSplashDurationMs = 2500;
 constexpr float kFadeDurationMs = 1000.f;
 constexpr float kClosingDurationMs = 200.f;
-
-constexpr char kHowToPlay[] = R"(How To Play
-)";
-constexpr char kControllerInstructions[] = R"(
-Controller instructions
-)";
-
-#if !KIWI_MOBILE
-
-constexpr char kControllerInstructionsContent[] =
-    R"(
- Player 1
-  UP, DOWN, LEFT, RIGHT: keyboard W, S, A, D
-  A, B: keyboard J, K
-  SELECT, START: keyboard L, Return
-
- Player 2
-  UP, DOWN, LEFT, RIGHT: keyboard up, down, left, right
-  A, B: keyboard Delete, End
-  SELECT, START: keyboard PageDown, Home
-
- Joystick is also available if connected.
- Press L+R to call menu when playing games.
- You may change controller from settings.
-
-)";
-
-#else
-
-constexpr char kControllerInstructionsContent[] =
-    R"(
- Joystick is available if connected.
- Press L+R to call menu when playing games.
- You may change controller from settings.
-
-)";
-
-#endif
-
-constexpr char kMenuInstructions[] = R"(
-Menu instructions
-)";
-
-#if !KIWI_MOBILE
-
-constexpr char kMenuInstructionsContent[] = R"(
-You can press UP, DOWN to change groups.
-System menu is at the end of the groups.
-
-)";
-
-constexpr char kContinue[] = R"(
-Press A or START to continue.)";
-
-#else
-
-constexpr char kMenuInstructionsContent[] = R"(
-You can swipe up or down to change groups.
-System menu is at the end of the groups.
-
-)";
-
-constexpr char kContinue[] = R"(
-Touch screen to continue.)";
-
-#endif
-
-constexpr char kIntroduction[] = R"(Introduction
-)";
-
-constexpr char kRetroCollections[] = R"(
-Retro Game Collections
-)";
-
-#if !KIWI_MOBILE
-
-constexpr char kRetroCollectionsContent[] = R"(
-Kiwi machine collects many retro NES games,
-and some of them has different versions and
-different names and languages, such as
-Dragon Quest and Dragon Warrior.
-
-You may press SELECT to choose the version
-you want to play.
-
-)";
-
-#else
-
-constexpr char kRetroCollectionsContent[] = R"(
-Kiwi machine collects many retro NES games,
-and some of them has different versions and
-different names and languages, such as
-Dragon Quest and Dragon Warrior.
-
-You may touch the version square to choose
-the version you want to play.
-
-)";
-
-#endif
-
-constexpr char kSpecialCollections[] = R"(
-Special Collections
-)";
-
-constexpr char kSpecialCollectionsContent[] = R"(
-Kiwi Machine also collected many special ROMs,
-such as hacked but popular SMB ROMs, Tank 1990,
-etc.
-
-You may press DOWN to switch to the special
-rom's group.
-
-)";
 
 Splash::Splash(MainWindow* main_window,
                StackWidget* stack_widget,
@@ -157,9 +43,85 @@ Splash::Splash(MainWindow* main_window,
       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground;
   set_flags(window_flags);
   set_title("Splash");
+
+  InitializeStrings();
 }
 
 Splash::~Splash() = default;
+
+void Splash::InitializeStrings() {
+  str_how_to_play_ = GetLocalizedString(string_resources::IDR_HOW_TO_PLAY);
+  font_how_to_play_ =
+      GetPreferredFontType(PreferredFontSize::k3x, str_how_to_play_.c_str());
+
+  str_controller_instructions_ =
+      GetLocalizedString(string_resources::IDR_CONTROLLER_INSTRUCTIONS);
+  font_controller_instructions_ = GetPreferredFontType(
+      PreferredFontSize::k2x, str_controller_instructions_.c_str());
+
+#if !KIWI_MOBILE
+  str_controller_instructions_contents_ = GetLocalizedString(
+      string_resources::IDR_CONTROLLER_INSTRUCTIONS_CONTENTS);
+#else
+  str_controller_instructions_contents_ = GetLocalizedString(
+      string_resources::IDR_CONTROLLER_INSTRUCTIONS_CONTENTS_MOBILE);
+#endif
+  font_controller_instructions_contents_ = GetPreferredFontType(
+      PreferredFontSize::k1x, str_controller_instructions_contents_.c_str());
+
+  str_menu_instructions_ =
+      GetLocalizedString(string_resources::IDR_MENU_INSTRUCTIONS);
+  font_menu_instructions_ = GetPreferredFontType(
+      PreferredFontSize::k2x, str_menu_instructions_.c_str());
+
+#if !KIWI_MOBILE
+  str_menu_instructions_contents_ =
+      GetLocalizedString(string_resources::IDR_MENU_INSTRUCTIONS_CONTENTS);
+#else
+  str_menu_instructions_contents_ = GetLocalizedString(
+      string_resources::IDR_MENU_INSTRUCTIONS_CONTENTS_MOBILE);
+#endif
+  font_menu_instructions_contents_ = GetPreferredFontType(
+      PreferredFontSize::k1x, str_menu_instructions_.c_str());
+
+#if !KIWI_MOBILE
+  str_continue_ = GetLocalizedString(string_resources::IDR_MENU_CONTINUE);
+#else
+  str_continue_ =
+      GetLocalizedString(string_resources::IDR_MENU_CONTINUE_MOBILE);
+#endif
+  font_continue_ =
+      GetPreferredFontType(PreferredFontSize::k2x, str_continue_.c_str());
+
+  str_introductions_ = GetLocalizedString(string_resources::IDR_INTRODUCTIONS);
+  font_introductions_ =
+      GetPreferredFontType(PreferredFontSize::k3x, str_introductions_.c_str());
+
+  str_retro_collections_ =
+      GetLocalizedString(string_resources::IDR_RETRO_COLLECTIONS);
+  font_retro_collections_ = GetPreferredFontType(
+      PreferredFontSize::k2x, str_retro_collections_.c_str());
+
+#if !KIWI_MOBILE
+  str_retro_collections_contents_ =
+      GetLocalizedString(string_resources::IDR_RETRO_COLLECTIONS_CONTENTS);
+#else
+  str_retro_collections_contents_ = GetLocalizedString(
+      string_resources::IDR_RETRO_COLLECTIONS_CONTENTS_MOBILE);
+#endif
+  font_retro_collections_contents_ = GetPreferredFontType(
+      PreferredFontSize::k1x, str_retro_collections_contents_.c_str());
+
+  str_special_collections_ =
+      GetLocalizedString(string_resources::IDR_SPECIAL_COLLECTIONS);
+  font_special_collections_ = GetPreferredFontType(
+      PreferredFontSize::k2x, str_special_collections_.c_str());
+
+  str_special_collections_contents_ =
+      GetLocalizedString(string_resources::IDR_SPECIAL_COLLECTIONS_CONTENTS);
+  font_special_collections_contents_ = GetPreferredFontType(
+      PreferredFontSize::k1x, str_special_collections_contents_.c_str());
+}
 
 void Splash::Play() {
   splash_timer_.Start();
@@ -221,17 +183,21 @@ void Splash::Paint() {
                    fade_timer_.ElapsedInMilliseconds() / kClosingDurationMs);
 
     TextContent how_to_play_contents(this);
-    how_to_play_contents.AddContent(AdjustFont(FontType::kDefault3x),
-                                    kHowToPlay);
-    how_to_play_contents.AddContent(AdjustFont(FontType::kDefault2x),
-                                    kControllerInstructions);
-    how_to_play_contents.AddContent(AdjustFont(FontType::kDefault),
-                                    kControllerInstructionsContent);
-    how_to_play_contents.AddContent(AdjustFont(FontType::kDefault2x),
-                                    kMenuInstructions);
-    how_to_play_contents.AddContent(AdjustFont(FontType::kDefault),
-                                    kMenuInstructionsContent);
-    how_to_play_contents.AddContent(AdjustFont(FontType::kDefault), kContinue);
+    how_to_play_contents.AddContent(AdjustFont(font_how_to_play_),
+                                    str_how_to_play_.c_str());
+    how_to_play_contents.AddContent(AdjustFont(font_controller_instructions_),
+                                    str_controller_instructions_.c_str());
+    how_to_play_contents.AddContent(
+        AdjustFont(font_controller_instructions_contents_),
+        str_controller_instructions_contents_.c_str());
+    how_to_play_contents.AddContent(AdjustFont(font_menu_instructions_),
+                                    str_menu_instructions_.c_str());
+    how_to_play_contents.AddContent(
+        AdjustFont(font_menu_instructions_contents_),
+        str_menu_instructions_contents_.c_str());
+
+    how_to_play_contents.AddContent(AdjustFont(font_continue_),
+                                    str_continue_.c_str());
 
     // Draw all contents
     ImColor font_color(0, 0, 0, alpha);
@@ -253,16 +219,18 @@ void Splash::Paint() {
                    fade_timer_.ElapsedInMilliseconds() / kClosingDurationMs);
 
     TextContent introduction(this);
-    introduction.AddContent(AdjustFont(FontType::kDefault3x), kIntroduction);
-    introduction.AddContent(AdjustFont(FontType::kDefault2x),
-                            kRetroCollections);
-    introduction.AddContent(AdjustFont(FontType::kDefault),
-                            kRetroCollectionsContent);
-    introduction.AddContent(AdjustFont(FontType::kDefault2x),
-                            kSpecialCollections);
-    introduction.AddContent(AdjustFont(FontType::kDefault),
-                            kSpecialCollectionsContent);
-    introduction.AddContent(AdjustFont(FontType::kDefault), kContinue);
+    introduction.AddContent(AdjustFont(font_introductions_),
+                            str_introductions_.c_str());
+    introduction.AddContent(AdjustFont(font_retro_collections_),
+                            str_retro_collections_.c_str());
+    introduction.AddContent(AdjustFont(font_retro_collections_contents_),
+                            str_retro_collections_contents_.c_str());
+
+    introduction.AddContent(AdjustFont(font_special_collections_),
+                            str_special_collections_.c_str());
+    introduction.AddContent(AdjustFont(font_special_collections_contents_),
+                            str_special_collections_contents_.c_str());
+    introduction.AddContent(AdjustFont(font_continue_), str_continue_.c_str());
 
     ImColor font_color(0, 0, 0, alpha);
     introduction.DrawContents(font_color);

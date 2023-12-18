@@ -14,6 +14,7 @@
 
 #include "build/kiwi_defines.h"
 #include "ui/widgets/canvas.h"
+#include "utility/fonts.h"
 
 namespace styles {
 
@@ -27,11 +28,11 @@ int GetSpacingBetweenTitleAndCover() {
 #endif
 }
 
-FontType GetGameTitleFontType() {
+PreferredFontSize GetGameTitlePreferredFontSize() {
 #if KIWI_ANDROID
-  return FontType::kDefault2x;
+  return PreferredFontSize::k2x;
 #else
-  return FontType::kDefault;
+  return PreferredFontSize::k1x;
 #endif
 }
 
@@ -99,21 +100,23 @@ int GetOptionsSpacing() {
 #endif
 }
 
-FontType GetJoystickFontType(bool is_fullscreen) {
+FontType GetJoystickFontType(bool is_fullscreen, const char* str_hint) {
 #if KIWI_ANDROID
   return FontType::kDefault2x;
 #elif KIWI_IOS
   return FontType::kDefault;
 #else
-  return is_fullscreen ? FontType::kDefault2x : FontType::kDefault;
+  PreferredFontSize font_size =
+      is_fullscreen ? PreferredFontSize::k2x : PreferredFontSize::k1x;
+  return GetPreferredFontType(font_size, str_hint);
 #endif
 }
 
-FontType GetSlotNameFontType(bool is_landscape) {
+FontType GetSlotNameFontType(bool is_landscape, const char* str_hint) {
 #if KIWI_IOS
   return is_landscape ? FontType::kDefault : FontType::kSystemDefault;
 #else
-  return FontType::kDefault;
+  return GetPreferredFontType(PreferredFontSize::k1x, str_hint);
 #endif
 }
 

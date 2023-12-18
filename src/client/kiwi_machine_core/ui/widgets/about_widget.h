@@ -17,6 +17,7 @@
 
 #include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
+#include "utility/fonts.h"
 
 class StackWidget;
 class MainWindow;
@@ -48,6 +49,13 @@ class AboutWidget : public Widget {
   NESRuntime::Data* runtime_data_ = nullptr;
   StackWidget* parent_ = nullptr;
   MainWindow* main_window_ = nullptr;
+
+  std::string str_title_;
+  FontType font_title_;
+  std::string str_contents_;
+  FontType font_contents_;
+  std::string str_go_back_;
+  FontType font_go_back_;
 };
 
 #endif  // UI_WIDGETS_ABOUT_WIDGET_H_

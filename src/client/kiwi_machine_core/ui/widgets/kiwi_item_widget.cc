@@ -20,7 +20,6 @@
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "ui/widgets/kiwi_items_widget.h"
-#include "utility/fonts.h"
 #include "utility/math.h"
 
 KiwiItemWidget::KiwiItemWidget(MainWindow* main_window,
@@ -31,7 +30,13 @@ KiwiItemWidget::KiwiItemWidget(MainWindow* main_window,
       main_window_(main_window),
       parent_(parent),
       title_(title),
-      on_trigger_callback_(on_trigger) {}
+      on_trigger_callback_(on_trigger) {
+  // Since title won't change during the instance created, calculates the font
+  // once to improve performance.
+  title_font_ = GetPreferredFontType(
+      styles::kiwi_item_widget::GetGameTitlePreferredFontSize(),
+      title_.c_str());
+}
 
 KiwiItemWidget::~KiwiItemWidget() {
   if (cover_surface_)
@@ -120,7 +125,7 @@ void KiwiItemWidget::Paint() {
   if (selected_) {
     const int kSpacingBetweenTitleAndCover =
         styles::kiwi_item_widget::GetSpacingBetweenTitleAndCover();
-    ScopedFont scoped_font(styles::kiwi_item_widget::GetGameTitleFontType());
+    ScopedFont scoped_font(title_font_);
     ImFont* font = scoped_font.GetFont();
     {
       ImVec2 title_rect =
