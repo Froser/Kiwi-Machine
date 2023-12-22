@@ -10,8 +10,8 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef PRESET_ROMS_DEFINES_H
-#define PRESET_ROMS_DEFINES_H
+#ifndef PRESET_ROMS_PRESET_ROMS_H
+#define PRESET_ROMS_PRESET_ROMS_H
 
 #include <kiwi_nes.h>
 #include <unordered_map>
@@ -31,6 +31,9 @@ struct PresetROM {
 
   // Switch ROM version.
   mutable std::vector<PresetROM> alternates;
+
+  // Whether its data or cover is loaded
+  mutable bool loaded = false;
 };
 
 #define PRESET_ROM(name) name::ROM_NAME, name::ROM_ZIP, name::ROM_ZIP_SIZE
@@ -42,9 +45,14 @@ struct PresetROM {
   extern size_t ROM_ZIP_SIZE;             \
   }
 
-#include "preset_roms/preset_roms.inc"
+const PresetROM* GetPresetRoms();
+size_t GetPresetRomsCount();
+
+namespace specials {
+const PresetROM* GetPresetRoms();
+size_t GetPresetRomsCount();
+}  // namespace special
 
 }  // namespace preset_roms
 
-#undef EXTERN_ROM
-#endif  // PRESET_ROMS_DEFINES_H
+#endif  // PRESET_ROMS_PRESET_ROMS_H

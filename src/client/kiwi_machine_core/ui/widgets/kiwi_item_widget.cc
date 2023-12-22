@@ -20,6 +20,7 @@
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "ui/widgets/kiwi_items_widget.h"
+#include "utility/localization.h"
 #include "utility/math.h"
 
 KiwiItemWidget::KiwiItemWidget(MainWindow* main_window,
@@ -36,6 +37,16 @@ KiwiItemWidget::KiwiItemWidget(MainWindow* main_window,
   title_font_ = GetPreferredFontType(
       styles::kiwi_item_widget::GetGameTitlePreferredFontSize(),
       title_.c_str());
+
+#if !KIWI_MOBILE
+  str_switch_version_ = GetLocalizedString(string_resources::IDR_ITEM_WIDGET);
+#else
+  str_switch_version_ =
+      GetLocalizedString(string_resources::IDR_ITEM_WIDGET_MOBILE);
+#endif
+  font_switch_version_ = GetPreferredFontType(
+      styles::kiwi_item_widget::GetGameTitlePreferredFontSize(),
+      str_switch_version_.c_str());
 }
 
 KiwiItemWidget::~KiwiItemWidget() {
@@ -186,22 +197,18 @@ void KiwiItemWidget::Paint() {
 
       // Draw title
       constexpr int kSpacingBetweenTitleAndHint = 13;
-#if !KIWI_MOBILE
-      constexpr char kVersionHintStr[] =
-          "(Press select to switch game version)";
-#else
-      constexpr char kVersionHintStr[] =
-          "(Touch the index square to switch game version)";
-#endif
-      ImVec2 title_rect =
-          font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, kVersionHintStr);
-      draw_list->AddText(
-          font, font->FontSize,
-          ImVec2(kBoundsToParent.x + (kBoundsToParent.w - title_rect.x) / 2,
-                 kCoverRect.y + cover_scaled_height +
-                     kSpacingBetweenTitleAndCover + font->FontSize +
-                     kSpacingBetweenTitleAndHint),
-          IM_COL32(255, 51, 153, 255), kVersionHintStr);
+      {
+        ScopedFont hint_font(font_switch_version_);
+        ImVec2 title_rect = ImGui::CalcTextSize(str_switch_version_.c_str());
+        draw_list->AddText(
+            hint_font.GetFont(), hint_font.GetFont()->FontSize,
+            ImVec2(kBoundsToParent.x + (kBoundsToParent.w - title_rect.x) / 2,
+                   kCoverRect.y + cover_scaled_height +
+                       kSpacingBetweenTitleAndCover +
+                       hint_font.GetFont()->FontSize +
+                       kSpacingBetweenTitleAndHint),
+            IM_COL32(255, 51, 153, 255), str_switch_version_.c_str());
+      }
     }
   }
 }

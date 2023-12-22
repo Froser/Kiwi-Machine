@@ -90,9 +90,11 @@ class KiwiItemWidget : public Widget {
   SDL_Texture* cover_texture_ = nullptr;
   int cover_width_ = 0;
   int cover_height_ = 0;
-  SDL_Rect cover_bounds_;
+  SDL_Rect cover_bounds_{0};
 
   FontType title_font_;
+  std::string str_switch_version_;
+  FontType font_switch_version_;
 };
 
 #endif  // UI_WIDGETS_KIWI_ITEM_WIDGET_H_

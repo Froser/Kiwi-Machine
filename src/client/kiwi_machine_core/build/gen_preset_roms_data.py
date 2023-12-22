@@ -104,7 +104,11 @@ def main():
                 }
     print(output_dir + '/' + main_package_name, "generated.")
 
-    with open(output_dir + '/preset_roms.inc', "w") as o:
+    with open(output_dir + '/preset_roms.cc', "w") as o:
+        o.write('#include "preset_roms/preset_roms.h"\n')
+        o.write('\n')
+        o.write('namespace preset_roms {\n')
+
         o.write('#if !defined(KIWI_USE_EXTERNAL_PAK)\n')
 
         o.write('\n')
@@ -114,7 +118,8 @@ def main():
         o.write('const PresetROM kPresetRoms[] = {\n')
         o.write(all_namespaces)
         o.write('};\n')
-        o.write('constexpr size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
+        o.write('size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
+        o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
 
         # Writes all other ROMs
         for dir_ns in other_roms:
@@ -124,27 +129,24 @@ def main():
             o.write('const PresetROM kPresetRoms[] = {\n')
             o.write(other_roms[dir_ns]['all_namespaces'])
             o.write('};\n')
-            o.write('constexpr size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
+            o.write('size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
+            o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
             o.write('} // namespace ' + dir_ns + '\n')
 
         o.write('#else\n')
         o.write('extern std::vector<PresetROM> kPresetRoms;\n')
         o.write('extern const char kPackageName[];\n')
-        o.write('inline size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
+        o.write('size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
+        o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
         for dir_ns in other_roms:
             o.write('namespace ' + dir_ns + ' {\n')
             o.write('extern std::vector<PresetROM> kPresetRoms;\n')
             o.write('extern const char kPackageName[];\n')
-            o.write('inline size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
+            o.write('size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
+            o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
             o.write('}  // namespace ' + dir_ns + '\n')
         o.write('#endif  // KIWI_USE_EXTERNAL_PAK\n\n')
 
-    print("Generated: preset_roms.inc")
-
-    with open(output_dir + '/preset_roms.cc', "w") as o:
-        o.write('#include "preset_roms/preset_roms.h"\n')
-        o.write('\n')
-        o.write('namespace preset_roms {\n')
         o.write('#if !defined(KIWI_USE_EXTERNAL_PAK)\n')
         o.write(all_includes)
 

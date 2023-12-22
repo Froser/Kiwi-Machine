@@ -18,7 +18,7 @@
 #include "resources/string_resources.h"
 
 namespace preset_roms {
-class PresetROM;
+struct PresetROM;
 }  // namespace preset_roms
 
 void SetLanguage(const char* language);

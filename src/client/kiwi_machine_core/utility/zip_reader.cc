@@ -15,6 +15,7 @@
 #include <SDL.h>
 
 #include "preset_roms/preset_roms.h"
+#include "third_party/nlohmann_json/json.hpp"
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
 
 namespace {
@@ -65,21 +66,34 @@ bool ReadFileFromZip(unzFile file,
                      const std::string& name,
                      kiwi::nes::Bytes& data) {
   int err = unzLocateFile(file, name.c_str(), false);
-  if (err != UNZ_OK) {
-    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Can't read file of %s",
-                name.c_str());
+  if (err != UNZ_OK)
     return false;
-  }
 
   return ReadCurrentFileFromZip(file, data);
+}
+
+void ParseManifest(const kiwi::nes::Bytes& manifest,
+                   preset_roms::PresetROM& out) {
+  nlohmann::json manifest_json = nlohmann::json::parse(manifest);
+  if (manifest_json.contains("title")) {
+    for (const auto& title : manifest_json["title"].items()) {
+      out.i18n_names[title.key()] = title.value();
+    }
+  }
 }
 
 bool ReadRomAndCover(unzFile file,
                      const char* name,
                      kiwi::nes::Bytes& rom,
-                     kiwi::nes::Bytes& cover) {
-  return ReadFileFromZip(file, std::string(name) + ".nes", rom) &&
-         ReadFileFromZip(file, std::string(name) + ".jpg", cover);
+                     kiwi::nes::Bytes& cover,
+                     kiwi::nes::Bytes& optional_manifest) {
+  bool file_read = ReadFileFromZip(file, std::string(name) + ".nes", rom) &&
+                   ReadFileFromZip(file, std::string(name) + ".jpg", cover);
+  ReadFileFromZip(file, "manifest.json", optional_manifest);
+
+  if (!file_read)
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Can't read file of %s", name);
+  return file_read;
 }
 
 void ReadNESOrCover(unzFile file,
@@ -110,11 +124,40 @@ unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
 }  // namespace
 
 void FillRomDataFromZip(const preset_roms::PresetROM& rom_data) {
+  if (rom_data.loaded)
+    return;
+
   unzFile file = unzOpenFromMemory(
       const_cast<kiwi::nes::Byte*>(rom_data.zip_data), rom_data.zip_size);
   if (file) {
+    kiwi::nes::Bytes manifest;
     bool success = ReadRomAndCover(file, rom_data.name, rom_data.rom_data,
-                                   rom_data.rom_cover);
+                                   rom_data.rom_cover, manifest);
+
+    std::map<std::string, std::unordered_map<std::string, std::string>>
+        i18n_names;
+    bool has_manifest = !manifest.empty();
+    // Parsing manifest file, to extract i18n information, and so on.
+    if (has_manifest) {
+      // Adds a string terminator.
+      manifest.push_back(0);
+      nlohmann::json manifest_json = nlohmann::json::parse(manifest.data());
+      if (manifest_json.contains("titles")) {
+        const auto& titles = manifest_json.at("titles");
+        for (const auto& rom_version : titles.items()) {
+          for (const auto& title : rom_version.value().items()) {
+            i18n_names[rom_version.key()].insert({title.key(), title.value()});
+          }
+        }
+      }
+    }
+
+    auto default_i18n_names = i18n_names.find("default");
+    if (default_i18n_names != i18n_names.end()) {
+      // Found the default name, which is the primary ROM's name.
+      rom_data.i18n_names = default_i18n_names->second;
+    }
+
     if (!success) {
       unzClose(file);
       return;
@@ -145,23 +188,37 @@ void FillRomDataFromZip(const preset_roms::PresetROM& rom_data) {
                    kiwi::base::StringPiece(lhs.name);
           });
 
-      if (alternative_rom_iter != rom_data.alternates.end()) {
-        // Use the existing alternative rom struct.
-        ReadNESOrCover(file, alter_rom_path, *alternative_rom_iter);
-      } else {
-        preset_roms::PresetROM alternative_rom;
-        // Leaky name
-        std::string rom_name =
-            alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
-        alternative_rom.name = new char[rom_name.size() + 1];
-        strcpy(const_cast<char*>(alternative_rom.name), rom_name.c_str());
-        ReadNESOrCover(file, alter_rom_path, alternative_rom);
-        rom_data.alternates.push_back(std::move(alternative_rom));
+      std::string alter_rom_name = alter_rom_path.BaseName().AsUTF8Unsafe();
+      if (alter_rom_name != "manifest.json") {
+        // Finds corresponding i18n names, and store these names.
+        auto alter_i18n_names = i18n_names.find(
+            alter_rom_path.BaseName().RemoveExtension().AsUTF8Unsafe());
+        std::unordered_map<std::string, std::string> names;
+        if (alter_i18n_names != i18n_names.end()) {
+          names = alter_i18n_names->second;
+        }
+
+        if (alternative_rom_iter != rom_data.alternates.end()) {
+          // Use the existing alternative rom struct.
+          ReadNESOrCover(file, alter_rom_path, *alternative_rom_iter);
+          alternative_rom_iter->i18n_names = names;
+        } else {
+          preset_roms::PresetROM alternative_rom;
+          // Leaky name
+          std::string rom_name =
+              alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
+          alternative_rom.name = new char[rom_name.size() + 1];
+          strcpy(const_cast<char*>(alternative_rom.name), rom_name.c_str());
+          ReadNESOrCover(file, alter_rom_path, alternative_rom);
+          alternative_rom.i18n_names = names;
+          rom_data.alternates.push_back(std::move(alternative_rom));
+        }
       }
 
       located = unzGoToNextFile(file);
     }
 
+    rom_data.loaded = true;
     unzClose(file);
   } else {
     SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,

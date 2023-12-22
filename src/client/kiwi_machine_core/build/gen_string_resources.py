@@ -6,7 +6,7 @@ import json
 
 
 def GetData(file):
-    with open(file.absolute(), 'r') as f:
+    with open(file.absolute(), 'r', encoding = 'utf-8') as f:
         data = json.load(f)
 
     output = {}
