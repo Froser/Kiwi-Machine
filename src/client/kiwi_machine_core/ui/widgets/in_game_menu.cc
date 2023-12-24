@@ -337,6 +337,7 @@ void InGameMenu::Paint() {
             .c_str(),
         GetLocalizedString(string_resources::IDR_IN_GAME_MENU_JOYSTICKS)
             .c_str(),
+        GetLocalizedString(string_resources::IDR_IN_GAME_MENU_LANGUAGE).c_str(),
     };
 
     PreferredFontSize options_font_size(
@@ -380,6 +381,17 @@ void InGameMenu::Paint() {
       PreferredFontSize preferred_font_size(main_window_->is_fullscreen()
                                                 ? PreferredFontSize::k2x
                                                 : PreferredFontSize::k1x);
+      ScopedFont scoped_font(
+          GetPreferredFontType(preferred_font_size, kSettingsItems[0]));
+      ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
+    }
+    // Languages
+    {
+      PreferredFontSize preferred_font_size(
+          main_window_->window_scale() > 3.f
+              ? PreferredFontSize::k3x
+              : (main_window_->window_scale() > 2.f ? PreferredFontSize::k2x
+                                                    : PreferredFontSize::k1x));
       ScopedFont scoped_font(
           GetPreferredFontType(preferred_font_size, kSettingsItems[0]));
       ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
@@ -744,6 +756,90 @@ void InGameMenu::Paint() {
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + kJoyDescSpacing);
           }
 
+        } break;
+        case 3: {  // Languages
+          SupportedLanguage language = GetCurrentSupportedLanguage();
+          const char* str_lang = nullptr;
+          switch (language) {
+            case SupportedLanguage::kSimplifiedChinese:
+              str_lang = GetLocalizedString(
+                             string_resources::IDR_IN_GAME_MENU_LANGUAGE_ZH)
+                             .c_str();
+              break;
+            case SupportedLanguage::kJapanese:
+              str_lang = GetLocalizedString(
+                             string_resources::IDR_IN_GAME_MENU_LANGUAGE_JP)
+                             .c_str();
+              break;
+            case SupportedLanguage::kEnglish:
+            default:
+              str_lang = GetLocalizedString(
+                             string_resources::IDR_IN_GAME_MENU_LANGUAGE_EN)
+                             .c_str();
+              break;
+          }
+          SDL_assert(str_lang);
+
+          PreferredFontSize preferred_font_size(
+              main_window_->window_scale() > 3.f
+                  ? PreferredFontSize::k3x
+                  : (main_window_->window_scale() > 2.f
+                         ? PreferredFontSize::k2x
+                         : PreferredFontSize::k1x));
+          ScopedFont scoped_font =
+              GetPreferredFont(preferred_font_size, str_lang);
+
+          float prompt_height = ImGui::GetFontSize();
+          float prompt_width = prompt_height * .8f;
+          ImVec2 window_text_size = ImGui::CalcTextSize(str_lang);
+          ImGui::SetCursorPosX(kCenterX + kMargin +
+                               (window_size.x / 2 - window_text_size.x) / 2);
+          int text_y = ImGui::GetCursorPosY();
+          ImGui::Text("%s", str_lang);
+
+          if (settings_entered_ &&
+              current_setting_ == SettingsItem::kLanguage) {
+            ImVec2 triangle_p0(kCenterX + kMargin + prompt_width + kMargin,
+                               text_y + kTitleMenuHeight);
+            bool has_left = true, has_right = true;
+            if (!has_left) {
+              ImGui::GetWindowDrawList()->AddTriangle(
+                  ImVec2(triangle_p0.x - prompt_width - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height / 2),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing, triangle_p0.y),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height),
+                  IM_COL32_WHITE);
+            } else {
+              ImGui::GetWindowDrawList()->AddTriangleFilled(
+                  ImVec2(triangle_p0.x - prompt_width - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height / 2),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing, triangle_p0.y),
+                  ImVec2(triangle_p0.x - kVolumeBarSpacing,
+                         triangle_p0.y + prompt_height),
+                  IM_COL32_WHITE);
+            }
+
+            if (has_right) {
+              ImGui::GetWindowDrawList()->AddTriangleFilled(
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y),
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y + prompt_height),
+                  ImVec2(window_pos.x + window_size.x - kMargin,
+                         triangle_p0.y + prompt_height / 2),
+                  IM_COL32_WHITE);
+            } else {
+              ImGui::GetWindowDrawList()->AddTriangle(
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y),
+                  ImVec2(window_pos.x + window_size.x - kMargin - prompt_width,
+                         triangle_p0.y + prompt_height),
+                  ImVec2(window_pos.x + window_size.x - kMargin,
+                         triangle_p0.y + prompt_height / 2),
+                  IM_COL32_WHITE);
+            }
+          }
         } break;
         default:
           break;

@@ -225,6 +225,12 @@ void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
   }
 }
 
+void WindowBase::HandleLocaleChanged() {
+  for (auto& widget : widgets_) {
+    widget->HandleLocaleChanged();
+  }
+}
+
 void WindowBase::RemovePendingWidgets() {
   for (Widget* widget : widgets_to_be_removed_) {
     for (auto iter = widgets_.begin(); iter != widgets_.end(); ++iter) {

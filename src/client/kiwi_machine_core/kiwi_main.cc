@@ -16,7 +16,6 @@
 #include <kiwi_nes.h>
 
 #include "debug/debug_port.h"
-#include "models/nes_runtime.h"
 #include "ui/application.h"
 #include "ui/main_window.h"
 
@@ -46,30 +45,8 @@ int KiwiMain(int argc, char** argv) {
   Application application(argc, argv);
 #endif
 
-  // Make a kiwi-nes runtime.
-  NESRuntimeID runtime_id = NESRuntime::GetInstance()->CreateData("Default");
-  NESRuntime::Data* runtime_data =
-      NESRuntime::GetInstance()->GetDataById(runtime_id);
-  runtime_data->emulator = kiwi::nes::CreateEmulator();
-  runtime_data->debug_port =
-      std::make_unique<DebugPort>(runtime_data->emulator.get());
-
-  // Create configs
-  scoped_refptr<NESConfig> config =
-      kiwi::base::MakeRefCounted<NESConfig>(runtime_data->profile_path);
-
-  // Set key mappings.
-  NESRuntime::Data::ControllerMapping key_mapping1 = {
-      SDLK_j, SDLK_k, SDLK_l, SDLK_RETURN, SDLK_w, SDLK_s, SDLK_a, SDLK_d};
-  NESRuntime::Data::ControllerMapping key_mapping2 = {
-      SDLK_DELETE, SDLK_END,  SDLK_PAGEDOWN, SDLK_HOME,
-      SDLK_UP,     SDLK_DOWN, SDLK_LEFT,     SDLK_RIGHT};
-  runtime_data->keyboard_mappings[0] = key_mapping1;
-  runtime_data->keyboard_mappings[1] = key_mapping2;
-  runtime_data->emulator->PowerOn();
-
-  config->LoadConfigAndWait();
-  MainWindow main_window("Kiwi Machine", runtime_id, config, FLAGS_demo_window);
+  MainWindow main_window("Kiwi Machine", application.runtime_id(),
+                         application.config(), FLAGS_demo_window);
 
   application.Run();
   return 0;

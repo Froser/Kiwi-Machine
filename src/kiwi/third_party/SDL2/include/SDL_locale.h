@@ -69,7 +69,7 @@ typedef struct SDL_Locale
  * The returned list of locales are in the order of the user's preference. For
  * example, a German citizen that is fluent in US English and knows enough
  * Japanese to navigate around Tokyo might have a list like: { "de", "en_US",
- * "jp", NULL }. Someone from England might prefer British English (where
+ * "ja", NULL }. Someone from England might prefer British English (where
  * "color" is spelled "colour", etc), but will settle for anything like it: {
  * "en_GB", "en", NULL }.
  *

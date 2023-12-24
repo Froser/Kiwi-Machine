@@ -242,6 +242,13 @@ bool Widget::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
   return handled;
 }
 
+void Widget::HandleLocaleChanged() {
+  for (auto& widget : widgets_) {
+    widget->HandleLocaleChanged();
+  }
+  OnLocaleChanged();
+}
+
 void Widget::RemovePendingWidgets() {
   bool anything_removed = false;
   for (auto iter = children().begin(); iter != children().end(); ++iter) {
@@ -287,6 +294,8 @@ void Widget::OnWindowResized() {}
 void Widget::OnWidgetsRemoved() {}
 
 void Widget::OnDisplayChanged() {}
+
+void Widget::OnLocaleChanged() {}
 
 bool Widget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   return false;

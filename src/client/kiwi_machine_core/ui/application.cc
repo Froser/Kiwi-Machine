@@ -172,6 +172,12 @@ void Application::Render() {
   }
 }
 
+void Application::LocaleChanged() {
+  for (const auto& w : windows_) {
+    w.second->HandleLocaleChanged();
+  }
+}
+
 void Application::HandlePostEvent() {
   for (const auto& w : windows_) {
     w.second->HandlePostEvent();
@@ -199,6 +205,13 @@ void Application::RemoveObserver(ApplicationObserver* observer) {
   observers_.erase(observer);
 }
 
+void Application::SetLanguage(SupportedLanguage language) {
+  ::SetLanguage(language);
+  LocaleChanged();
+  config_->data().language = static_cast<int>(language);
+  config_->SaveConfig();
+}
+
 void Application::InitializeApplication(int& argc, char** argv) {
   SDL_assert(!g_app_instance);
   g_app_instance = this;
@@ -211,8 +224,24 @@ void Application::InitializeApplication(int& argc, char** argv) {
 
   // Using gflags to parse command line.
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  if (!FLAGS_lang.empty())
-    SetLanguage(FLAGS_lang.c_str());
+
+  // Initialize runtime configs.
+  InitializeRuntimeAndConfigs();
+
+  if (!FLAGS_lang.empty()) {
+    ::SetLanguage(FLAGS_lang.c_str());
+  } else {
+    // Loads language settings from config
+    if (config_->data().language != -1) {
+      // -1 means automatic. If it is not -1, it represents a certain supported
+      // language.
+      SupportedLanguage language =
+          static_cast<SupportedLanguage>(config_->data().language);
+      if (language >= SupportedLanguage::kMax)
+        language = static_cast<SupportedLanguage>(0);
+      ::SetLanguage(language);
+    }
+  }
 
   kiwi::base::InitializePlatformFactory(argc, argv);
   if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
@@ -282,6 +311,33 @@ void Application::UninitializeImGui() {
 void Application::InitializeStyles() {
   ImGuiStyle& style = ImGui::GetStyle();
   style.ItemSpacing.x = 10;
+}
+
+void Application::InitializeRuntimeAndConfigs() {
+  // Make a kiwi-nes runtime.
+  NESRuntimeID runtime_id = NESRuntime::GetInstance()->CreateData("Default");
+  NESRuntime::Data* runtime_data =
+      NESRuntime::GetInstance()->GetDataById(runtime_id);
+  runtime_data->emulator = kiwi::nes::CreateEmulator();
+  runtime_data->debug_port =
+      std::make_unique<DebugPort>(runtime_data->emulator.get());
+  runtime_id_ = runtime_id;
+
+  // Create configs
+  scoped_refptr<NESConfig> config =
+      kiwi::base::MakeRefCounted<NESConfig>(runtime_data->profile_path);
+
+  // Set key mappings.
+  NESRuntime::Data::ControllerMapping key_mapping1 = {
+      SDLK_j, SDLK_k, SDLK_l, SDLK_RETURN, SDLK_w, SDLK_s, SDLK_a, SDLK_d};
+  NESRuntime::Data::ControllerMapping key_mapping2 = {
+      SDLK_DELETE, SDLK_END,  SDLK_PAGEDOWN, SDLK_HOME,
+      SDLK_UP,     SDLK_DOWN, SDLK_LEFT,     SDLK_RIGHT};
+  runtime_data->keyboard_mappings[0] = key_mapping1;
+  runtime_data->keyboard_mappings[1] = key_mapping2;
+  runtime_data->emulator->PowerOn();
+  config->LoadConfigAndWait();
+  config_ = config;
 }
 
 void Application::AddWindowToEventHandler(WindowBase* window) {

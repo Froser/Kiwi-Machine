@@ -13,6 +13,7 @@
 #ifndef UTILITY_LOCALIZATION_H_
 #define UTILITY_LOCALIZATION_H_
 
+#include <imgui.h>
 #include <string>
 
 #include "resources/string_resources.h"
@@ -21,12 +22,35 @@ namespace preset_roms {
 struct PresetROM;
 }  // namespace preset_roms
 
+enum class SupportedLanguage {
+  kEnglish,
+  kSimplifiedChinese,
+  kJapanese,
+
+  kMax,
+};
+
+class LocalizedStringUpdater {
+ public:
+  LocalizedStringUpdater();
+  virtual ~LocalizedStringUpdater();
+
+ public:
+  virtual std::string GetLocalizedString() = 0;
+};
+
 void SetLanguage(const char* language);
+
+void SetLanguage(SupportedLanguage language);
+
+SupportedLanguage GetCurrentSupportedLanguage();
 
 const char* GetLanguage();
 
 const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom);
 
 const std::string& GetLocalizedString(int id);
+
+const ImVector<ImWchar>& GetGlyphRanges(SupportedLanguage language);
 
 #endif  // UTILITY_LOCALIZATION_H_

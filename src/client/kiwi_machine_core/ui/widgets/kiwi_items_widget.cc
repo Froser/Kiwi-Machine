@@ -33,23 +33,25 @@ KiwiItemsWidget::KiwiItemsWidget(MainWindow* main_window,
 
 KiwiItemsWidget::~KiwiItemsWidget() = default;
 
-void KiwiItemsWidget::AddSubItem(int main_item_index,
-                                 const std::string& title,
-                                 const kiwi::nes::Byte* cover_img_ref,
-                                 size_t cover_size,
-                                 kiwi::base::RepeatingClosure on_trigger) {
-  std::unique_ptr<KiwiItemWidget> item =
-      std::make_unique<KiwiItemWidget>(main_window_, this, title, on_trigger);
+void KiwiItemsWidget::AddSubItem(
+    int main_item_index,
+    std::unique_ptr<LocalizedStringUpdater> title_updater,
+    const kiwi::nes::Byte* cover_img_ref,
+    size_t cover_size,
+    kiwi::base::RepeatingClosure on_trigger) {
+  std::unique_ptr<KiwiItemWidget> item = std::make_unique<KiwiItemWidget>(
+      main_window_, this, std::move(title_updater), on_trigger);
   item->set_cover(cover_img_ref, cover_size);
   sub_items_[main_item_index].push_back(std::move(item));
 }
 
-size_t KiwiItemsWidget::AddItem(const std::string& title,
-                                const kiwi::nes::Byte* cover_img_ref,
-                                size_t cover_size,
-                                kiwi::base::RepeatingClosure on_trigger) {
-  std::unique_ptr<KiwiItemWidget> item =
-      std::make_unique<KiwiItemWidget>(main_window_, this, title, on_trigger);
+size_t KiwiItemsWidget::AddItem(
+    std::unique_ptr<LocalizedStringUpdater> title_updater,
+    const kiwi::nes::Byte* cover_img_ref,
+    size_t cover_size,
+    kiwi::base::RepeatingClosure on_trigger) {
+  std::unique_ptr<KiwiItemWidget> item = std::make_unique<KiwiItemWidget>(
+      main_window_, this, std::move(title_updater), on_trigger);
   item->set_cover(cover_img_ref, cover_size);
   items_.push_back(item.get());
   AddWidget(std::move(item));
@@ -229,6 +231,17 @@ bool KiwiItemsWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
       return false;
   }
   return true;
+}
+
+void KiwiItemsWidget::OnLocaleChanged() {
+  for (const auto& sub_item : sub_items_) {
+    for (const auto& widget : sub_item.second) {
+      // Sub items (alternatives) should be update as well. KiwiItemsWidget is
+      // the friend class of KiwiItemWidget, so we can call OnLocaleChanged()
+      // here.
+      widget->OnLocaleChanged();
+    }
+  }
 }
 
 int KiwiItemsWidget::GetItemMetrics(KiwiItemWidget::Metrics metrics) {

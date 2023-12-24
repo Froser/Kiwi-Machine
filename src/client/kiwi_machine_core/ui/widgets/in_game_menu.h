@@ -45,6 +45,7 @@ class InGameMenu : public Widget {
     kWindowSize,
     kJoyP1,
     kJoyP2,
+    kLanguage,
 
     kMax,
   };

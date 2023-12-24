@@ -138,6 +138,43 @@ void OnGameROMExported(MainWindow* main_window,
       kiwi::base::BindOnce(&OnGameROMExported, main_window, export_path));
 }
 
+class StringUpdater : public LocalizedStringUpdater {
+ public:
+  explicit StringUpdater(int string_id);
+  ~StringUpdater() override = default;
+
+ protected:
+  std::string GetLocalizedString() override;
+
+ private:
+  int string_id_;
+};
+
+StringUpdater::StringUpdater(int string_id) : string_id_(string_id) {}
+
+std::string StringUpdater::GetLocalizedString() {
+  return ::GetLocalizedString(string_id_);
+}
+
+class ROMTitleUpdater : public LocalizedStringUpdater {
+ public:
+  explicit ROMTitleUpdater(const preset_roms::PresetROM& preset_rom);
+  ~ROMTitleUpdater() override = default;
+
+ protected:
+  std::string GetLocalizedString() override;
+
+ private:
+  const preset_roms::PresetROM& preset_rom_;
+};
+
+ROMTitleUpdater::ROMTitleUpdater(const preset_roms::PresetROM& preset_rom)
+    : preset_rom_(preset_rom) {}
+
+std::string ROMTitleUpdater::GetLocalizedString() {
+  return GetROMLocalizedTitle(preset_rom_);
+}
+
 }  // namespace
 
 MainWindow::MainWindow(const std::string& title,
@@ -473,13 +510,14 @@ void MainWindow::InitializeUI() {
     const auto& rom = preset_roms::GetPresetRoms()[i];
     FillRomDataFromZip(rom);
     int main_item_index = items_widget->AddItem(
-        GetROMLocalizedTitle(rom), rom.rom_cover.data(), rom.rom_cover.size(),
+        std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
+        rom.rom_cover.size(),
         kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                   kiwi::base::Unretained(this), rom));
 
     for (const auto& alternative_rom : rom.alternates) {
       items_widget->AddSubItem(
-          main_item_index, GetROMLocalizedTitle(alternative_rom),
+          main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
           alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                     kiwi::base::Unretained(this),
@@ -507,7 +545,8 @@ void MainWindow::InitializeUI() {
     FillRomDataFromZip(rom);
 
     specials_item_widget->AddItem(
-        rom.name, rom.rom_cover.data(), rom.rom_cover.size(),
+        std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
+        rom.rom_cover.size(),
         kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                   kiwi::base::Unretained(this), rom));
   }
@@ -524,7 +563,8 @@ void MainWindow::InitializeUI() {
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
 
   settings_widget->AddItem(
-      GetLocalizedString(string_resources::IDR_MAIN_WINDOW_SETTINGS),
+      std::make_unique<StringUpdater>(
+          string_resources::IDR_MAIN_WINDOW_SETTINGS),
       image_resources::kSettingsLogo, image_resources::kSettingsLogoSize,
       kiwi::base::BindRepeating(
           [](MainWindow* window, StackWidget* stack_widget,
@@ -556,7 +596,7 @@ void MainWindow::InitializeUI() {
           this, stack_widget_, runtime_id_));
 
   settings_widget->AddItem(
-      GetLocalizedString(string_resources::IDR_MAIN_WINDOW_ABOUT),
+      std::make_unique<StringUpdater>(string_resources::IDR_MAIN_WINDOW_ABOUT),
       image_resources::kBackgroundLogo, image_resources::kBackgroundLogoSize,
       kiwi::base::BindRepeating(
           [](MainWindow* window, StackWidget* stack_widget,
@@ -569,7 +609,7 @@ void MainWindow::InitializeUI() {
 #if !KIWI_IOS
   // iOS needn't quit the application manually.
   settings_widget->AddItem(
-      GetLocalizedString(string_resources::IDR_MAIN_WINDOW_QUIT),
+      std::make_unique<StringUpdater>(string_resources::IDR_MAIN_WINDOW_QUIT),
       image_resources::kExitLogo, image_resources::kExitLogoSize,
       kiwi::base::BindRepeating(&MainWindow::OnQuit,
                                 kiwi::base::Unretained(this)));
@@ -1360,6 +1400,23 @@ void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
         SetControllerMapping(runtime_data_, player_index, next_controller,
                              false);
       }
+    } break;
+    case InGameMenu::SettingsItem::kLanguage: {
+      SupportedLanguage language = GetCurrentSupportedLanguage();
+      if (is_left) {
+        language = static_cast<SupportedLanguage>(
+            (static_cast<int>(language) - 1 < 0)
+                ? static_cast<int>(SupportedLanguage::kMax) - 1
+                : static_cast<int>(language) - 1);
+      } else {
+        language = static_cast<SupportedLanguage>(
+            (static_cast<int>(language) + 1 >=
+             static_cast<int>(SupportedLanguage::kMax))
+                ? 0
+                : static_cast<int>(language) + 1);
+      }
+
+      Application::Get()->SetLanguage(language);
     } break;
     default:
       break;

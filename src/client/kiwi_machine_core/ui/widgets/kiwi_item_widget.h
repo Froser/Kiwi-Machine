@@ -18,11 +18,14 @@
 #include <kiwi_nes.h>
 
 #include "utility/fonts.h"
+#include "utility/localization.h"
 
 class MainWindow;
 class KiwiItemsWidget;
 class KiwiItemWidget : public Widget {
  public:
+  friend class KiwiItemsWidget;
+
   enum Metrics {
     kItemSelectedWidth = 120,
     kItemSelectedHeight = 140,
@@ -36,7 +39,7 @@ class KiwiItemWidget : public Widget {
 
   explicit KiwiItemWidget(MainWindow* main_window,
                           KiwiItemsWidget* parent,
-                          const std::string& title,
+                          std::unique_ptr<LocalizedStringUpdater> title_updater,
                           kiwi::base::RepeatingClosure on_trigger);
   ~KiwiItemWidget() override;
 
@@ -71,14 +74,17 @@ class KiwiItemWidget : public Widget {
   // Widget:
   void Paint() override;
   bool IsWindowless() override;
+  void OnLocaleChanged() override;
 
  private:
+  void UpdateTitleAndFont();
   void CreateTextureIfNotExists();
 
  private:
   MainWindow* main_window_ = nullptr;
   KiwiItemsWidget* parent_ = nullptr;
   std::string title_;
+  std::unique_ptr<LocalizedStringUpdater> title_updater_;
   const kiwi::nes::Byte* cover_img_ = nullptr;
   size_t cover_size_ = 0u;
   kiwi::base::RepeatingClosure on_trigger_callback_;

@@ -18,7 +18,9 @@
 #include <map>
 #include <set>
 
+#include "models/nes_runtime.h"
 #include "ui/window_base.h"
+#include "utility/localization.h"
 #include "utility/timer.h"
 
 class WindowBase;
@@ -48,10 +50,14 @@ class Application {
   void Run();
   void AddObserver(ApplicationObserver* observer);
   void RemoveObserver(ApplicationObserver* observer);
+  void SetLanguage(SupportedLanguage language);
 
   const std::set<SDL_GameController*>& game_controllers() {
     return game_controllers_;
   }
+
+  NESRuntimeID runtime_id() { return runtime_id_; }
+  scoped_refptr<NESConfig> config() { return config_; }
 
  private:
   void InitializeApplication(int& argc, char** argv);
@@ -61,6 +67,7 @@ class Application {
   void InitializeImGui();
   void UninitializeImGui();
   void InitializeStyles();
+  void InitializeRuntimeAndConfigs();
 
   // Window management:
   friend class WindowBase;
@@ -74,7 +81,12 @@ class Application {
   uint32_t FindIDFromWindow(WindowBase* window);
   void Render();
 
- public:
+  // If application's language has been changed, this method should be called.
+  void LocaleChanged();
+
+ private:
+  NESRuntimeID runtime_id_ = 0;
+  scoped_refptr<NESConfig> config_;
   std::unique_ptr<kiwi::base::Thread> io_thread_;
   Timer frame_elapsed_counter_;
   Timer render_counter_;

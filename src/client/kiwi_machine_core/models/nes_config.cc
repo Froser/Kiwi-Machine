@@ -57,13 +57,15 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
                                    is_fullscreen,
                                    volume,
                                    last_index,
-                                   is_stretch_mode);
+                                   is_stretch_mode,
+                                   language);
 #else
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
                                    window_scale,
                                    is_fullscreen,
                                    volume,
-                                   last_index);
+                                   last_index,
+                                   language);
 #endif
 
 NESConfig::NESConfig(const kiwi::base::FilePath& profile_path)

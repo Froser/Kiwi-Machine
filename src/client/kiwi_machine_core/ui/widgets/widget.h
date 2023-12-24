@@ -63,6 +63,7 @@ class Widget {
   void HandleResizedEvent();
   void HandleDisplayEvent();
   bool HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
+  void HandleLocaleChanged();
 
  protected:
   WindowBase* window() { return window_; }
@@ -85,6 +86,7 @@ class Widget {
   virtual void OnWindowResized();
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();
+  virtual void OnLocaleChanged();
 
   // Finger events are global events. No matter the finger is on the widget or
   // not, it will be triggered.

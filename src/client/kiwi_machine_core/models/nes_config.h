@@ -28,6 +28,7 @@ class NESConfig : public kiwi::base::RefCounted<NESConfig> {
     bool is_fullscreen = false;
     float volume = 1.f;
     int last_index = 0;
+    int language = -1;  // -1 means automatic (follows system's locale)
 #if KIWI_MOBILE
     bool is_stretch_mode = true;
 #endif

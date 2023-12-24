@@ -21,6 +21,7 @@
 #include "models/nes_runtime.h"
 #include "ui/widgets/kiwi_item_widget.h"
 #include "ui/widgets/widget.h"
+#include "utility/localization.h"
 #include "utility/timer.h"
 
 class MainWindow;
@@ -33,11 +34,11 @@ class KiwiItemsWidget : public Widget {
 
  public:
   void AddSubItem(int main_item_index,
-                  const std::string& title,
+                  std::unique_ptr<LocalizedStringUpdater> title_updater,
                   const kiwi::nes::Byte* cover_img_ref,
                   size_t cover_size,
                   kiwi::base::RepeatingClosure on_trigger);
-  size_t AddItem(const std::string& title,
+  size_t AddItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
                  const kiwi::nes::Byte* cover_img_ref,
                  size_t cover_size,
                  kiwi::base::RepeatingClosure on_trigger);
@@ -75,6 +76,7 @@ class KiwiItemsWidget : public Widget {
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
+  void OnLocaleChanged() override;
 
  private:
   MainWindow* main_window_ = nullptr;

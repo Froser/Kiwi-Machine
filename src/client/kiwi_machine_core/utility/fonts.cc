@@ -85,33 +85,12 @@ ImFont* ScopedFont::GetFont() {
   }
 
 void InitializeFonts() {
-  // Builds all ranges for all IDR.
-  ImFontGlyphRangesBuilder ranges_builder;
-  for (int i = 0; i < string_resources::END_OF_STRINGS; ++i) {
-    ranges_builder.AddText(GetLocalizedString(i).c_str());
-  }
-  for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::GetPresetRoms()[i];
-    FillRomDataFromZip(rom);
-    for (const auto& names : rom.i18n_names) {
-      ranges_builder.AddText(names.second.c_str());
-    }
-  }
-  for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::GetPresetRoms()[i];
-    FillRomDataFromZip(rom);
-    for (const auto& names : rom.i18n_names) {
-      ranges_builder.AddText(names.second.c_str());
-    }
-  }
-
-  ranges_builder.BuildRanges(&g_glyph_ranges);
-
   REGISTER_SYS_FONT(FontType::kSystemDefault, 13);
   REGISTER_FONT(FontType::kDefaultSimplifiedChinese,
-                font_resources::FontID::kDengb, 16, g_glyph_ranges.begin());
+                font_resources::FontID::kDengb, 16,
+                GetGlyphRanges(SupportedLanguage::kSimplifiedChinese).begin());
   REGISTER_FONT(FontType::kDefaultJapanese, font_resources::FontID::kYumindb,
-                16, g_glyph_ranges.begin());
+                16, GetGlyphRanges(SupportedLanguage::kJapanese).begin());
   REGISTER_FONT(FontType::kDefault, font_resources::FontID::kSupermario256, 16,
                 NULL);
 }
@@ -124,19 +103,19 @@ FontType GetPreferredFontType(PreferredFontSize size,
     return (static_cast<FontType>(static_cast<int>(default_type) +
                                   static_cast<int>(size)));
 
-  if (kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "zh") == 0) {
-    return (static_cast<FontType>(
-        static_cast<int>(FontType::kDefaultSimplifiedChinese) +
-        static_cast<int>(size)));
-  }
-
-  if (kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "jp") == 0) {
-    return (static_cast<FontType>(static_cast<int>(FontType::kDefaultJapanese) +
-                                  static_cast<int>(size)));
-  }
-
-  return (static_cast<FontType>(static_cast<int>(default_type) +
+  switch (GetCurrentSupportedLanguage()) {
+    case SupportedLanguage::kSimplifiedChinese:
+      return (static_cast<FontType>(
+          static_cast<int>(FontType::kDefaultSimplifiedChinese) +
+          static_cast<int>(size)));
+    case SupportedLanguage::kJapanese:
+      return (
+          static_cast<FontType>(static_cast<int>(FontType::kDefaultJapanese) +
                                 static_cast<int>(size)));
+    default:
+      return (static_cast<FontType>(static_cast<int>(default_type) +
+                                    static_cast<int>(size)));
+  }
 }
 
 ScopedFont GetPreferredFont(PreferredFontSize size,
