@@ -145,6 +145,7 @@ class StringUpdater : public LocalizedStringUpdater {
 
  protected:
   std::string GetLocalizedString() override;
+  std::string GetCollateStringHint() override;
 
  private:
   int string_id_;
@@ -156,6 +157,10 @@ std::string StringUpdater::GetLocalizedString() {
   return ::GetLocalizedString(string_id_);
 }
 
+std::string StringUpdater::GetCollateStringHint() {
+  return ::GetLocalizedString(string_id_);
+}
+
 class ROMTitleUpdater : public LocalizedStringUpdater {
  public:
   explicit ROMTitleUpdater(const preset_roms::PresetROM& preset_rom);
@@ -163,6 +168,7 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
 
  protected:
   std::string GetLocalizedString() override;
+  std::string GetCollateStringHint() override;
 
  private:
   const preset_roms::PresetROM& preset_rom_;
@@ -173,6 +179,10 @@ ROMTitleUpdater::ROMTitleUpdater(const preset_roms::PresetROM& preset_rom)
 
 std::string ROMTitleUpdater::GetLocalizedString() {
   return GetROMLocalizedTitle(preset_rom_);
+}
+
+std::string ROMTitleUpdater::GetCollateStringHint() {
+  return GetROMLocalizedCollateStringHint(preset_rom_);
 }
 
 }  // namespace
@@ -524,6 +534,7 @@ void MainWindow::InitializeUI() {
                                     alternative_rom));
     }
   }
+  items_widget->Sort();
 
   int main_items_index = std::clamp(config_->data().last_index, 0,
                                     items_widget->GetItemCount() - 1);
@@ -550,6 +561,7 @@ void MainWindow::InitializeUI() {
         kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                   kiwi::base::Unretained(this), rom));
   }
+  specials_item_widget->Sort();
 
   if (!specials_item_widget->IsEmpty())
     main_group_widget_->AddWidget(std::move(specials_item_widget));
@@ -562,6 +574,7 @@ void MainWindow::InitializeUI() {
   std::unique_ptr<KiwiItemsWidget> controller_widget =
       std::make_unique<KiwiItemsWidget>(this, runtime_id_);
 
+  settings_widget->set_can_sort(false);
   settings_widget->AddItem(
       std::make_unique<StringUpdater>(
           string_resources::IDR_MAIN_WINDOW_SETTINGS),

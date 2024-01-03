@@ -42,7 +42,7 @@ void KiwiItemsWidget::AddSubItem(
   std::unique_ptr<KiwiItemWidget> item = std::make_unique<KiwiItemWidget>(
       main_window_, this, std::move(title_updater), on_trigger);
   item->set_cover(cover_img_ref, cover_size);
-  sub_items_[main_item_index].push_back(std::move(item));
+  GetSubItemsByIndex(main_item_index).push_back(std::move(item));
 }
 
 size_t KiwiItemsWidget::AddItem(
@@ -86,16 +86,18 @@ void KiwiItemsWidget::SwapCurrentItem() {
 void KiwiItemsWidget::SwapCurrentItemTo(int sub_item_index) {
   if (sub_item_index_ > -1) {
     // Sub item is currently selected. We have to swap it back first.
-    items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index_]);
+    items_[current_idx_]->Swap(
+        *GetSubItemsByIndex(current_idx_)[sub_item_index_]);
   }
 
   // Increase the sub item index, to select the next one.
-  if (sub_item_index >= sub_items_[current_idx_].size())
+  if (sub_item_index >= GetSubItemsByIndex(current_idx_).size())
     sub_item_index = -1;
 
   if (sub_item_index > -1) {
     // Swap the item iff sub item is selected.
-    items_[current_idx_]->Swap(*sub_items_[current_idx_][sub_item_index]);
+    items_[current_idx_]->Swap(
+        *GetSubItemsByIndex(current_idx_)[sub_item_index]);
   }
 
   items_[current_idx_]->set_sub_items_index(sub_item_index);
@@ -242,6 +244,7 @@ void KiwiItemsWidget::OnLocaleChanged() {
       widget->OnLocaleChanged();
     }
   }
+  Sort();
 }
 
 int KiwiItemsWidget::GetItemMetrics(KiwiItemWidget::Metrics metrics) {
@@ -328,7 +331,7 @@ void KiwiItemsWidget::ApplyItemBounds() {
         Lerp(items_bounds_current_[i], items_bounds_next_[i], animation_lerp_));
   }
 
-  size_t sub_items_count = sub_items_[current_idx_].size();
+  size_t sub_items_count = GetSubItemsByIndex(current_idx_).size();
   items_[current_idx_]->set_sub_items_count(sub_items_count);
 }
 
@@ -390,7 +393,7 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
 
     if (IsKeyboardOrControllerAxisMotionMatch(
             runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
-      if (!sub_items_[current_idx_].empty()) {
+      if (!GetSubItemsByIndex(current_idx_).empty()) {
         PlayEffect(audio_resources::AudioID::kSelect);
         SwapCurrentItem();
       }
@@ -433,9 +436,10 @@ void KiwiItemsWidget::ResetSubItemIndex() {
   int last_sub_item_index = sub_item_index_;
   sub_item_index_ = -1;
   items_[current_idx_]->set_sub_items_index(sub_item_index_);
-  if (!sub_items_[current_idx_].empty()) {
+  if (!GetSubItemsByIndex(current_idx_).empty()) {
     // Swaps back. Reset the current item.
-    items_[current_idx_]->Swap(*sub_items_[current_idx_][last_sub_item_index]);
+    items_[current_idx_]->Swap(
+        *GetSubItemsByIndex(current_idx_)[last_sub_item_index]);
   }
 }
 
@@ -444,6 +448,41 @@ void KiwiItemsWidget::AddSubItemTouchArea(int sub_item_index,
   sub_items_touch_areas_[sub_item_index] = rect;
 }
 
+bool KiwiItemsWidget::Sort() {
+  if (can_sort_) {
+    KiwiItemWidget* current_item = items_[current_index()];
+    std::sort(items_.begin(), items_.end(),
+              [](KiwiItemWidget* lhs, KiwiItemWidget* rhs) {
+                // Comparison order:
+                // Hints, raw title, and translated title.
+                // We don't have to involve a full collate library such as icu, so we write hints manually.
+                std::string lhs_str = lhs->title_updater_->GetCollateStringHint();
+                std::string rhs_str = rhs->title_updater_->GetCollateStringHint();
+                return lhs_str < rhs_str;
+              });
+
+    // Restore item
+    auto item_iter = std::find(items_.begin(), items_.end(), current_item);
+    SDL_assert(item_iter != items_.end());
+    current_idx_ = item_iter - items_.begin();
+
+    // Applies bounds.
+    CalculateItemsBounds(items_bounds_current_);
+    items_bounds_next_ = items_bounds_current_;
+    ApplyItemBounds();
+    Layout();
+    return true;
+  }
+
+  return false;
+}
+
 void KiwiItemsWidget::CleanSubItemTouchAreas() {
   sub_items_touch_areas_.clear();
+}
+
+std::vector<std::unique_ptr<KiwiItemWidget>>&
+KiwiItemsWidget::GetSubItemsByIndex(int index) {
+  SDL_assert(index < items_.size());
+  return sub_items_[items_[index]];
 }

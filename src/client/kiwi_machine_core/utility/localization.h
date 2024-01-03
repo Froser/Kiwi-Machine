@@ -37,6 +37,9 @@ class LocalizedStringUpdater {
 
  public:
   virtual std::string GetLocalizedString() = 0;
+
+  // The collate string is used for comparison.
+  virtual std::string GetCollateStringHint() = 0;
 };
 
 void SetLanguage(const char* language);
@@ -48,6 +51,8 @@ SupportedLanguage GetCurrentSupportedLanguage();
 const char* GetLanguage();
 
 const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom);
+
+const char* GetROMLocalizedCollateStringHint(const preset_roms::PresetROM& rom);
 
 const std::string& GetLocalizedString(int id);
 

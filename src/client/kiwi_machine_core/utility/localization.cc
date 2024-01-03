@@ -53,6 +53,20 @@ const char* GetROMLocalizedTitle(SupportedLanguage language,
   return rom.name;
 }
 
+const char* GetROMLocalizedCollateStringHint(
+    SupportedLanguage language,
+    const preset_roms::PresetROM& rom) {
+  // Comparison order:
+  // Hints, then ROM's localized name.
+  auto local_name_iter =
+      rom.i18n_names.find(std::string(ToLanguageCode(language)) + "-hint");
+  if (local_name_iter != rom.i18n_names.end()) {
+    return local_name_iter->second.c_str();
+  }
+
+  return GetROMLocalizedTitle(language, rom);
+}
+
 const std::string& GetLocalizedString(SupportedLanguage language, int id) {
   const string_resources::StringMap& string_map =
       string_resources::GetGlobalStringMap();
@@ -148,6 +162,11 @@ const char* GetLanguage() {
 
 const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom) {
   return GetROMLocalizedTitle(GetCurrentSupportedLanguage(), rom);
+}
+
+const char* GetROMLocalizedCollateStringHint(
+    const preset_roms::PresetROM& rom) {
+  return GetROMLocalizedCollateStringHint(GetCurrentSupportedLanguage(), rom);
 }
 
 const std::string& GetLocalizedString(int id) {

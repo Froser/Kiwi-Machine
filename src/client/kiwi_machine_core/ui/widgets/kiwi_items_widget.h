@@ -54,6 +54,11 @@ class KiwiItemsWidget : public Widget {
   void SwapCurrentItemTo(int sub_item_index);
   void AddSubItemTouchArea(int sub_item_index, const SDL_Rect& rect);
 
+  // Sort all items by items title. If the widget cannot be sorted, it returns
+  // false.
+  bool Sort();
+  void set_can_sort(bool can_sort) { can_sort_ = can_sort; }
+
  private:
   int GetItemMetrics(KiwiItemWidget::Metrics metrics);
   void CalculateItemsBounds(std::vector<SDL_Rect>& container);
@@ -66,6 +71,7 @@ class KiwiItemsWidget : public Widget {
   void IndexChanged();
   void ResetSubItemIndex();
   void CleanSubItemTouchAreas();
+  std::vector<std::unique_ptr<KiwiItemWidget>>& GetSubItemsByIndex(int index);
 
  protected:
   void Paint() override;
@@ -85,9 +91,11 @@ class KiwiItemsWidget : public Widget {
   std::vector<SDL_Rect> items_bounds_next_;
   float animation_lerp_ = 0.f;
   Timer animation_counter_;
-  std::map<int, std::vector<std::unique_ptr<KiwiItemWidget>>> sub_items_;
+  std::map<KiwiItemWidget*, std::vector<std::unique_ptr<KiwiItemWidget>>>
+      sub_items_;
   int sub_item_index_ = -1;  // -1 means do not select sub item.
   std::unordered_map<int, SDL_Rect> sub_items_touch_areas_;
+  bool can_sort_ = true;
 
   bool first_paint_ = true;
   int current_idx_ = 0;
