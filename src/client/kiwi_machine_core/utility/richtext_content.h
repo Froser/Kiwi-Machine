@@ -10,28 +10,41 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_TEXT_CONTENT_
-#define UTILITY_TEXT_CONTENT_
+#ifndef UTILITY_RICHTEXT_CONTENT_
+#define UTILITY_RICHTEXT_CONTENT_
 
 #include "utility/fonts.h"
 
+#include <imgui.h>
 #include <tuple>
 #include <vector>
 
 class Widget;
-struct TextContent {
+struct SDL_Texture;
+struct RichTextContent {
  public:
-  TextContent(Widget* widget);
-  ~TextContent();
+  RichTextContent(Widget* widget);
+  ~RichTextContent();
 
   void AddContent(FontType font_type, const char* content);
-  void DrawContents(ImColor font_color);
+  void AddImage(SDL_Texture* texture, const ImVec2& size);
+  void DrawContents(ImColor mask_color);
 
  private:
   Widget* widget_ = nullptr;
   int start_pos_y_ = 0;
   int current_pos_y = 0;
-  std::vector<std::tuple<FontType, int, const char*>> contents_;
+
+  enum class ContentType {
+    kText,
+    kImage,
+  };
+  struct Content {
+    ContentType type;
+    std::tuple<FontType, int, const char*> text;
+    std::tuple<SDL_Texture*, ImVec2> image;
+  };
+  std::vector<Content> contents_;
 };
 
-#endif  // UTILITY_TEXT_CONTENT_
+#endif  // UTILITY_RICHTEXT_CONTENT_

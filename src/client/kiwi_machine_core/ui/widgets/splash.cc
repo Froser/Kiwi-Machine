@@ -24,7 +24,7 @@
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 #include "utility/math.h"
-#include "utility/text_content.h"
+#include "utility/richtext_content.h"
 
 constexpr int kSplashDurationMs = 2500;
 constexpr float kFadeDurationMs = 1000.f;
@@ -59,20 +59,10 @@ void Splash::InitializeStrings() {
   font_controller_instructions_ = GetPreferredFontType(
       PreferredFontSize::k2x, str_controller_instructions_.c_str());
 
-#if !KIWI_MOBILE
   str_controller_instructions_contents_ = GetLocalizedString(
       string_resources::IDR_CONTROLLER_INSTRUCTIONS_CONTENTS);
-#else
-  str_controller_instructions_contents_ = GetLocalizedString(
-      string_resources::IDR_CONTROLLER_INSTRUCTIONS_CONTENTS_MOBILE);
-#endif
   font_controller_instructions_contents_ = GetPreferredFontType(
       PreferredFontSize::k1x, str_controller_instructions_contents_.c_str());
-
-  str_menu_instructions_ =
-      GetLocalizedString(string_resources::IDR_MENU_INSTRUCTIONS);
-  font_menu_instructions_ = GetPreferredFontType(
-      PreferredFontSize::k2x, str_menu_instructions_.c_str());
 
 #if !KIWI_MOBILE
   str_menu_instructions_contents_ =
@@ -82,7 +72,7 @@ void Splash::InitializeStrings() {
       string_resources::IDR_MENU_INSTRUCTIONS_CONTENTS_MOBILE);
 #endif
   font_menu_instructions_contents_ = GetPreferredFontType(
-      PreferredFontSize::k1x, str_menu_instructions_.c_str());
+      PreferredFontSize::k1x, str_menu_instructions_contents_.c_str());
 
 #if !KIWI_MOBILE
   str_continue_ = GetLocalizedString(string_resources::IDR_MENU_CONTINUE);
@@ -91,7 +81,7 @@ void Splash::InitializeStrings() {
       GetLocalizedString(string_resources::IDR_MENU_CONTINUE_MOBILE);
 #endif
   font_continue_ =
-      GetPreferredFontType(PreferredFontSize::k2x, str_continue_.c_str());
+      GetPreferredFontType(PreferredFontSize::k1x, str_continue_.c_str());
 
   str_introductions_ = GetLocalizedString(string_resources::IDR_INTRODUCTIONS);
   font_introductions_ =
@@ -169,33 +159,40 @@ void Splash::Paint() {
 
     if (splash_timer_.ElapsedInMilliseconds() > kSplashDurationMs) {
       fade_timer_.Start();
-      state_ = SplashState::kHowToPlay;
+      state_ = SplashState::kHowToPlayKeyboard;
     }
-  } else if (state_ == SplashState::kHowToPlay ||
-             state_ == SplashState::kClosingHowToPlay) {
+  } else if (state_ == SplashState::kHowToPlayKeyboard ||
+             state_ == SplashState::kClosingHowToPlayKeyboard) {
     ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), kSplashSize,
                                                   ImColor(IM_COL32_WHITE));
     int alpha =
-        state_ == SplashState::kHowToPlay
+        state_ == SplashState::kHowToPlayKeyboard
             ? Lerp(0, 255,
                    fade_timer_.ElapsedInMilliseconds() / kFadeDurationMs)
             : Lerp(255, 0,
                    fade_timer_.ElapsedInMilliseconds() / kClosingDurationMs);
 
-    TextContent how_to_play_contents(this);
+    RichTextContent how_to_play_contents(this);
     how_to_play_contents.AddContent(AdjustFont(font_how_to_play_),
                                     str_how_to_play_.c_str());
     how_to_play_contents.AddContent(AdjustFont(font_controller_instructions_),
                                     str_controller_instructions_.c_str());
-    how_to_play_contents.AddContent(
-        AdjustFont(font_controller_instructions_contents_),
-        str_controller_instructions_contents_.c_str());
-    how_to_play_contents.AddContent(AdjustFont(font_menu_instructions_),
-                                    str_menu_instructions_.c_str());
+
+    // Calculate controller instruction image's size.
+    SDL_Texture* texture = GetImage(
+        window()->renderer(), image_resources::ImageID::kControllerInstruction);
+    const int kControllerInstructionWidth = .6f * kSplashSize.x;
+    int w, h;
+    SDL_QueryTexture(texture, nullptr, nullptr, &w, &h);
+    const int kControllerInstructionHeight =
+        static_cast<float>(kControllerInstructionWidth) * h / w;
+    how_to_play_contents.AddImage(
+        texture,
+        ImVec2(kControllerInstructionWidth, kControllerInstructionHeight));
+
     how_to_play_contents.AddContent(
         AdjustFont(font_menu_instructions_contents_),
         str_menu_instructions_contents_.c_str());
-
     how_to_play_contents.AddContent(AdjustFont(font_continue_),
                                     str_continue_.c_str());
 
@@ -203,7 +200,51 @@ void Splash::Paint() {
     ImColor font_color(0, 0, 0, alpha);
     how_to_play_contents.DrawContents(font_color);
 
-    if (state_ == SplashState::kClosingHowToPlay && !alpha) {
+    if (state_ == SplashState::kClosingHowToPlayKeyboard && !alpha) {
+      fade_timer_.Start();
+      state_ = SplashState::kHowToPlayJoystick;
+    }
+  } else if (state_ == SplashState::kHowToPlayJoystick ||
+             state_ == SplashState::kClosingHowToPlayJoystick) {
+    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), kSplashSize,
+                                                  ImColor(IM_COL32_WHITE));
+    int alpha =
+        state_ == SplashState::kHowToPlayJoystick
+            ? Lerp(0, 255,
+                   fade_timer_.ElapsedInMilliseconds() / kFadeDurationMs)
+            : Lerp(255, 0,
+                   fade_timer_.ElapsedInMilliseconds() / kClosingDurationMs);
+
+    RichTextContent how_to_play_contents(this);
+    how_to_play_contents.AddContent(AdjustFont(font_how_to_play_),
+                                    str_how_to_play_.c_str());
+    how_to_play_contents.AddContent(AdjustFont(font_controller_instructions_),
+                                    str_controller_instructions_.c_str());
+
+    // Calculate controller instruction image's size.
+    SDL_Texture* texture = GetImage(
+        window()->renderer(), image_resources::ImageID::kJoystickInstruction);
+    const int kControllerInstructionWidth = .6f * kSplashSize.x;
+    int w, h;
+    SDL_QueryTexture(texture, nullptr, nullptr, &w, &h);
+    const int kControllerInstructionHeight =
+        static_cast<float>(kControllerInstructionWidth) * h / w;
+    how_to_play_contents.AddImage(
+        texture,
+        ImVec2(kControllerInstructionWidth, kControllerInstructionHeight));
+
+
+    how_to_play_contents.AddContent(
+        AdjustFont(font_controller_instructions_contents_),
+        str_controller_instructions_contents_.c_str());
+    how_to_play_contents.AddContent(AdjustFont(font_continue_),
+                                    str_continue_.c_str());
+
+    // Draw all contents
+    ImColor font_color(0, 0, 0, alpha);
+    how_to_play_contents.DrawContents(font_color);
+
+    if (state_ == SplashState::kClosingHowToPlayJoystick && !alpha) {
       fade_timer_.Start();
       state_ = SplashState::kIntroduction;
     }
@@ -218,7 +259,7 @@ void Splash::Paint() {
             : Lerp(255, 0,
                    fade_timer_.ElapsedInMilliseconds() / kClosingDurationMs);
 
-    TextContent introduction(this);
+    RichTextContent introduction(this);
     introduction.AddContent(AdjustFont(font_introductions_),
                             str_introductions_.c_str());
     introduction.AddContent(AdjustFont(font_retro_collections_),
@@ -248,8 +289,15 @@ bool Splash::HandleInputEvents(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_A) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_START)) {
-    if (state_ == SplashState::kHowToPlay) {
-      state_ = SplashState::kClosingHowToPlay;
+    if (state_ == SplashState::kHowToPlayKeyboard) {
+      state_ = SplashState::kClosingHowToPlayKeyboard;
+      fade_timer_.Start();
+      PlayEffect(audio_resources::AudioID::kStart);
+      return true;
+    }
+
+    if (state_ == SplashState::kHowToPlayJoystick) {
+      state_ = SplashState::kClosingHowToPlayJoystick;
       fade_timer_.Start();
       PlayEffect(audio_resources::AudioID::kStart);
       return true;

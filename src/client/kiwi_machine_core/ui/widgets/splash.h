@@ -49,8 +49,10 @@ class Splash : public Widget {
 
   enum class SplashState {
     kLogo,
-    kHowToPlay,
-    kClosingHowToPlay,
+    kHowToPlayKeyboard,
+    kClosingHowToPlayKeyboard,
+    kHowToPlayJoystick,
+    kClosingHowToPlayJoystick,
     kIntroduction,
     kClosing,
   };
@@ -63,8 +65,6 @@ class Splash : public Widget {
   FontType font_controller_instructions_;
   std::string str_controller_instructions_contents_;
   FontType font_controller_instructions_contents_;
-  std::string str_menu_instructions_;
-  FontType font_menu_instructions_;
   std::string str_menu_instructions_contents_;
   FontType font_menu_instructions_contents_;
   std::string str_continue_;

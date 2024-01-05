@@ -134,8 +134,8 @@ set(Sources
         utility/localization.h
         utility/math.cc
         utility/math.h
-        utility/text_content.cc
-        utility/text_content.h
+        utility/richtext_content.cc
+        utility/richtext_content.h
         utility/timer.cc
         utility/timer.h
         utility/zip_reader.cc

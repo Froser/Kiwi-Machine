@@ -6,33 +6,23 @@
   },
   "IDR_CONTROLLER_INSTRUCTIONS": {
     "default": "Controller instructions\n",
-    "zh": "如何操作",
-    "ja": "操作方法"
+    "zh": "如何操作\n",
+    "ja": "操作方法\n"
   },
   "IDR_CONTROLLER_INSTRUCTIONS_CONTENTS": {
-    "default": "\n\n Player 1\n  UP, DOWN, LEFT, RIGHT: keyboard W, S, A, D\n  A, B: keyboard J, K\n  SELECT, START: keyboard L, Return\n\n Player 2\n  UP, DOWN, LEFT, RIGHT: keyboard up, down, left, right\n  A, B: keyboard Delete, End\n  SELECT, START: keyboard PageDown, Home\n\n Joystick is also available if connected.\n Press L+R to call menu when playing games.\n You may change controller from settings.\n\n",
-    "zh": "\n\n玩家1：\n  上、下、左、右对应键盘的W、S、A、D\n  A、B对应键盘的J、K\n  SELECT、START对应键盘的L、回车\n\n玩家2：\n  上、下、左、右对应键盘的上、下、左、右\n  A、B对应键盘的Delete、End\n  SELECT、START对应键盘的PageDown、Home\n\n 您也可以连接手柄来操作。\n在游戏中，同时按下手柄的L+R唤起菜单。\n您可以在菜单中更改手柄设置。\n\n",
-    "ja": "\n\nプレイヤー1：\n  上、下、左、右はキーボードのW、S、A、Dに対応しています\n  A、BはキーボードのJ、Kに対応しています\n  SELECT、STARTはキーボードのL、改行に対応しています\n\nプレイヤー2：\n  上、下、左、右はキーボードの上、下、左、右に対応しています\n  A、BはキーボードのDelete、Endに対応しています\n  SELECT、STARTはキーボードのPageDown、Homeに対応しています\n\n ゲームパッドを接続して操作することもできます。\nゲーム中には、ゲームパッドのL+Rを同時に押すとメニューが呼び出せます。\nメニューではゲームパッドの設定が変更できます。\n\n"
-  },
-  "IDR_CONTROLLER_INSTRUCTIONS_CONTENTS_MOBILE": {
-    "default": "\n Joystick is available if connected.\n Press L+R to call menu when playing games.\n You may change controller from settings.\n\n",
-    "zh": "\n 您可以连接手柄来操作。\n在游戏中，同时按下手柄的L+R唤起菜单。\n您可以在菜单中更改手柄设置。\n\n",
-    "ja": "\n ゲームパッドを接続して操作することもできます。\nゲーム中には、ゲームパッドのL+Rを同時に押すとメニューが呼び出せます。\nメニューではゲームパッドの設定が変更できます。\n\n"
-  },
-  "IDR_MENU_INSTRUCTIONS": {
-    "default": "Menu Instructions",
-    "zh": "菜单指引",
-    "ja": "メニュー案内"
+    "default": "\nPress L+R to call menu when playing games.\n\n",
+    "zh": "\n在游戏中，同时按下手柄的L+R唤起菜单。\n\n",
+    "ja": "\nゲーム中には、ゲームパッドのL+Rを同時に押すとメニューが呼び出せます。\n\n"
   },
   "IDR_MENU_INSTRUCTIONS_CONTENTS": {
     "default": "\nYou can press UP, DOWN to change groups.\nSystem menu is at the end of the groups.\n\n",
     "zh": "\n您可以在出菜单通过红白机的上、下键来切换分组。\n系统菜单位于分组的末尾。\n\n",
-    "ja": "\nゲームパッドの上、下を押すと、メニューグループが切り替えることができます。\nシステムメニューは最後のグループにあります。\n\n"
+    "ja": "\nゲームパッドの上、下を押すと、メニューグループが切り替えることができます。\nシステムメニューが最後のグループにあります。\n\n"
   },
   "IDR_MENU_INSTRUCTIONS_CONTENTS_MOBILE": {
     "default": "\nYou can swipe up or down to change groups.\nSystem menu is at the end of the groups.\n\n",
     "zh": "\n您可以上下滑动屏幕来切换分组。\n系统菜单位于分组的末尾。\n\n",
-    "ja": "\n画面を上下にスワイプしてグループを切り替えることができます。\nシステムメニューは最後のグループにあります。\n\n"
+    "ja": "\n画面を上下にスワイプしてグループを切り替えることができます。\nシステムメニューが最後のグループにあります。\n\n"
   },
   "IDR_MENU_CONTINUE": {
     "default": "\nPress A or START to continue.",
