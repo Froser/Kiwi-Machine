@@ -19,11 +19,6 @@
     "zh": "\n您可以在出菜单通过红白机的上、下键来切换分组。\n系统菜单位于分组的末尾。\n\n",
     "ja": "\nゲームパッドの上、下を押すと、メニューグループが切り替えることができます。\nシステムメニューが最後のグループにあります。\n\n"
   },
-  "IDR_MENU_INSTRUCTIONS_CONTENTS_MOBILE": {
-    "default": "\nYou can swipe up or down to change groups.\nSystem menu is at the end of the groups.\n\n",
-    "zh": "\n您可以上下滑动屏幕来切换分组。\n系统菜单位于分组的末尾。\n\n",
-    "ja": "\n画面を上下にスワイプしてグループを切り替えることができます。\nシステムメニューが最後のグループにあります。\n\n"
-  },
   "IDR_MENU_CONTINUE": {
     "default": "\nPress A or START to continue.",
     "zh": "按下红白机A键继续",

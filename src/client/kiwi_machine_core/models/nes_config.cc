@@ -92,7 +92,14 @@ std::string NESConfig::DataToJson() {
 
 void NESConfig::LoadFromUTF8Json(const std::string& utf8_json) {
   if (!utf8_json.empty()) {
-    data_ = nlohmann::json::parse(utf8_json);
+    try {
+      data_ = nlohmann::json::parse(utf8_json);
+    } catch (std::exception e) {
+      SDL_LogWarn(
+          SDL_LOG_CATEGORY_APPLICATION,
+          "Parsing config file failed, exception: %s. Try to create a new one.",
+          e.what());
+    }
   }
 
 #if KIWI_ANDROID

@@ -49,10 +49,12 @@ class Splash : public Widget {
 
   enum class SplashState {
     kLogo,
+#if !KIWI_MOBILE
     kHowToPlayKeyboard,
     kClosingHowToPlayKeyboard,
     kHowToPlayJoystick,
     kClosingHowToPlayJoystick,
+#endif
     kIntroduction,
     kClosing,
   };
@@ -61,12 +63,14 @@ class Splash : public Widget {
   // String lists
   std::string str_how_to_play_;
   FontType font_how_to_play_;
+#if !KIWI_MOBILE
   std::string str_controller_instructions_;
   FontType font_controller_instructions_;
   std::string str_controller_instructions_contents_;
   FontType font_controller_instructions_contents_;
   std::string str_menu_instructions_contents_;
   FontType font_menu_instructions_contents_;
+#endif
   std::string str_continue_;
   FontType font_continue_;
   std::string str_introductions_;
