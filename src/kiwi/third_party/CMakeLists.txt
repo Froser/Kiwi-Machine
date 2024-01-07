@@ -10,6 +10,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+set (CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_subdirectory(glog)
 add_subdirectory(SDL2)
 add_subdirectory(nes_apu)

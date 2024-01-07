@@ -32,7 +32,7 @@ typedef struct stat stat_wrapper_t;
 }
 #elif BUILDFLAG(IS_POSIX)
 struct stat64;
-namespace base {
+namespace kiwi::base {
 typedef struct stat64 stat_wrapper_t;
 }
 #endif
