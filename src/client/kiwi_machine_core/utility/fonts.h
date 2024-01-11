@@ -19,30 +19,18 @@ enum class FontType {
   kSystemDefault,
   kSystemDefault2x,
   kSystemDefault3x,
-  kSystemDefault4x,
-  kSystemDefault5x,
-  kSystemDefault6x,
 
   kDefault,
   kDefault2x,
   kDefault3x,
-  kDefault4x,
-  kDefault5x,
-  kDefault6x,
 
   kDefaultSimplifiedChinese,
   kDefaultSimplifiedChinese2x,
   kDefaultSimplifiedChinese3x,
-  kDefaultSimplifiedChinese4x,
-  kDefaultSimplifiedChinese5x,
-  kDefaultSimplifiedChinese6x,
 
   kDefaultJapanese,
   kDefaultJapanese2x,
   kDefaultJapanese3x,
-  kDefaultJapanese4x,
-  kDefaultJapanese5x,
-  kDefaultJapanese6x,
 
   kMax,
 };

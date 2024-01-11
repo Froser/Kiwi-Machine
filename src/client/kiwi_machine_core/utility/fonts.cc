@@ -22,8 +22,6 @@
 #include "utility/zip_reader.h"
 
 namespace {
-ImVector<ImWchar> g_glyph_ranges;
-
 ImFont* g_fonts[static_cast<int>(FontType::kMax)];
 
 ImFont* GetFont(FontType type) {
@@ -56,7 +54,7 @@ ImFont* ScopedFont::GetFont() {
 
 #define REGISTER_SYS_FONT(enumName, basicSize)                                 \
   {                                                                            \
-    for (FontType ft = enumName; ft <= enumName##6x;                           \
+    for (FontType ft = enumName; ft <= enumName##3x;                           \
          ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {               \
       int font_size =                                                          \
           basicSize * (static_cast<int>(ft) - static_cast<int>(enumName) + 1); \
@@ -71,7 +69,7 @@ ImFont* ScopedFont::GetFont() {
   {                                                                            \
     ImFontConfig font_config;                                                  \
     font_config.FontDataOwnedByAtlas = false;                                  \
-    for (FontType ft = enumName; ft <= enumName##6x;                           \
+    for (FontType ft = enumName; ft <= enumName##3x;                           \
          ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {               \
       int font_size =                                                          \
           basicSize * (static_cast<int>(ft) - static_cast<int>(enumName) + 1); \
