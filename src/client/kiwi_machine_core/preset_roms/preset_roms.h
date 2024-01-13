@@ -45,13 +45,23 @@ struct PresetROM {
   extern size_t ROM_ZIP_SIZE;             \
   }
 
+#if !defined(KIWI_USE_EXTERNAL_PAK)
 const PresetROM* GetPresetRoms();
+#else
+std::vector<PresetROM>& GetPresetRoms();
+const char* GetPresetRomsPackageName();
+#endif
 size_t GetPresetRomsCount();
 
 namespace specials {
+#if !defined(KIWI_USE_EXTERNAL_PAK)
 const PresetROM* GetPresetRoms();
+#else
+std::vector<PresetROM>& GetPresetRoms();
+const char* GetPresetRomsPackageName();
+#endif
 size_t GetPresetRomsCount();
-}  // namespace special
+}  // namespace specials
 
 }  // namespace preset_roms
 

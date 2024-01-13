@@ -207,8 +207,8 @@ MainWindow::~MainWindow() {
   SaveConfig();
 
 #if defined(KIWI_USE_EXTERNAL_PAK)
-  CloseRomDataFromPackage(preset_roms::kPresetRoms);
-  CloseRomDataFromPackage(preset_roms::specials::kPresetRoms);
+  CloseRomDataFromPackage(preset_roms::GetPresetRoms());
+  CloseRomDataFromPackage(preset_roms::specials::GetPresetRoms());
 #endif
 }
 
@@ -510,9 +510,13 @@ void MainWindow::InitializeUI() {
   main_items_widget_ = items_widget.get();
 
 #if defined(KIWI_USE_EXTERNAL_PAK)
-  OpenRomDataFromPackage(preset_roms::kPresetRoms, preset_roms::kPackageName);
-  OpenRomDataFromPackage(preset_roms::specials::kPresetRoms,
-                         preset_roms::specials::kPackageName);
+  OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
+                         kiwi::base::FilePath::FromUTF8Unsafe(
+                             preset_roms::GetPresetRomsPackageName()));
+  OpenRomDataFromPackage(
+      preset_roms::specials::GetPresetRoms(),
+      kiwi::base::FilePath::FromUTF8Unsafe(
+          preset_roms::specials::GetPresetRomsPackageName()));
 #endif
 
   SDL_assert(preset_roms::GetPresetRomsCount() > 0);

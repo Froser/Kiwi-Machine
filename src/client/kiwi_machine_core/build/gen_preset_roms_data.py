@@ -96,7 +96,7 @@ def main():
                             sub_all_includes += '#include "' + output_filename + '"\n'
                             sub_all_externs += 'EXTERN_ROM(' + namespace + ')\n'
                             sub_all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
-                print(output_dir + '/' + dir_name + '.zip', "generated.")
+                print(output_dir + '/' + dir_name + '.pak', "generated.")
                 other_roms[dir_name] = {
                     'all_includes': sub_all_includes,
                     'all_externs': sub_all_externs,
@@ -137,13 +137,15 @@ def main():
         o.write('extern std::vector<PresetROM> kPresetRoms;\n')
         o.write('extern const char kPackageName[];\n')
         o.write('size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
-        o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
+        o.write('std::vector<PresetROM>& GetPresetRoms() { return kPresetRoms; }\n')
+        o.write('const char* GetPresetRomsPackageName() { return kPackageName; }\n')
         for dir_ns in other_roms:
             o.write('namespace ' + dir_ns + ' {\n')
             o.write('extern std::vector<PresetROM> kPresetRoms;\n')
             o.write('extern const char kPackageName[];\n')
             o.write('size_t GetPresetRomsCount() { return kPresetRoms.size(); }\n')
-            o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
+            o.write('std::vector<PresetROM>& GetPresetRoms() { return kPresetRoms; }\n')
+            o.write('const char* GetPresetRomsPackageName() { return kPackageName; }\n')
             o.write('}  // namespace ' + dir_ns + '\n')
         o.write('#endif  // KIWI_USE_EXTERNAL_PAK\n\n')
 
