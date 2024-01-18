@@ -15,6 +15,7 @@
 
 #include "base/functional/callback.h"
 #include "nes/emulator_states.h"
+#include "nes/nes_export.h"
 #include "nes/rom_data.h"
 #include "nes/types.h"
 
@@ -30,7 +31,7 @@ class Cartridge;
 // channels. More commonly though, mappers are designed to allow games larger
 // than 40K to be made.
 // See https://www.nesdev.org/wiki/Mapper for more details.
-class Mapper : public EmulatorStates::SerializableState {
+class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
  public:
   using MirroringChangedCallback = base::RepeatingClosure;
   using IRQCallback = base::RepeatingClosure;
@@ -74,6 +75,7 @@ class Mapper : public EmulatorStates::SerializableState {
   bool HasExtendedRAM();
 
   static std::unique_ptr<Mapper> Create(Cartridge* cartridge, Byte mapper);
+  static bool IsMapperSupported(Byte mapper);
 
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;

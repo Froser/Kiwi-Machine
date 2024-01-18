@@ -23,6 +23,7 @@
 #include "nes/debug/disassembly.h"
 #include "nes/emulator.h"
 #include "nes/io_devices.h"
+#include "nes/mapper.h"
 #include "nes/palette.h"
 #include "nes/registers.h"
 #include "nes/rom_data.h"

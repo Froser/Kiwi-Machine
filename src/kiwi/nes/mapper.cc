@@ -12,6 +12,8 @@
 
 #include "nes/mapper.h"
 
+#include <map>
+
 #include "base/logging.h"
 #include "nes/cartridge.h"
 #include "nes/mappers/mapper000.h"
@@ -27,6 +29,34 @@
 
 namespace kiwi {
 namespace nes {
+namespace {
+struct MapperFactory {
+  MapperFactory() = default;
+  virtual ~MapperFactory() = default;
+  virtual std::unique_ptr<Mapper> CreateMapper(Cartridge* cartridge) = 0;
+};
+
+template <typename MapperType, Byte mapper>
+struct MapperFactoryBuilder : MapperFactory {
+  MapperFactoryBuilder() = default;
+  ~MapperFactoryBuilder() override = default;
+  std::unique_ptr<Mapper> CreateMapper(Cartridge* cartridge) override {
+    return std::make_unique<MapperType>(cartridge);
+  }
+};
+
+#define MAPPER(mapper, type) \
+  { mapper, new MapperFactoryBuilder<type, mapper>() }
+
+// Leaks mappers by purpose.
+std::map<Byte, MapperFactory*> mapper_factories = {
+    MAPPER(0, Mapper000),  MAPPER(1, Mapper001),  MAPPER(2, Mapper002),
+    MAPPER(3, Mapper003),  MAPPER(4, Mapper004),  MAPPER(7, Mapper007),
+    MAPPER(40, Mapper040), MAPPER(66, Mapper066), MAPPER(74, Mapper074),
+    MAPPER(87, Mapper087),
+};
+}  // namespace
+
 Mapper::Mapper(Cartridge* cartridge) : cartridge_(cartridge) {}
 Mapper::~Mapper() = default;
 
@@ -47,32 +77,20 @@ bool Mapper::HasExtendedRAM() {
 void Mapper::PPUAddressChanged(Address address) {}
 
 std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
-  switch (mapper) {
-    case 0:
-      return std::make_unique<Mapper000>(cartridge);
-    case 1:
-      return std::make_unique<Mapper001>(cartridge);
-    case 2:
-      return std::make_unique<Mapper002>(cartridge);
-    case 3:
-      return std::make_unique<Mapper003>(cartridge);
-    case 4:
-      return std::make_unique<Mapper004>(cartridge);
-    case 7:
-      return std::make_unique<Mapper007>(cartridge);
-    case 40:
-      return std::make_unique<Mapper040>(cartridge);
-    case 66:
-      return std::make_unique<Mapper066>(cartridge);
-    case 74:
-      return std::make_unique<Mapper074>(cartridge);
-    case 87:
-      return std::make_unique<Mapper087>(cartridge);
-    default:
-      break;
+  auto iter = mapper_factories.find(mapper);
+  if (iter != mapper_factories.cend()) {
+    MapperFactory* factory = iter->second;
+    CHECK(factory);
+    return factory->CreateMapper(cartridge);
   }
+
   LOG(ERROR) << "Unsupported mapper: " << static_cast<int>(mapper);
   return nullptr;
+}
+
+bool Mapper::IsMapperSupported(Byte mapper) {
+  auto iter = mapper_factories.find(mapper);
+  return (iter != mapper_factories.cend());
 }
 
 void Mapper::WriteExtendedRAM(Address address, Byte value) {

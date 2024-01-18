@@ -12,14 +12,29 @@
 
 #include "debug/debug_roms.h"
 
-#include <algorithm>
 #include <gflags/gflags.h>
 #include <kiwi_nes.h>
+#include <algorithm>
 
 namespace {
 DEFINE_string(debug_roms,
               "",
               "Specify debug roms' directory, to build debug roms menu.");
+
+bool IsMapperSupported(const kiwi::base::FilePath& rom_path,
+                       std::string& mapper_name) {
+  kiwi::base::File rom_file(rom_path, kiwi::base::File::FLAG_OPEN);
+  kiwi::nes::Bytes headers;
+  headers.resize(0x10);
+  if (rom_file.ReadAtCurrentPos(reinterpret_cast<char*>(headers.data()),
+                                0x10) == -1) {
+    return false;
+  }
+
+  kiwi::nes::Byte mapper = ((headers[6] >> 4) & 0xf) | (headers[7] & 0xf0);
+  mapper_name = kiwi::base::NumberToString(mapper);
+  return kiwi::nes::Mapper::IsMapperSupported(mapper);
+}
 
 // If there's no .nes in directory, and it has no subdirectory, this function
 // returns false, and this menu item will be deleted, otherwise it returns true.
@@ -44,9 +59,15 @@ bool CreateMenuItemRecursively(MenuBar::MenuItem& menu_item,
       }
     } else {
       if (entry.FinalExtension() == FILE_PATH_LITERAL(".nes")) {
+        std::string name = entry.BaseName().AsUTF8Unsafe();
+        // Added a mark if a rom is not supported.
+        std::string mapper;
+        if (!IsMapperSupported(entry, mapper)) {
+          name += " [**" + mapper + "**]";
+        }
+
         menu_item.sub_items.push_back(
-            {entry.BaseName().AsUTF8Unsafe(),
-             kiwi::base::BindRepeating(open_callback, entry)});
+            {name, kiwi::base::BindRepeating(open_callback, entry)});
         has_nes = true;
       }
     }
