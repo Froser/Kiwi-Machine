@@ -12,6 +12,10 @@
 #include "base/win/shlwapi.h"
 #include "base/win/windows_types.h"
 
+#ifdef _MSC_VER
+#pragma comment(lib, "Shlwapi.lib")
+#endif
+
 #if defined(max)
 #undef max
 #endif
