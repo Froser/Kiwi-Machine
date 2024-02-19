@@ -16,6 +16,5 @@ project(KiwiMachine)
 OPTION(USE_SDL2 "Use SDL2 as Kiwi's backend." ON)
 
 include(build/cmake/build_tools.cmake)
-include(build/cmake/qt.cmake)
 
 add_subdirectory(src)

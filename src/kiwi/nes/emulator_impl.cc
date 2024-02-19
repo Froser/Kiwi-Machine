@@ -51,8 +51,9 @@ void EmulatorImpl::PowerOn() {
   }
   io_task_runner_ = working_thread_->task_runner();
   working_task_runner_ = emulate_on_working_thread_
-                             ? working_thread_->task_runner()
+                             ? io_task_runner_
                              : base::SequencedTaskRunner::GetCurrentDefault();
+
   controller1_.set_emulator(this);
   controller2_.set_emulator(this);
 

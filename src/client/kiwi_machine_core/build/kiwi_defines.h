@@ -27,10 +27,25 @@
 #define KIWI_ANDROID 0
 #endif
 
+#if defined(__EMSCRIPTEN__)
+#define KIWI_WASM 1
+#else
+#define KIWI_WASM 0
+#endif
+
 #if KIWI_IOS || KIWI_ANDROID
 #define KIWI_MOBILE 1
 #else
 #define KIWI_MOBILE 0
 #endif
+
+#if KIWI_WASM
+#define ENABLE_DEBUG_ROMS 0
+#define ENABLE_EXPORT_ROMS 0
+#else
+#define ENABLE_DEBUG_ROMS 1
+#define ENABLE_EXPORT_ROMS 1
+#endif
+
 
 #endif  // BUILD_KIWI_DEFINES_H_

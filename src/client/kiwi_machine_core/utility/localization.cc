@@ -37,7 +37,7 @@ const char* ToLanguageCode(SupportedLanguage language) {
       return "ja";
     default:
       SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Wrong language type %d",
-                  language);
+                  static_cast<int>(language));
       SDL_assert(false);
       return "en";
   }
@@ -135,7 +135,7 @@ void SetLanguage(SupportedLanguage language) {
       break;
     default:
       SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Wrong language type %d",
-                  language);
+                  static_cast<int>(language));
       SDL_assert(false);
       break;
   }

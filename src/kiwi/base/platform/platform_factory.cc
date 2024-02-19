@@ -19,10 +19,6 @@
 #include "base/platform/sdl2/sdl2_platform_factory.h"
 #endif
 
-#if defined(USE_QT6)
-#include "base/platform/qt/qt_platform_factory.h"
-#endif
-
 namespace kiwi::base {
 namespace platform {
 namespace {
@@ -65,13 +61,6 @@ InitializePlatformFactory(int& argc,
   }
 #endif
 
-#if defined(USE_QT6)
-  if (backend == PlatformFactoryBackend::kQt6) {
-    platform::g_platform_factory_backend = PlatformFactoryBackend::kQt6;
-    return platform::g_platform_factory_backend;
-  }
-#endif
-
   LOG(WARNING) << "Unsupported backend type: " << static_cast<int>(backend)
                << ", fallback to default.";
 
@@ -90,18 +79,9 @@ PlatformFactory* GetPlatformFactory() {
     return &s_sdl2;
 #endif
 
-#if defined(USE_QT6)
-  static QtPlatformFactory s_qt6;
-  if (GetPlatformFactoryBackend() == PlatformFactoryBackend::kQt6)
-    return &s_qt6;
-#endif
-
   static PlatformFactory* factories[] = {
 #if defined(USE_SDL2)
     &s_sdl2,
-#endif
-#if defined(USE_QT6)
-    &s_qt6,
 #endif
   };
 

@@ -150,7 +150,9 @@ class MainWindow : public WindowBase,
   bool IsPatternWidgetShown();
   void OnFrameRateWidget();
   bool IsFrameRateWidgetShown();
+#if ENABLE_EXPORT_ROMS
   void OnExportGameROMs();
+#endif
   void OnDebugMemory();
   void OnDebugDisassembly();
   void OnDebugNametable();

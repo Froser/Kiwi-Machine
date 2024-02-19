@@ -19,22 +19,30 @@
 
 #include "base/base_export.h"
 #include "base/platform/platform_factory.h"
+#include "build/build_config.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "base/win/windows_types.h"
 #endif
 
 #if BUILDFLAG(IS_BSD) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_NACL) || \
-    BUILDFLAG(IS_FUCHSIA) || (BUILDFLAG(IS_ANDROID))
-struct stat;
+    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_ANDROID)
+#include <sys/stat.h>
 namespace kiwi::base {
 typedef struct stat stat_wrapper_t;
 }
 #elif BUILDFLAG(IS_POSIX)
-struct stat64;
-namespace base {
+#if BUILDFLAG(IS_WASM)
+#include <sys/stat.h>
+namespace kiwi::base {
+typedef struct stat stat_wrapper_t;
+}
+#else
+#include <sys/stat.h>
+namespace kiwi::base {
 typedef struct stat64 stat_wrapper_t;
 }
+#endif
 #endif
 
 namespace kiwi::base {

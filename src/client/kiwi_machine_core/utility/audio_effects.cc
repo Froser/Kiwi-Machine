@@ -20,7 +20,7 @@
 
 namespace {
 
-#if !KIWI_MOBILE
+#if !KIWI_MOBILE && !KIWI_WASM
 Mix_Music* g_all_effects[static_cast<int>(audio_resources::AudioID::kLast)];
 bool g_is_mute = false;
 
@@ -43,7 +43,7 @@ void LoadAudioEffectFromMemory(audio_resources::AudioID type,
 }  // namespace
 
 void InitializeAudioEffects() {
-#if !KIWI_MOBILE
+#if !KIWI_MOBILE && !KIWI_WASM
   int flags = MIX_INIT_MP3;
   if (Mix_Init(flags) == flags) {
     // Is all effects loaded?
@@ -75,7 +75,7 @@ void InitializeAudioEffects() {
 }
 
 void UninitializeAudioEffects() {
-#if !KIWI_MOBILE
+#if !KIWI_MOBILE && !KIWI_WASM
   for (Mix_Music* m : g_all_effects) {
     Mix_FreeMusic(m);
   }
@@ -86,13 +86,13 @@ void UninitializeAudioEffects() {
 }
 
 void SetEffectVolume(float volume) {
-#if !KIWI_MOBILE
+#if !KIWI_MOBILE && !KIWI_WASM
   Mix_VolumeMusic(MIX_MAX_VOLUME * volume);
 #endif
 }
 
 void PlayEffect(audio_resources::AudioID aid) {
-#if !KIWI_MOBILE
+#if !KIWI_MOBILE && !KIWI_WASM
   if (!g_is_mute) {
     int index = static_cast<int>(aid);
     if (g_all_effects[index]) {

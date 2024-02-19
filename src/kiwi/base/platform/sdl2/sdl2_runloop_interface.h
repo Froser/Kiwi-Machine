@@ -28,6 +28,10 @@ class SDL2RunLoopInterface : public RunLoopInterface {
   ~SDL2RunLoopInterface() override;
 
  public:
+  // Called by emscripten main loop or Run();
+  void HandleEvents();
+
+ public:
   static SDL_Event CreatePostTaskEvent();
 
  private:
@@ -53,6 +57,7 @@ class SDL2RunLoopInterface : public RunLoopInterface {
   std::chrono::time_point<std::chrono::steady_clock> render_timestamp_ =
       std::chrono::steady_clock::now();
 };
+
 }  // namespace platform
 }  // namespace kiwi::base
 

@@ -59,6 +59,21 @@ int File::Lstat(const char* path, stat_wrapper_t* sb) {
   return lstat(path, sb);
 }
 #else
+
+#if BUILDFLAG(IS_WASM)
+
+int File::Stat(const char* path, stat_wrapper_t* sb) {
+  return stat(path, sb);
+}
+int File::Fstat(int fd, stat_wrapper_t* sb) {
+  return fstat(fd, sb);
+}
+int File::Lstat(const char* path, stat_wrapper_t* sb) {
+  return lstat(path, sb);
+}
+
+#else
+
 int File::Stat(const char* path, stat_wrapper_t* sb) {
   return stat64(path, sb);
 }
@@ -68,6 +83,9 @@ int File::Fstat(int fd, stat_wrapper_t* sb) {
 int File::Lstat(const char* path, stat_wrapper_t* sb) {
   return lstat64(path, sb);
 }
+
+#endif
+
 #endif
 
 }  // namespace kiwi::base

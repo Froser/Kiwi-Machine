@@ -80,6 +80,15 @@ if (APPLE)
     endif ()
 endif ()
 
+if (EMSCRIPTEN)
+    # Emscripten needs a larger wasm-ld intial memory.
+    set_target_properties(${PROJECT_NAME}
+            PROPERTIES
+            LINK_FLAGS "-s PTHREAD_POOL_SIZE=5 -s MAXIMUM_MEMORY=1gb -s INITIAL_MEMORY=128MB -s ALLOW_MEMORY_GROWTH -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=\\\[\\\"\\\$autoResumeAudioContext\\\"\\\,\\\"\\\$dynCall\\\"\\\] -s USE_OFFSET_CONVERTER"
+    )
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+endif ()
+
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         kiwi_machine_core

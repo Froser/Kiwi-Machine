@@ -12,10 +12,16 @@
 
 #include "base/platform/sdl2/sdl2_runloop_interface.h"
 
+#include <stack>
+
 #include "base/check.h"
 #include "base/platform/sdl2/sdl2_single_thread_task_executor_interface.h"
 #include "third_party/SDL2/include/SDL_events.h"
 #include "third_party/SDL2/include/SDL_timer.h"
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace kiwi::base {
 namespace platform {
@@ -25,14 +31,23 @@ int PostTask() {
   static int kEvent = SDL_RegisterEvents(1);
   return kEvent;
 }
-
 }  // namespace events
 
 namespace {
 constexpr int kFPS = 60;
+thread_local std::stack<SDL2RunLoopInterface*> g_thread_run_loops;
+
+#if __EMSCRIPTEN__
+void EmscriptenMainLoop() {
+  CHECK(g_thread_run_loops.top());
+  g_thread_run_loops.top()->HandleEvents();
+}
+#endif
+
 }  // namespace
 
 SDL2RunLoopInterface::SDL2RunLoopInterface() {
+  g_thread_run_loops.push(this);
   cond_ = SDL_CreateCond();
   frame_sync_mutex_ = SDL_CreateMutex();
 
@@ -49,6 +64,7 @@ SDL2RunLoopInterface::~SDL2RunLoopInterface() {
   SDL_assert(frame_sync_mutex_);
   SDL_DestroyMutex(frame_sync_mutex_);
   SDL_AddEventWatch(&SDL2RunLoopInterface::EventAddedWatcher, this);
+  g_thread_run_loops.pop();
 }
 
 RepeatingClosure SDL2RunLoopInterface::QuitClosure() {
@@ -65,37 +81,45 @@ SDL_Event SDL2RunLoopInterface::CreatePostTaskEvent() {
 
 void SDL2RunLoopInterface::Run() {
   is_running_ = true;
-  SDL_Event event;
+#if __EMSCRIPTEN__
+  emscripten_set_main_loop(EmscriptenMainLoop, 0, true);
+#else
   while (is_running_) {
-    while (SDL_PollEvent(&event)) {
-      if (GetPreEventHandlerForSDL2()) {
-        GetPreEventHandlerForSDL2().Run(&event);
-      }
+    HandleEvents();
+  }
+#endif
+}
 
-      if (event.type == SDL_QUIT) {
-        is_running_ = false;
-        break;
-      } else if (event.user.type == events::PostTask()) {
-        auto* single_thread_task_executor =
-            reinterpret_cast<SDL2SingleThreadTaskExecutorInterface*>(
-                event.user.data1);
-        CHECK(single_thread_task_executor);
-        single_thread_task_executor->RunTask();
-
-        TryRender();
-        continue;
-      }
-
-      // Propagate event to registered handler.
-      if (GetEventHandlerForSDL2()) {
-        GetEventHandlerForSDL2().Run(&event);
-      }
+void SDL2RunLoopInterface::HandleEvents() {
+  SDL_Event event;
+  while (SDL_PollEvent(&event)) {
+    if (GetPreEventHandlerForSDL2()) {
+      GetPreEventHandlerForSDL2().Run(&event);
     }
 
-    if (GetPostEventHandlerForSDL2())
-      GetPostEventHandlerForSDL2().Run();
-    TryRender();
+    if (event.type == SDL_QUIT) {
+      is_running_ = false;
+      break;
+    } else if (event.user.type == events::PostTask()) {
+      auto* single_thread_task_executor =
+          reinterpret_cast<SDL2SingleThreadTaskExecutorInterface*>(
+              event.user.data1);
+      CHECK(single_thread_task_executor);
+      single_thread_task_executor->RunTask();
+
+      TryRender();
+      continue;
+    }
+
+    // Propagate event to registered handler.
+    if (GetEventHandlerForSDL2()) {
+      GetEventHandlerForSDL2().Run(&event);
+    }
   }
+
+  if (GetPostEventHandlerForSDL2())
+    GetPostEventHandlerForSDL2().Run();
+  TryRender();
 }
 
 void SDL2RunLoopInterface::Quit() {
@@ -105,6 +129,11 @@ void SDL2RunLoopInterface::Quit() {
 }
 
 void SDL2RunLoopInterface::TryRender() {
+#if __EMSCRIPTEN__
+  // Emscripten uses emscripten_set_main_loop() to control fps, so we just
+  // render here.
+  GetRenderHandlerForSDL2().Run();
+#else
   float delay = GetNextRenderDelay();
   if (delay < 0) {
     if (GetRenderHandlerForSDL2())
@@ -117,6 +146,7 @@ void SDL2RunLoopInterface::TryRender() {
     if (result < 0)
       LOG(ERROR) << " Condition wait timeout failed:" << SDL_GetError();
   }
+#endif
 }
 
 // Gets the recommended delay duration. Window should render if duration <= 0.

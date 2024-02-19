@@ -12,6 +12,8 @@
 
 #include "debug/debug_roms.h"
 
+#if ENABLE_DEBUG_ROMS
+
 #include <gflags/gflags.h>
 #include <kiwi_nes.h>
 #include <algorithm>
@@ -91,3 +93,5 @@ MenuBar::MenuItem CreateDebugRomsMenu(DebugRomsLoadCallback open_callback) {
       open_callback);
   return debug_roms_menu;
 }
+
+#endif

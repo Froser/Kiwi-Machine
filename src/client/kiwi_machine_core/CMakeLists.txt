@@ -161,6 +161,13 @@ if (IOS)
     )
 endif ()
 
+if (${KIWI_EMBEDDED_ROMS} OR EMSCRIPTEN)
+    set(USE_EMBEDDED_ROMS ON)
+else ()
+    set(USE_EMBEDDED_ROMS OFF)
+endif ()
+message(STATUS "Use embedded roms: " ${USE_EMBEDDED_ROMS})
+
 # Resources generation:
 # Use '__always_buildx.h' as a fake output, to make the command run every time.
 add_custom_command(
@@ -195,15 +202,15 @@ add_custom_command(
         VERBATIM
 )
 
-KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
-
 add_custom_command(
         OUTPUT preset_roms/preset_roms.cc __always_build_roms.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_preset_roms_data.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/preset_roms
+        ARGS ${CMAKE_CURRENT_BINARY_DIR}/preset_roms ${USE_EMBEDDED_ROMS}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
         VERBATIM
 )
+
+KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
 
 target_link_libraries(${PROJECT_NAME}
         PRIVATE

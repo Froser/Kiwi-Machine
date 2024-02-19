@@ -47,8 +47,6 @@ namespace {
 
 DEFINE_bool(has_menu, false, "Show a menu bar at the top of the window.");
 
-constexpr int kMaxScaleBeforeFullscreen = 4;
-
 kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
                                    size_t data_size) {
   kiwi::nes::Bytes bytes;
@@ -83,6 +81,7 @@ void ToastGameControllersAddedOrRemoved(WindowBase* window,
   }
 }
 
+#if ENABLE_EXPORT_ROMS
 bool ExportNES(const kiwi::base::FilePath& output_path,
                const std::string& title,
                const kiwi::nes::Byte* zip_data,
@@ -137,6 +136,8 @@ void OnGameROMExported(MainWindow* main_window,
                            result.second),
       kiwi::base::BindOnce(&OnGameROMExported, main_window, export_path));
 }
+
+#endif
 
 class StringUpdater : public LocalizedStringUpdater {
  public:
@@ -905,12 +906,14 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
       debug.menu_items.push_back(std::move(debug_audio));
     }
 
+#if ENABLE_DEBUG_ROMS
     if (HasDebugRoms()) {
       MenuBar::MenuItem debug_roms =
           CreateDebugRomsMenu(kiwi::base::BindRepeating(
               &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
       debug.menu_items.push_back(std::move(debug_roms));
     }
+#endif
 
     debug.menu_items.push_back(
         {"Palette",
@@ -946,12 +949,14 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
         {"Nametable", kiwi::base::BindRepeating(&MainWindow::OnDebugNametable,
                                                 kiwi::base::Unretained(this))});
 
+#if ENABLE_EXPORT_ROMS
     debug.menu_items.push_back(
         {"Export All Games",
          kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
                                    kiwi::base::Unretained(this))});
 
     result.push_back(std::move(debug));
+#endif
   }
 
   return result;
@@ -1261,7 +1266,7 @@ void MainWindow::OnSetScreenScale(float scale) {
 
 void MainWindow::OnSetFullscreen() {
   config_->data().is_fullscreen = true;
-  config_->data().window_scale = kMaxScaleBeforeFullscreen;
+  config_->data().window_scale = InGameMenu::kMaxScaling;
   config_->SaveConfig();
 
   // Windows system use a fake fullscreen to avoid changing resolution.
@@ -1318,6 +1323,8 @@ bool MainWindow::IsFrameRateWidgetShown() {
   return frame_rate_widget_->visible();
 }
 
+#if ENABLE_EXPORT_ROMS
+
 void MainWindow::OnExportGameROMs() {
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
   kiwi::base::FilePath export_path =
@@ -1335,6 +1342,8 @@ void MainWindow::OnExportGameROMs() {
       FROM_HERE, kiwi::base::BindOnce(&OnExportGameROM, this, export_path, 0),
       kiwi::base::BindOnce(&OnGameROMExported, this, export_path));
 }
+
+#endif
 
 void MainWindow::OnDebugMemory() {
   memory_widget_->set_visible(true);
@@ -1446,15 +1455,21 @@ void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
     return;
 
   if (is_fullscreen() && is_left) {
-    OnUnsetFullscreen(kMaxScaleBeforeFullscreen);
+    OnUnsetFullscreen(InGameMenu::kMaxScaling);
   } else {
     int scale = window_scale();
     scale = (is_left ? scale - 1 : scale + 1);
     if (scale < 2) {
       scale = 2;
       OnSetScreenScale(scale);
-    } else if (scale > kMaxScaleBeforeFullscreen) {
+    } else if (scale > InGameMenu::kMaxScaling) {
+#if !KIWI_WASM
+      // There's an issue(perhaps a bug) on Emscripten when set fullscreen.
+      // "Operation does not support unaligned accesses" at
+      // wasm.emscripten_thread_mailbox_ref.
+      // So fullscreen is disabled here.
       OnSetFullscreen();
+#endif
     } else {
       OnSetScreenScale(scale);
     }

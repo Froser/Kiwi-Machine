@@ -10,6 +10,10 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+if (EMSCRIPTEN)
+    add_compile_options(-pthread -mbulk-memory)
+endif ()
+
 add_subdirectory(client)
 add_subdirectory(kiwi)
 add_subdirectory(third_party)

@@ -135,23 +135,6 @@ if (USE_SDL2)
     )
 endif ()
 
-if (USE_QT6)
-    list(APPEND base_sources
-            base/platform/qt/qt_file_interface.cc
-            base/platform/qt/qt_file_interface.h
-            base/platform/qt/qt_platform_factory.cc
-            base/platform/qt/qt_platform_factory.h
-            base/platform/qt/qt_runloop_interface.cc
-            base/platform/qt/qt_runloop_interface.h
-            base/platform/qt/qt_single_thread_task_executor_interface.cc
-            base/platform/qt/qt_single_thread_task_executor_interface.h
-            base/platform/qt/qt_single_thread_task_runner.cc
-            base/platform/qt/qt_single_thread_task_runner.h
-            base/platform/qt/qt_thread_interface.cc
-            base/platform/qt/qt_thread_interface.h
-    )
-endif ()
-
 # sources for nes
 set(nes_sources
         nes/apu.cc
@@ -233,31 +216,32 @@ if (USE_SDL2)
     target_compile_definitions(${STATIC_PROJECT_NAME} PRIVATE USE_SDL2)
 endif ()
 target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
-if (USE_QT6)
-    KIWI_USE_QT6(${STATIC_PROJECT_NAME})
-endif ()
 
 if (WIN32)
     target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC UNICODE _UNICODE)
-endif()
-
-# Setup for dynamic library
-KIWI_ADD_LIBRARY(${PROJECT_NAME} SHARED ${sources})
-target_compile_definitions(${PROJECT_NAME} PRIVATE KIWI_IMPL)
-if (USE_SDL2)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_SDL2)
 endif ()
-target_link_libraries(${PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
-if (USE_QT6)
-    KIWI_USE_QT6(${PROJECT_NAME})
-endif ()
-
-if (WIN32)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC UNICODE _UNICODE)
-endif()
 
 # Disable warnings in MSVC
 if (MSVC)
-    target_compile_options(${PROJECT_NAME} PUBLIC /wd4275 /wd4251 /wd4267 /wd4244)
-    target_compile_options(${PROJECT_NAME}_static PUBLIC /wd4275 /wd4251 /wd4267 /wd4244)
+    target_compile_options(${STATIC_PROJECT_NAME} PUBLIC /wd4275 /wd4251 /wd4267 /wd4244)
+endif ()
+
+if (NOT EMSCRIPTEN)
+    # Setup for dynamic library
+    KIWI_ADD_LIBRARY(${PROJECT_NAME} SHARED ${sources})
+
+    target_compile_definitions(${PROJECT_NAME} PRIVATE KIWI_IMPL)
+    if (USE_SDL2)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE USE_SDL2)
+    endif ()
+    target_link_libraries(${PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
+
+    if (WIN32)
+        target_compile_definitions(${PROJECT_NAME} PUBLIC UNICODE _UNICODE)
+    endif ()
+
+    # Disable warnings in MSVC
+    if (MSVC)
+        target_compile_options(${PROJECT_NAME} PUBLIC /wd4275 /wd4251 /wd4267 /wd4244)
+    endif ()
 endif ()

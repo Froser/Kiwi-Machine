@@ -28,6 +28,10 @@
 class MainWindow;
 class InGameMenu : public Widget {
  public:
+  enum {
+    kMaxScaling = 4,
+  };
+
   enum class MenuItem {
     kContinue,
     kLoadAutoSave,

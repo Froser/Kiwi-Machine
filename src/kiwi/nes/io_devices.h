@@ -54,6 +54,8 @@ class NES_EXPORT IODevices {
       kFrequency = 44100,
 #if BUILDFLAG(IS_WIN)
       kBufferMS = 0,
+#elif BUILDFLAG(IS_WASM)
+      kBufferMS = 1250,
 #else
       kBufferMS = 65000,
 #endif

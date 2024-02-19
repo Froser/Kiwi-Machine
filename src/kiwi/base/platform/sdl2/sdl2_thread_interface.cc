@@ -14,6 +14,12 @@
 
 #include "base/platform/sdl2/sdl2_single_thread_task_runner.h"
 
+#if __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN_PTHREADS__
+#error Pthread must be enabled in Emscripten.
+#endif
+#endif
+
 namespace kiwi::base {
 namespace platform {
 

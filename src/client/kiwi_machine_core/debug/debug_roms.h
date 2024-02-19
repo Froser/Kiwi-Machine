@@ -13,7 +13,10 @@
 #ifndef DEBUG_DEBUG_ROMS
 #define DEBUG_DEBUG_ROMS
 
+#include "build/kiwi_defines.h"
 #include "ui/widgets/menu_bar.h"
+
+#if ENABLE_DEBUG_ROMS
 
 using DebugRomsLoadCallback =
     kiwi::base::RepeatingCallback<void(kiwi::base::FilePath)>;
@@ -21,5 +24,7 @@ using DebugRomsLoadCallback =
 bool HasDebugRoms();
 
 MenuBar::MenuItem CreateDebugRomsMenu(DebugRomsLoadCallback open_callback);
+
+#endif
 
 #endif  // DEBUG_DEBUG_ROMS

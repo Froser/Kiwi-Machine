@@ -8,3 +8,5 @@
 /cmake-build-debug_noembed/
 /cmake-build-ios/
 /cmake-build-release-intel/
+/cmake-build-emscripten_debug/
+/cmake-build-emscripten/
