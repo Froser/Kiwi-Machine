@@ -1,0 +1,289 @@
+/*
+Copyright (C) 2024 Yisi Yu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+ */
+
+.nescontroller {
+  width: 500px;
+  margin: 0 auto;
+  position: relative;
+  
+}
+
+.nescontroller-base {
+  width: 500px;
+  height: 220px;
+  background-color: #e0ded4;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.nescontroller-title {
+  margin: 2px;
+  float: left;
+}
+
+.nescontroller-front {
+  position: relative;
+  top: 38px;
+  margin: 0 auto;
+  width: 480px;
+  height: 167px;
+  background-color: #464646;
+  background: linear-gradient(to bottom, #3a3e3b 0%, #232624 100%);
+  box-shadow: inset 0px 1px 2px 1px rgba(0, 10, 0, 0.91);
+  
+}
+.nescontroller-cross {
+  position: absolute;
+  left: 24px;
+  top: 50px;
+  width: 110px;
+  height: 90px;
+  
+}
+
+.nescontroller-back-cross  {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  margin: auto;
+  width: 105px;
+  height: 40px;
+  background-color: #e0ded4;
+  z-index: 1;
+  border:1px black solid;
+}
+
+.nescontroller-back-cross .nescontroller-vert {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  margin: auto;
+  width: 105px;
+  height: 40px;
+  background-color: #e0ded4;
+  z-index: 1;
+  border-radius: 4px;
+  transform: rotate(90deg);
+}
+
+.nescontroller-horizontal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  margin: auto;
+  width: 100px;
+  height: 35px;
+  background-color: #252725;
+  z-index: 2;
+  border-radius: 1px;
+  
+}
+
+.nescontroller-vertical {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  margin: auto;
+  width: 100px;
+  height: 35px;
+  background-color: #252725;
+  z-index: 2;
+  border-radius: 1px;
+  transform: rotate(90deg);
+  box-shadow: inset 3px 0px 0px 0px rgba(255, 255, 255, 0.61);
+  
+}
+
+.nescontroller-arrowlf {
+  right: 5px;
+  top: 6px;
+  position: absolute;
+  width: 0px;
+  height: 0px;
+  border-left: 12px solid black;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  opacity: 0.3;
+  box-shadow: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.61);
+  
+}
+.nescontroller-arrowlf:before {
+  content: '';
+  width: 10px;
+  height: 13px;
+  background-color: black;
+  position: absolute;
+  left: -20px;
+  top: -6px;
+  
+}
+.nescontroller-arrowrh {
+  left: 5px;
+  top: 6px;
+  position: absolute;
+  width: 0px;
+  height: 0px;
+  border-right: 12px solid black;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  opacity: 0.3;
+  box-shadow:  inset 0px 7px 1px 2px rgba(255, 255, 255, 0.91);
+}
+.nescontroller-arrowrh:before {
+  content: '';
+  width: 10px;
+  height: 13px;
+  background-color: black;
+  position: absolute;
+  left: 10px;
+  top: -6px;
+  
+}
+.nescontroller-circle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(180deg, rgb(22, 22, 22) 30%, rgb(58, 58, 58) 100%);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  margin: auto;
+  z-index: 4;
+  border-radius: 50%;
+  box-shadow: inset 0px -2px 0px 0px rgba(255, 255, 255, 0.1);
+}
+
+.nescontroller-buttons-a-b {
+  position: absolute;
+  right: 26px;
+  top: 80px;
+  height: 50px;
+}
+
+.nescontroller-btn-border {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  background-color: #EDECE7;
+  float: left;
+  margin: 6px;
+}
+
+.nescontroller-btn-round {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(to bottom, #DF2015 0%, #f84936 100%);
+  border-radius: 50%;
+  float: left;
+  border: 1px rgba(0, 0, 0, 0.51) solid;
+  box-shadow: inset 0px 1px 2px 0px #FBFBFB, 0px 1px 1px 0px rgba(0, 0, 0, 0.71);
+}
+.nescontroller-btn-round:active {
+  top: 1px;
+  border: 1px rgba(0, 0, 0, 0.5) solid;
+  box-shadow: inset 0px 0px 1px 0px #FBFBFB, 0px 1px 1px 0px rgba(0, 0, 0, 0.21);
+}
+
+.nescontroller-buttons-select {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 90px;
+  margin: auto;
+  width: 142px;
+  height: 40px;
+  background-color: #e0ded4;
+  border-radius: 6px;
+  border: 4px solid #e0ded4;
+  box-shadow: inset 0px 1px 3px 4px rgba(50, 50, 50, 0.3);
+  z-index: 3;
+}
+
+.nescontroller-btn-central {
+  position: relative;
+  top: 3px;
+  width: 42px;
+  height: 18px;
+  background-color: #464646;
+  border-radius: 10px;
+  border: 1px solid #272723;
+  margin: 9px 13px;
+  float: left;
+  box-shadow: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.51);
+}
+.nescontroller-btn-central:active {
+  box-shadow: inset 0px 0px 0px 0px rgba(255, 255, 255, 0.51);
+}
+
+.nescontroller-decoration-central div {
+  position: relative;
+  display: block;
+  left: 0;
+  right: 0;
+  margin: 7px auto;
+  top: 0;
+  width: 150px;
+  height: 28px;
+  background-color: #7b836c;
+  border-radius: 10px;
+  opacity: 0.8;
+  z-index: 2;
+}
+
+.nescontroller-stickers {
+  font-family: 'Orbitron', sans-serif;
+  color: #DF2015;
+  position: absolute;
+  z-index: 10;
+}
+.nescontroller-st-b {
+  font-weight: bold;
+  position: absolute;
+  left: 374px;
+  top: 140px;
+}
+.nescontroller-st-a {
+  font-weight: bold;
+  position: absolute;
+  left: 434px;
+  top: 140px;
+}
+
+.nescontroller-st-select {
+  position: absolute;
+  left: 174px;
+  top: 70px;
+}
+
+.nescontroller-st-start {
+  position: absolute;
+  left: 250px;
+  top: 70px;
+}

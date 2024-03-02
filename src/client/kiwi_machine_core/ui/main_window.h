@@ -60,6 +60,12 @@ class MainWindow : public WindowBase,
                       bool has_demo_widget);
   ~MainWindow() override;
 
+#if KIWI_WASM
+  // WASM environment uses this instance to load roms.
+  static MainWindow* GetInstance();
+  void LoadROM_WASM(kiwi::base::FilePath rom_path);
+#endif
+
   float window_scale() { return config_->data().window_scale; }
   bool is_fullscreen() { return config_->data().is_fullscreen; }
   bool IsLandscape();
@@ -99,6 +105,10 @@ class MainWindow : public WindowBase,
   void InitializeAudio();
   void InitializeUI();
   void InitializeIODevices();
+  // |callback| will be run once all initializations are ready.
+  void AddAfterSplashCallback(kiwi::base::OnceClosure callback);
+  void RunAllAfterSplashCallbacks();
+  void LoadROMByPath(kiwi::base::FilePath rom_path);
   void StartAutoSave();
   void StopAutoSave();
   void ResetAudio();
@@ -134,7 +144,7 @@ class MainWindow : public WindowBase,
   void OnResume();
   bool IsPause();
   void OnLoadPresetROM(const preset_roms::PresetROM& rom);
-  void OnLoadDebugROM(kiwi::base::FilePath nes_path);
+  void OnLoadDebugROM(kiwi::base::FilePath rom_path);
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
   bool IsAudioEnabled();
@@ -168,8 +178,14 @@ class MainWindow : public WindowBase,
 #endif
 
  private:
+  // A headless application means it has no menu, running game directly, and
+  // can't go back to main menu. It is used in wasm mode, which the .wasm file
+  // shouldn't load all ROMs in a row, but has to load the ROM dynamically.
+  bool is_headless_ = false;
   std::set<int> pressing_keys_;
   bool has_demo_widget_ = false;
+  bool splash_done_ = false;
+  std::vector<kiwi::base::OnceClosure> post_splash_callbacks_;
   // Canvas is owned by this window.
   Canvas* canvas_ = nullptr;
   InGameMenu* in_game_menu_ = nullptr;

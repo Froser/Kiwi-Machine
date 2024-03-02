@@ -47,9 +47,13 @@ Splash::Splash(MainWindow* main_window,
   InitializeStrings();
 }
 
-Splash::~Splash() = default;
+Splash::~Splash() {
+  if (closed_callback_)
+    std::move(closed_callback_).Run();
+}
 
 void Splash::InitializeStrings() {
+#if !KIWI_WASM
   str_how_to_play_ = GetLocalizedString(string_resources::IDR_HOW_TO_PLAY);
   font_how_to_play_ =
       GetPreferredFontType(PreferredFontSize::k3x, str_how_to_play_.c_str());
@@ -108,6 +112,7 @@ void Splash::InitializeStrings() {
       GetLocalizedString(string_resources::IDR_SPECIAL_COLLECTIONS_CONTENTS);
   font_special_collections_contents_ = GetPreferredFontType(
       PreferredFontSize::k1x, str_special_collections_contents_.c_str());
+#endif
 }
 
 void Splash::Play() {
@@ -115,6 +120,10 @@ void Splash::Play() {
   fade_timer_.Start();
   PlayEffect(audio_resources::AudioID::kStartup);
   state_ = SplashState::kLogo;
+}
+
+void Splash::SetClosedCallback(kiwi::base::RepeatingClosure callback) {
+  closed_callback_ = std::move(callback);
 }
 
 void Splash::Paint() {
@@ -156,13 +165,16 @@ void Splash::Paint() {
 
     if (splash_timer_.ElapsedInMilliseconds() > kSplashDurationMs) {
       fade_timer_.Start();
-#if !KIWI_MOBILE
+#if KIWI_WASM
+      state_ = SplashState::kClosing;
+#elif !KIWI_MOBILE
       state_ = SplashState::kHowToPlayKeyboard;
 #else
       state_ = SplashState::kIntroduction;
 #endif
     }
   }
+#if !KIWI_WASM
 #if !KIWI_MOBILE
   else if (state_ == SplashState::kHowToPlayKeyboard ||
            state_ == SplashState::kClosingHowToPlayKeyboard) {
@@ -283,6 +295,12 @@ void Splash::Paint() {
     if (state_ == SplashState::kClosing && !alpha)
       stack_widget_->PopWidget();
   }
+#else
+  else {
+    if (state_ == SplashState::kClosing)
+      stack_widget_->PopWidget();
+  }
+#endif
 }
 
 bool Splash::HandleInputEvents(SDL_KeyboardEvent* k,
@@ -293,7 +311,7 @@ bool Splash::HandleInputEvents(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_A) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_START)) {
-#if !KIWI_MOBILE
+#if !KIWI_MOBILE && !KIWI_WASM
     if (state_ == SplashState::kHowToPlayKeyboard) {
       state_ = SplashState::kClosingHowToPlayKeyboard;
       fade_timer_.Start();
@@ -309,7 +327,11 @@ bool Splash::HandleInputEvents(SDL_KeyboardEvent* k,
     }
 #endif
 
+#if !KIWI_WASM
     if (state_ == SplashState::kIntroduction) {
+#else
+    if (state_ == SplashState::kLogo) {
+#endif
       state_ = SplashState::kClosing;
       fade_timer_.Start();
       PlayEffect(audio_resources::AudioID::kStart);

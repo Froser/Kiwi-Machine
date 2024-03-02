@@ -1,0 +1,92 @@
+/*
+Copyright (C) 2024 Yisi Yu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+ */
+
+.playground {
+  width: 75vw;
+}
+
+.playground-frame {
+  width: 100%;
+  height: 90%;
+  border: none;
+}
+
+.playground-control {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  text-align: center;
+}
+
+.playground-about-contents {
+  text-align: left;
+  padding: 10px;
+}
+
+.playground-manual-title {
+  text-align: left;
+  padding: 10px;
+  line-height: 40px;
+  font-size: 20px;
+  font-weight: bold;
+  margin-block-start: 0;
+  margin-block-end: 0;
+}
+
+.playground-manual-content {
+  text-align: left;
+  padding-left: 20px;
+  line-height: 32px;
+  font-size: 16px;
+  font-weight: normal;
+}
+
+.playground-manual-table table {
+  background: rgb(72, 176, 53);
+  border-radius: 0.25em;
+  border-collapse: collapse;
+  margin: 1em;
+}
+
+.playground-manual-table th {
+  border-bottom: 1px solid white;
+  color: white;
+  font-size: 0.85em;
+  font-weight: 600;
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.playground-manual-table {
+  display: flex;
+  justify-content: center;
+}
+
+.playground-manual-table td {
+  color: #fff;
+  font-weight: 400;
+  padding: 0.65em 1em;
+}
+
+.playground-manual-table .disabled td {
+  color: #4F5F64;
+}
+
+.playground-manual-table tbody tr {
+  transition: background 0.25s ease;
+}
+
+.playground-manual-table tbody tr:hover {
+  background: #2c974b;
+}

@@ -142,11 +142,12 @@ void SetLanguage(SupportedLanguage language) {
 }
 
 SupportedLanguage GetCurrentSupportedLanguage() {
-  const char* lang = GetLanguage();
-  if (kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "zh") == 0)
+  if (kiwi::base::StartsWith(GetLanguage(), "zh-") ||
+      kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "zh") == 0)
     return SupportedLanguage::kSimplifiedChinese;
 
-  if (kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "ja") == 0)
+  if (kiwi::base::StartsWith(GetLanguage(), "ja-") ||
+      kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "ja") == 0)
     return SupportedLanguage::kJapanese;
 
   return SupportedLanguage::kEnglish;

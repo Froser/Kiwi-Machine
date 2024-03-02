@@ -161,7 +161,14 @@ if (IOS)
     )
 endif ()
 
-if (${KIWI_EMBEDDED_ROMS} OR EMSCRIPTEN)
+if (EMSCRIPTEN)
+    list(APPEND Sources
+            utility/emscripten/bridge_api.cc
+            utility/emscripten/bridge_api.h
+    )
+endif ()
+
+if (${KIWI_EMBEDDED_ROMS} AND NOT EMSCRIPTEN)
     set(USE_EMBEDDED_ROMS ON)
 else ()
     set(USE_EMBEDDED_ROMS OFF)
@@ -226,7 +233,7 @@ target_include_directories(${PROJECT_NAME}
         "../../third_party/imgui"
 )
 
-if (${KIWI_EMBEDDED_ROMS})
+if (${USE_EMBEDDED_ROMS})
     target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
 else ()
     target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static PRIVATE KIWI_USE_EXTERNAL_PAK)

@@ -105,6 +105,14 @@ Cross-Origin-Embedder-Policy: require-corp
 ```
 如果浏览器中显示了`SharedArrayBuffer is not defined`错误，请检查响应头是否设置正确。
 
+### 前端页面构建方式
+本工程中包含了前端工程，位于`src/client/kiwi_machine_wasm/kiwi-machine`
+
+构建方法：
+1. 先按照`WebAssembly (WASM) 构建方式`构建WebAssembly产物
+2. 参考调用`src/client/kiwi_machine_wasm/update.py 你的WebAssembly工程目录`，将wasm产物拷贝过来
+3. 使用npm进行前端构建、部署
+
 ### 产物介绍
 
 - kiwi：模拟器内核。

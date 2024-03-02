@@ -1,0 +1,74 @@
+<!doctypehtml>
+<html lang=en-us style="height:100%">
+<head>
+    <meta charset=utf-8>
+    <meta content="text/html; charset=utf-8" http-equiv=Content-Type>
+    <title>Kiwi Machine</title></head>
+<style>
+  .full {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+  }
+
+  .playground {
+    height: 100%;
+    border: none;
+    display: block;
+    margin: auto
+  }
+</style>
+<body class="full">
+<div class="full">
+    <canvas class="playground" id="canvas" oncontextmenu=event.preventDefault()></canvas>
+</div>
+<script>
+  var Module = {
+    preRun: [],
+    postRun: [
+      () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const romUrl = urlParams.get('rom');
+
+        const loadROMBinary = function (url) {
+          fetch(url).then(e => e.blob().then(e => {
+            e.arrayBuffer().then(e => {
+              let n = new Uint8Array(e), o = "template.nes", t = FS.open(o, "w+");
+              FS.write(t, n, 0, n.length, 0), FS.close(t), Module.ccall("LoadROMFromTempPath", null, ["string"], [o])
+            })
+          }))
+        }
+
+        if (romUrl === null || romUrl === '') {
+          fetch("roms/db.json").then(response => {
+            response.json().then(db => {
+              const name = db[0].name;
+              loadROMBinary(`roms/${name}/${name}.nes`);
+            })
+          })
+        } else {
+          loadROMBinary(`${romUrl}`);
+        }
+      }
+    ],
+    arguments: ['--lang=' + navigator.language],
+    canvas: (() => {
+      var e = document.getElementById("canvas");
+      return e.addEventListener("webglcontextlost", (e => {
+        console.log("WebGL context lost. You will need to reload the page."), e.preventDefault()
+      }), !1), e
+    })(),
+    print: (function () {
+      return function (text) {
+        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+        console.log(text);
+      };
+    })(),
+  };
+  window.onerror = e => {
+    console.log("Exception thrown, see JavaScript console")
+  }
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

@@ -1,0 +1,63 @@
+/*
+Copyright (C) 2024 Yisi Yu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+ */
+
+.gameitem {
+  padding: 10px;
+  margin: 5px;
+}
+
+.gameitem:hover {
+  background: rgba(72, 176, 53, 0.1);
+}
+
+.gameitem-checked {
+  background: rgba(72, 176, 53, 0.5) !important;
+}
+
+.gameitem > img {
+  width: 150px;
+  height: 200px;
+  padding-top: 10px;
+  object-fit: scale-down;
+}
+
+.gameitem-contents {
+  display: block;
+}
+
+.gameitem-contents p {
+  margin: 0;
+}
+
+.gameitem-flex {
+  display: flex;
+  text-align: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.gameitem-modal-thumbnail {
+  width: 150px;
+  height: 200px;
+  padding-top: 10px;
+  object-fit: scale-down;
+}
+
+.gameitem-modal-item {
+  padding: 10px 10px;
+}
+
+.gameitem-modal-content {
+  padding-top: 10px;
+}

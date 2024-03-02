@@ -29,6 +29,7 @@ class Splash : public Widget {
 
  public:
   void Play();
+  void SetClosedCallback(kiwi::base::RepeatingClosure callback);
 
  protected:
   void Paint() override;
@@ -46,9 +47,11 @@ class Splash : public Widget {
   NESRuntime::Data* runtime_data_ = nullptr;
   Timer fade_timer_;
   Timer splash_timer_;
+  kiwi::base::RepeatingClosure closed_callback_;
 
   enum class SplashState {
     kLogo,
+#if !KIWI_WASM
 #if !KIWI_MOBILE
     kHowToPlayKeyboard,
     kClosingHowToPlayKeyboard,
@@ -56,10 +59,12 @@ class Splash : public Widget {
     kClosingHowToPlayJoystick,
 #endif
     kIntroduction,
+#endif
     kClosing,
   };
   SplashState state_ = SplashState::kLogo;
 
+#if !KIWI_WASM
   // String lists
   std::string str_how_to_play_;
   FontType font_how_to_play_;
@@ -83,6 +88,7 @@ class Splash : public Widget {
   FontType font_special_collections_;
   std::string str_special_collections_contents_;
   FontType font_special_collections_contents_;
+#endif
 };
 
 #endif  // UI_WIDGETS_SPLASH_H_

@@ -10,3 +10,10 @@
 /cmake-build-release-intel/
 /cmake-build-emscripten_debug/
 /cmake-build-emscripten/
+!/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.html
+
+!/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.worker.js
+
+!/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.wasm
+
+!/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.js

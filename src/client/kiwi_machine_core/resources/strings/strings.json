@@ -65,9 +65,9 @@
     "ja": "Kiwi Machineについて"
   },
   "IDR_ABOUT_CONTENTS": {
-    "default": "\nKiwi machine is an open sources NES\nemulator with lots of preset games.\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nCore Version: Kiwi 1.0.0\nUI Version: 1.0.0\nProgrammed by Yu Yisi\n\n",
-    "zh": "\nKiwi machine是一个开源的红白机器模拟器，并内置许多游戏。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\n内核版本: Kiwi 1.0.0\nUI版本: 1.0.0\n程序：于益偲\n\n",
-    "ja": "\nKiwi machineとはオープンソースのFAMICOMシミュレーターで，たくさんのゲームが集めてあります。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nコアバージョン: Kiwi 1.0.0\nUIバージョン: 1.0.0\nプログラム：于益偲（エキ）\n\n"
+    "default": "\nKiwi machine is an open sources NES\nemulator with lots of preset games.\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nCore Version: Kiwi 1.1.0\nUI Version: 1.1.0\nProgrammed by Yu Yisi\n\n",
+    "zh": "\nKiwi machine是一个开源的红白机器模拟器，并内置许多游戏。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\n内核版本: Kiwi 1.1.0\nUI版本: 1.1.0\n程序：于益偲\n\n",
+    "ja": "\nKiwi machineとはオープンソースのFAMICOMシミュレーターで，たくさんのゲームが集めてあります。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nコアバージョン: Kiwi 1.1.0\nUIバージョン: 1.1.0\nプログラム：于益偲（エキ）\n\n"
   },
   "IDR_ABOUT_GO_BACK": {
     "default": "Press joystick button 'B' to go back.",

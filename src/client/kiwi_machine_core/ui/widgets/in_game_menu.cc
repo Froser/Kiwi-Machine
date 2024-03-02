@@ -595,11 +595,9 @@ void InGameMenu::Paint() {
 #if !KIWI_WASM
             bool has_right = !main_window_->is_fullscreen();
 #else
-            // There's an issue(perhaps a bug) on Emscripten when set
-            // fullscreen. "Operation does not support unaligned accesses" at
-            // wasm.emscripten_thread_mailbox_ref.
-            // So fullscreen is disabled here.
-            bool has_right = window_scaling_for_settings < kMaxScaling;
+            // Disable window settings. It should be handled by <canvas>.
+            has_no_left = true;
+            bool has_right = false;
 #endif
 #else
             bool has_no_left = !main_window_->is_stretch_mode();
