@@ -11,16 +11,21 @@
 // GNU General Public License for more details.
 
 import "./Arcade.css"
-import {useState} from "react";
+import {useRef, useState} from "react";
 import Header from "./Header";
 import Playground from "./Playground";
 import GameList from "./GameList";
 
 export default function Arcade() {
-  const [romUrl, setRomUrl] = useState('');
+  const [frameRef, setFrameRef] = useState(useRef());
   const [romName, setRomName] = useState('');
   const loadRom = (romUrl, romName) => {
-    setRomUrl(romUrl);
+    frameRef.current.contentWindow.postMessage(
+      {
+        type: 'loadROMBinary',
+        url: romUrl
+      }
+    );
     setRomName(romName);
   }
 
@@ -28,7 +33,7 @@ export default function Arcade() {
     <>
       <Header content="Kiwi Machine"></Header>
       <div className="arcade">
-        <Playground romUrl={romUrl}/>
+        <Playground setFrameRef={setFrameRef}/>
         <GameList loadRom={loadRom} romName={romName}/>
       </div>
     </>

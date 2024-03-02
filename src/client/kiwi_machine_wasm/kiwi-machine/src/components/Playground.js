@@ -13,16 +13,21 @@
 import "./Playground.css"
 import Button from "./basic/Button";
 import Modal from "./basic/Modal";
-import {useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import NESController from "./basic/NESController";
 
-export default function Playground({romUrl}) {
+export default function Playground({setFrameRef}) {
+  const frameRef = useRef(null);
   const [manualModal, setManualModal] = useState(false);
   const [aboutModal, setAboutModal] = useState(false);
 
+  useEffect(() => {
+    setFrameRef(frameRef);
+  }, [setFrameRef]);
+
   return (
     <div className="playground">
-      <iframe className="playground-frame" src={`./kiwi_machine.html?rom=${romUrl}`}>
+      <iframe className="playground-frame" ref={frameRef} src="kiwi_machine.html">
       </iframe>
 
       <div className='playground-control'>
