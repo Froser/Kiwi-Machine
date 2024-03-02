@@ -182,15 +182,15 @@ bool KiwiItemsWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
       if (is_moving_horizontally_) {
         // When moving horizontally:
         SetIndex(GetNearestIndexByFinger());
-        for (size_t i = 0; i < children().size(); ++i) {
-          items_bounds_next_[i] = children()[i]->bounds();
+        for (size_t i = 0; i < items_.size(); ++i) {
+          items_bounds_next_[i] = items_[i]->bounds();
         }
         IndexChanged();
       } else {
         // When clicking, only if finger is not moving will trigger the item.
-        for (size_t i = 0; i < children().size(); ++i) {
+        for (size_t i = 0; i < items_.size(); ++i) {
           SDL_Rect client_rect = window()->GetClientBounds();
-          SDL_Rect child_bounds = children()[i]->bounds();
+          SDL_Rect child_bounds = items_[i]->bounds();
           int x = finger_down_x_ * client_rect.w,
               y = finger_down_y_ * client_rect.h;
           if (Contains(child_bounds, x, y)) {
@@ -340,8 +340,8 @@ void KiwiItemsWidget::ApplyItemBoundsByFinger() {
   SDL_Rect rect = window()->GetClientBounds();
   int dx = (finger_x_ - finger_down_x_) * rect.w;
 
-  for (size_t i = 0; i < children().size(); ++i) {
-    children()[i]->set_bounds(
+  for (size_t i = 0; i < items_.size(); ++i) {
+    items_[i]->set_bounds(
         SDL_Rect{items_bounds_current_[i].x + dx, items_bounds_current_[i].y,
                  items_bounds_current_[i].w, items_bounds_current_[i].h});
   }
@@ -405,22 +405,22 @@ bool KiwiItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
 }
 
 int KiwiItemsWidget::GetNearestIndexByFinger() {
-  SDL_assert(!children().empty());
-  if (children().size() == 1)
+  SDL_assert(!items_.empty());
+  if (items_.size() == 1)
     return 0;
 
   const int kCenter = bounds().w / 2;
-  int t = std::abs(children()[0]->bounds().x - kCenter);
+  int t = std::abs(items_[0]->bounds().x - kCenter);
 
-  for (size_t i = 1; i < children().size(); ++i) {
-    int dis = std::abs(children()[i]->bounds().x - kCenter);
+  for (size_t i = 1; i < items_.size(); ++i) {
+    int dis = std::abs(items_[i]->bounds().x - kCenter);
     if (dis < t)
       t = dis;
     else
       return i - 1;
   }
 
-  return children().size() - 1;
+  return items_.size() - 1;
 }
 
 void KiwiItemsWidget::IndexChanged() {
