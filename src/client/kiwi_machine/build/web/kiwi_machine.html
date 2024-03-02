@@ -39,6 +39,14 @@
           }))
         }
 
+        // Handle load ROM message from React components
+        window.addEventListener('message', (event) => {
+          const message = event.data;
+          if (message.type === 'loadROMBinary') {
+            loadROMBinary(message.url);
+          }
+        }, false);
+
         if (romUrl === null || romUrl === '') {
           fetch("roms/db.json").then(response => {
             response.json().then(db => {
