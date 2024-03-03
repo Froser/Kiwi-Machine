@@ -16,11 +16,6 @@ import Arcade from "./components/Arcade";
 import Background from "./components/Background";
 
 function App() {
-  const [romUrl, setRomUrl] = useState('');
-  const loadRom = (romName) => {
-    setRomUrl(romName);
-  }
-
   return (
     <div className="app">
       <Background/>

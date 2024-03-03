@@ -91,6 +91,7 @@ void SetEffectVolume(float volume) {
 #endif
 }
 
+#if !DISABLE_SOUND_EFFECTS
 void PlayEffect(audio_resources::AudioID aid) {
 #if !KIWI_MOBILE && !KIWI_WASM
   if (!g_is_mute) {
@@ -105,3 +106,4 @@ void PlayEffect(audio_resources::AudioID aid) {
   }
 #endif
 }
+#endif

@@ -13,11 +13,18 @@
 #ifndef UTILITY_AUDIO_EFFECTS_H_
 #define UTILITY_AUDIO_EFFECTS_H_
 
+#include "build/kiwi_defines.h"
 #include "resources/audio_resources.h"
 
 void InitializeAudioEffects();
 void UninitializeAudioEffects();
 void SetEffectVolume(float volume);
+
+#if DISABLE_SOUND_EFFECTS
+// If sound effects is disabled, PlayEffect() function will an empty macro.
+#define PlayEffect(type) ;
+#else
 void PlayEffect(audio_resources::AudioID type);
+#endif
 
 #endif  // UTILITY_AUDIO_EFFECTS_H_

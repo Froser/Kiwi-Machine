@@ -16,6 +16,7 @@
 #include <imgui.h>
 #include <string>
 
+#include "build/kiwi_defines.h"
 #include "resources/string_resources.h"
 
 namespace preset_roms {
@@ -24,8 +25,12 @@ struct PresetROM;
 
 enum class SupportedLanguage {
   kEnglish,
+#if !DISABLE_CHINESE_FONT
   kSimplifiedChinese,
+#endif
+#if !DISABLE_JAPANESE_FONT
   kJapanese,
+#endif
 
   kMax,
 };

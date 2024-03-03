@@ -15,6 +15,7 @@
 #include <imgui.h>
 #include <kiwi_nes.h>
 
+#include "build/kiwi_defines.h"
 #include "preset_roms/preset_roms.h"
 #include "resources/font_resources.h"
 #include "resources/string_resources.h"
@@ -84,11 +85,15 @@ ImFont* ScopedFont::GetFont() {
 
 void InitializeFonts() {
   REGISTER_SYS_FONT(FontType::kSystemDefault, 13);
+#if !DISABLE_CHINESE_FONT
   REGISTER_FONT(FontType::kDefaultSimplifiedChinese,
                 font_resources::FontID::kDengb, 16,
                 GetGlyphRanges(SupportedLanguage::kSimplifiedChinese).begin());
+#endif
+#if !DISABLE_JAPANESE_FONT
   REGISTER_FONT(FontType::kDefaultJapanese, font_resources::FontID::kYumindb,
                 16, GetGlyphRanges(SupportedLanguage::kJapanese).begin());
+#endif
   REGISTER_FONT(FontType::kDefault, font_resources::FontID::kSupermario256, 16,
                 NULL);
 }
@@ -102,14 +107,18 @@ FontType GetPreferredFontType(PreferredFontSize size,
                                   static_cast<int>(size)));
 
   switch (GetCurrentSupportedLanguage()) {
+#if !DISABLE_CHINESE_FONT
     case SupportedLanguage::kSimplifiedChinese:
       return (static_cast<FontType>(
           static_cast<int>(FontType::kDefaultSimplifiedChinese) +
           static_cast<int>(size)));
+#endif
+#if !DISABLE_JAPANESE_FONT
     case SupportedLanguage::kJapanese:
       return (
           static_cast<FontType>(static_cast<int>(FontType::kDefaultJapanese) +
                                 static_cast<int>(size)));
+#endif
     default:
       return (static_cast<FontType>(static_cast<int>(default_type) +
                                     static_cast<int>(size)));

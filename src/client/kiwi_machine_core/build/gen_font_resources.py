@@ -1,4 +1,5 @@
 import io
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -47,7 +48,13 @@ def GenCPP(file):
 
 def main():
     output_dir = sys.argv[1]
+    use_wasm_ignore = len(sys.argv) > 2 and sys.argv[2] == 'ON'
+    wasm_ignores = []
     print("Font resources output dir is", output_dir)
+    if use_wasm_ignore:
+        print("Generated for wasm env.")
+        with open('./resources/fonts/wasm_ignore.json', 'r', encoding='utf-8') as f:
+            wasm_ignores = json.load(f)
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
@@ -67,17 +74,20 @@ namespace font_resources {
     all_switches = ''
     for f in sorted(Path('./resources/fonts').iterdir()):
         if f.suffix == '.ttf' or f.suffix == '.ttc':
-            data, token = GenCPP(f)
-            token_size = token + 'Size'
-            all_externs += 'extern const unsigned char ' + token + '[];\n'
-            all_externs += 'extern size_t ' + token_size + ';\n'
-            all_tokens += '  ' + token + ',\n'
-            all_data += data
-            all_switches += '    case FontID::' + token + ': {\n'
-            all_switches += '      if (size_out)\n'
-            all_switches += '        *size_out = font_resources::' + token_size + ';\n'
-            all_switches += '      return font_resources::' + token + ';\n'
-            all_switches += '    }\n'
+            if not f.name in wasm_ignores:
+                data, token = GenCPP(f)
+                token_size = token + 'Size'
+                all_externs += 'extern const unsigned char ' + token + '[];\n'
+                all_externs += 'extern size_t ' + token_size + ';\n'
+                all_tokens += '  ' + token + ',\n'
+                all_data += data
+                all_switches += '    case FontID::' + token + ': {\n'
+                all_switches += '      if (size_out)\n'
+                all_switches += '        *size_out = font_resources::' + token_size + ';\n'
+                all_switches += '      return font_resources::' + token + ';\n'
+                all_switches += '    }\n'
+            else:
+                print(f.name, 'is in ignore list. Ignored.')
 
     header_file = output_dir + '/font_resources.h'
     with open(header_file, "w") as o:

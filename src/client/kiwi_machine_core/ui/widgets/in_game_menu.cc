@@ -767,16 +767,20 @@ void InGameMenu::Paint() {
           SupportedLanguage language = GetCurrentSupportedLanguage();
           const char* str_lang = nullptr;
           switch (language) {
+#if !DISABLE_CHINESE_FONT
             case SupportedLanguage::kSimplifiedChinese:
               str_lang = GetLocalizedString(
                              string_resources::IDR_IN_GAME_MENU_LANGUAGE_ZH)
                              .c_str();
               break;
+#endif
+#if !DISABLE_JAPANESE_FONT
             case SupportedLanguage::kJapanese:
               str_lang = GetLocalizedString(
                              string_resources::IDR_IN_GAME_MENU_LANGUAGE_JP)
                              .c_str();
               break;
+#endif
             case SupportedLanguage::kEnglish:
             default:
               str_lang = GetLocalizedString(

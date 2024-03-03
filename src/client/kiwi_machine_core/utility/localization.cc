@@ -31,10 +31,12 @@ const char* ToLanguageCode(SupportedLanguage language) {
   switch (language) {
     case SupportedLanguage::kEnglish:
       return "en";
+#if !KIWI_WASM
     case SupportedLanguage::kSimplifiedChinese:
       return "zh";
     case SupportedLanguage::kJapanese:
       return "ja";
+#endif
     default:
       SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Wrong language type %d",
                   static_cast<int>(language));
@@ -127,12 +129,16 @@ void SetLanguage(SupportedLanguage language) {
     case SupportedLanguage::kEnglish:
       SetLanguage("en");
       break;
+#if !DISABLE_CHINESE_FONT
     case SupportedLanguage::kSimplifiedChinese:
       SetLanguage("zh");
       break;
+#endif
+#if !DISABLE_JAPANESE_FONT
     case SupportedLanguage::kJapanese:
       SetLanguage("ja");
       break;
+#endif
     default:
       SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Wrong language type %d",
                   static_cast<int>(language));
@@ -142,13 +148,16 @@ void SetLanguage(SupportedLanguage language) {
 }
 
 SupportedLanguage GetCurrentSupportedLanguage() {
+#if !DISABLE_CHINESE_FONT
   if (kiwi::base::StartsWith(GetLanguage(), "zh-") ||
       kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "zh") == 0)
     return SupportedLanguage::kSimplifiedChinese;
-
+#endif
+#if !DISABLE_JAPANESE_FONT
   if (kiwi::base::StartsWith(GetLanguage(), "ja-") ||
       kiwi::base::CompareCaseInsensitiveASCII(GetLanguage(), "ja") == 0)
     return SupportedLanguage::kJapanese;
+#endif
 
   return SupportedLanguage::kEnglish;
 }
