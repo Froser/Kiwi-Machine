@@ -17,12 +17,8 @@ import {
   getROMImageUrlFromContents,
   getLocaleTitleFromContents,
 } from "../services/rom";
-import Modal from "./basic/Modal";
-import {useState} from "react";
 
-export default function GameItem({contents, loadRom, romName, romId}) {
-  const [detailModal, setDetailModal] = useState(false);
-
+export default function GameItem({contents, loadRom, romName, romId, showDetailModal}) {
   const onLoadRom = function () {
     return () => {
       loadRom(getROMUrlFromContents(contents), contents.name);
@@ -34,24 +30,11 @@ export default function GameItem({contents, loadRom, romName, romId}) {
 
   return (
     <div className={gameItemClass}>
-      <Modal show={detailModal} title="游戏介绍">
-        <div className="gameitem-flex">
-          <img className="gameitem-modal-item gameitem-modal-thumbnail" src={getROMImageUrlFromContents(contents)}
-               alt={contents.name}/>
-          <div className="gameitem-modal-item gameitem-modal-content">
-            <p>英文名：{contents.name}</p>
-            <p>中文名：{contents.zh}</p>
-            <p>日文名：{contents.ja}</p>
-            <div style={{height: '20px'}}></div>
-            <Button text='关闭' onClick={() => setDetailModal(false)}/>
-          </div>
-        </div>
-      </Modal>
-      <img src={getROMImageUrlFromContents(contents)} alt={contents.name}/>
+      <img src={getROMImageUrlFromContents(contents)} loading="lazy" alt={contents.name}/>
       <div className="gameitem-contents">
         <p>{getLocaleTitleFromContents(contents)}</p>
         <Button onClick={onLoadRom()} text="开始游戏"/>
-        <Button onClick={() => setDetailModal(true)} text="游戏资料"/>
+        <Button onClick={() => showDetailModal(true, contents)} text="游戏资料"/>
       </div>
     </div>
   )

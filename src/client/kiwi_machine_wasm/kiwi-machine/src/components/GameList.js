@@ -13,12 +13,23 @@
 import "./GameList.css"
 import {useState} from "react";
 import GameItem from "./GameItem";
-import {isLocaleTitleContains} from "../services/rom";
+import {getROMImageUrlFromContents, isLocaleTitleContains} from "../services/rom";
 import SearchInput from "./basic/SearchInput";
+import Modal from "./basic/Modal";
+import Button from "./basic/Button";
 
 export default function GameList({loadRom, romName}) {
+  // Set the full ROM database.
   const [gameDb, setGameDb] = useState(null);
+
+  // Current keyword for filter.
   const [keyword, setKeyword] = useState('');
+
+  // Whether show the ROM detail modal.
+  const [modalVisible, setModalVisible] = useState(false);
+
+  // Set detail modal's content.
+  const [modalContent, setModalContents] = useState({});
 
   if (!gameDb) {
     fetch('roms/db.json').then((response) => {
@@ -32,17 +43,38 @@ export default function GameList({loadRom, romName}) {
     setKeyword(event.currentTarget.value)
   }
 
+  const showDetailModal = (show, contents) => {
+    setModalContents(contents);
+    setModalVisible(true);
+  }
+
   if (!gameDb) {
     return <div/>;
   } else {
     const items = gameDb.filter(item => {
       return isLocaleTitleContains(item, keyword)
     }).map(item => {
-      return <GameItem key={item.id} contents={item} loadRom={loadRom} romName={romName} romId={item.id}/>
+      return <GameItem key={item.id} contents={item} loadRom={loadRom} romName={romName} romId={item.id}
+                       showDetailModal={showDetailModal}/>
     });
 
     return (
       <div>
+        <Modal show={modalVisible} title="游戏介绍" setVisible={setModalVisible}>
+          <div className="gamelist-flex">
+            <img className="gamelist-modal-item gamelist-modal-thumbnail" loading="lazy"
+                 src={getROMImageUrlFromContents(modalContent)}
+                 alt={modalContent.name}/>
+            <div className="gamelist-modal-item gamelist-modal-content">
+              <p>英文名：{modalContent.name}</p>
+              <p>中文名：{modalContent.zh}</p>
+              <p>日文名：{modalContent.ja}</p>
+              <div style={{height: '20px'}}></div>
+              <Button text='关闭' onClick={() => setModalVisible(false)}/>
+            </div>
+          </div>
+        </Modal>
+
         <div className="gamelist">
           <div className="gamelist-input">
             <SearchInput type='text' onInput={updateKeyword} text='搜索你喜欢的游戏'/>

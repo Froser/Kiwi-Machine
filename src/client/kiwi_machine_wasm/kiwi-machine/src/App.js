@@ -11,7 +11,6 @@
 // GNU General Public License for more details.
 
 import './App.css';
-import {useState} from "react";
 import Arcade from "./components/Arcade";
 import Background from "./components/Background";
 

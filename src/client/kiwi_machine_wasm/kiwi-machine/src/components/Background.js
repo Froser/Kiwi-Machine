@@ -12,28 +12,32 @@
 
 import "./Background.css"
 
-
-function LogoTile() {
+function LogoTile(key) {
   return (
-    <div className='background-tile'>
+    <div className='background-tile' key={key}>
       <img src='/kiwi.png' alt='Kiwi Machine'></img>
     </div>
   )
 }
 
-function LogoRow() {
-  const arbitrary = new Array(20).fill(LogoTile(), 0, 20);
+function LogoRow(key) {
+  const arbitrary = new Array(20)
+  for (let i = 0; i < arbitrary.length; ++i) {
+    arbitrary[i]= (LogoTile(i))
+  }
 
   return (
-    <div className='background-row'>
+    <div className='background-row' key={key}>
       {arbitrary}
     </div>
   )
 }
 
 export default function Background() {
-  const arbitrary = new Array(20).fill(LogoRow(), 0, 20);
-
+  const arbitrary = new Array(20)
+  for (let i = 0; i < arbitrary.length; ++i) {
+    arbitrary[i]= (LogoRow(i))
+  }
   return (
     <div className="background">
       {arbitrary}

@@ -39,25 +39,3 @@ GNU General Public License for more details.
 .gameitem-contents p {
   margin: 0;
 }
-
-.gameitem-flex {
-  display: flex;
-  text-align: center;
-  justify-content: center;
-  width: 100%;
-}
-
-.gameitem-modal-thumbnail {
-  width: 150px;
-  height: 200px;
-  padding-top: 10px;
-  object-fit: scale-down;
-}
-
-.gameitem-modal-item {
-  padding: 10px 10px;
-}
-
-.gameitem-modal-content {
-  padding-top: 10px;
-}
