@@ -451,15 +451,17 @@ void KiwiItemsWidget::AddSubItemTouchArea(int sub_item_index,
 bool KiwiItemsWidget::Sort() {
   if (can_sort_) {
     KiwiItemWidget* current_item = items_[current_index()];
-    std::sort(items_.begin(), items_.end(),
-              [](KiwiItemWidget* lhs, KiwiItemWidget* rhs) {
-                // Comparison order:
-                // Hints, raw title, and translated title.
-                // We don't have to involve a full collate library such as icu, so we write hints manually.
-                std::string lhs_str = lhs->title_updater_->GetCollateStringHint();
-                std::string rhs_str = rhs->title_updater_->GetCollateStringHint();
-                return lhs_str < rhs_str;
-              });
+    std::sort(
+        items_.begin(), items_.end(),
+        [](KiwiItemWidget* lhs, KiwiItemWidget* rhs) {
+          // Comparison order:
+          // Hints, raw title, and translated title.
+          // We don't have to involve a full collate library such as icu, so we
+          // write hints manually.
+          std::string lhs_str = lhs->title_updater_->GetCollateStringHint();
+          std::string rhs_str = rhs->title_updater_->GetCollateStringHint();
+          return lhs_str < rhs_str;
+        });
 
     // Restore item
     auto item_iter = std::find(items_.begin(), items_.end(), current_item);

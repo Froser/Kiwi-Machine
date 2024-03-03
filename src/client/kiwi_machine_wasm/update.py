@@ -24,6 +24,7 @@ from pathlib import Path
 build_dir = sys.argv[1]
 rom_id = 0
 
+
 def CopyFile(src, dest):
     print("Copying ", src, " to ", dest)
     shutil.copy(src, dest)
@@ -57,36 +58,58 @@ def GenerateDatabase(dir):
 
 def AddManifestFromDir(db, relpath, file_or_dir):
     for f in sorted(Path(file_or_dir).iterdir()):
-        AddManifestToJson(db, file_or_dir, f)
+        AddManifestToJson(db, relpath, f)
+
+
+def WriteManifestToDb(manifest_data_titles, db, manifest_file):
+    global rom_id
+    # Separate ROM details to database.
+    for title in manifest_data_titles:
+        if title == 'default':
+            manifest_data_titles['default']['id'] = rom_id
+            manifest_data_titles['default']['name'] = manifest_file.parent.name
+            db.append(manifest_data_titles['default'])
+        else:
+            manifest_data_titles[title]['id'] = rom_id
+            manifest_data_titles[title]['name'] = title
+            manifest_data_titles[title]['dir'] = manifest_file.parent.name
+            db.append(manifest_data_titles[title])
+        rom_id += 1
 
 
 def AddManifestToJson(db, relpath, file_or_dir):
     global rom_id
-    if file_or_dir.is_file() and file_or_dir.name == 'manifest.json':
-        # If a directory has manifest.json, this is what we want.
-        # Load manifest, and set it to the database json file.
-        print('Found manifest', file_or_dir.absolute())
+    if file_or_dir.is_file():
+        manifest_data_titles = {}
+        if file_or_dir.name == 'manifest.json':
+            manifest_data = {}
+            # If a directory has manifest.json, this is what we want.
+            # Load manifest, and set it to the database json file.
+            print('Found manifest', file_or_dir.absolute())
 
-        # Read manifest.json
-        manifest_data = {}
-        with open(file_or_dir.absolute(), 'r', encoding='utf-8') as f:
-            manifest_data = json.load(f)
-        manifest_data_title = manifest_data['titles']
+            # Read manifest.json
+            with open(file_or_dir.absolute(), 'r', encoding='utf-8') as f:
+                manifest_data = json.load(f)
+            manifest_data_titles = manifest_data['titles']
 
-        # Separate ROM details to database.
-        for title in manifest_data_title:
-            if title == 'default':
-                manifest_data_title['default']['id'] = rom_id
-                manifest_data_title['default']['name'] = file_or_dir.parent.name
-                db.append(manifest_data_title['default'])
-            else:
-                manifest_data_title[title]['id'] = rom_id
-                manifest_data_title[title]['name'] = title
-                manifest_data_title[title]['dir'] = file_or_dir.parent.name
-                db.append(manifest_data_title[title])
-            rom_id += 1
+        elif file_or_dir.suffix == '.nes':
+            if not (file_or_dir.parent.joinpath('manifest.json')).exists():
+                # If there's no manifest, it may be a hacked ROM, so we have to construct its manifest.json to memory.
+                print("No manifest file (", file_or_dir.parent.joinpath('manifest.json'), ") for ROM, create one: ",
+                      file_or_dir)
+                manifest_data_titles = {
+                    'default': {
+                        'id': rom_id,
+                        'name': file_or_dir.parent,
+                        'dir': file_or_dir.parent.relative_to(Path(relpath)).as_posix()
+                    }
+                }
+
+        # Write db
+        WriteManifestToDb(manifest_data_titles, db, file_or_dir)
+        return True
     elif file_or_dir.is_dir():
-        AddManifestFromDir(db, relpath, file_or_dir)
+        return AddManifestFromDir(db, relpath, file_or_dir)
 
 
 def main():
@@ -98,6 +121,7 @@ def main():
     print('Done')
 
     # Copy roms
+    shutil.rmtree('./kiwi-machine/public/roms')
     ExtractAllTo('../kiwi_machine_core/build/nes', './kiwi-machine/public/roms')
 
     # Generate database json

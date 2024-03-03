@@ -14,17 +14,66 @@
   .playground {
     height: 100%;
     border: none;
-    display: block;
+    display: none;
     margin: auto
   }
+
+  .loading {
+    height: 100%;
+    border: none;
+    margin: auto;
+  }
+
+  .loading .container {
+    display: flex;
+    height: 100%;
+  }
+
+  .spinner {
+    width: 10em;
+    height: 10em;
+    border-top: 1em solid rgb(72, 176, 53);
+    border-right: 1em solid transparent;
+    border-radius: 50%;
+    margin: auto;
+    animation: spinner 0.6s linear infinite;
+  }
+
+  .head {
+    width: 1em;
+    height: 1em;
+    background-color: rgb(72, 176, 53);
+    border-radius: 50%;
+    margin-left: 8.5em;
+    margin-top: 0.5em;
+  }
+
+  @keyframes spinner {
+    100% {
+      transform: rotate(360deg)
+    }
+  }
+
 </style>
 <body class="full">
 <div class="full">
+    <div id="loading" class="loading">
+      <div class="container">
+        <div class="spinner" style="font-size: 18px">
+          <div class="head"></div>
+        </div>
+      </div>
+    </div>
     <canvas class="playground" id="canvas" oncontextmenu=event.preventDefault()></canvas>
 </div>
 <script>
   var Module = {
-    preRun: [],
+    preRun: [
+      ()=> {
+        window.document.getElementById('canvas').style.display = 'block';
+        window.document.getElementById('loading').remove();
+      }
+    ],
     postRun: [
       () => {
         const urlParams = new URLSearchParams(window.location.search);

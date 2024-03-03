@@ -34,6 +34,8 @@ export default function Playground({setFrameRef}) {
         <Modal childTop="200px" show={manualModal} setVisible={setManualModal} title="操作说明" height="400px"
                width="800px">
           <div className='playground-manual-title'>操作方式说明</div>
+          <div className='playground-manual-content'>在游戏中，您可以通过<b>ESC</b>唤起游戏选项菜单。</div>
+          <div className='playground-manual-title'>控制器布局</div>
           <NESController/>
           <div className='playground-manual-content'>键盘映射：</div>
           <div className="playground-manual-table">
@@ -106,12 +108,14 @@ export default function Playground({setFrameRef}) {
 
         <Modal show={aboutModal} setVisible={setAboutModal} title="关于Kiwi Machine" width="650px" height="400px">
           <div className="playground-about-contents">
+            <h1>关于Kiwi Machine</h1>
             <p>
               Kiwi Machine是一个跨平台的红白机模拟器，其中内置了上百个当年风靡全球的游戏，支持键盘、鼠标操作，也支持Windows、MacOS、
               Linux、iOS、Android、Web等多个平台，支持英语、简体中文和日文三种语言，提供自动存档、读档等功能。
             </p>
             <p>当前Kiwi Machine内核版本：1.1.0</p>
             <p>作者：于益偲</p>
+            <h1>不同平台差异说明</h1>
             <p>Web Kiwi Machine使用的是WebAssembly + React技术，在使用行为上与客户端版有些差异：</p>
             <ul>
               <li>由于Web Kiwi Machine是纯静态页面构成，因此无法将您的存档在线保存，您一旦重新加载页面，存档信息将会消失。
@@ -120,6 +124,12 @@ export default function Playground({setFrameRef}) {
               <li>为了提高加载效率，Web Kiwi Machine将引擎和游戏分开，以确保您切换游戏的时候能得到极致的速度体验。</li>
               <li><b>玩的时候，请留意音量。</b></li>
             </ul>
+              <h1>客户端版本下载</h1>
+              <p><a href='https://bytedance.larkoffice.com/wiki/AG1Fwd4Tji8LLgkNmuDcEMGlnBb' target='_blank'>Kiwi
+                Machine 1.1.0</a></p>
+              <p><a href='https://bytedance.larkoffice.com/wiki/W1o1wX2eTimtOjkP4CGc16H8nef' target='_blank'>Kiwi
+                Machine 1.0.0</a></p>
+            <h1>源码及技术</h1>
             <p>Kiwi Machine在Github上已经开源：
               <a href='https://github.com/froser/kiwi-machine'
                  target='_blank'>https://github.com/froser/kiwi-machine</a>

@@ -167,13 +167,7 @@ void EmulatorImpl::LoadAndRun(const base::FilePath& rom_path,
           base::BindOnce(&EmulatorImpl::Run, base::RetainedRef(this)))
           .Then(std::move(reply)));
 
-  if (working_task_runner_->RunsTasksInCurrentSequence()) {
-    Unload(std::move(load_closure));
-  } else {
-    working_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&EmulatorImpl::Unload, base::Unretained(this),
-                                  std::move(load_closure)));
-  }
+  Unload(std::move(load_closure));
 }
 
 void EmulatorImpl::LoadAndRun(const Bytes& data, base::OnceClosure callback) {

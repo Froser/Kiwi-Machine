@@ -138,7 +138,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   scoped_refptr<Cartridge> cartridge_;
   Controller controller1_;
   Controller controller2_;
-  RunningState running_state_ = RunningState::kStopped;
+  std::atomic<RunningState> running_state_ = RunningState::kStopped;
   std::chrono::high_resolution_clock::time_point cpu_cycle_timestamp_;
   std::chrono::nanoseconds cpu_cycle_elapsed_ = std::chrono::nanoseconds(0);
   std::unique_ptr<IODevices> io_devices_;
