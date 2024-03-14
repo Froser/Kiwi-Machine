@@ -15,6 +15,8 @@ import Button from "./basic/Button";
 import Modal from "./basic/Modal";
 import {useEffect, useRef, useState} from "react";
 import NESController from "./basic/NESController";
+import VolumePanel from "./VolumePanel";
+import {CreateEmulatorService} from "../services/emulator";
 
 export default function Playground({setFrameRef}) {
   const frameRef = useRef(null);
@@ -134,7 +136,7 @@ export default function Playground({setFrameRef}) {
             <h1>源码及技术</h1>
             <p>Kiwi Machine在Github上已经开源：
               <a href='https://github.com/froser/kiwi-machine'
-                 target='_blank'>https://github.com/froser/kiwi-machine</a>
+                 target='_blank' rel='noreferrer'>https://github.com/froser/kiwi-machine</a>
             </p>
             <p>技术内幕请参考Readme、相关技术文档，或工程中的代码注释</p>
             <p>如果在使用、编码、调试过程中遇到问题，请随时联系我，或者在Github上提issue.</p>
@@ -146,6 +148,11 @@ export default function Playground({setFrameRef}) {
 
         <Button text="操作说明" onClick={() => setManualModal(true)}/>
         <Button text="关于Kiwi Machine" onClick={() => setAboutModal(true)}/>
+        <Button text="游戏菜单 (ESC)" onClick={() => {
+          CreateEmulatorService(frameRef.current.contentWindow).callMenu();
+          frameRef.current.contentWindow.focus();
+        }}/>
+        <VolumePanel id='volume_slider' frame={frameRef}/>
         <span style={{lineHeight: '40px'}}>By 于益偲</span>
       </div>
     </div>

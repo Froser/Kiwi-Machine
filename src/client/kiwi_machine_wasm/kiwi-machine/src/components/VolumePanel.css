@@ -12,42 +12,16 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
  */
 
-.gamelist {
-  width: 300px;
-  height: 100%;
+.volumepanel {
   display: flex;
-  flex-direction: column;
 }
 
-.gamelist-input {
-  width: 100%;
-  margin: 5px 15px 5px 5px;
+.volumepanel-mute {
+  width: 32px;
+  height: 32px;
+  opacity: 75%;
 }
 
-.gamelist-items {
-  overflow-y: auto;
-  overflow-x: hidden;
-  height: 100%;
-}
-
-.gamelist-flex {
-  display: flex;
-  text-align: center;
-  justify-content: center;
-  width: 100%;
-}
-
-.gamelist-modal-thumbnail {
-  width: 150px;
-  height: 200px;
-  padding-top: 10px;
-  object-fit: scale-down;
-}
-
-.gamelist-modal-item {
-  padding: 10px 10px;
-}
-
-.gamelist-modal-content {
-  padding-top: 10px;
+.volumepanel-mute:hover {
+  opacity: 100%;
 }

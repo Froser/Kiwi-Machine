@@ -811,7 +811,10 @@ void InGameMenu::Paint() {
               current_setting_ == SettingsItem::kLanguage) {
             ImVec2 triangle_p0(kCenterX + kMargin + prompt_width + kMargin,
                                text_y + kTitleMenuHeight);
-            bool has_left = true, has_right = true;
+            constexpr bool kSupportChangeLanguage =
+                static_cast<int>(SupportedLanguage::kMax) > 1;
+            bool has_left = kSupportChangeLanguage,
+                 has_right = kSupportChangeLanguage;
             if (!has_left) {
               ImGui::GetWindowDrawList()->AddTriangle(
                   ImVec2(triangle_p0.x - prompt_width - kVolumeBarSpacing,

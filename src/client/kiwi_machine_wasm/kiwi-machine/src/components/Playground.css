@@ -27,6 +27,7 @@ GNU General Public License for more details.
   justify-content: center;
   padding: 10px;
   text-align: center;
+  align-items: center;
 }
 
 .playground-about-contents {

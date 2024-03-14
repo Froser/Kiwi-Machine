@@ -53,6 +53,15 @@ class MainWindow : public WindowBase,
     kPause,
   };
 
+  class Observer {
+   public:
+    Observer();
+    virtual ~Observer();
+
+   public:
+    virtual void OnVolumeChanged(float new_value);
+  };
+
  public:
   explicit MainWindow(const std::string& title,
                       NESRuntimeID runtime_id,
@@ -64,6 +73,8 @@ class MainWindow : public WindowBase,
   // WASM environment uses this instance to load roms.
   static MainWindow* GetInstance();
   void LoadROM_WASM(kiwi::base::FilePath rom_path);
+  void SetVolume_WASM(float volume);
+  void CallMenu_WASM();
 #endif
 
   float window_scale() { return config_->data().window_scale; }
@@ -75,6 +86,9 @@ class MainWindow : public WindowBase,
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
+
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
 
   // Export ROMs
   void ExportDone();
@@ -127,6 +141,7 @@ class MainWindow : public WindowBase,
                                 bool pressed);
   bool IsVirtualJoystickButtonPressed(int which,
                                       kiwi::nes::ControllerButton button);
+  void CloseInGameMenu();
 
   // Menu callbacks:
   void OnRomLoaded(const std::string& name);
@@ -202,6 +217,7 @@ class MainWindow : public WindowBase,
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;
+  std::set<MainWindow::Observer*> observers_;
 
 #if KIWI_MOBILE
   // Main menu buttons

@@ -14,6 +14,7 @@
 
 #include <gflags/gflags.h>
 #include <cmath>
+#include <iostream>
 #include <queue>
 
 #include "build/kiwi_defines.h"
@@ -190,6 +191,11 @@ std::string ROMTitleUpdater::GetCollateStringHint() {
 
 }  // namespace
 
+// Observer
+MainWindow::Observer::Observer() = default;
+MainWindow::Observer::~Observer() = default;
+void MainWindow::Observer::OnVolumeChanged(float new_value) {}
+
 MainWindow::MainWindow(const std::string& title,
                        NESRuntimeID runtime_id,
                        scoped_refptr<NESConfig> config,
@@ -229,12 +235,24 @@ MainWindow::~MainWindow() {
 
 // WASM environment uses this instance to load roms.
 MainWindow* MainWindow::GetInstance() {
+  SDL_assert(g_main_window_instance);
   return g_main_window_instance;
 }
 
 void MainWindow::LoadROM_WASM(kiwi::base::FilePath rom_path) {
   AddAfterSplashCallback(kiwi::base::BindOnce(
       &MainWindow::LoadROMByPath, kiwi::base::Unretained(this), rom_path));
+}
+
+void MainWindow::SetVolume_WASM(float volume) {
+  OnSetAudioVolume(volume);
+}
+
+void MainWindow::CallMenu_WASM() {
+  if (in_game_menu_->visible())
+    CloseInGameMenu();
+  else
+    OnInGameMenuTrigger();
 }
 
 #endif
@@ -277,6 +295,14 @@ ImVec2 MainWindow::Scaled(const ImVec2& vec2) {
 
 int MainWindow::Scaled(int i) {
   return i * window_scale();
+}
+
+void MainWindow::AddObserver(Observer* observer) {
+  observers_.insert(observer);
+}
+
+void MainWindow::RemoveObserver(Observer* observer) {
+  observers_.erase(observer);
 }
 
 bool MainWindow::IsKeyDown(int controller_id,
@@ -1137,6 +1163,11 @@ bool MainWindow::IsVirtualJoystickButtonPressed(
   return virtual_controller_button_states_[which][static_cast<int>(button)];
 }
 
+void MainWindow::CloseInGameMenu() {
+  OnResume();
+  in_game_menu_->Close();
+}
+
 void MainWindow::OnRomLoaded(const std::string& name) {
   SetLoading(false);
   ShowMainMenu(false);
@@ -1300,11 +1331,20 @@ void MainWindow::OnToggleAudioEnabled() {
 }
 
 void MainWindow::OnSetAudioVolume(float volume) {
+  if (volume < 0)
+    volume = 0;
+  else if (volume > 1.f)
+    volume = 1.f;
+
   SDL_assert(runtime_data_->emulator);
   runtime_data_->emulator->SetVolume(volume);
   SetEffectVolume(volume);
   config_->data().volume = volume;
   config_->SaveConfig();
+
+  for (auto* observer : observers_) {
+    observer->OnVolumeChanged(volume);
+  }
 }
 
 bool MainWindow::IsAudioEnabled() {
@@ -1433,19 +1473,16 @@ void MainWindow::OnInGameMenuTrigger() {
 void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
   switch (item) {
     case InGameMenu::MenuItem::kContinue: {
-      in_game_menu_->Close();
-      OnResume();
+      CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kLoadAutoSave: {
       OnLoadAutoSavedState(param);
-      OnResume();
-      in_game_menu_->Close();
+      CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kLoadState: {
       SDL_assert(param < NESRuntime::Data::MaxSaveStates);
       OnLoadState(param);
-      OnResume();
-      in_game_menu_->Close();
+      CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kSaveState: {
       SDL_assert(param < NESRuntime::Data::MaxSaveStates);
@@ -1453,12 +1490,10 @@ void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
     } break;
     case InGameMenu::MenuItem::kResetGame: {
       OnResetROM();
-      OnResume();
-      in_game_menu_->Close();
+      CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kToGameSelection: {
-      in_game_menu_->Close();
-      OnBackToMainMenu();
+      CloseInGameMenu();
     } break;
     default:
       break;
@@ -1545,10 +1580,6 @@ void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
 void MainWindow::OnInGameSettingsHandleVolume(bool is_left) {
   float volume = runtime_data_->emulator->GetVolume();
   volume = (is_left ? volume - .1f : volume + .1f);
-  if (volume < 0)
-    volume = 0;
-  else if (volume > 1.f)
-    volume = 1.f;
   OnSetAudioVolume(volume);
 }
 #endif

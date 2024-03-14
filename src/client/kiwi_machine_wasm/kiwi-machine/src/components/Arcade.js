@@ -15,17 +15,15 @@ import {useRef, useState} from "react";
 import Header from "./Header";
 import Playground from "./Playground";
 import GameList from "./GameList";
+import {CreateEmulatorService} from "../services/emulator";
 
 export default function Arcade() {
   const [frameRef, setFrameRef] = useState(useRef());
   const [romName, setRomName] = useState('');
+
   const loadRom = (romUrl, romName) => {
-    frameRef.current.contentWindow.postMessage(
-      {
-        type: 'loadROMBinary',
-        url: romUrl
-      }
-    );
+    const emulator_service = CreateEmulatorService(frameRef.current.contentWindow);
+    emulator_service.loadROM(romUrl);
     setRomName(romName);
   }
 

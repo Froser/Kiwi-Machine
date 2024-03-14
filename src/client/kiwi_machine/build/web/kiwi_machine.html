@@ -58,62 +58,79 @@
 <body class="full">
 <div class="full">
     <div id="loading" class="loading">
-      <div class="container">
-        <div class="spinner" style="font-size: 18px">
-          <div class="head"></div>
+        <div class="container">
+            <div class="spinner" style="font-size: 18px">
+                <div class="head"></div>
+            </div>
         </div>
-      </div>
     </div>
     <canvas class="playground" id="canvas" oncontextmenu=event.preventDefault()></canvas>
 </div>
 <script>
+  var KiwiMachineCallback = {
+    onVolumeChanged: (volume) => {
+      window.parent.postMessage({
+        type: 'volumeChanged',
+        data: volume
+      });
+    }
+  }
+
   var Module = {
     preRun: [
-      ()=> {
+      () => {
         window.document.getElementById('canvas').style.display = 'block';
         window.document.getElementById('loading').remove();
       }
     ],
     postRun: [
       () => {
+        Module.ccall("SetupCallbacks");
         const urlParams = new URLSearchParams(window.location.search);
         const romUrl = urlParams.get('rom');
 
-        const loadROMBinary = function (url) {
-          fetch(url).then(e => e.blob().then(e => {
-            e.arrayBuffer().then(e => {
-              let n = new Uint8Array(e), o = "template.nes", t = FS.open(o, "w+");
-              FS.write(t, n, 0, n.length, 0), FS.close(t), Module.ccall("LoadROMFromTempPath", null, ["string"], [o])
-            })
-          }))
+        const RemoteMessageHandler = {
+          loadROMBinary: function (url) {
+            fetch(url).then(e => e.blob().then(e => {
+              e.arrayBuffer().then(e => {
+                let n = new Uint8Array(e), o = "template.nes", t = FS.open(o, "w+");
+                FS.write(t, n, 0, n.length, 0), FS.close(t), Module.ccall("LoadROMFromTempPath", null, ["string"], [o])
+              })
+            }))
+          },
+          changeVolume: function (data) {
+            Module.ccall("SetVolume", null, ["number"], [data.volume]);
+          },
+          callMenu: function () {
+            Module.ccall("CallMenu");
+          }
         }
 
         // Handle load ROM message from React components
         window.addEventListener('message', (event) => {
           const message = event.data;
-          if (message.type === 'loadROMBinary') {
-            loadROMBinary(message.url);
-          }
+          RemoteMessageHandler[message.type](message.data);
         }, false);
 
         if (romUrl === null || romUrl === '') {
           fetch("roms/db.json").then(response => {
             response.json().then(db => {
               const name = db[0].name;
-              loadROMBinary(`roms/${name}/${name}.nes`);
+              RemoteMessageHandler.loadROMBinary(`roms/${name}/${name}.nes`);
             })
           })
         } else {
-          loadROMBinary(`${romUrl}`);
+          RemoteMessageHandler.loadROMBinary(`${romUrl}`);
         }
       }
     ],
     arguments: ['--lang=' + navigator.language],
     canvas: (() => {
-      var e = document.getElementById("canvas");
-      return e.addEventListener("webglcontextlost", (e => {
+      var canvas = document.getElementById("canvas");
+      canvas.addEventListener("webglcontextlost", (e => {
         console.log("WebGL context lost. You will need to reload the page."), e.preventDefault()
-      }), !1), e
+      }));
+      return canvas;
     })(),
     print: (function () {
       return function (text) {

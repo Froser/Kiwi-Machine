@@ -10,23 +10,19 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_BRIDGE_API_H_
-#define UTILITY_BRIDGE_API_H_
+import "./VolumeSlider.css"
 
-#include <emscripten.h>
-
-extern "C" {
-EMSCRIPTEN_KEEPALIVE
-void LoadROMFromTempPath(const char* filename);
-
-EMSCRIPTEN_KEEPALIVE
-void SetupCallbacks();
-
-EMSCRIPTEN_KEEPALIVE
-void SetVolume(float volume);
-
-EMSCRIPTEN_KEEPALIVE
-void CallMenu();
-};
-
-#endif  // UTILITY_BRIDGE_API_H_
+export default function VolumeSlider({className, id, onChange, value}) {
+  return (
+    <input
+      id={id}
+      className={className + " volume-slider"}
+      type="range"
+      min={0}
+      max={1}
+      step={0.1}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
