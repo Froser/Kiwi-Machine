@@ -16,16 +16,21 @@ import VolumeImage1 from "./resources/volume1.svg"
 import VolumeImage2 from "./resources/volume2.svg"
 import VolumeImage3 from "./resources/volume3.svg"
 import MuteImage from "./resources/mute.svg"
-import {useEffect, useState} from "react";
+import {ChangeEvent, RefObject, useEffect, useState} from "react";
 import {CreateEmulatorService} from "../services/emulator";
 
-export default function VolumePanel({id, frame}) {
+interface VolumePanelProps {
+  id: string,
+  frame: RefObject<HTMLIFrameElement>
+}
+
+export default function VolumePanel({id, frame}: VolumePanelProps) {
   const threshold = 0.05;
   const [muteImage, setMuteImage] = useState(VolumeImage1);
   const [volumeCache, setVolumeCache] = useState(0);
   const [volume, setVolume] = useState(1);
 
-  const refreshMuteImage = (volume) => {
+  const refreshMuteImage = (volume: number) => {
     if (volume <= threshold) {
       setMuteImage(MuteImage);
     } else if (volume < .33) {
@@ -38,35 +43,40 @@ export default function VolumePanel({id, frame}) {
   }
 
   const onMuteChanged = () => {
-    const emulator_service = CreateEmulatorService(frame.current.contentWindow);
-    const volume = window.document.getElementById(id).valueAsNumber;
+    const currentFrame = frame.current as HTMLIFrameElement;
+    const input = window.document.getElementById(id) as HTMLInputElement;
+
+    const emulator_service = CreateEmulatorService(currentFrame.contentWindow);
+    const volume = input.valueAsNumber;
     const muted = volume < threshold;
 
     if (muted) {
       emulator_service.setVolume(volumeCache);
       refreshMuteImage(volumeCache);
     } else {
-      const volume_before = window.document.getElementById(id).value;
+      const volume_before = input.valueAsNumber;
       emulator_service.setVolume(0);
       setVolumeCache(volume_before);
       refreshMuteImage(0);
     }
-    frame.current.contentWindow.focus();
+
+    currentFrame.contentWindow?.focus();
   }
 
-  const onChangeInternal = (event) => {
-    const volume = event.target.valueAsNumber;
+  const onChangeInternal = (event: ChangeEvent<HTMLElement>) => {
+    const volume = (event.target as HTMLInputElement).valueAsNumber;
     refreshMuteImage(volume);
     setVolume(volume);
 
-    const emulator_service = CreateEmulatorService(frame.current.contentWindow);
-    emulator_service.setVolume(event.target.valueAsNumber);
-
-    frame.current.contentWindow.focus();
+    const currentFrame = frame.current as HTMLIFrameElement;
+    const emulator_service = CreateEmulatorService(currentFrame.contentWindow);
+    emulator_service.setVolume((event.target as HTMLInputElement).valueAsNumber);
+    currentFrame.contentWindow?.focus();
   }
 
   useEffect(() => {
-    const volume = window.document.getElementById(id).value;
+    const input = window.document.getElementById(id) as HTMLInputElement;
+    const volume = input.valueAsNumber;
     setVolumeCache(volume);
     refreshMuteImage(volume);
   }, [id]);

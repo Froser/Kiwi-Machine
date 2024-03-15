@@ -11,16 +11,21 @@
 // GNU General Public License for more details.
 
 import "./GameList.css"
-import {useState} from "react";
+import {FormEvent, useState} from "react";
 import GameItem from "./GameItem";
-import {getROMImageUrlFromContents, isLocaleTitleContains} from "../services/rom";
+import {getROMImageUrlFromContents, isLocaleTitleContains, ROMContent} from "../services/rom";
 import SearchInput from "./basic/SearchInput";
 import Modal from "./basic/Modal";
 import Button from "./basic/Button";
 
-export default function GameList({loadRom, romName}) {
+interface GameListProps {
+  loadRom: (romUrl: string, romName: string) => void,
+  romName: string,
+}
+
+export default function GameList({loadRom, romName}: GameListProps) {
   // Set the full ROM database.
-  const [gameDb, setGameDb] = useState(null);
+  const [gameDb, setGameDb] = useState<ROMContent[]>();
 
   // Current keyword for filter.
   const [keyword, setKeyword] = useState('');
@@ -29,7 +34,7 @@ export default function GameList({loadRom, romName}) {
   const [modalVisible, setModalVisible] = useState(false);
 
   // Set detail modal's content.
-  const [modalContent, setModalContents] = useState({});
+  const [modalContent, setModalContents] = useState<ROMContent>();
 
   if (!gameDb) {
     fetch('roms/db.json').then((response) => {
@@ -39,11 +44,11 @@ export default function GameList({loadRom, romName}) {
     })
   }
 
-  const updateKeyword = function (event) {
+  const updateKeyword = function (event: FormEvent<HTMLInputElement>) {
     setKeyword(event.currentTarget.value)
   }
 
-  const showDetailModal = (show, contents) => {
+  const showDetailModal = (show: boolean, contents: ROMContent) => {
     setModalContents(contents);
     setModalVisible(true);
   }
@@ -51,7 +56,8 @@ export default function GameList({loadRom, romName}) {
   if (!gameDb) {
     return <div/>;
   } else {
-    const items = gameDb.filter(item => {
+    const db = gameDb as ROMContent[];
+    const items = db.filter(item => {
       return isLocaleTitleContains(item, keyword)
     }).map(item => {
       return <GameItem key={item.id} contents={item} loadRom={loadRom} romName={romName} romId={item.id}
@@ -63,12 +69,12 @@ export default function GameList({loadRom, romName}) {
         <Modal show={modalVisible} title="游戏介绍" setVisible={setModalVisible}>
           <div className="gamelist-flex">
             <img className="gamelist-modal-item gamelist-modal-thumbnail" loading="lazy"
-                 src={getROMImageUrlFromContents(modalContent)}
-                 alt={modalContent.name}/>
+                 src={getROMImageUrlFromContents(modalContent ? modalContent : null)}
+                 alt={modalContent?.name}/>
             <div className="gamelist-modal-item gamelist-modal-content">
-              <p>英文名：{modalContent.name}</p>
-              <p>中文名：{modalContent.zh}</p>
-              <p>日文名：{modalContent.ja}</p>
+              <p>英文名：{modalContent?.name}</p>
+              <p>中文名：{modalContent?.zh}</p>
+              <p>日文名：{modalContent?.ja}</p>
               <div style={{height: '20px'}}></div>
               <Button text='关闭' onClick={() => setModalVisible(false)}/>
             </div>
@@ -77,7 +83,7 @@ export default function GameList({loadRom, romName}) {
 
         <div className="gamelist">
           <div className="gamelist-input">
-            <SearchInput type='text' onInput={updateKeyword} text='搜索你喜欢的游戏'/>
+            <SearchInput onInput={updateKeyword} text='搜索你喜欢的游戏'/>
           </div>
           <div className="gamelist-items">
             {items}

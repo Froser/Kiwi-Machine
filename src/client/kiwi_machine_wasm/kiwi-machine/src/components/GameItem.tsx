@@ -15,10 +15,18 @@ import Button from "./basic/Button";
 import {
   getROMUrlFromContents,
   getROMImageUrlFromContents,
-  getLocaleTitleFromContents,
+  getLocaleTitleFromContents, ROMContent,
 } from "../services/rom";
 
-export default function GameItem({contents, loadRom, romName, romId, showDetailModal}) {
+interface GameItemProps {
+  contents: ROMContent,
+  loadRom: (romUrl: string, romName: string) => void,
+  romName: string,
+  romId: number,
+  showDetailModal: (show: boolean, contents: ROMContent) => void,
+};
+
+export default function GameItem({contents, loadRom, romName, romId, showDetailModal}: GameItemProps) {
   const onLoadRom = function () {
     return () => {
       loadRom(getROMUrlFromContents(contents), contents.name);

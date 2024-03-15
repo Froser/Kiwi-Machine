@@ -10,19 +10,16 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-import "./VolumeSlider.css"
+import "./Button.css"
+import {MouseEventHandler} from "react";
 
-export default function VolumeSlider({className, id, onChange, value}) {
+interface ButtonProps {
+  text: string,
+  onClick: MouseEventHandler<HTMLButtonElement>
+}
+
+export default function Button({text, onClick}: ButtonProps) {
   return (
-    <input
-      id={id}
-      className={className + " volume-slider"}
-      type="range"
-      min={0}
-      max={1}
-      step={0.1}
-      value={value}
-      onChange={onChange}
-    />
+    <button className="button" onClick={onClick}>{text}</button>
   );
 }

@@ -11,11 +11,12 @@
 // GNU General Public License for more details.
 
 class EmulatorService {
-  constructor(window) {
+  private window: Window;
+  constructor(window: Window) {
     this.window = window;
   }
 
-  setVolume(volume) {
+  setVolume(volume: number) {
     this.window.postMessage({
       type: 'changeVolume',
       data: {
@@ -24,7 +25,7 @@ class EmulatorService {
     });
   }
 
-  loadROM(romUrl) {
+  loadROM(romUrl: string) {
     this.window.postMessage(
       {
         type: 'loadROMBinary',
@@ -42,7 +43,10 @@ class EmulatorService {
   }
 }
 
-function CreateEmulatorService(window) {
+function CreateEmulatorService(window: Window | null) {
+  if (window === null)
+    throw new Error("Window is null");
+  
   return new EmulatorService(window);
 }
 

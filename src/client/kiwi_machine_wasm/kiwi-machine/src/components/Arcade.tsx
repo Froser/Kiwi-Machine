@@ -18,11 +18,12 @@ import GameList from "./GameList";
 import {CreateEmulatorService} from "../services/emulator";
 
 export default function Arcade() {
-  const [frameRef, setFrameRef] = useState(useRef());
+  const [frameRef, setFrameRef] = useState(useRef<HTMLIFrameElement>(null));
   const [romName, setRomName] = useState('');
 
-  const loadRom = (romUrl, romName) => {
-    const emulator_service = CreateEmulatorService(frameRef.current.contentWindow);
+  const loadRom = (romUrl: string, romName: string) => {
+    const currentWindow = (frameRef.current as HTMLIFrameElement).contentWindow
+    const emulator_service = CreateEmulatorService(currentWindow);
     emulator_service.loadROM(romUrl);
     setRomName(romName);
   }

@@ -13,13 +13,17 @@
 import "./Playground.css"
 import Button from "./basic/Button";
 import Modal from "./basic/Modal";
-import {useEffect, useRef, useState} from "react";
+import {Dispatch, RefObject, SetStateAction, useEffect, useRef, useState} from "react";
 import NESController from "./basic/NESController";
 import VolumePanel from "./VolumePanel";
 import {CreateEmulatorService} from "../services/emulator";
 
-export default function Playground({setFrameRef}) {
-  const frameRef = useRef(null);
+interface PlaygroundProps {
+  setFrameRef: Dispatch<SetStateAction<RefObject<HTMLIFrameElement>>>
+}
+
+export default function Playground({setFrameRef}: PlaygroundProps) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
   const [manualModal, setManualModal] = useState(false);
   const [aboutModal, setAboutModal] = useState(false);
 
@@ -33,8 +37,7 @@ export default function Playground({setFrameRef}) {
       </iframe>
 
       <div className='playground-control'>
-        <Modal childTop="200px" show={manualModal} setVisible={setManualModal} title="操作说明" height="400px"
-               width="800px">
+        <Modal show={manualModal} setVisible={setManualModal} title="操作说明" height="400px" width="800px">
           <div className='playground-manual-title'>操作方式说明</div>
           <div className='playground-manual-content'>在游戏中，您可以通过<b>ESC</b>唤起游戏选项菜单。</div>
           <div className='playground-manual-title'>控制器布局</div>
@@ -149,8 +152,9 @@ export default function Playground({setFrameRef}) {
         <Button text="操作说明" onClick={() => setManualModal(true)}/>
         <Button text="关于Kiwi Machine" onClick={() => setAboutModal(true)}/>
         <Button text="游戏菜单 (ESC)" onClick={() => {
-          CreateEmulatorService(frameRef.current.contentWindow).callMenu();
-          frameRef.current.contentWindow.focus();
+          const currentWindow = (frameRef.current as HTMLIFrameElement)?.contentWindow;
+          CreateEmulatorService(currentWindow).callMenu();
+          currentWindow?.focus();
         }}/>
         <VolumePanel id='volume_slider' frame={frameRef}/>
         <span style={{lineHeight: '40px'}}>By 于益偲</span>

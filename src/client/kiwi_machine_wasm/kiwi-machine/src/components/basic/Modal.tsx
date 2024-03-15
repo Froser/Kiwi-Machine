@@ -11,14 +11,23 @@
 // GNU General Public License for more details.
 
 import "./Modal.css"
-import {useState} from "react";
+import {Dispatch, ReactNode, SetStateAction} from "react";
+
+interface ModalProps {
+  children: ReactNode,
+  title: string,
+  show: boolean,
+  width?: string,
+  height?: string,
+  setVisible: Dispatch<SetStateAction<boolean>>,
+}
 
 const headerHeight = 48;
 
-export default function Modal({children, title, show, width, height, setVisible}) {
+export default function Modal({children, title, show, width, height, setVisible}: ModalProps) {
   const className = 'modal ' + (show ? 'modal-show' : '');
   return (
-    <div className={className} onClick={()=>setVisible(false)}>
+    <div className={className} onClick={() => setVisible(false)}>
       <div style={{
         width: `${width ? width : '550px'}`,
         height: `${height ? `${parseInt(height) + headerHeight}px` : '270px'}`

@@ -12,7 +12,7 @@
 
 import "./Header.css"
 
-export default function Header({content}) {
+export default function Header({content}: { content: string }) {
   const styleList = [
     'header-color-b',
     'header-color-y',

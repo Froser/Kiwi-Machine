@@ -10,17 +10,27 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-import './App.css';
-import Arcade from "./components/Arcade";
-import Background from "./components/Background";
+import "./VolumeSlider.css"
+import {ChangeEventHandler} from "react";
 
-function App() {
-  return (
-    <div className="app">
-      <Background/>
-      <Arcade/>
-    </div>
-  );
+interface VolumeSliderProps {
+  className?: string,
+  id: string,
+  onChange: ChangeEventHandler<HTMLElement>,
+  value: number,
 }
 
-export default App;
+export default function VolumeSlider({className, id, onChange, value}: VolumeSliderProps) {
+  return (
+    <input
+      id={id}
+      className={className + " volume-slider"}
+      type="range"
+      min={0}
+      max={1}
+      step={0.1}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}

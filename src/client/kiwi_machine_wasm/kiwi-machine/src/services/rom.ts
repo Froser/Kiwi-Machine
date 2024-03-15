@@ -10,7 +10,17 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-function getROMUrlFromContents(contents) {
+
+export interface ROMContent {
+  dir: string
+  zh: string,
+  ja: string,
+  name: string,
+  key: string,
+  id: number,
+}
+
+function getROMUrlFromContents(contents: ROMContent) {
   if (contents.dir) {
     return encodeURIComponent('roms/' + contents['dir'] + '/' + contents['name'] + '.nes');
   } else {
@@ -18,7 +28,10 @@ function getROMUrlFromContents(contents) {
   }
 }
 
-function getROMImageUrlFromContents(contents) {
+function getROMImageUrlFromContents(contents: ROMContent | null) {
+  if (!contents)
+    return '';
+
   if (contents.dir) {
     return 'roms/' + contents['dir'] + '/' + contents['name'] + '.jpg';
   } else {
@@ -26,7 +39,7 @@ function getROMImageUrlFromContents(contents) {
   }
 }
 
-function getLocaleTitleFromContents(contents) {
+function getLocaleTitleFromContents(contents: ROMContent) {
   if (navigator.language === 'zh' || navigator.language.startsWith('zh-'))
     return contents.zh;
 
@@ -36,7 +49,7 @@ function getLocaleTitleFromContents(contents) {
   return contents.name;
 }
 
-function isLocaleTitleContains(contents, keyword) {
+function isLocaleTitleContains(contents: ROMContent, keyword: string) {
   if (keyword.trim() === '')
     return true;
 
@@ -44,6 +57,7 @@ function isLocaleTitleContains(contents, keyword) {
     if (key === 'id')
       continue;
 
+    // @ts-ignore
     if (contents[key].toLowerCase().includes(keyword.toLowerCase()))
       return true;
   }

@@ -11,8 +11,14 @@
 // GNU General Public License for more details.
 
 import "./SearchInput.css"
+import {FormEventHandler} from "react";
 
-export default function SearchInput({text, onInput}) {
+interface SearchInputProps {
+  text: string,
+  onInput: FormEventHandler<HTMLInputElement>,
+}
+
+export default function SearchInput({text, onInput}: SearchInputProps) {
   return (
     <div className="search">
       <input type="text" className="search-input" name="" placeholder={text} onInput={onInput}/>

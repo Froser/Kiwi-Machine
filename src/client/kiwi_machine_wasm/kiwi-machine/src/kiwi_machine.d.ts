@@ -10,10 +10,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-import "./Button.css"
-
-export default function Button({text, onClick}) {
-  return (
-    <button className="button" onClick={onClick}>{text}</button>
-  );
+declare module '*.svg' {
+  const content: any;
+  export default content;
 }

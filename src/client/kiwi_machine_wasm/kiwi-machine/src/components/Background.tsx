@@ -12,7 +12,7 @@
 
 import "./Background.css"
 
-function LogoTile(key) {
+function LogoTile(key: number) {
   return (
     <div className='background-tile' key={key}>
       <img src='/kiwi.png' alt='Kiwi Machine'></img>
@@ -20,10 +20,10 @@ function LogoTile(key) {
   )
 }
 
-function LogoRow(key) {
+function LogoRow(key: number) {
   const arbitrary = new Array(20)
   for (let i = 0; i < arbitrary.length; ++i) {
-    arbitrary[i]= (LogoTile(i))
+    arbitrary[i] = (LogoTile(i))
   }
 
   return (
@@ -36,7 +36,7 @@ function LogoRow(key) {
 export default function Background() {
   const arbitrary = new Array(20)
   for (let i = 0; i < arbitrary.length; ++i) {
-    arbitrary[i]= (LogoRow(i))
+    arbitrary[i] = (LogoRow(i))
   }
   return (
     <div className="background">
