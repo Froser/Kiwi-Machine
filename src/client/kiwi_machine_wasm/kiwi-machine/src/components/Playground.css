@@ -91,3 +91,13 @@ GNU General Public License for more details.
 .playground-manual-table tbody tr:hover {
   background: #2c974b;
 }
+
+.playground-separator {
+  margin-left: 5px;
+  margin-right: 5px;
+  background-color: #dde2e9;
+  width: 1px;
+  height: 100%;
+  line-height: 24px;
+  display: inline;
+}

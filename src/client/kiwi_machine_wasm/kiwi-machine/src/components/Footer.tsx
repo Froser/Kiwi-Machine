@@ -10,27 +10,15 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-import "./VolumeSlider.css"
-import {ChangeEventHandler} from "react";
+import "./Footer.css"
 
-interface VolumeSliderProps {
-  className?: string,
-  id: string,
-  onChange: ChangeEventHandler<HTMLInputElement>,
-  value: number,
-}
-
-export default function VolumeSlider({className, id, onChange, value}: VolumeSliderProps) {
+export default function Footer() {
   return (
-    <input
-      id={id}
-      className={className + " volume-slider"}
-      type="range"
-      min={0}
-      max={1}
-      step={0.1}
-      value={value}
-      onChange={onChange}
-    />
+    <footer className="footer">
+      <span>已备案</span>
+      <a href="http://beian.miit.gov.cn" target="_blank" rel="noreferrer">粤ICP备2024200615号-1</a>
+      <span>纯个人交流，禁止用于商业目的</span>
+      <span>By 于益偲</span>
+    </footer>
   );
 }

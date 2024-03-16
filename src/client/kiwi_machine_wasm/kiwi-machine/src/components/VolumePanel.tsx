@@ -43,10 +43,10 @@ export default function VolumePanel({id, frame}: VolumePanelProps) {
   }
 
   const onMuteChanged = () => {
-    const currentFrame = frame.current as HTMLIFrameElement;
+    const currentFrame = frame.current;
     const input = window.document.getElementById(id) as HTMLInputElement;
 
-    const emulator_service = CreateEmulatorService(currentFrame.contentWindow);
+    const emulator_service = CreateEmulatorService(currentFrame?.contentWindow);
     const volume = input.valueAsNumber;
     const muted = volume < threshold;
 
@@ -60,18 +60,18 @@ export default function VolumePanel({id, frame}: VolumePanelProps) {
       refreshMuteImage(0);
     }
 
-    currentFrame.contentWindow?.focus();
+    currentFrame?.contentWindow?.focus();
   }
 
-  const onChangeInternal = (event: ChangeEvent<HTMLElement>) => {
-    const volume = (event.target as HTMLInputElement).valueAsNumber;
+  const onChangeInternal = (event: ChangeEvent<HTMLInputElement>) => {
+    const volume = event.target.valueAsNumber;
     refreshMuteImage(volume);
     setVolume(volume);
 
-    const currentFrame = frame.current as HTMLIFrameElement;
-    const emulator_service = CreateEmulatorService(currentFrame.contentWindow);
-    emulator_service.setVolume((event.target as HTMLInputElement).valueAsNumber);
-    currentFrame.contentWindow?.focus();
+    const currentFrame = frame.current;
+    const emulator_service = CreateEmulatorService(currentFrame?.contentWindow);
+    emulator_service.setVolume(event.target.valueAsNumber);
+    currentFrame?.contentWindow?.focus();
   }
 
   useEffect(() => {

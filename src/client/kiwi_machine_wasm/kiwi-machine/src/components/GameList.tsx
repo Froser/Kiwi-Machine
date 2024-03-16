@@ -56,8 +56,7 @@ export default function GameList({loadRom, romName}: GameListProps) {
   if (!gameDb) {
     return <div/>;
   } else {
-    const db = gameDb as ROMContent[];
-    const items = db.filter(item => {
+    const items = gameDb.filter(item => {
       return isLocaleTitleContains(item, keyword)
     }).map(item => {
       return <GameItem key={item.id} contents={item} loadRom={loadRom} romName={romName} romId={item.id}

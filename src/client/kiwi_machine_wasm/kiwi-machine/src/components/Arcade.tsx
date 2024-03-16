@@ -16,13 +16,14 @@ import Header from "./Header";
 import Playground from "./Playground";
 import GameList from "./GameList";
 import {CreateEmulatorService} from "../services/emulator";
+import Footer from "./Footer";
 
 export default function Arcade() {
   const [frameRef, setFrameRef] = useState(useRef<HTMLIFrameElement>(null));
   const [romName, setRomName] = useState('');
 
   const loadRom = (romUrl: string, romName: string) => {
-    const currentWindow = (frameRef.current as HTMLIFrameElement).contentWindow
+    const currentWindow = frameRef.current?.contentWindow;
     const emulator_service = CreateEmulatorService(currentWindow);
     emulator_service.loadROM(romUrl);
     setRomName(romName);
@@ -35,6 +36,7 @@ export default function Arcade() {
         <Playground setFrameRef={setFrameRef}/>
         <GameList loadRom={loadRom} romName={romName}/>
       </div>
+      <Footer/>
     </>
   );
 }

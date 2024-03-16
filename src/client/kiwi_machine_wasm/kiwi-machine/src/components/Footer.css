@@ -12,7 +12,27 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
  */
 
-.arcade {
-  display: flex;
-  height: 80vh;
+.footer {
+  color: #41464f;
+  font-size: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #dde2e9;
+}
+
+.footer a {
+  text-decoration: none;
+}
+
+.footer a:visited {
+  color: #41464f;
+}
+
+.footer a:hover {
+  color: #1664ff;
+}
+
+.footer span {
+  padding-left: 5px;
+  padding-right: 5px;
 }

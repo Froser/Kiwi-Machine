@@ -149,15 +149,15 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
           <Button text="关闭" onClick={() => setAboutModal(false)}/>
         </Modal>
 
-        <Button text="操作说明" onClick={() => setManualModal(true)}/>
-        <Button text="关于Kiwi Machine" onClick={() => setAboutModal(true)}/>
         <Button text="游戏菜单 (ESC)" onClick={() => {
-          const currentWindow = (frameRef.current as HTMLIFrameElement)?.contentWindow;
+          const currentWindow = frameRef.current?.contentWindow;
           CreateEmulatorService(currentWindow).callMenu();
           currentWindow?.focus();
         }}/>
         <VolumePanel id='volume_slider' frame={frameRef}/>
-        <span style={{lineHeight: '40px'}}>By 于益偲</span>
+        <span className="playground-separator">&nbsp;</span>
+        <Button text="操作说明" onClick={() => setManualModal(true)}/>
+        <Button text="关于Kiwi Machine" onClick={() => setAboutModal(true)}/>
       </div>
     </div>
   );

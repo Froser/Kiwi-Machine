@@ -43,8 +43,8 @@ class EmulatorService {
   }
 }
 
-function CreateEmulatorService(window: Window | null) {
-  if (window === null)
+function CreateEmulatorService(window: Window | null | undefined) {
+  if (!window)
     throw new Error("Window is null");
   
   return new EmulatorService(window);
