@@ -18,7 +18,6 @@ export default function Footer() {
       <span>已备案</span>
       <a href="http://beian.miit.gov.cn" target="_blank" rel="noreferrer">粤ICP备2024200615号-1</a>
       <span>纯个人交流，禁止用于商业目的</span>
-      <span>By 于益偲</span>
     </footer>
   );
 }
