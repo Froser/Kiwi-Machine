@@ -119,7 +119,6 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
               Linux、iOS、Android、Web等多个平台，支持英语、简体中文和日文三种语言，提供自动存档、读档等功能。
             </p>
             <p>当前Kiwi Machine内核版本：1.1.0</p>
-            <p>作者：于益偲</p>
             <h1>不同平台差异说明</h1>
             <p>Web Kiwi Machine使用的是WebAssembly + React技术，在使用行为上与客户端版有些差异：</p>
             <ul>
