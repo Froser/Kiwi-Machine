@@ -33,7 +33,7 @@ class StackWidget;
 class MemoryWidget;
 class DisassemblyWidget;
 class GroupWidget;
-class KiwiItemsWidget;
+class FlexItemsWidget;
 
 namespace preset_roms {
 struct PresetROM;
@@ -210,7 +210,7 @@ class MainWindow : public WindowBase,
   Widget* frame_rate_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
   GroupWidget* main_group_widget_ = nullptr;
-  KiwiItemsWidget* main_items_widget_ = nullptr;
+  FlexItemsWidget* main_items_widget_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
   StackWidget* stack_widget_ = nullptr;

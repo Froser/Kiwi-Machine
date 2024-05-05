@@ -45,6 +45,9 @@ class Widget {
   void set_enabled(bool enabled) { enabled_ = enabled; }
   bool enabled() { return enabled_; }
 
+  void set_zorder(int zorder) { zorder_ = zorder; }
+  int zorder() { return zorder_; }
+
   const std::string& title() { return title_; }
 
  public:
@@ -104,6 +107,7 @@ class Widget {
   std::vector<std::unique_ptr<Widget>> widgets_;
   std::vector<Widget*> pending_remove_;
   Widget* parent_ = nullptr;
+  int zorder_ = 0;
 
   // For internal layout use:
   bool bounds_changed_ = false;

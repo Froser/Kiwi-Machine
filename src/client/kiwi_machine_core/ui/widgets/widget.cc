@@ -14,8 +14,17 @@
 
 #include <imgui.h>
 #include <algorithm>
+#include <set>
 
 #include "ui/window_base.h"
+
+namespace {
+struct ZOrderComparer {
+  bool operator()(Widget* lhs, Widget* rhs) const {
+    return lhs->zorder() < rhs->zorder();
+  }
+};
+}  // namespace
 
 Widget::Widget(WindowBase* window) : window_(window) {}
 
@@ -71,7 +80,14 @@ void Widget::Render() {
     }
 
     Paint();
+
+    // Sorted in zorder index
+    std::multiset<Widget*, ZOrderComparer> sorted_widgets_;
     for (const auto& widget : widgets_) {
+      sorted_widgets_.insert(widget.get());
+    }
+
+    for (const auto& widget : sorted_widgets_) {
       if (widget->visible())
         widget->Render();
     }

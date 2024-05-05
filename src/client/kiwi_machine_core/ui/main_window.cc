@@ -27,10 +27,10 @@
 #include "ui/widgets/demo_widget.h"
 #include "ui/widgets/disassembly_widget.h"
 #include "ui/widgets/export_widget.h"
+#include "ui/widgets/flex_items_widget.h"
 #include "ui/widgets/frame_rate_widget.h"
 #include "ui/widgets/group_widget.h"
 #include "ui/widgets/kiwi_bg_widget.h"
-#include "ui/widgets/kiwi_items_widget.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/memory_widget.h"
 #include "ui/widgets/nametable_widget.h"
@@ -570,8 +570,8 @@ void MainWindow::InitializeUI() {
     stack_widget_->PushWidget(std::move(group_widget));
 
     // Game items
-    std::unique_ptr<KiwiItemsWidget> items_widget =
-        std::make_unique<KiwiItemsWidget>(this, runtime_id_);
+    std::unique_ptr<FlexItemsWidget> items_widget =
+        std::make_unique<FlexItemsWidget>(this, runtime_id_);
     main_items_widget_ = items_widget.get();
 
 #if defined(KIWI_USE_EXTERNAL_PAK)
@@ -594,24 +594,30 @@ void MainWindow::InitializeUI() {
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                     kiwi::base::Unretained(this), rom));
 
-      for (const auto& alternative_rom : rom.alternates) {
-        items_widget->AddSubItem(
-            main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
-            alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
-            kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                      kiwi::base::Unretained(this),
-                                      alternative_rom));
-      }
+      /* TODO */
+      // for (const auto& alternative_rom : rom.alternates) {
+      //   items_widget->AddSubItem(
+      //       main_item_index,
+      //       std::make_unique<ROMTitleUpdater>(alternative_rom),
+      //       alternative_rom.rom_cover.data(),
+      //       alternative_rom.rom_cover.size(),
+      //       kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+      //                                 kiwi::base::Unretained(this),
+      //                                 alternative_rom));
+      // }
     }
-    items_widget->Sort();
+    // items_widget->Sort();
 
-    int main_items_index = std::clamp(config_->data().last_index, 0,
-                                      items_widget->GetItemCount() - 1);
-    items_widget->SetIndex(main_items_index);
+    // int main_items_index = std::clamp(config_->data().last_index, 0,
+    //                                   items_widget->GetItemCount() - 1);
+    // items_widget->SetIndex(main_items_index);
 
     main_group_widget_->AddWidget(std::move(items_widget));
 
     // Game items (special)
+
+    // TODO
+    /*
     std::unique_ptr<KiwiItemsWidget> specials_item_widget =
         std::make_unique<KiwiItemsWidget>(this, runtime_id_);
 
@@ -626,7 +632,8 @@ void MainWindow::InitializeUI() {
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                     kiwi::base::Unretained(this), rom));
     }
-    specials_item_widget->Sort();
+
+    // specials_item_widget->Sort();
 
     if (!specials_item_widget->IsEmpty())
       main_group_widget_->AddWidget(std::move(specials_item_widget));
@@ -685,18 +692,21 @@ void MainWindow::InitializeUI() {
                   window, stack_widget, runtime_id));
             },
             this, stack_widget_, runtime_id_));
+            */
 
 #if !KIWI_IOS
     // iOS needn't quit the application manually.
-    settings_widget->AddItem(
-        std::make_unique<StringUpdater>(string_resources::IDR_MAIN_WINDOW_QUIT),
-        image_resources::kExitLogo, image_resources::kExitLogoSize,
-        kiwi::base::BindRepeating(&MainWindow::OnQuit,
-                                  kiwi::base::Unretained(this)));
+    // TODO
+    // settings_widget->AddItem(
+    //     std::make_unique<StringUpdater>(string_resources::IDR_MAIN_WINDOW_QUIT),
+    //     image_resources::kExitLogo, image_resources::kExitLogoSize,
+    //     kiwi::base::BindRepeating(&MainWindow::OnQuit,
+    //                               kiwi::base::Unretained(this)));
 #endif
 
     // End of settings items
-    main_group_widget_->AddWidget(std::move(settings_widget));
+    // TODO
+    // main_group_widget_->AddWidget(std::move(settings_widget));
   }
 
   std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(this, runtime_id_);
@@ -1493,6 +1503,8 @@ void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
       CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kToGameSelection: {
+      in_game_menu_->Close();
+      OnBackToMainMenu();
       CloseInGameMenu();
     } break;
     default:
@@ -1589,7 +1601,8 @@ void MainWindow::SaveConfig() {
   // This happens when MainWindow is about to destroy, and has IO operation.
   if (!is_headless_) {
     SDL_assert(main_items_widget_);
-    config_->data().last_index = main_items_widget_->current_index();
+    /* TODO */
+    // config_->data().last_index = main_items_widget_->current_index();
     config_->SaveConfig();
   }
 }
