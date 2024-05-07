@@ -36,10 +36,24 @@ class FlexItemsWidget : public Widget {
 
  private:
   void Layout();
+  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  void TriggerCurrentItem();
+
+  enum Direction {
+    kUp,
+    kDown,
+    kLeft,
+    kRight
+  };
+  size_t FindNextIndex(Direction direction);
+  size_t FindNextIndex(int from_index, int to_index);
 
  protected:
   void Paint() override;
   void OnWindowResized() override;
+  bool OnKeyPressed(SDL_KeyboardEvent* event) override;
+  bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
+  bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
 
  private:
   MainWindow* main_window_ = nullptr;
@@ -47,6 +61,7 @@ class FlexItemsWidget : public Widget {
   std::vector<FlexItemWidget*> items_;
   bool first_paint_ = true;
   size_t current_index_ = 0;
+  SDL_Rect current_item_original_bounds_;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEMS_WIDGET_H_

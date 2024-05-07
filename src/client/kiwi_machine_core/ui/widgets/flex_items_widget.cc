@@ -13,13 +13,25 @@
 #include "ui/widgets/flex_items_widget.h"
 
 #include <imgui.h>
+#include <set>
 
 #include "ui/main_window.h"
 #include "ui/widgets/flex_item_widget.h"
+#include "utility/audio_effects.h"
+#include "utility/key_mapping_util.h"
 
 namespace {
 constexpr int kItemHeightHint = 145;
 constexpr int kItemSelectedHighlightedSize = 20;
+
+int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
+  SDL_assert(lhs.h == rhs.h);
+  int lhs_x2 = lhs.x + lhs.w;
+  int rhs_x2 = rhs.x + rhs.w;
+
+  return std::min(lhs_x2, rhs_x2) - std::max(lhs.x, rhs.x);
+}
+
 }  // namespace
 
 FlexItemsWidget::FlexItemsWidget(MainWindow* main_window,
@@ -71,8 +83,10 @@ void FlexItemsWidget::Layout() {
     }
     item_bounds.x = anchor_x;
     item_bounds.y = anchor_y;
+    anchor_x += item_bounds.w;
 
     if (IsItemSelected(item)) {
+      current_item_original_bounds_ = item_bounds;
       item->set_zorder(1);
       if (item_bounds.x == 0) {
         item_bounds.w += kItemSelectedHighlightedSize;
@@ -83,7 +97,7 @@ void FlexItemsWidget::Layout() {
         item_bounds.h += kItemSelectedHighlightedSize;
       } else {
         item_bounds.x -= kItemSelectedHighlightedSize;
-        item_bounds.w += kItemSelectedHighlightedSize;
+        item_bounds.w += kItemSelectedHighlightedSize * 2;
         item_bounds.h += kItemSelectedHighlightedSize;
       }
       // TODO consider the item on the bottom
@@ -92,10 +106,154 @@ void FlexItemsWidget::Layout() {
     }
 
     item->set_bounds(item_bounds);
-    anchor_x += item_bounds.w;
 
     index++;
   }
+}
+
+bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
+                                        SDL_ControllerButtonEvent* c) {
+  // if (!is_finger_down_) { TODO
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
+      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
+    size_t next_index = FindNextIndex(kLeft);
+    if (next_index != current_index_) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      SetIndex(next_index);
+    }
+    return true;
+  }
+
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
+      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
+    size_t next_index = FindNextIndex(kRight);
+    if (next_index != current_index_) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      SetIndex(next_index);
+    }
+    return true;
+  }
+
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
+      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
+    size_t next_index = FindNextIndex(kUp);
+    if (next_index != current_index_) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      SetIndex(next_index);
+    }
+    return true;
+  }
+
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kDown, k) ||
+      c && c->button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
+    size_t next_index = FindNextIndex(kDown);
+    if (next_index != current_index_) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      SetIndex(next_index);
+    }
+    return true;
+  }
+
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
+      c && c->button == SDL_CONTROLLER_BUTTON_START ||
+      IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
+      c && c->button == SDL_CONTROLLER_BUTTON_A) {
+    PlayEffect(audio_resources::AudioID::kStart);
+    TriggerCurrentItem();
+    return true;
+  }
+
+  // if (IsKeyboardOrControllerAxisMotionMatch(
+  //         runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
+  //   if (!GetSubItemsByIndex(current_idx_).empty()) {
+  //     PlayEffect(audio_resources::AudioID::kSelect);
+  //     SwapCurrentItem();
+  //   }
+  //   return true;
+  // }
+  // }
+  //
+  //  return false;
+  return false;
+}
+
+void FlexItemsWidget::TriggerCurrentItem() {
+  items_[current_index_]->Trigger();
+}
+
+size_t FlexItemsWidget::FindNextIndex(Direction direction) {
+  switch (direction) {
+    case kUp:
+      return FindNextIndex(current_index_, 0);
+    case kDown:
+      return FindNextIndex(current_index_, items_.size());
+    case kLeft:
+      return current_index_ == 0 ? 0 : current_index_ - 1;
+    case kRight:
+      return current_index_ == items_.size() - 1 ? current_index_
+                                                 : current_index_ + 1;
+    default:
+      SDL_assert(false);  // Shouldn't be here
+      return 0;
+  }
+}
+
+size_t FlexItemsWidget::FindNextIndex(int from_index, int to_index) {
+  if (from_index == to_index)
+    return from_index;
+
+  int target_y = current_item_original_bounds_.y;
+  bool target_row_found = false;
+  int target_index = current_index_;
+  int last_area = 0;
+  int area;
+
+  bool backward = from_index > to_index;
+  int for_start, for_end, step;
+  if (backward) {
+    for_start = from_index - 1;
+    for_end = to_index;
+    step = -1;
+  } else {
+    for_start = from_index + 1;
+    for_end = to_index;
+    step = 1;
+  }
+
+  for (int i = for_start; backward == (i >= to_index); i += step) {
+    SDL_assert(i >= 0 && i <= items_.size());
+
+    if (items_[i]->bounds().y == current_item_original_bounds_.y)
+      continue;
+
+    if (!target_row_found &&
+        items_[i]->bounds().y != current_item_original_bounds_.y) {
+      target_row_found = true;
+      target_y = items_[i]->bounds().y;
+    }
+
+    if (target_row_found && target_y != items_[i]->bounds().y)
+      return target_index;
+
+    int intersection_area = CalculateIntersectionArea(
+        items_[i]->bounds(), current_item_original_bounds_);
+
+    if (intersection_area < 0)
+      continue;
+
+    area = intersection_area;
+    if (area > last_area) {
+      last_area = area;
+      target_index = i;
+    }
+  }
+  return target_index;
 }
 
 void FlexItemsWidget::Paint() {
@@ -107,4 +265,18 @@ void FlexItemsWidget::Paint() {
 
 void FlexItemsWidget::OnWindowResized() {
   Layout();
+}
+
+bool FlexItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
+  return HandleInputEvents(event, nullptr);
+}
+
+bool FlexItemsWidget::OnControllerButtonPressed(
+    SDL_ControllerButtonEvent* event) {
+  return HandleInputEvents(nullptr, event);
+}
+
+bool FlexItemsWidget::OnControllerAxisMotionEvents(
+    SDL_ControllerAxisEvent* event) {
+  return HandleInputEvents(nullptr, nullptr);
 }

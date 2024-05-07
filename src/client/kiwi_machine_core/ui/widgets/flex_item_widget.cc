@@ -72,6 +72,11 @@ SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height,
   return bs;
 }
 
+void FlexItemWidget::Trigger() {
+  if (on_trigger_callback_)
+    on_trigger_callback_.Run();
+}
+
 void FlexItemWidget::Paint() {
   CreateTextureIfNotExists();
 

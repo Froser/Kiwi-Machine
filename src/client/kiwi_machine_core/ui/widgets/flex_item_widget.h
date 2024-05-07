@@ -39,6 +39,8 @@ class FlexItemWidget : public Widget {
 
   SDL_Rect GetSuggestedSize(int item_height, bool is_selected);
 
+  void Trigger();
+
  private:
   void CreateTextureIfNotExists();
 

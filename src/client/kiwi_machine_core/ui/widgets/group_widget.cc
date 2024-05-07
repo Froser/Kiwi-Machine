@@ -202,6 +202,7 @@ bool GroupWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
 
 bool GroupWidget::HandleInputEvents(SDL_KeyboardEvent* k,
                                     SDL_ControllerButtonEvent* c) {
+  /* TODO to be removed
   if (!is_finger_moving_) {
     if (IsKeyboardOrControllerAxisMotionMatch(
             runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
@@ -225,7 +226,7 @@ bool GroupWidget::HandleInputEvents(SDL_KeyboardEvent* k,
       return true;
     }
   }
-
+  */
   return false;
 }
 
