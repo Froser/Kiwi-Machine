@@ -379,14 +379,8 @@ SDL_Rect MainWindow::GetClientBounds() {
   // Excludes menu bar's height;
   SDL_Rect render_bounds = WindowBase::GetClientBounds();
   if (menu_bar_) {
-    if (menu_bar_->bounds().h > 0) {
-      render_bounds.y += menu_bar_->bounds().h;
-      render_bounds.h -= menu_bar_->bounds().h;
-    } else {
-      // Menu bar doesn't render yet. Use default value.
-      render_bounds.y += GetDefaultMenuHeight();
-      render_bounds.h -= GetDefaultMenuHeight();
-    }
+    render_bounds.y += menu_bar_->bounds().h;
+    render_bounds.h -= menu_bar_->bounds().h;
   }
   return render_bounds;
 }
@@ -1505,7 +1499,6 @@ void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
     case InGameMenu::MenuItem::kToGameSelection: {
       in_game_menu_->Close();
       OnBackToMainMenu();
-      CloseInGameMenu();
     } break;
     default:
       break;

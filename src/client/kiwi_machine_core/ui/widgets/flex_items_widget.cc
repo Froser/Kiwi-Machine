@@ -74,6 +74,7 @@ bool FlexItemsWidget::IsItemSelected(FlexItemWidget* item) {
 void FlexItemsWidget::Layout() {
   int anchor_x = 0, anchor_y = 0;
   size_t index = 0;
+
   for (auto* item : items_) {
     bool is_selected = (index == current_index_);
     SDL_Rect item_bounds = item->GetSuggestedSize(kItemHeightHint, is_selected);
@@ -86,7 +87,17 @@ void FlexItemsWidget::Layout() {
     anchor_x += item_bounds.w;
 
     if (IsItemSelected(item)) {
+      if (view_scrolling_ + item_bounds.y + item_bounds.h +
+              kItemSelectedHighlightedSize >
+          bounds().h) {
+        view_scrolling_ = bounds().h - (item_bounds.y + item_bounds.h +
+                                        kItemSelectedHighlightedSize);
+      } else if (view_scrolling_ + item_bounds.y < 0) {
+        view_scrolling_ = -item_bounds.y;
+      }
       current_item_original_bounds_ = item_bounds;
+      current_item_original_bounds_.y += view_scrolling_;
+
       item->set_zorder(1);
       if (item_bounds.x == 0) {
         item_bounds.w += kItemSelectedHighlightedSize;
@@ -100,7 +111,6 @@ void FlexItemsWidget::Layout() {
         item_bounds.w += kItemSelectedHighlightedSize * 2;
         item_bounds.h += kItemSelectedHighlightedSize;
       }
-      // TODO consider the item on the bottom
     } else {
       item->set_zorder(0);
     }
@@ -108,6 +118,15 @@ void FlexItemsWidget::Layout() {
     item->set_bounds(item_bounds);
 
     index++;
+  }
+
+  // Applying scrolling
+  if (view_scrolling_ != 0) {
+    for (auto* item : items_) {
+      SDL_Rect bounds = item->bounds();
+      bounds.y += view_scrolling_;
+      item->set_bounds(bounds);
+    }
   }
 }
 

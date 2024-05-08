@@ -62,6 +62,7 @@ class FlexItemsWidget : public Widget {
   bool first_paint_ = true;
   size_t current_index_ = 0;
   SDL_Rect current_item_original_bounds_;
+  int view_scrolling_ = 0;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEMS_WIDGET_H_
