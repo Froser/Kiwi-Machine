@@ -36,6 +36,7 @@
 #include "ui/widgets/nametable_widget.h"
 #include "ui/widgets/palette_widget.h"
 #include "ui/widgets/pattern_widget.h"
+#include "ui/widgets/side_menu.h"
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
@@ -67,6 +68,14 @@ const kiwi::base::RepeatingCallback<bool()> kNoCheck =
 
 int GetDefaultMenuHeight() {
   return kDefaultFontSize + ImGui::GetStyle().FramePadding.y * 2;
+}
+
+void FlexLayout(WindowBase* window, Widget* left, Widget* right) {
+  SDL_Rect client_bounds = window->GetClientBounds();
+  int left_width = client_bounds.w * .2f;
+  int right_width = client_bounds.w - left_width;
+  left->set_bounds(SDL_Rect{0, 0, left_width, client_bounds.h});
+  right->set_bounds(SDL_Rect{left_width + 1, 0, right_width, client_bounds.h});
 }
 
 void FillLayout(WindowBase* window, Widget* widget) {
@@ -411,13 +420,7 @@ void MainWindow::HandleResizedEvent() {
   if (bg_widget_) {
     SDL_Rect client_bounds = GetClientBounds();
     FillLayout(this, bg_widget_);
-    if (!is_headless_) {
-      // In headless mode, |main_group_widget_| won't be created. The game will
-      // start as soon as canvas created.
-      SDL_assert(main_group_widget_);
-      FillLayout(this, main_group_widget_);
-    }
-    FillLayout(this, stack_widget_);
+    FlexLayout(this, side_menu_, stack_widget_);
   }
 
   if (in_game_menu_) {
@@ -436,9 +439,6 @@ void MainWindow::HandleResizedEvent() {
       OnScaleChanged();
     }
   }
-
-  if (main_group_widget_)
-    main_group_widget_->RecalculateBounds();
 
   WindowBase::HandleResizedEvent();
 }
@@ -544,6 +544,12 @@ void MainWindow::InitializeUI() {
   FillLayout(this, bg_widget_);
   AddWidget(std::move(bg_widget));
 
+  // Side menu
+  std::unique_ptr<SideMenu> side_menu =
+      std::make_unique<SideMenu>(this, runtime_id_);
+  side_menu_ = side_menu.get();
+  bg_widget_->AddWidget(std::move(side_menu));
+
   // Stack widget
   std::unique_ptr<StackWidget> stack_widget =
       std::make_unique<StackWidget>(this);
@@ -556,13 +562,6 @@ void MainWindow::InitializeUI() {
   CreateVirtualTouchButtons();
 
   if (!is_headless_) {
-    // Main menu groups
-    std::unique_ptr<GroupWidget> group_widget =
-        std::make_unique<GroupWidget>(this, runtime_id_);
-    main_group_widget_ = group_widget.get();
-    FillLayout(this, main_group_widget_);
-    stack_widget_->PushWidget(std::move(group_widget));
-
     // Game items
     std::unique_ptr<FlexItemsWidget> items_widget =
         std::make_unique<FlexItemsWidget>(this, runtime_id_);
@@ -606,7 +605,7 @@ void MainWindow::InitializeUI() {
     //                                   items_widget->GetItemCount() - 1);
     // items_widget->SetIndex(main_items_index);
 
-    main_group_widget_->AddWidget(std::move(items_widget));
+    stack_widget_->PushWidget(std::move(items_widget));
 
     // Game items (special)
 

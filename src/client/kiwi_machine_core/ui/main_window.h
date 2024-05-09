@@ -209,10 +209,10 @@ class MainWindow : public WindowBase,
   Widget* pattern_widget_ = nullptr;
   Widget* frame_rate_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
-  GroupWidget* main_group_widget_ = nullptr;
   FlexItemsWidget* main_items_widget_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
+  Widget* side_menu_ = nullptr;
   StackWidget* stack_widget_ = nullptr;
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;

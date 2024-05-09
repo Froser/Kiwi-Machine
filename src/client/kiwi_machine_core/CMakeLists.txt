@@ -106,6 +106,8 @@ set(Sources
         ui/widgets/palette_widget.h
         ui/widgets/pattern_widget.cc
         ui/widgets/pattern_widget.h
+        ui/widgets/side_menu.cc
+        ui/widgets/side_menu.h
         ui/widgets/splash.cc
         ui/widgets/splash.h
         ui/widgets/stack_widget.cc

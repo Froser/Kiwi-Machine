@@ -58,8 +58,8 @@ void StackWidget::OnWidgetsRemoved() {
 
 void StackWidget::OnWindowResized() {
   if (children().size() > 0) {
-    Widget* front = children()[children().size() - 1].get();
-    SDL_Rect client_bounds = window()->GetClientBounds();
-    front->set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
+    for (auto& child : children()) {
+      child->set_bounds(SDL_Rect{0, 0, bounds().w, bounds().h});
+    }
   }
 }
