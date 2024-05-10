@@ -59,7 +59,9 @@ kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
   return bytes;
 }
 
-constexpr int kDefaultWindowWidth = Canvas::kNESFrameDefaultWidth;
+constexpr int kWindowPadding = 50;
+constexpr int kDefaultWindowWidth =
+    Canvas::kNESFrameDefaultWidth + kWindowPadding * 2;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
 

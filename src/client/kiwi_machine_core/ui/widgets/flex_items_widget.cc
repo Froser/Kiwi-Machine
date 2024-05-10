@@ -87,30 +87,33 @@ void FlexItemsWidget::Layout() {
     anchor_x += item_bounds.w;
 
     if (IsItemSelected(item)) {
-      if (view_scrolling_ + item_bounds.y + item_bounds.h +
-              kItemSelectedHighlightedSize >
-          bounds().h) {
-        view_scrolling_ = bounds().h - (item_bounds.y + item_bounds.h +
-                                        kItemSelectedHighlightedSize);
-      } else if (view_scrolling_ + item_bounds.y < 0) {
-        view_scrolling_ = -item_bounds.y;
-      }
       current_item_original_bounds_ = item_bounds;
-      current_item_original_bounds_.y += view_scrolling_;
 
       item->set_zorder(1);
       if (item_bounds.x == 0) {
         item_bounds.w += kItemSelectedHighlightedSize;
-        item_bounds.h += kItemSelectedHighlightedSize;
       } else if (item_bounds.x + item_bounds.w + kItemSelectedHighlightedSize >
                  bounds().w) {
         item_bounds.x -= kItemSelectedHighlightedSize;
-        item_bounds.h += kItemSelectedHighlightedSize;
       } else {
         item_bounds.x -= kItemSelectedHighlightedSize;
         item_bounds.w += kItemSelectedHighlightedSize * 2;
-        item_bounds.h += kItemSelectedHighlightedSize;
       }
+
+      if (item_bounds.y == 0) {
+        item_bounds.h += kItemSelectedHighlightedSize;
+      } else {
+        item_bounds.y -= kItemSelectedHighlightedSize;
+        item_bounds.h += kItemSelectedHighlightedSize * 2;
+      }
+
+      // Adjusts view scrolling
+      if (view_scrolling_ + item_bounds.y + item_bounds.h > bounds().h) {
+        view_scrolling_ = bounds().h - (item_bounds.y + item_bounds.h);
+      } else if (view_scrolling_ + item_bounds.y < 0) {
+        view_scrolling_ = -item_bounds.y;
+      }
+      current_item_original_bounds_.y += view_scrolling_;
     } else {
       item->set_zorder(0);
     }
