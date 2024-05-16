@@ -13,9 +13,12 @@
 #ifndef UI_WIDGETS_KIWI_BG_WIDGET_H_
 #define UI_WIDGETS_KIWI_BG_WIDGET_H_
 
-#include <SDL.h>
-#include <chrono>
+#include <kiwi_nes.h>
 
+#include <SDL.h>
+#include <vector>
+
+#include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
 #include "utility/timer.h"
 
@@ -23,7 +26,7 @@ class MainWindow;
 class LoadingWidget;
 class KiwiBgWidget : public Widget {
  public:
-  explicit KiwiBgWidget(MainWindow* main_window);
+  explicit KiwiBgWidget(MainWindow* main_window, NESRuntimeID runtime_id);
   ~KiwiBgWidget() override;
 
  public:
@@ -32,19 +35,14 @@ class KiwiBgWidget : public Widget {
  protected:
   void Paint() override;
   bool IsWindowless() override;
-  bool OnKeyPressed(SDL_KeyboardEvent* event) override;
 
  private:
   MainWindow* main_window_ = nullptr;
-  SDL_Texture* bg_texture_ = nullptr;
-  int bg_width_ = 0;
-  int bg_height_ = 0;
-  float bg_offset_even_ = 0.f;
-  float bg_offset_odd_ = 0.f;
+  NESRuntime::Data* runtime_data_ = nullptr;
   bool is_loading_ = false;
-
   Timer bg_last_render_elapsed_;
   Timer bg_fade_out_timer_;
+  int current_index_ = 0;
 };
 
 #endif  // UI_WIDGETS_KIWI_BG_WIDGET_H_

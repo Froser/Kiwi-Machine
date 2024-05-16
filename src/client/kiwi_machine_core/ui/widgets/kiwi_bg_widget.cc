@@ -17,23 +17,17 @@
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "ui/window_base.h"
+#include "utility/audio_effects.h"
 #include "utility/images.h"
+#include "utility/key_mapping_util.h"
 
 namespace {
-constexpr int kTileSize = 150;
-constexpr int kTileAlpha = 64;
-constexpr float kPixelPerMs = .05f;  // Tile move distance per millisecond.
-constexpr int kPadding = 30;
 constexpr float kFadeSpeedMs = 100;
 }  // namespace
 
-KiwiBgWidget::KiwiBgWidget(MainWindow* main_window)
+KiwiBgWidget::KiwiBgWidget(MainWindow* main_window, NESRuntimeID runtime_id)
     : Widget(main_window), main_window_(main_window) {
-  bg_texture_ =
-      GetImage(window()->renderer(), image_resources::ImageID::kBackgroundLogo);
-  SDL_SetTextureScaleMode(bg_texture_, SDL_ScaleModeBest);
-  SDL_SetTextureAlphaMod(bg_texture_, kTileAlpha);
-  SDL_QueryTexture(bg_texture_, nullptr, nullptr, &bg_width_, &bg_height_);
+  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
   bg_last_render_elapsed_.Start();
 }
 
@@ -50,54 +44,7 @@ void KiwiBgWidget::SetLoading(bool is_loading) {
 }
 
 void KiwiBgWidget::Paint() {
-  if (!is_loading_) {
-    SDL_Rect render_bounds = window()->GetClientBounds();
-    int ms = bg_last_render_elapsed_.ElapsedInMillisecondsAndReset();
-
-    bg_offset_even_ -= kPixelPerMs * ms;
-    bg_offset_odd_ += kPixelPerMs * ms;
-    int offset_even = static_cast<int>(bg_offset_even_) % kTileSize;
-    int offset_odd = static_cast<int>(bg_offset_odd_) % kTileSize;
-
-    SDL_SetRenderDrawColor(window()->renderer(), 0xff, 0xff, 0xff, 0xff);
-    SDL_RenderClear(window()->renderer());
-    bool is_even = true;
-    for (int top = render_bounds.y; top < render_bounds.y + render_bounds.h;
-         top += kTileSize) {
-      for (int left = -kTileSize; left < render_bounds.w + kTileSize;
-           left += kTileSize) {
-        // Calculate AABB of the tile.
-        SDL_Rect aabb_rect = {left + (is_even ? offset_even : offset_odd), top,
-                              kTileSize, kTileSize};
-        // Calculate padding.
-        SDL_Rect dest_rect = {aabb_rect.x + kPadding, aabb_rect.y + kPadding,
-                              aabb_rect.w - 2 * kPadding,
-                              aabb_rect.h - 2 * kPadding};
-        SDL_Rect src_rect = {0, 0, bg_width_, bg_height_};
-        SDL_RenderCopy(window()->renderer(), bg_texture_, &src_rect,
-                       &dest_rect);
-      }
-      is_even = !is_even;
-    }
-
-    // Draw 'kiwi machine' logo.
-    const int kKiwiPosX = styles::kiwi_bg_widget::GetKiwiPositionX(
-        main_window_->GetSafeAreaInsets());
-    const int kKiwiPosY = styles::kiwi_bg_widget::GetKiwiPositionY(
-        main_window_->GetSafeAreaInsets());
-    const float kKiwiScale =
-        styles::kiwi_bg_widget::GetKiwiScale(main_window_->window_scale());
-    SDL_Texture* bg_kiwi =
-        GetImage(window()->renderer(), image_resources::ImageID::kKiwiMachine);
-    int tex_width, tex_height;
-    SDL_QueryTexture(bg_kiwi, nullptr, nullptr, &tex_width, &tex_height);
-    SDL_Rect src_rect{0, 0, tex_width, tex_height};
-    SDL_Rect dest_rect{render_bounds.x + kKiwiPosX, render_bounds.y + kKiwiPosY,
-                       static_cast<int>(tex_width * kKiwiScale),
-                       static_cast<int>(tex_height * kKiwiScale)};
-    SDL_RenderCopy(window()->renderer(), bg_kiwi, &src_rect, &dest_rect);
-
-  } else {
+  if (is_loading_) {
     float fade_progress =
         (bg_fade_out_timer_.ElapsedInMilliseconds() / kFadeSpeedMs);
     if (fade_progress > 1)
@@ -111,12 +58,4 @@ void KiwiBgWidget::Paint() {
 
 bool KiwiBgWidget::IsWindowless() {
   return true;
-}
-
-bool KiwiBgWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
-  // While loading, stop propagate key events to its item widget.
-  if (is_loading_)
-    return true;
-
-  return Widget::OnKeyPressed(event);
 }

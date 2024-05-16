@@ -72,12 +72,14 @@ int GetDefaultMenuHeight() {
   return kDefaultFontSize + ImGui::GetStyle().FramePadding.y * 2;
 }
 
-void FlexLayout(WindowBase* window, Widget* left, Widget* right) {
+void FlexLayout(WindowBase* window, SideMenu* left, Widget* right) {
   SDL_Rect client_bounds = window->GetClientBounds();
-  int left_width = client_bounds.w * .2f;
+  int left_width = client_bounds.w * .1f;
   int right_width = client_bounds.w - left_width;
-  left->set_bounds(SDL_Rect{0, 0, left_width, client_bounds.h});
-  right->set_bounds(SDL_Rect{left_width + 1, 0, right_width, client_bounds.h});
+  // An activated side menu needs more space.
+  int calculated_left_width = left->activate() ? left_width * 2 : left_width;
+  left->set_bounds(SDL_Rect{0, 0, calculated_left_width, client_bounds.h});
+  right->set_bounds(SDL_Rect{left_width, 0, right_width, client_bounds.h});
 }
 
 void FillLayout(WindowBase* window, Widget* widget) {
@@ -308,6 +310,22 @@ int MainWindow::Scaled(int i) {
   return i * window_scale();
 }
 
+void MainWindow::ChangeFocus(MainFocus focus) {
+  switch (focus) {
+    case MainFocus::kGameItems:
+      side_menu_->set_activate(false);
+      main_items_widget_->SetActivate(true);
+      break;
+    case MainFocus::kSideMenu:
+      side_menu_->set_activate(true);
+      main_items_widget_->SetActivate(false);
+      break;
+    default:
+      SDL_assert(false);  // Bad focus. Shouldn't be here.
+  }
+  FlexLayout(this, side_menu_, stack_widget_);
+}
+
 void MainWindow::AddObserver(Observer* observer) {
   observers_.insert(observer);
 }
@@ -474,16 +492,6 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
       static_cast<int>(frame->width() * canvas->frame_scale()),
       static_cast<int>(frame->height() * canvas->frame_scale())};
   canvas->set_bounds(dest_rect);
-
-  // Updates window size, to fit the frame.
-  if (menu_bar_) {
-    SDL_Rect menu_rect = menu_bar_->bounds();
-    int desired_window_width = dest_rect.w;
-    int desired_window_height = menu_rect.h + dest_rect.h;
-    Resize(desired_window_width, desired_window_height);
-  } else {
-    Resize(dest_rect.w, dest_rect.h);
-  }
 }
 #endif
 
@@ -541,7 +549,7 @@ void MainWindow::InitializeUI() {
   // Background
   SDL_Rect client_bounds = GetClientBounds();
   std::unique_ptr<KiwiBgWidget> bg_widget =
-      std::make_unique<KiwiBgWidget>(this);
+      std::make_unique<KiwiBgWidget>(this, runtime_id_);
   bg_widget_ = bg_widget.get();
   FillLayout(this, bg_widget_);
   AddWidget(std::move(bg_widget));
@@ -549,7 +557,17 @@ void MainWindow::InitializeUI() {
   // Side menu
   std::unique_ptr<SideMenu> side_menu =
       std::make_unique<SideMenu>(this, runtime_id_);
+
+  side_menu->set_activate(true);
+  side_menu->AddMenu(
+      std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_GAME),
+      kiwi::base::DoNothing());
+  side_menu->AddMenu(
+      std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
+      kiwi::base::DoNothing());
+  side_menu->set_zorder(1);
   side_menu_ = side_menu.get();
+
   bg_widget_->AddWidget(std::move(side_menu));
 
   // Stack widget
@@ -568,7 +586,6 @@ void MainWindow::InitializeUI() {
     std::unique_ptr<FlexItemsWidget> items_widget =
         std::make_unique<FlexItemsWidget>(this, runtime_id_);
     main_items_widget_ = items_widget.get();
-
 #if defined(KIWI_USE_EXTERNAL_PAK)
     OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
                            kiwi::base::FilePath::FromUTF8Unsafe(
@@ -608,6 +625,7 @@ void MainWindow::InitializeUI() {
     // items_widget->SetIndex(main_items_index);
 
     stack_widget_->PushWidget(std::move(items_widget));
+    ChangeFocus(MainFocus::kGameItems);
 
     // Game items (special)
 

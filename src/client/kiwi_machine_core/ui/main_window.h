@@ -34,6 +34,7 @@ class MemoryWidget;
 class DisassemblyWidget;
 class GroupWidget;
 class FlexItemsWidget;
+class SideMenu;
 
 namespace preset_roms {
 struct PresetROM;
@@ -51,6 +52,11 @@ class MainWindow : public WindowBase,
     kB,
     kAB,
     kPause,
+  };
+
+  enum class MainFocus {
+    kSideMenu,
+    kGameItems,
   };
 
   class Observer {
@@ -86,6 +92,7 @@ class MainWindow : public WindowBase,
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
+  void ChangeFocus(MainFocus focus);
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -212,7 +219,7 @@ class MainWindow : public WindowBase,
   FlexItemsWidget* main_items_widget_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
-  Widget* side_menu_ = nullptr;
+  SideMenu* side_menu_ = nullptr;
   StackWidget* stack_widget_ = nullptr;
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;

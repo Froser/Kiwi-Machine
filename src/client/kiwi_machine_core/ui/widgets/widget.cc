@@ -92,6 +92,8 @@ void Widget::Render() {
         widget->Render();
     }
 
+    PostPaint();
+
     RemovePendingWidgets();
 
     if (!bounds_changed) {
@@ -132,6 +134,8 @@ SDL_Rect Widget::MapToParent(const SDL_Rect& bounds) {
 }
 
 void Widget::Paint() {}
+
+void Widget::PostPaint() {}
 
 bool Widget::IsWindowless() {
   return false;

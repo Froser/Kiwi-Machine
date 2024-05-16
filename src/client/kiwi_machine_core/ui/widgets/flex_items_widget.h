@@ -33,23 +33,20 @@ class FlexItemsWidget : public Widget {
 
   void SetIndex(size_t index);
   bool IsItemSelected(FlexItemWidget* item);
+  void SetActivate(bool activate);
 
  private:
   void Layout();
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void TriggerCurrentItem();
 
-  enum Direction {
-    kUp,
-    kDown,
-    kLeft,
-    kRight
-  };
+  enum Direction { kUp, kDown, kLeft, kRight };
   size_t FindNextIndex(Direction direction);
   size_t FindNextIndex(int from_index, int to_index);
 
  protected:
   void Paint() override;
+  void PostPaint() override;
   void OnWindowResized() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
@@ -63,6 +60,7 @@ class FlexItemsWidget : public Widget {
   size_t current_index_ = 0;
   SDL_Rect current_item_original_bounds_;
   int view_scrolling_ = 0;
+  bool activate_ = false;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEMS_WIDGET_H_

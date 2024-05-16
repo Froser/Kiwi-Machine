@@ -67,8 +67,16 @@ void FlexItemsWidget::SetIndex(size_t index) {
 }
 
 bool FlexItemsWidget::IsItemSelected(FlexItemWidget* item) {
+  if (!activate_)
+    return false;
+
   SDL_assert(current_index_ < items_.size());
   return items_[current_index_] == item;
+}
+
+void FlexItemsWidget::SetActivate(bool activate) {
+  activate_ = activate;
+  Layout();
 }
 
 void FlexItemsWidget::Layout() {
@@ -135,6 +143,9 @@ void FlexItemsWidget::Layout() {
 
 bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
                                         SDL_ControllerButtonEvent* c) {
+  if (!activate_)
+    return false;
+
   // if (!is_finger_down_) { TODO
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
@@ -143,6 +154,8 @@ bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
     if (next_index != current_index_) {
       PlayEffect(audio_resources::AudioID::kSelect);
       SetIndex(next_index);
+    } else {
+      main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
     }
     return true;
   }
@@ -215,11 +228,32 @@ size_t FlexItemsWidget::FindNextIndex(Direction direction) {
       return FindNextIndex(current_index_, 0);
     case kDown:
       return FindNextIndex(current_index_, items_.size());
-    case kLeft:
-      return current_index_ == 0 ? 0 : current_index_ - 1;
-    case kRight:
-      return current_index_ == items_.size() - 1 ? current_index_
-                                                 : current_index_ + 1;
+    case kLeft: {
+      if (current_index_ == 0)
+        return 0;
+
+      size_t next_index_candidate = current_index_ - 1;
+      if (items_[next_index_candidate]->bounds().y !=
+          current_item_original_bounds_.y) {
+        // Do not change the index if the candidate changes its row.
+        return current_index_;
+      } else {
+        return next_index_candidate;
+      }
+    }
+    case kRight: {
+      if (current_index_ == items_.size() - 1)
+        return items_.size() - 1;
+
+      size_t next_index_candidate = current_index_ + 1;
+      if (items_[next_index_candidate]->bounds().y !=
+          current_item_original_bounds_.y) {
+        // Do not change the index if the candidate changes its row.
+        return current_index_;
+      } else {
+        return next_index_candidate;
+      }
+    }
     default:
       SDL_assert(false);  // Shouldn't be here
       return 0;
@@ -282,6 +316,17 @@ void FlexItemsWidget::Paint() {
   if (first_paint_) {
     Layout();
     first_paint_ = false;
+  }
+}
+
+void FlexItemsWidget::PostPaint() {
+  if (!activate_) {
+    SDL_Rect global_bounds = MapToParent(bounds());
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2(global_bounds.x, global_bounds.y),
+        ImVec2(global_bounds.x + global_bounds.w,
+               global_bounds.y + global_bounds.h),
+        ImColor(0, 0, 0, 196));
   }
 }
 

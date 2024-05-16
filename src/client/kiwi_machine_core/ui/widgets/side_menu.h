@@ -20,17 +20,33 @@
 #include "utility/timer.h"
 
 class MainWindow;
+class LocalizedStringUpdater;
 class SideMenu : public Widget {
  public:
   explicit SideMenu(MainWindow* main_window, NESRuntimeID runtime_id);
   ~SideMenu() override;
 
+ public:
+  void AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
+               kiwi::base::RepeatingClosure callback);
+  void set_activate(bool activate) { activate_ = activate; }
+  bool activate() { return activate_; }
+
  private:
-  bool IsWindowless() override;
+  void Paint() override;
+  bool OnKeyPressed(SDL_KeyboardEvent* event) override;
+  bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
+  bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
+  std::vector<std::pair<std::unique_ptr<LocalizedStringUpdater>,
+                        kiwi::base::RepeatingClosure>>
+      menu_items_;
+  int current_index_ = 0;
+  bool activate_ = false;
 };
 
 #endif  // UI_WIDGETS_SIDE_MENU_H_

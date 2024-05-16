@@ -80,6 +80,7 @@ class Widget {
 
  protected:
   virtual void Paint();
+  virtual void PostPaint();
   virtual bool IsWindowless();
   virtual bool OnKeyPressed(SDL_KeyboardEvent* event);
   virtual bool OnKeyReleased(SDL_KeyboardEvent* event);
