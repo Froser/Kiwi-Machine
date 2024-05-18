@@ -70,6 +70,8 @@ set(Sources
         ui/widgets/canvas.h
         ui/widgets/canvas_observer.cc
         ui/widgets/canvas_observer.h
+        ui/widgets/card_widget.cc
+        ui/widgets/card_widget.h
         ui/widgets/disassembly_widget.cc
         ui/widgets/disassembly_widget.h
         ui/widgets/demo_widget.cc

@@ -23,12 +23,23 @@ class MainWindow;
 class LocalizedStringUpdater;
 class SideMenu : public Widget {
  public:
+  struct MenuCallbacks {
+    // Triggers when joystick key 'A' pressed
+    kiwi::base::RepeatingClosure trigger_callback = kiwi::base::DoNothing();
+
+    // Triggers when selected
+    kiwi::base::RepeatingClosure selected_callback = kiwi::base::DoNothing();
+
+    // Triggers when joystick 'right' pressed
+    kiwi::base::RepeatingClosure enter_callback = kiwi::base::DoNothing();
+  };
+
   explicit SideMenu(MainWindow* main_window, NESRuntimeID runtime_id);
   ~SideMenu() override;
 
  public:
   void AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
-               kiwi::base::RepeatingClosure callback);
+               MenuCallbacks callbacks);
   void set_activate(bool activate) { activate_ = activate; }
   bool activate() { return activate_; }
 
@@ -42,8 +53,7 @@ class SideMenu : public Widget {
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
-  std::vector<std::pair<std::unique_ptr<LocalizedStringUpdater>,
-                        kiwi::base::RepeatingClosure>>
+  std::vector<std::pair<std::unique_ptr<LocalizedStringUpdater>, MenuCallbacks>>
       menu_items_;
   int current_index_ = 0;
   bool activate_ = false;

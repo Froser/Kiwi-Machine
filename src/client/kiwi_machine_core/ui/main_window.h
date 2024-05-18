@@ -22,6 +22,7 @@
 #include "ui/widgets/canvas_observer.h"
 #include "ui/widgets/in_game_menu.h"
 #include "ui/widgets/menu_bar.h"
+#include "ui/widgets/side_menu.h"
 #include "ui/window_base.h"
 
 class Canvas;
@@ -34,7 +35,7 @@ class MemoryWidget;
 class DisassemblyWidget;
 class GroupWidget;
 class FlexItemsWidget;
-class SideMenu;
+class CardWidget;
 
 namespace preset_roms {
 struct PresetROM;
@@ -56,7 +57,7 @@ class MainWindow : public WindowBase,
 
   enum class MainFocus {
     kSideMenu,
-    kGameItems,
+    kContents,
   };
 
   class Observer {
@@ -150,6 +151,10 @@ class MainWindow : public WindowBase,
                                       kiwi::nes::ControllerButton button);
   void CloseInGameMenu();
 
+  SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
+  SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
+      FlexItemsWidget* items_widget);
+
   // Menu callbacks:
   void OnRomLoaded(const std::string& name);
   void OnQuit();
@@ -215,12 +220,14 @@ class MainWindow : public WindowBase,
   Widget* palette_widget_ = nullptr;
   Widget* pattern_widget_ = nullptr;
   Widget* frame_rate_widget_ = nullptr;
+  StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
-  FlexItemsWidget* main_items_widget_ = nullptr;
+  FlexItemsWidget* main_nes_items_widget_ = nullptr;
+  FlexItemsWidget* special_nes_items_widget_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
   SideMenu* side_menu_ = nullptr;
-  StackWidget* stack_widget_ = nullptr;
+  CardWidget* contents_card_widget_ = nullptr;
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;

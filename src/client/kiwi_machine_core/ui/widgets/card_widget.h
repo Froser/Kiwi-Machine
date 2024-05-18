@@ -10,27 +10,24 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UI_WIDGETS_STACK_WIDGET_H_
-#define UI_WIDGETS_STACK_WIDGET_H_
+#ifndef UI_WIDGETS_CARD_WIDGET_H_
+#define UI_WIDGETS_CARD_WIDGET_H_
 
-#include <stack>
 #include <string>
 
 #include "ui/widgets/widget.h"
 
-class StackWidget : public Widget {
+class CardWidget : public Widget {
  public:
-  explicit StackWidget(WindowBase* window_base);
-  ~StackWidget() override;
+  explicit CardWidget(WindowBase* window_base);
+  ~CardWidget() override;
 
  public:
-  void PushWidget(std::unique_ptr<Widget> widget);
-  void PopWidget();
+  bool SetCurrentWidget(Widget* child_widget);
 
  protected:
   bool IsWindowless() override;
-  void OnWidgetsRemoved() override;
   void OnWindowResized() override;
 };
 
-#endif  // UI_WIDGETS_STACK_WIDGET_H_
+#endif  // UI_WIDGETS_CARD_WIDGET_H_

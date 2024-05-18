@@ -34,6 +34,7 @@ class FlexItemsWidget : public Widget {
   void SetIndex(size_t index);
   bool IsItemSelected(FlexItemWidget* item);
   void SetActivate(bool activate);
+  bool empty() { return items_.empty(); }
 
  private:
   void Layout();

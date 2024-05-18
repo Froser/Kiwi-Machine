@@ -19,8 +19,8 @@
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 
-constexpr int kItemPaddingBottom = 15;
-constexpr int kItemPaddingSide = 3;
+constexpr int kItemMarginBottom = 15;
+constexpr int kItemPadding = 3;
 
 SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
     : Widget(main_window), main_window_(main_window) {
@@ -40,7 +40,7 @@ void SideMenu::Paint() {
              global_bounds.y + global_bounds.h),
       ImColor(171, 238, 80));
 
-  const int kX = global_bounds.x + kItemPaddingSide;
+  const int kX = global_bounds.x + kItemPadding;
   int y = 0;
   for (int i = menu_items_.size() - 1; i >= 0; --i) {
     PreferredFontSize font_size(PreferredFontSize::k1x);
@@ -48,29 +48,37 @@ void SideMenu::Paint() {
     ScopedFont font = GetPreferredFont(font_size, menu_content.c_str());
     ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
     const int kItemHeight = text_size.y;
-    if (i == menu_items_.size() - 1) {
-      y = global_bounds.h - kItemPaddingBottom - kItemHeight;
-    }
+    if (i == menu_items_.size() - 1)
+      y = global_bounds.h - kItemMarginBottom - kItemHeight - kItemPadding * 2;
+
     if (i == current_index_) {
       ImGui::GetWindowDrawList()->AddRectFilled(
           ImVec2(kX, y),
-          ImVec2(kX + global_bounds.w - kItemPaddingSide, y + kItemHeight),
+          ImVec2(kX + global_bounds.w - kItemPadding,
+                 y + kItemHeight + kItemPadding * 2),
           ImColor(255, 255, 255));
       ImGui::GetWindowDrawList()->AddText(
-          font.GetFont(), font.GetFont()->FontSize, ImVec2(kX, y),
-          ImColor(171, 238, 80), menu_content.c_str());
+          font.GetFont(), font.GetFont()->FontSize,
+          ImVec2(kX + kItemPadding, y + kItemPadding), ImColor(171, 238, 80),
+          menu_content.c_str());
     } else {
       ImGui::GetWindowDrawList()->AddText(
-          font.GetFont(), font.GetFont()->FontSize, ImVec2(kX, y),
-          ImColor(255, 255, 255), menu_content.c_str());
+          font.GetFont(), font.GetFont()->FontSize,
+          ImVec2(kX + kItemPadding, y + kItemPadding), ImColor(255, 255, 255),
+          menu_content.c_str());
     }
-    y -= kItemHeight;
+    y -= kItemHeight + kItemPadding * 2;
   }
 }
 
 void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
-                       kiwi::base::RepeatingClosure callback) {
-  menu_items_.emplace_back(std::move(string_updater), callback);
+                       MenuCallbacks callbacks) {
+  menu_items_.emplace_back(std::move(string_updater), callbacks);
+
+  // When the first widget is added, trigger its selected callback, because it
+  // is selected by default.
+  if (menu_items_.size() == 1)
+    menu_items_[0].second.selected_callback.Run();
 }
 
 bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
@@ -86,6 +94,7 @@ bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
     if (next_index != current_index_) {
       PlayEffect(audio_resources::AudioID::kSelect);
       current_index_ = next_index;
+      menu_items_[current_index_].second.selected_callback.Run();
     }
     return true;
   }
@@ -99,6 +108,7 @@ bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
     if (next_index != current_index_) {
       PlayEffect(audio_resources::AudioID::kSelect);
       current_index_ = next_index;
+      menu_items_[current_index_].second.selected_callback.Run();
     }
     return true;
   }
@@ -109,7 +119,18 @@ bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
     if (activate_) {
       PlayEffect(audio_resources::AudioID::kSelect);
       activate_ = false;
-      main_window_->ChangeFocus(MainWindow::MainFocus::kGameItems);
+      menu_items_[current_index_].second.enter_callback.Run();
+    }
+    return true;
+  }
+
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
+      IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kStart, k)) {
+    if (activate_) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      menu_items_[current_index_].second.trigger_callback.Run();
     }
     return true;
   }

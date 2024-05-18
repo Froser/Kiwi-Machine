@@ -965,15 +965,21 @@ void InGameMenu::HandleMenuItemForCurrentSelection() {
     PlayEffect(audio_resources::AudioID::kSelect);
     settings_entered_ = true;
   } else {
-    PlayEffect(audio_resources::AudioID::kStart);
     if (current_selection_ == MenuItem::kLoadState ||
         current_selection_ == MenuItem::kSaveState) {
       // Saving or loading states will pass a parameter to show which state
       // to be saved.
+      PlayEffect(audio_resources::AudioID::kStart);
       menu_callback_.Run(current_selection_, which_state_);
     } else if (current_selection_ == MenuItem::kLoadAutoSave) {
+      PlayEffect(audio_resources::AudioID::kStart);
       menu_callback_.Run(current_selection_, state_timestamp_);
     } else {
+      if (current_selection_ == MenuItem::kToGameSelection)
+        PlayEffect(audio_resources::AudioID::kBack);
+      else
+        PlayEffect(audio_resources::AudioID::kStart);
+
       menu_callback_.Run(current_selection_, 0);
     }
   }
