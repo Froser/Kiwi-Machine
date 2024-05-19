@@ -34,10 +34,6 @@ class NES_EXPORT PPUPatch {
   void Set(uint32_t rom_crc);
 
   int scanline_irq_dot;
-
-  // Some games will trigger IRQ twice. `scanline_irq_dot_ex` means the extra
-  // IRQ scanline dot. -100 means no extra IRQ.
-  int scanline_irq_dot_ex = -100;
 };
 
 }  // namespace nes

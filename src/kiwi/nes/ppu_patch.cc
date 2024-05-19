@@ -28,14 +28,10 @@ void PPUPatch::Reset() {
   // any game needs a 260-scanline-IRQ, put its CRC32 to Set() and set the
   // expected IRQ scanline.
   scanline_irq_dot = 280;
-  scanline_irq_dot_ex = -100;
 }
 
 void PPUPatch::Set(uint32_t rom_crc) {
   switch (rom_crc) {
-    case 0x5104833E:  // Kick master
-      scanline_irq_dot_ex = 238;
-      break;
     default:
       Reset();
       break;

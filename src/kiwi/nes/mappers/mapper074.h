@@ -27,7 +27,6 @@ class Mapper074 : public Mapper004 {
   ~Mapper074() override;
 
  public:
-  // Mapper003:
   void WriteCHR(Address address, Byte value) override;
 
   // EmulatorStates::SerializableState:
