@@ -146,6 +146,12 @@ bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
   if (!activate_)
     return false;
 
+  if (k && k->keysym.mod) {
+    // If any modifier is pressed, we won't treat this key event as handled,
+    // because many shortcut such as 'Command+W' will close the application.
+    return true;
+  }
+
   // if (!is_finger_down_) { TODO
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
@@ -155,9 +161,15 @@ bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
       PlayEffect(audio_resources::AudioID::kSelect);
       SetIndex(next_index);
     } else {
-      main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
+      back_callback_.Run();
     }
     return true;
+  }
+
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
+      c && c->button == SDL_CONTROLLER_BUTTON_B) {
+    back_callback_.Run();
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(

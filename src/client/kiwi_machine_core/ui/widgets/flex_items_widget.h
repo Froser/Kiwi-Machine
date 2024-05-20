@@ -35,6 +35,12 @@ class FlexItemsWidget : public Widget {
   bool IsItemSelected(FlexItemWidget* item);
   void SetActivate(bool activate);
   bool empty() { return items_.empty(); }
+  size_t size() { return items_.size(); }
+  size_t current_index() { return current_index_; }
+  // Triggers when the widget is about to lose focus.
+  void set_back_callback(kiwi::base::RepeatingClosure callback) {
+    back_callback_ = callback;
+  }
 
  private:
   void Layout();
@@ -56,6 +62,7 @@ class FlexItemsWidget : public Widget {
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
+  kiwi::base::RepeatingClosure back_callback_ = kiwi::base::DoNothing();
   std::vector<FlexItemWidget*> items_;
   bool first_paint_ = true;
   size_t current_index_ = 0;

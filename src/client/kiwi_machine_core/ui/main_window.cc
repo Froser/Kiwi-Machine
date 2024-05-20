@@ -593,6 +593,9 @@ void MainWindow::InitializeUI() {
     std::unique_ptr<FlexItemsWidget> main_nes_items_widget =
         std::make_unique<FlexItemsWidget>(this, runtime_id_);
     main_nes_items_widget_ = main_nes_items_widget.get();
+    main_nes_items_widget_->set_back_callback(kiwi::base::BindRepeating(
+        &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
+        MainWindow::MainFocus::kSideMenu));
     SDL_assert(preset_roms::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::GetPresetRoms()[i];
@@ -617,9 +620,10 @@ void MainWindow::InitializeUI() {
     }
     // items_widget->Sort();
 
-    // int main_items_index = std::clamp(config_->data().last_index, 0,
-    //                                   items_widget->GetItemCount() - 1);
-    // items_widget->SetIndex(main_items_index);
+    int main_items_index =
+        std::clamp(config_->data().last_index, 0,
+                   static_cast<int>(main_nes_items_widget_->size() - 1));
+    main_nes_items_widget_->SetIndex(main_items_index);
 
     contents_card_widget_->AddWidget(std::move(main_nes_items_widget));
 
@@ -627,6 +631,9 @@ void MainWindow::InitializeUI() {
     std::unique_ptr<FlexItemsWidget> special_nes_items_widget =
         std::make_unique<FlexItemsWidget>(this, runtime_id_);
     special_nes_items_widget_ = special_nes_items_widget.get();
+    special_nes_items_widget_->set_back_callback(kiwi::base::BindRepeating(
+        &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
+        MainWindow::MainFocus::kSideMenu));
 
     SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
@@ -661,7 +668,7 @@ void MainWindow::InitializeUI() {
                        CreateMenuSettingsCallbacks());
 
     SideMenu::MenuCallbacks quit_callbacks;
-    quit_callbacks.enter_callback = kiwi::base::BindRepeating(
+    quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         &MainWindow::OnQuit, kiwi::base::Unretained(this));
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
@@ -842,7 +849,7 @@ void MainWindow::InitializeUI() {
     splash->Play();
     splash->SetClosedCallback(kiwi::base::BindRepeating(
         &MainWindow::RunAllAfterSplashCallbacks, kiwi::base::Unretained(this)));
-    main_stack_widget->PushWidget(std::move(splash));
+    main_stack_widget_->PushWidget(std::move(splash));
     has_splash = true;
   }
 #endif
@@ -1262,6 +1269,7 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
   callbacks.enter_callback = kiwi::base::BindRepeating(
       &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
       MainFocus::kContents);
+  callbacks.trigger_callback = callbacks.enter_callback;
   return callbacks;
 }
 
@@ -1687,8 +1695,7 @@ void MainWindow::SaveConfig() {
   // This happens when MainWindow is about to destroy, and has IO operation.
   if (!is_headless_) {
     SDL_assert(main_nes_items_widget_);
-    /* TODO */
-    // config_->data().last_index = main_items_widget_->current_index();
+    config_->data().last_index = main_nes_items_widget_->current_index();
     config_->SaveConfig();
   }
 }
