@@ -23,7 +23,6 @@
 #include "utility/images.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
-#include "utility/richtext_content.h"
 
 AboutWidget::AboutWidget(MainWindow* main_window,
                          StackWidget* parent,
@@ -64,11 +63,13 @@ void AboutWidget::Paint() {
   SDL_Rect client_bounds = window()->GetClientBounds();
   set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
 
+  /*
   RichTextContent content(this);
   content.AddContent(font_title_, str_title_.c_str());
   content.AddContent(font_contents_, str_contents_.c_str());
   content.AddContent(font_go_back_, str_go_back_.c_str());
   content.DrawContents(IM_COL32_BLACK);
+   */
 }
 
 void AboutWidget::OnWindowResized() {

@@ -38,7 +38,6 @@ class Splash : public Widget {
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
 
  private:
-  void InitializeStrings();
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
  private:
@@ -51,15 +50,6 @@ class Splash : public Widget {
 
   enum class SplashState {
     kLogo,
-#if !KIWI_WASM
-#if !KIWI_MOBILE
-    kHowToPlayKeyboard,
-    kClosingHowToPlayKeyboard,
-    kHowToPlayJoystick,
-    kClosingHowToPlayJoystick,
-#endif
-    kIntroduction,
-#endif
     kClosing,
   };
   SplashState state_ = SplashState::kLogo;
