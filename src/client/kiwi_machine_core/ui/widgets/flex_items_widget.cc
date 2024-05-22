@@ -19,10 +19,12 @@
 #include "ui/widgets/flex_item_widget.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
+#include "utility/math.h"
 
 namespace {
 constexpr int kItemHeightHint = 145;
 constexpr int kItemSelectedHighlightedSize = 20;
+constexpr int kItemAnimationMs = 50;
 
 int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   SDL_assert(lhs.h == rhs.h);
@@ -80,6 +82,7 @@ void FlexItemsWidget::SetActivate(bool activate) {
 }
 
 void FlexItemsWidget::Layout() {
+  timer_.Reset();
   int anchor_x = 0, anchor_y = 0;
   size_t index = 0;
 
@@ -95,33 +98,41 @@ void FlexItemsWidget::Layout() {
     anchor_x += item_bounds.w;
 
     if (IsItemSelected(item)) {
-      current_item_original_bounds_ = item_bounds;
+      current_item_widget_ = item;
+
+      SDL_Rect item_target_bounds = item_bounds;
+      current_item_original_bounds_ = item_target_bounds;
 
       item->set_zorder(1);
-      if (item_bounds.x == 0) {
-        item_bounds.w += kItemSelectedHighlightedSize;
-      } else if (item_bounds.x + item_bounds.w + kItemSelectedHighlightedSize >
+      if (item_target_bounds.x == 0) {
+        item_target_bounds.w += kItemSelectedHighlightedSize;
+      } else if (item_target_bounds.x + item_target_bounds.w +
+                     kItemSelectedHighlightedSize >
                  bounds().w) {
-        item_bounds.x -= kItemSelectedHighlightedSize;
+        item_target_bounds.x -= kItemSelectedHighlightedSize;
       } else {
-        item_bounds.x -= kItemSelectedHighlightedSize;
-        item_bounds.w += kItemSelectedHighlightedSize * 2;
+        item_target_bounds.x -= kItemSelectedHighlightedSize;
+        item_target_bounds.w += kItemSelectedHighlightedSize * 2;
       }
 
-      if (item_bounds.y == 0) {
-        item_bounds.h += kItemSelectedHighlightedSize;
+      if (item_target_bounds.y == 0) {
+        item_target_bounds.h += kItemSelectedHighlightedSize;
       } else {
-        item_bounds.y -= kItemSelectedHighlightedSize;
-        item_bounds.h += kItemSelectedHighlightedSize * 2;
+        item_target_bounds.y -= kItemSelectedHighlightedSize;
+        item_target_bounds.h += kItemSelectedHighlightedSize * 2;
       }
 
       // Adjusts view scrolling
-      if (view_scrolling_ + item_bounds.y + item_bounds.h > bounds().h) {
-        view_scrolling_ = bounds().h - (item_bounds.y + item_bounds.h);
-      } else if (view_scrolling_ + item_bounds.y < 0) {
-        view_scrolling_ = -item_bounds.y;
+      if (view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
+          bounds().h) {
+        view_scrolling_ =
+            bounds().h - (item_target_bounds.y + item_target_bounds.h);
+      } else if (view_scrolling_ + item_target_bounds.y < 0) {
+        view_scrolling_ = -item_target_bounds.y;
       }
       current_item_original_bounds_.y += view_scrolling_;
+      current_item_target_bounds_ = item_target_bounds;
+      current_item_target_bounds_.y += view_scrolling_;
     } else {
       item->set_zorder(0);
     }
@@ -328,6 +339,18 @@ void FlexItemsWidget::Paint() {
   if (first_paint_) {
     Layout();
     first_paint_ = false;
+  }
+
+  // Selected item animation
+  if (current_item_widget_) {
+    int elapsed_ms = timer_.ElapsedInMilliseconds();
+    float percentage =
+        timer_.ElapsedInMilliseconds() / static_cast<float>(kItemAnimationMs);
+    if (percentage > 1.f)
+      percentage = 1.f;
+    current_item_widget_->set_bounds(Lerp(current_item_original_bounds_,
+                                          current_item_target_bounds_,
+                                          percentage));
   }
 }
 

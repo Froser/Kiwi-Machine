@@ -66,9 +66,12 @@ class FlexItemsWidget : public Widget {
   std::vector<FlexItemWidget*> items_;
   bool first_paint_ = true;
   size_t current_index_ = 0;
+  FlexItemWidget* current_item_widget_ = nullptr;
   SDL_Rect current_item_original_bounds_;
+  SDL_Rect current_item_target_bounds_;
   int view_scrolling_ = 0;
   bool activate_ = false;
+  Timer timer_;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEMS_WIDGET_H_
