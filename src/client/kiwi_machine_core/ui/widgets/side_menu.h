@@ -57,6 +57,9 @@ class SideMenu : public Widget {
       menu_items_;
   int current_index_ = 0;
   bool activate_ = false;
+  Timer timer_;
+  SDL_Rect selection_current_rect_in_global_;
+  SDL_Rect selection_target_rect_in_global_;
 };
 
 #endif  // UI_WIDGETS_SIDE_MENU_H_

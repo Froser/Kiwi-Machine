@@ -18,9 +18,11 @@
 #include "utility/fonts.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
+#include "utility/math.h"
 
 constexpr int kItemMarginBottom = 15;
 constexpr int kItemPadding = 3;
+constexpr int kItemAnimationMs = 50;
 
 SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
     : Widget(main_window), main_window_(main_window) {
@@ -52,10 +54,30 @@ void SideMenu::Paint() {
       y = global_bounds.h - kItemMarginBottom - kItemHeight - kItemPadding * 2;
 
     if (i == current_index_) {
+      // Animation
+      if (SDL_RectEmpty(&selection_current_rect_in_global_)) {
+        selection_current_rect_in_global_ =
+            SDL_Rect{kX, y, global_bounds.w - kItemPadding,
+                     kItemHeight + kItemPadding * 2};
+      }
+      selection_target_rect_in_global_ =
+          SDL_Rect{kX, y, global_bounds.w - kItemPadding,
+                   kItemHeight + kItemPadding * 2};
+      float percentage =
+          timer_.ElapsedInMilliseconds() / static_cast<float>(kItemAnimationMs);
+      if (percentage >= 1.f) {
+        percentage = 1.f;
+        selection_current_rect_in_global_ = selection_target_rect_in_global_;
+      }
+
+      SDL_Rect selection_rect =
+          Lerp(selection_current_rect_in_global_,
+               selection_target_rect_in_global_, percentage);
+
       ImGui::GetWindowDrawList()->AddRectFilled(
-          ImVec2(kX, y),
-          ImVec2(kX + global_bounds.w - kItemPadding,
-                 y + kItemHeight + kItemPadding * 2),
+          ImVec2(selection_rect.x, selection_rect.y),
+          ImVec2(selection_rect.x + selection_rect.w,
+                 selection_rect.y + selection_rect.h),
           ImColor(255, 255, 255));
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFont()->FontSize,
@@ -94,6 +116,7 @@ bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
     if (next_index != current_index_) {
       PlayEffect(audio_resources::AudioID::kSelect);
       current_index_ = next_index;
+      timer_.Reset();
       menu_items_[current_index_].second.selected_callback.Run();
     }
     return true;
@@ -108,6 +131,7 @@ bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
     if (next_index != current_index_) {
       PlayEffect(audio_resources::AudioID::kSelect);
       current_index_ = next_index;
+      timer_.Reset();
       menu_items_[current_index_].second.selected_callback.Run();
     }
     return true;

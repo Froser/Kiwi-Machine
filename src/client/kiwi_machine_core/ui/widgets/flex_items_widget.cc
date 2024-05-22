@@ -343,7 +343,6 @@ void FlexItemsWidget::Paint() {
 
   // Selected item animation
   if (current_item_widget_) {
-    int elapsed_ms = timer_.ElapsedInMilliseconds();
     float percentage =
         timer_.ElapsedInMilliseconds() / static_cast<float>(kItemAnimationMs);
     if (percentage > 1.f)
