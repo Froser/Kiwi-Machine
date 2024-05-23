@@ -44,6 +44,7 @@
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
+#include "utility/math.h"
 #include "utility/zip_reader.h"
 
 namespace {
@@ -65,22 +66,13 @@ constexpr int kDefaultWindowWidth =
     Canvas::kNESFrameDefaultWidth + kWindowPadding * 2;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
+constexpr int kSideMenuAnimationMs = 50;
 
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
 
 int GetDefaultMenuHeight() {
   return kDefaultFontSize + ImGui::GetStyle().FramePadding.y * 2;
-}
-
-void FlexLayout(WindowBase* window, SideMenu* left, Widget* right) {
-  SDL_Rect client_bounds = window->GetClientBounds();
-  int left_width = client_bounds.w * .1f;
-  int right_width = client_bounds.w - left_width;
-  // An activated side menu needs more space.
-  int calculated_left_width = left->activate() ? left_width * 2 : left_width;
-  left->set_bounds(SDL_Rect{0, 0, calculated_left_width, client_bounds.h});
-  right->set_bounds(SDL_Rect{left_width, 0, right_width, client_bounds.h});
 }
 
 void FillLayout(WindowBase* window, Widget* widget) {
@@ -331,7 +323,7 @@ void MainWindow::ChangeFocus(MainFocus focus) {
     default:
       SDL_assert(false);  // Bad focus. Shouldn't be here.
   }
-  FlexLayout(this, side_menu_, contents_card_widget_);
+  FlexLayout();
 }
 
 void MainWindow::AddObserver(Observer* observer) {
@@ -451,7 +443,7 @@ void MainWindow::HandleResizedEvent() {
 
   if (side_menu_) {
     SDL_Rect client_bounds = GetClientBounds();
-    FlexLayout(this, side_menu_, contents_card_widget_);
+    FlexLayout();
   }
 
   if (in_game_menu_) {
@@ -483,6 +475,23 @@ void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
   // Display event changing treats as resizing.
   if (event->type == SDL_DISPLAYEVENT_ORIENTATION)
     HandleResizedEvent();
+}
+
+void MainWindow::Render() {
+  WindowBase::Render();
+
+  // Handles animations here
+  if (side_menu_) {
+    float percentage = side_menu_timer_.ElapsedInMilliseconds() /
+                       static_cast<float>(kSideMenuAnimationMs);
+    if (percentage >= 1.f)
+      percentage = 1.f;
+
+    int side_menu_width =
+        Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
+    side_menu_->set_bounds(
+        SDL_Rect{0, 0, side_menu_width, GetClientBounds().h});
+  }
 }
 
 #if !KIWI_MOBILE
@@ -1219,6 +1228,24 @@ bool MainWindow::IsVirtualJoystickButtonPressed(
 void MainWindow::CloseInGameMenu() {
   OnResume();
   in_game_menu_->Close();
+}
+
+void MainWindow::FlexLayout() {
+  SDL_Rect client_bounds = GetClientBounds();
+  side_menu_timer_.Reset();
+  int left_width = client_bounds.w * .1f;
+  int right_width = client_bounds.w - left_width;
+  // An activated side menu needs more space.
+  if (side_menu_->activate()) {
+    side_menu_original_width_ = left_width;
+    side_menu_target_width_ = left_width * 2;
+  } else {
+    side_menu_original_width_ = left_width * 2;
+    side_menu_target_width_ = left_width;
+  }
+
+  contents_card_widget_->set_bounds(
+      SDL_Rect{left_width, 0, right_width, client_bounds.h});
 }
 
 SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {

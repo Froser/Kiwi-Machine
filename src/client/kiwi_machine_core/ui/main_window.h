@@ -24,6 +24,7 @@
 #include "ui/widgets/menu_bar.h"
 #include "ui/widgets/side_menu.h"
 #include "ui/window_base.h"
+#include "utility/timer.h"
 
 class Canvas;
 class InGameMenu;
@@ -117,6 +118,7 @@ class MainWindow : public WindowBase,
   void HandleResizedEvent() override;
   void HandlePostEvent() override;
   void HandleDisplayEvent(SDL_DisplayEvent* event) override;
+  void Render() override;
 
   // CanvasObserver:
   void OnAboutToRenderFrame(Canvas* canvas,
@@ -150,6 +152,7 @@ class MainWindow : public WindowBase,
   bool IsVirtualJoystickButtonPressed(int which,
                                       kiwi::nes::ControllerButton button);
   void CloseInGameMenu();
+  void FlexLayout();
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
   SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
@@ -227,6 +230,9 @@ class MainWindow : public WindowBase,
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
   SideMenu* side_menu_ = nullptr;
+  Timer side_menu_timer_;
+  int side_menu_target_width_ = 0;
+  int side_menu_original_width_ = 0;
   CardWidget* contents_card_widget_ = nullptr;
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;
