@@ -58,6 +58,8 @@ class FlexItemsWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  void OnWindowPreRender() override;
+  void OnWindowPostRender() override;
 
  private:
   MainWindow* main_window_ = nullptr;

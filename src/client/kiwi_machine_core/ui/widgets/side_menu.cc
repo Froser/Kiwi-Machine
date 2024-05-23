@@ -173,3 +173,12 @@ bool SideMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 bool SideMenu::OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) {
   return HandleInputEvents(nullptr, nullptr);
 }
+
+void SideMenu::OnWindowPreRender() {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+}
+
+void SideMenu::OnWindowPostRender() {
+  ImGui::PopStyleVar(2);
+}

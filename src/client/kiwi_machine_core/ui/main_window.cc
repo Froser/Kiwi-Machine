@@ -673,7 +673,6 @@ void MainWindow::InitializeUI() {
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
         quit_callbacks);
-    side_menu->set_zorder(1);
     side_menu_ = side_menu.get();
     bg_widget_->AddWidget(std::move(side_menu));
     ChangeFocus(MainFocus::kContents);

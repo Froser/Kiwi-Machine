@@ -91,6 +91,8 @@ class Widget {
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();
   virtual void OnLocaleChanged();
+  virtual void OnWindowPreRender();
+  virtual void OnWindowPostRender();
 
   // Finger events are global events. No matter the finger is on the widget or
   // not, it will be triggered.

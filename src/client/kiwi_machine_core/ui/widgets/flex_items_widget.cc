@@ -381,3 +381,12 @@ bool FlexItemsWidget::OnControllerAxisMotionEvents(
     SDL_ControllerAxisEvent* event) {
   return HandleInputEvents(nullptr, nullptr);
 }
+
+void FlexItemsWidget::OnWindowPreRender() {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+}
+
+void FlexItemsWidget::OnWindowPostRender() {
+  ImGui::PopStyleVar(2);
+}

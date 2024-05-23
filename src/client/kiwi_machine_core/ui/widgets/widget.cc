@@ -68,8 +68,10 @@ void Widget::Render() {
         bounds_changed_ = false;
       }
 
+      OnWindowPreRender();
       if (!ImGui::Begin(title().c_str(), &visible_, flags_)) {
         ImGui::End();
+        OnWindowPostRender();
         return;
       }
 
@@ -111,6 +113,7 @@ void Widget::Render() {
 
     if (has_window) {
       ImGui::End();
+      OnWindowPostRender();
     }
   }
 }
@@ -316,6 +319,10 @@ void Widget::OnWidgetsRemoved() {}
 void Widget::OnDisplayChanged() {}
 
 void Widget::OnLocaleChanged() {}
+
+void Widget::OnWindowPreRender() {}
+
+void Widget::OnWindowPostRender() {}
 
 bool Widget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   return false;

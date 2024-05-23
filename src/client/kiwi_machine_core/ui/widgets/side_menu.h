@@ -48,6 +48,8 @@ class SideMenu : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  void OnWindowPreRender() override;
+  void OnWindowPostRender() override;
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
  private:
