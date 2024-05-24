@@ -31,6 +31,9 @@ class StackWidget : public Widget {
   bool IsWindowless() override;
   void OnWidgetsRemoved() override;
   void OnWindowResized() override;
+
+ private:
+  int current_zorder_ = 0;
 };
 
 #endif  // UI_WIDGETS_STACK_WIDGET_H_

@@ -22,24 +22,34 @@ StackWidget::~StackWidget() = default;
 
 void StackWidget::PushWidget(std::unique_ptr<Widget> widget) {
   if (!children().empty()) {
-    children().back()->set_enabled(false);
-    children().back()->set_visible(false);
+    auto back = children().rbegin();
+    SDL_assert(*back);
+    (*back)->set_enabled(false);
+    (*back)->set_visible(false);
   }
 
+  widget->SetZOrder(current_zorder_++);
   widget->set_enabled(true);
   widget->set_visible(true);
   AddWidget(std::move(widget));
 }
 
 void StackWidget::PopWidget() {
+  --current_zorder_;
+
   if (!children().empty()) {
-    RemoveWidget(children().back().get());
+    auto back = children().rbegin();
+    SDL_assert(*back);
+    RemoveWidget(back->get());
   }
 
   // RemoveWidget() just moves the widget to the pending removing list, but
   // still in children()'s list during this frame.
   if (children().size() > 1) {
-    Widget* front = children()[children().size() - 2].get();
+    auto next_back = children().rbegin();
+    ++next_back;
+    SDL_assert(*next_back);
+    Widget* front = next_back->get();
     front->set_enabled(true);
     front->set_visible(true);
   }
@@ -51,8 +61,10 @@ bool StackWidget::IsWindowless() {
 
 void StackWidget::OnWidgetsRemoved() {
   if (!children().empty()) {
-    children().back()->set_enabled(true);
-    children().back()->set_visible(true);
+    auto back = children().rbegin();
+    SDL_assert(*back);
+    (*back)->set_enabled(true);
+    (*back)->set_visible(true);
   }
 }
 

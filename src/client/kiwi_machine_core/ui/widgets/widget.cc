@@ -14,17 +14,8 @@
 
 #include <imgui.h>
 #include <algorithm>
-#include <set>
 
 #include "ui/window_base.h"
-
-namespace {
-struct ZOrderComparer {
-  bool operator()(Widget* lhs, Widget* rhs) const {
-    return lhs->zorder() < rhs->zorder();
-  }
-};
-}  // namespace
 
 Widget::Widget(WindowBase* window) : window_(window) {}
 
@@ -34,13 +25,32 @@ SDL_Rect Widget::GetLocalBounds() {
   return SDL_Rect{0, 0, bounds().w, bounds().h};
 }
 
+void Widget::SetZOrder(int zorder) {
+  zorder_ = zorder;
+  if (parent())
+    parent()->ChildZOrderChanged(this);
+}
+
 void Widget::AddWidget(std::unique_ptr<Widget> widget) {
   widget->set_parent(this);
-  widgets_.push_back(std::move(widget));
+  widgets_.insert(std::move(widget));
 }
 
 void Widget::RemoveWidget(Widget* widget) {
   pending_remove_.push_back(widget);
+}
+
+void Widget::ChildZOrderChanged(Widget* child) {
+  auto target = std::find_if(
+      children().begin(), children().end(),
+      [child](const std::unique_ptr<Widget>& c) { return c.get() == child; });
+
+  Widget* isolate_child =
+      const_cast<std::unique_ptr<Widget>&>(*target).release();
+  children().erase(target);
+
+  std::unique_ptr<Widget> temp(isolate_child);
+  AddWidget(std::move(temp));
 }
 
 void Widget::Render() {
@@ -83,13 +93,7 @@ void Widget::Render() {
 
     Paint();
 
-    // Sorted in zorder index
-    std::multiset<Widget*, ZOrderComparer> sorted_widgets_;
     for (const auto& widget : widgets_) {
-      sorted_widgets_.insert(widget.get());
-    }
-
-    for (const auto& widget : sorted_widgets_) {
       if (widget->visible())
         widget->Render();
     }

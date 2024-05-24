@@ -30,7 +30,6 @@
 #include "ui/widgets/export_widget.h"
 #include "ui/widgets/flex_items_widget.h"
 #include "ui/widgets/frame_rate_widget.h"
-#include "ui/widgets/group_widget.h"
 #include "ui/widgets/kiwi_bg_widget.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/memory_widget.h"

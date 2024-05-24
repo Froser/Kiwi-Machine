@@ -82,6 +82,7 @@ void FlexItemsWidget::SetActivate(bool activate) {
 }
 
 void FlexItemsWidget::Layout() {
+  const SDL_Rect kLocalBounds = GetLocalBounds();
   timer_.Reset();
   int anchor_x = 0, anchor_y = 0;
   size_t index = 0;
@@ -103,7 +104,7 @@ void FlexItemsWidget::Layout() {
       SDL_Rect item_target_bounds = item_bounds;
       current_item_original_bounds_ = item_target_bounds;
 
-      item->set_zorder(1);
+      item->SetZOrder(1);
       if (item_target_bounds.x == 0) {
         item_target_bounds.w += kItemSelectedHighlightedSize;
       } else if (item_target_bounds.x + item_target_bounds.w +
@@ -134,7 +135,7 @@ void FlexItemsWidget::Layout() {
       current_item_target_bounds_ = item_target_bounds;
       current_item_target_bounds_.y += view_scrolling_;
     } else {
-      item->set_zorder(0);
+      item->SetZOrder(0);
     }
 
     item->set_bounds(item_bounds);
@@ -148,6 +149,7 @@ void FlexItemsWidget::Layout() {
       SDL_Rect bounds = item->bounds();
       bounds.y += view_scrolling_;
       item->set_bounds(bounds);
+      item->set_visible(SDL_HasIntersection(&bounds, &kLocalBounds));
     }
   }
 }

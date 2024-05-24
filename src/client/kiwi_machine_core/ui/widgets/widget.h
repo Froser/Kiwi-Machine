@@ -16,12 +16,23 @@
 #include <SDL.h>
 #include <imgui.h>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
 class WindowBase;
 class Widget {
+ private:
+  struct ZOrderComparer {
+    bool operator()(const std::unique_ptr<Widget>& lhs,
+                    const std::unique_ptr<Widget>& rhs) const {
+      return lhs->zorder() < rhs->zorder();
+    }
+  };
+
  public:
+  using Widgets = std::multiset<std::unique_ptr<Widget>, ZOrderComparer>;
+
   explicit Widget(WindowBase* window_base);
   virtual ~Widget();
 
@@ -45,7 +56,7 @@ class Widget {
   void set_enabled(bool enabled) { enabled_ = enabled; }
   bool enabled() { return enabled_; }
 
-  void set_zorder(int zorder) { zorder_ = zorder; }
+  void SetZOrder(int zorder);
   int zorder() { return zorder_; }
 
   const std::string& title() { return title_; }
@@ -59,6 +70,7 @@ class Widget {
   // When all pending widgets are really removed, OnWidgetsRemoved() will be
   // called.
   void RemoveWidget(Widget* widget);
+  void ChildZOrderChanged(Widget* child);
   void Render();
   bool HandleKeyEvents(SDL_KeyboardEvent* event);
   bool HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event);
@@ -72,7 +84,7 @@ class Widget {
   WindowBase* window() { return window_; }
   Widget* parent() { return parent_; }
   SDL_Rect MapToParent(const SDL_Rect& bounds);
-  std::vector<std::unique_ptr<Widget>>& children() { return widgets_; }
+  Widgets& children() { return widgets_; }
   void RemovePendingWidgets();
 
  private:
@@ -107,7 +119,7 @@ class Widget {
   bool visible_ = true;
   SDL_Rect bounds_ = {0, 0, 0, 0};
   std::string title_;
-  std::vector<std::unique_ptr<Widget>> widgets_;
+  Widgets widgets_;
   std::vector<Widget*> pending_remove_;
   Widget* parent_ = nullptr;
   int zorder_ = 0;

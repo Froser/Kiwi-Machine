@@ -21,7 +21,7 @@
 namespace {
 constexpr float kCoverHWRatio = 250.f / 200;
 constexpr float kFadeDurationInMs = 1000;
-}
+}  // namespace
 
 FlexItemWidget::FlexItemWidget(
     MainWindow* main_window,
@@ -63,8 +63,7 @@ void FlexItemWidget::CreateTextureIfNotExists() {
   }
 }
 
-SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height,
-                                          bool is_selected) {
+SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height, bool is_selected) {
   SDL_Rect bs = bounds();
   bs.h = item_height;
   CreateTextureIfNotExists();
@@ -79,7 +78,6 @@ void FlexItemWidget::Trigger() {
 
 void FlexItemWidget::Paint() {
   CreateTextureIfNotExists();
-
   const SDL_Rect kBoundsToParent = MapToParent(bounds());
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
