@@ -25,6 +25,7 @@ namespace {
 constexpr int kItemHeightHint = 145;
 constexpr int kItemSelectedHighlightedSize = 20;
 constexpr int kItemAnimationMs = 50;
+constexpr int kScrollingAnimationMs = 20;
 
 int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   SDL_assert(lhs.h == rhs.h);
@@ -90,7 +91,7 @@ void FlexItemsWidget::Layout() {
   if (SDL_RectEmpty(&kLocalBounds))
     return;
 
-  timer_.Reset();
+  original_view_scrolling_ = target_view_scrolling_;
   int anchor_x = 0, anchor_y = 0;
   int column_index = 0, row_index = 0;
   size_t index = 0;
@@ -144,23 +145,23 @@ void FlexItemsWidget::Layout() {
       }
 
       // Adjusts view scrolling
-      if (view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
+      if (target_view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
           bounds().h) {
-        view_scrolling_ =
+        target_view_scrolling_ =
             bounds().h - (item_target_bounds.y + item_target_bounds.h);
         current_index_exceeded_bottom = true;
-      } else if (view_scrolling_ + item_target_bounds.y < 0) {
-        view_scrolling_ = -item_target_bounds.y;
+      } else if (target_view_scrolling_ + item_target_bounds.y < 0) {
+        target_view_scrolling_ = -item_target_bounds.y;
       }
-      current_item_original_bounds_.y += view_scrolling_;
+      current_item_original_bounds_.y += target_view_scrolling_;
       current_item_target_bounds_ = item_target_bounds;
-      current_item_target_bounds_.y += view_scrolling_;
+      current_item_target_bounds_.y += target_view_scrolling_;
     } else {
       item->SetZOrder(0);
     }
 
-    item->set_bounds(item_bounds);
-    if (view_scrolling_ == 0) {
+    bounds_map_without_scrolling_[item] = item_bounds;
+    if (target_view_scrolling_ == 0) {
       // Applying scrolling above won't set visibility when view_scrolling_ is
       // zero. So we set it here.
       item->set_visible(SDL_HasIntersection(&item_bounds, &kLocalBounds));
@@ -175,21 +176,15 @@ void FlexItemsWidget::Layout() {
   // If the current index is the last row, viewport need to be adjusted.
   if (current_item_widget_ && current_item_widget_->row_index() == rows_ &&
       current_index_exceeded_bottom) {
-    view_scrolling_ += kItemSelectedHighlightedSize;
+    target_view_scrolling_ += kItemSelectedHighlightedSize;
     current_item_target_bounds_.h -= kItemSelectedHighlightedSize;
     current_item_target_bounds_.y += kItemSelectedHighlightedSize;
     current_item_original_bounds_.y += kItemSelectedHighlightedSize;
   }
 
-  // Applying scrolling
-  if (view_scrolling_ != 0) {
-    for (auto* item : items_) {
-      SDL_Rect bounds = item->bounds();
-      bounds.y += view_scrolling_;
-      item->set_bounds(bounds);
-      item->set_visible(SDL_HasIntersection(&bounds, &kLocalBounds));
-    }
-  }
+  selection_item_timer_.Reset();
+  scrolling_timer_.Reset();
+  updating_view_scrolling_ = true;
 }
 
 bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
@@ -285,6 +280,19 @@ void FlexItemsWidget::TriggerCurrentItem() {
   items_[current_index_]->Trigger();
 }
 
+void FlexItemsWidget::ApplyScrolling(int scrolling) {
+  const SDL_Rect kLocalBounds = GetLocalBounds();
+  if (SDL_RectEmpty(&kLocalBounds))
+    return;
+
+  for (auto* item : items_) {
+    SDL_Rect bounds = bounds_map_without_scrolling_[item];
+    bounds.y += scrolling;
+    item->set_bounds(bounds);
+    item->set_visible(SDL_HasIntersection(&bounds, &kLocalBounds));
+  }
+}
+
 size_t FlexItemsWidget::FindNextIndex(Direction direction) {
   switch (direction) {
     case kUp:
@@ -343,8 +351,9 @@ size_t FlexItemsWidget::FindNextIndex(bool down) {
   int target_index = end_index;
   for (int i = start_index; i <= end_index; ++i) {
     SDL_assert(i >= 0 && i <= items_.size());
-    int intersection_area = CalculateIntersectionArea(
-        items_[i]->bounds(), current_item_original_bounds_);
+    int intersection_area =
+        CalculateIntersectionArea(bounds_map_without_scrolling_[items_[i]],
+                                  current_item_original_bounds_);
 
     if (intersection_area < 0)
       continue;
@@ -366,13 +375,26 @@ void FlexItemsWidget::Paint() {
 
   // Selected item animation
   if (current_item_widget_) {
-    float percentage =
-        timer_.ElapsedInMilliseconds() / static_cast<float>(kItemAnimationMs);
+    float percentage = selection_item_timer_.ElapsedInMilliseconds() /
+                       static_cast<float>(kItemAnimationMs);
     if (percentage > 1.f)
       percentage = 1.f;
     current_item_widget_->set_bounds(Lerp(current_item_original_bounds_,
                                           current_item_target_bounds_,
                                           percentage));
+  }
+
+  // Scrolling animation
+  if (updating_view_scrolling_) {
+    float percentage = scrolling_timer_.ElapsedInMilliseconds() /
+                       static_cast<float>(kScrollingAnimationMs);
+    if (percentage > 1.f) {
+      percentage = 1.f;
+      updating_view_scrolling_ = false;
+    }
+    int scrolling =
+        Lerp(original_view_scrolling_, target_view_scrolling_, percentage);
+    ApplyScrolling(scrolling);
   }
 }
 

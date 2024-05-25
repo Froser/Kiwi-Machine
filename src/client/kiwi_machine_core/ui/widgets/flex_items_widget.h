@@ -46,6 +46,7 @@ class FlexItemsWidget : public Widget {
   void Layout();
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void TriggerCurrentItem();
+  void ApplyScrolling(int scrolling);
 
   enum Direction { kUp, kDown, kLeft, kRight };
   size_t FindNextIndex(Direction direction);
@@ -71,11 +72,18 @@ class FlexItemsWidget : public Widget {
   FlexItemWidget* current_item_widget_ = nullptr;
   SDL_Rect current_item_original_bounds_;
   SDL_Rect current_item_target_bounds_;
-  int view_scrolling_ = 0;
+
+  // Scrolling
+  int original_view_scrolling_ = 0;
+  int target_view_scrolling_ = 0;
+  bool updating_view_scrolling_ = false;
+  std::map<FlexItemWidget*, SDL_Rect> bounds_map_without_scrolling_;
+
   bool activate_ = false;
   int rows_ = 0;
   std::unordered_map<int, int> rows_to_first_item_;
-  Timer timer_;
+  Timer selection_item_timer_;
+  Timer scrolling_timer_;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEMS_WIDGET_H_
