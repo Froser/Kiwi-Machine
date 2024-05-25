@@ -85,7 +85,10 @@ void FlexItemsWidget::Layout() {
   const SDL_Rect kLocalBounds = GetLocalBounds();
   timer_.Reset();
   int anchor_x = 0, anchor_y = 0;
+  int column_index = 0, row_index = 0;
   size_t index = 0;
+  rows_to_first_item_.clear();
+  rows_to_first_item_[0] = 0;
 
   for (auto* item : items_) {
     bool is_selected = (index == current_index_);
@@ -93,7 +96,16 @@ void FlexItemsWidget::Layout() {
     if (anchor_x + item_bounds.w > bounds().w) {
       anchor_y += item_bounds.h;
       anchor_x = 0;
+      row_index++;
+      column_index = 0;
+      rows_to_first_item_[row_index] = index;
+    } else {
+      column_index++;
     }
+
+    item->set_row_index(row_index);
+    item->set_column_index(column_index);
+
     item_bounds.x = anchor_x;
     item_bounds.y = anchor_y;
     anchor_x += item_bounds.w;
@@ -157,6 +169,9 @@ void FlexItemsWidget::Layout() {
       item->set_visible(SDL_HasIntersection(&bounds, &kLocalBounds));
     }
   }
+
+  // Updates max row index:
+  rows_ = row_index;
 }
 
 bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
@@ -255,34 +270,28 @@ void FlexItemsWidget::TriggerCurrentItem() {
 size_t FlexItemsWidget::FindNextIndex(Direction direction) {
   switch (direction) {
     case kUp:
-      return FindNextIndex(current_index_, 0);
+      return FindNextIndex(false);
     case kDown:
-      return FindNextIndex(current_index_, items_.size());
+      return FindNextIndex(true);
     case kLeft: {
       if (current_index_ == 0)
         return 0;
 
       size_t next_index_candidate = current_index_ - 1;
-      if (items_[next_index_candidate]->bounds().y !=
-          current_item_original_bounds_.y) {
-        // Do not change the index if the candidate changes its row.
-        return current_index_;
-      } else {
-        return next_index_candidate;
-      }
+      return (items_[next_index_candidate]->row_index() !=
+              items_[current_index_]->row_index())
+                 ? current_index_
+                 : next_index_candidate;
     }
     case kRight: {
       if (current_index_ == items_.size() - 1)
         return items_.size() - 1;
 
       size_t next_index_candidate = current_index_ + 1;
-      if (items_[next_index_candidate]->bounds().y !=
-          current_item_original_bounds_.y) {
-        // Do not change the index if the candidate changes its row.
-        return current_index_;
-      } else {
-        return next_index_candidate;
-      }
+      return (items_[next_index_candidate]->row_index() !=
+              items_[current_index_]->row_index())
+                 ? current_index_
+                 : next_index_candidate;
     }
     default:
       SDL_assert(false);  // Shouldn't be here
@@ -290,43 +299,32 @@ size_t FlexItemsWidget::FindNextIndex(Direction direction) {
   }
 }
 
-size_t FlexItemsWidget::FindNextIndex(int from_index, int to_index) {
-  if (from_index == to_index)
-    return from_index;
+size_t FlexItemsWidget::FindNextIndex(bool down) {
+  int area = 0, last_area = 0;
+  int start_index, end_index;
+  const int kCurrentRow = items_[current_index_]->row_index();
+  if (down) {
+    if (kCurrentRow == rows_)
+      return current_index_;
 
-  int target_y = current_item_original_bounds_.y;
-  bool target_row_found = false;
-  int target_index = current_index_;
-  int last_area = 0;
-  int area;
-
-  bool backward = from_index > to_index;
-  int for_start, for_end, step;
-  if (backward) {
-    for_start = from_index - 1;
-    for_end = to_index;
-    step = -1;
+    SDL_assert(kCurrentRow < rows_);
+    start_index = rows_to_first_item_[kCurrentRow + 1];
+    if (kCurrentRow < rows_ - 1)
+      end_index = rows_to_first_item_[kCurrentRow + 2] - 1;
+    else
+      end_index = items_.size() - 1;
   } else {
-    for_start = from_index + 1;
-    for_end = to_index;
-    step = 1;
+    if (kCurrentRow == 0)
+      return current_index_;
+
+    SDL_assert(kCurrentRow > 0);
+    start_index = rows_to_first_item_[kCurrentRow - 1];
+    end_index = rows_to_first_item_[kCurrentRow] - 1;
   }
 
-  for (int i = for_start; backward == (i >= to_index); i += step) {
+  int target_index = end_index;
+  for (int i = start_index; i <= end_index; ++i) {
     SDL_assert(i >= 0 && i <= items_.size());
-
-    if (items_[i]->bounds().y == current_item_original_bounds_.y)
-      continue;
-
-    if (!target_row_found &&
-        items_[i]->bounds().y != current_item_original_bounds_.y) {
-      target_row_found = true;
-      target_y = items_[i]->bounds().y;
-    }
-
-    if (target_row_found && target_y != items_[i]->bounds().y)
-      return target_index;
-
     int intersection_area = CalculateIntersectionArea(
         items_[i]->bounds(), current_item_original_bounds_);
 

@@ -49,7 +49,7 @@ class FlexItemsWidget : public Widget {
 
   enum Direction { kUp, kDown, kLeft, kRight };
   size_t FindNextIndex(Direction direction);
-  size_t FindNextIndex(int from_index, int to_index);
+  size_t FindNextIndex(bool down);
 
  protected:
   void Paint() override;
@@ -73,6 +73,8 @@ class FlexItemsWidget : public Widget {
   SDL_Rect current_item_target_bounds_;
   int view_scrolling_ = 0;
   bool activate_ = false;
+  int rows_ = 0;
+  std::unordered_map<int, int> rows_to_first_item_;
   Timer timer_;
 };
 

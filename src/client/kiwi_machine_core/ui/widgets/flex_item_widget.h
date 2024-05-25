@@ -37,6 +37,11 @@ class FlexItemWidget : public Widget {
     cover_size_ = cover_size;
   }
 
+  void set_row_index(int row_index) { row_index_ = row_index; }
+  void set_column_index(int column_index) { column_index_ = column_index; }
+  int row_index() { return row_index_; }
+  int column_index() { return column_index_; }
+
   SDL_Rect GetSuggestedSize(int item_height, bool is_selected);
 
   void Trigger();
@@ -59,6 +64,10 @@ class FlexItemWidget : public Widget {
   SDL_Texture* cover_texture_ = nullptr;
   int cover_width_ = 0;
   int cover_height_ = 0;
+
+  // Location
+  int row_index_ = 0;
+  int column_index_ = 0;
 
   // Fade
   Timer fade_timer_;
