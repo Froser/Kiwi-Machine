@@ -139,6 +139,11 @@ void FlexItemsWidget::Layout() {
     }
 
     item->set_bounds(item_bounds);
+    if (view_scrolling_ == 0) {
+      // Applying scrolling above won't set visibility when view_scrolling_ is
+      // zero. So we set it here.
+      item->set_visible(SDL_HasIntersection(&item_bounds, &kLocalBounds));
+    }
 
     index++;
   }

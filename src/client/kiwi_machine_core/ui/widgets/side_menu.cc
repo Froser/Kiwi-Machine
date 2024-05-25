@@ -23,6 +23,7 @@
 constexpr int kItemMarginBottom = 15;
 constexpr int kItemPadding = 3;
 constexpr int kItemAnimationMs = 50;
+constexpr ImColor kBackgroundColor = ImColor(171, 238, 80);
 
 SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
     : Widget(main_window), main_window_(main_window) {
@@ -40,7 +41,7 @@ void SideMenu::Paint() {
       ImVec2(global_bounds.x, global_bounds.y),
       ImVec2(global_bounds.x + global_bounds.w,
              global_bounds.y + global_bounds.h),
-      ImColor(171, 238, 80));
+      kBackgroundColor);
 
   const int kX = global_bounds.x + kItemPadding;
   int y = 0;
@@ -81,7 +82,7 @@ void SideMenu::Paint() {
           ImColor(255, 255, 255));
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFont()->FontSize,
-          ImVec2(kX + kItemPadding, y + kItemPadding), ImColor(171, 238, 80),
+          ImVec2(kX + kItemPadding, y + kItemPadding), kBackgroundColor,
           menu_content.c_str());
     } else {
       ImGui::GetWindowDrawList()->AddText(
