@@ -65,6 +65,10 @@ size_t FlexItemsWidget::AddItem(
 
 void FlexItemsWidget::SetIndex(size_t index) {
   current_index_ = index;
+  if (items_.empty())
+    current_index_ = 0;
+  else if (current_index_ >= items_.size())
+    current_index_ = items_.size() - 1;
   Layout();
 }
 
@@ -83,6 +87,9 @@ void FlexItemsWidget::SetActivate(bool activate) {
 
 void FlexItemsWidget::Layout() {
   const SDL_Rect kLocalBounds = GetLocalBounds();
+  if (SDL_RectEmpty(&kLocalBounds))
+    return;
+
   timer_.Reset();
   int anchor_x = 0, anchor_y = 0;
   int column_index = 0, row_index = 0;
@@ -90,6 +97,7 @@ void FlexItemsWidget::Layout() {
   rows_to_first_item_.clear();
   rows_to_first_item_[0] = 0;
 
+  bool current_index_exceeded_bottom = false;
   for (auto* item : items_) {
     bool is_selected = (index == current_index_);
     SDL_Rect item_bounds = item->GetSuggestedSize(kItemHeightHint, is_selected);
@@ -140,6 +148,7 @@ void FlexItemsWidget::Layout() {
           bounds().h) {
         view_scrolling_ =
             bounds().h - (item_target_bounds.y + item_target_bounds.h);
+        current_index_exceeded_bottom = true;
       } else if (view_scrolling_ + item_target_bounds.y < 0) {
         view_scrolling_ = -item_target_bounds.y;
       }
@@ -160,6 +169,18 @@ void FlexItemsWidget::Layout() {
     index++;
   }
 
+  // Updates max row index:
+  rows_ = row_index;
+
+  // If the current index is the last row, viewport need to be adjusted.
+  if (current_item_widget_ && current_item_widget_->row_index() == rows_ &&
+      current_index_exceeded_bottom) {
+    view_scrolling_ += kItemSelectedHighlightedSize;
+    current_item_target_bounds_.h -= kItemSelectedHighlightedSize;
+    current_item_target_bounds_.y += kItemSelectedHighlightedSize;
+    current_item_original_bounds_.y += kItemSelectedHighlightedSize;
+  }
+
   // Applying scrolling
   if (view_scrolling_ != 0) {
     for (auto* item : items_) {
@@ -169,9 +190,6 @@ void FlexItemsWidget::Layout() {
       item->set_visible(SDL_HasIntersection(&bounds, &kLocalBounds));
     }
   }
-
-  // Updates max row index:
-  rows_ = row_index;
 }
 
 bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
