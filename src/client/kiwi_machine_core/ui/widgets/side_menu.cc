@@ -143,7 +143,6 @@ bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (activate_) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      activate_ = false;
       menu_items_[current_index_].second.enter_callback.Run();
     }
     return true;
