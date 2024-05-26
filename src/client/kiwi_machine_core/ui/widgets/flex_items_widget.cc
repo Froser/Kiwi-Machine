@@ -60,6 +60,7 @@ size_t FlexItemsWidget::AddItem(
   item->set_cover(cover_img_ref, cover_size);
   items_.push_back(item.get());
   AddWidget(std::move(item));
+  need_layout_all_ = true;
 
   return items_.size() - 1;
 }
@@ -74,9 +75,6 @@ void FlexItemsWidget::SetIndex(size_t index) {
 }
 
 bool FlexItemsWidget::IsItemSelected(FlexItemWidget* item) {
-  if (!activate_)
-    return false;
-
   SDL_assert(current_index_ < items_.size());
   return items_[current_index_] == item;
 }
@@ -87,6 +85,13 @@ void FlexItemsWidget::SetActivate(bool activate) {
 }
 
 void FlexItemsWidget::Layout() {
+  if (need_layout_all_)
+    LayoutAll();
+  else
+    LayoutPartial();
+}
+
+void FlexItemsWidget::LayoutAll() {
   const SDL_Rect kLocalBounds = GetLocalBounds();
   if (SDL_RectEmpty(&kLocalBounds))
     return;
@@ -119,48 +124,11 @@ void FlexItemsWidget::Layout() {
     item_bounds.y = anchor_y;
     anchor_x += item_bounds.w;
 
+    bounds_map_without_scrolling_[item] = item_bounds;
     if (IsItemSelected(item)) {
-      current_item_widget_ = item;
-
-      SDL_Rect item_target_bounds = item_bounds;
-      current_item_original_bounds_ = item_target_bounds;
-
-      item->SetZOrder(1);
-      if (item_target_bounds.x == 0) {
-        item_target_bounds.w += kItemSelectedHighlightedSize;
-      } else if (item_target_bounds.x + item_target_bounds.w +
-                     kItemSelectedHighlightedSize >
-                 bounds().w) {
-        item_target_bounds.x -= kItemSelectedHighlightedSize;
-      } else {
-        item_target_bounds.x -= kItemSelectedHighlightedSize;
-        item_target_bounds.w += kItemSelectedHighlightedSize * 2;
-      }
-
-      if (item_target_bounds.y == 0) {
-        item_target_bounds.h += kItemSelectedHighlightedSize;
-      } else {
-        item_target_bounds.y -= kItemSelectedHighlightedSize;
-        item_target_bounds.h += kItemSelectedHighlightedSize * 2;
-      }
-
-      // Adjusts view scrolling
-      if (target_view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
-          bounds().h) {
-        target_view_scrolling_ =
-            bounds().h - (item_target_bounds.y + item_target_bounds.h);
-        current_index_exceeded_bottom = true;
-      } else if (target_view_scrolling_ + item_target_bounds.y < 0) {
-        target_view_scrolling_ = -item_target_bounds.y;
-      }
-      current_item_original_bounds_.y += target_view_scrolling_;
-      current_item_target_bounds_ = item_target_bounds;
-      current_item_target_bounds_.y += target_view_scrolling_;
-    } else {
-      item->SetZOrder(0);
+      current_index_exceeded_bottom = HighlightItem(item);
     }
 
-    bounds_map_without_scrolling_[item] = item_bounds;
     if (target_view_scrolling_ == 0) {
       // Applying scrolling above won't set visibility when view_scrolling_ is
       // zero. So we set it here.
@@ -174,17 +142,77 @@ void FlexItemsWidget::Layout() {
   rows_ = row_index;
 
   // If the current index is the last row, viewport need to be adjusted.
-  if (current_item_widget_ && current_item_widget_->row_index() == rows_ &&
-      current_index_exceeded_bottom) {
+  if (current_index_exceeded_bottom)
+    AdjustBottomRowItemsIfNeeded();
+
+  ResetScrollingAnimation();
+  need_layout_all_ = false;
+}
+
+void FlexItemsWidget::LayoutPartial() {
+  original_view_scrolling_ = target_view_scrolling_;
+  bool current_index_exceeded_bottom = HighlightItem(items_[current_index_]);
+  // If the current index is the last row, viewport need to be adjusted.
+  if (current_index_exceeded_bottom)
+    AdjustBottomRowItemsIfNeeded();
+
+  ResetScrollingAnimation();
+}
+
+bool FlexItemsWidget::HighlightItem(FlexItemWidget* item) {
+  bool current_index_exceeded_bottom = false;
+  current_item_widget_ = item;
+
+  SDL_Rect item_target_bounds = bounds_map_without_scrolling_[item];
+  current_item_original_bounds_ = item_target_bounds;
+
+  if (item_target_bounds.x == 0) {
+    item_target_bounds.w += kItemSelectedHighlightedSize;
+  } else if (item_target_bounds.x + item_target_bounds.w +
+                 kItemSelectedHighlightedSize >
+             bounds().w) {
+    item_target_bounds.x -= kItemSelectedHighlightedSize;
+  } else {
+    item_target_bounds.x -= kItemSelectedHighlightedSize;
+    item_target_bounds.w += kItemSelectedHighlightedSize * 2;
+  }
+
+  if (item_target_bounds.y == 0) {
+    item_target_bounds.h += kItemSelectedHighlightedSize;
+  } else {
+    item_target_bounds.y -= kItemSelectedHighlightedSize;
+    item_target_bounds.h += kItemSelectedHighlightedSize * 2;
+  }
+
+  // Adjusts view scrolling
+  if (target_view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
+      bounds().h) {
+    target_view_scrolling_ =
+        bounds().h - (item_target_bounds.y + item_target_bounds.h);
+    current_index_exceeded_bottom = true;
+  } else if (target_view_scrolling_ + item_target_bounds.y < 0) {
+    target_view_scrolling_ = -item_target_bounds.y;
+  }
+  current_item_original_bounds_.y += target_view_scrolling_;
+  current_item_target_bounds_ = item_target_bounds;
+  current_item_target_bounds_.y += target_view_scrolling_;
+
+  return current_index_exceeded_bottom;
+}
+
+void FlexItemsWidget::ResetScrollingAnimation() {
+  selection_item_timer_.Reset();
+  scrolling_timer_.Reset();
+  updating_view_scrolling_ = true;
+}
+
+void FlexItemsWidget::AdjustBottomRowItemsIfNeeded() {
+  if (current_item_widget_ && current_item_widget_->row_index() == rows_) {
     target_view_scrolling_ += kItemSelectedHighlightedSize;
     current_item_target_bounds_.h -= kItemSelectedHighlightedSize;
     current_item_target_bounds_.y += kItemSelectedHighlightedSize;
     current_item_original_bounds_.y += kItemSelectedHighlightedSize;
   }
-
-  selection_item_timer_.Reset();
-  scrolling_timer_.Reset();
-  updating_view_scrolling_ = true;
 }
 
 bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
@@ -399,6 +427,11 @@ void FlexItemsWidget::Paint() {
 }
 
 void FlexItemsWidget::PostPaint() {
+  // Renders current item again, to make it on the top of all the items.
+  if (current_item_widget_) {
+    current_item_widget_->Render();
+  }
+  
   if (!activate_) {
     SDL_Rect global_bounds = MapToParent(bounds());
     ImGui::GetWindowDrawList()->AddRectFilled(

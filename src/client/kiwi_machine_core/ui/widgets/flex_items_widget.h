@@ -44,6 +44,15 @@ class FlexItemsWidget : public Widget {
 
  private:
   void Layout();
+  void LayoutAll();
+  void LayoutPartial();
+  // Highlight specified item, calculate its scrolling. If item's bounds
+  // exceeded parent's local bounds, it returns true, otherwise it returns
+  // false.
+  bool HighlightItem(FlexItemWidget* item);
+  void ResetScrollingAnimation();
+  void AdjustBottomRowItemsIfNeeded();
+
   bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void TriggerCurrentItem();
   void ApplyScrolling(int scrolling);
@@ -72,6 +81,7 @@ class FlexItemsWidget : public Widget {
   FlexItemWidget* current_item_widget_ = nullptr;
   SDL_Rect current_item_original_bounds_;
   SDL_Rect current_item_target_bounds_;
+  bool need_layout_all_ = true;
 
   // Scrolling
   int original_view_scrolling_ = 0;
