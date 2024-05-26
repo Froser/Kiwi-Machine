@@ -48,10 +48,11 @@ class WindowBase {
   SDL_Rect GetSafeAreaClientBounds();
 
   // Events pipeline
-  virtual void HandleKeyEvents(SDL_KeyboardEvent* event);
-  virtual void HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event);
-  virtual void HandleJoystickDeviceEvents(SDL_ControllerDeviceEvent* event);
-  virtual void HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event);
+  virtual void HandleKeyEvent(SDL_KeyboardEvent* event);
+  virtual void HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event);
+  virtual void HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event);
+  virtual void HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event);
+  virtual void HandleMouseMoveEvent(SDL_MouseMotionEvent* event);
   virtual void HandleResizedEvent();
   virtual void HandleDisplayEvent(SDL_DisplayEvent* event);
   virtual void HandlePostEvent();

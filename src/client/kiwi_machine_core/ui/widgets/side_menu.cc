@@ -36,7 +36,7 @@ SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
 SideMenu::~SideMenu() = default;
 
 void SideMenu::Paint() {
-  SDL_Rect global_bounds = MapToParent(bounds());
+  SDL_Rect global_bounds = MapToGlobal(bounds());
   ImGui::GetWindowDrawList()->AddRectFilled(
       ImVec2(global_bounds.x, global_bounds.y),
       ImVec2(global_bounds.x + global_bounds.w,
@@ -104,8 +104,8 @@ void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
     menu_items_[0].second.selected_callback.Run();
 }
 
-bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
-                                 SDL_ControllerButtonEvent* c) {
+bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
+                                SDL_ControllerButtonEvent* c) {
   if (!activate_)
     return false;
 
@@ -163,15 +163,15 @@ bool SideMenu::HandleInputEvents(SDL_KeyboardEvent* k,
 }
 
 bool SideMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
-  return HandleInputEvents(event, nullptr);
+  return HandleInputEvent(event, nullptr);
 }
 
 bool SideMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
-  return HandleInputEvents(nullptr, event);
+  return HandleInputEvent(nullptr, event);
 }
 
-bool SideMenu::OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) {
-  return HandleInputEvents(nullptr, nullptr);
+bool SideMenu::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
+  return HandleInputEvent(nullptr, nullptr);
 }
 
 void SideMenu::OnWindowPreRender() {

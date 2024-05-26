@@ -66,12 +66,18 @@ size_t FlexItemsWidget::AddItem(
 }
 
 void FlexItemsWidget::SetIndex(size_t index) {
-  current_index_ = index;
-  if (items_.empty())
-    current_index_ = 0;
-  else if (current_index_ >= items_.size())
-    current_index_ = items_.size() - 1;
-  Layout();
+  SetIndex(index, LayoutOption::kAdjustScrolling);
+}
+
+void FlexItemsWidget::SetIndex(size_t index, LayoutOption option) {
+  if (current_index_ != index) {
+    current_index_ = index;
+    if (items_.empty())
+      current_index_ = 0;
+    else if (current_index_ >= items_.size())
+      current_index_ = items_.size() - 1;
+    Layout(option);
+  }
 }
 
 bool FlexItemsWidget::IsItemSelected(FlexItemWidget* item) {
@@ -80,18 +86,20 @@ bool FlexItemsWidget::IsItemSelected(FlexItemWidget* item) {
 }
 
 void FlexItemsWidget::SetActivate(bool activate) {
-  activate_ = activate;
-  Layout();
+  if (activate_ != activate) {
+    activate_ = activate;
+    Layout(LayoutOption::kDoNotAdjustScrolling);
+  }
 }
 
-void FlexItemsWidget::Layout() {
+void FlexItemsWidget::Layout(LayoutOption option) {
   if (need_layout_all_)
-    LayoutAll();
+    LayoutAll(option);
   else
-    LayoutPartial();
+    LayoutPartial(option);
 }
 
-void FlexItemsWidget::LayoutAll() {
+void FlexItemsWidget::LayoutAll(LayoutOption option) {
   const SDL_Rect kLocalBounds = GetLocalBounds();
   if (SDL_RectEmpty(&kLocalBounds))
     return;
@@ -126,7 +134,7 @@ void FlexItemsWidget::LayoutAll() {
 
     bounds_map_without_scrolling_[item] = item_bounds;
     if (IsItemSelected(item)) {
-      current_index_exceeded_bottom = HighlightItem(item);
+      current_index_exceeded_bottom = HighlightItem(item, option);
     }
 
     if (target_view_scrolling_ == 0) {
@@ -149,17 +157,18 @@ void FlexItemsWidget::LayoutAll() {
   need_layout_all_ = false;
 }
 
-void FlexItemsWidget::LayoutPartial() {
+void FlexItemsWidget::LayoutPartial(LayoutOption option) {
   original_view_scrolling_ = target_view_scrolling_;
-  bool current_index_exceeded_bottom = HighlightItem(items_[current_index_]);
+  bool current_index_exceeded_bottom =
+      HighlightItem(items_[current_index_], option);
   // If the current index is the last row, viewport need to be adjusted.
-  if (current_index_exceeded_bottom)
+  if (current_index_exceeded_bottom && option == LayoutOption::kAdjustScrolling)
     AdjustBottomRowItemsIfNeeded();
 
   ResetScrollingAnimation();
 }
 
-bool FlexItemsWidget::HighlightItem(FlexItemWidget* item) {
+bool FlexItemsWidget::HighlightItem(FlexItemWidget* item, LayoutOption option) {
   bool current_index_exceeded_bottom = false;
   current_item_widget_ = item;
 
@@ -184,15 +193,17 @@ bool FlexItemsWidget::HighlightItem(FlexItemWidget* item) {
     item_target_bounds.h += kItemSelectedHighlightedSize * 2;
   }
 
-  // Adjusts view scrolling
-  if (target_view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
-      bounds().h) {
-    target_view_scrolling_ =
-        bounds().h - (item_target_bounds.y + item_target_bounds.h);
-    current_index_exceeded_bottom = true;
-  } else if (target_view_scrolling_ + item_target_bounds.y < 0) {
-    target_view_scrolling_ = -item_target_bounds.y;
+  if (option == LayoutOption::kAdjustScrolling) {
+    if (target_view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
+        bounds().h) {
+      target_view_scrolling_ =
+          bounds().h - (item_target_bounds.y + item_target_bounds.h);
+      current_index_exceeded_bottom = true;
+    } else if (target_view_scrolling_ + item_target_bounds.y < 0) {
+      target_view_scrolling_ = -item_target_bounds.y;
+    }
   }
+
   current_item_original_bounds_.y += target_view_scrolling_;
   current_item_target_bounds_ = item_target_bounds;
   current_item_target_bounds_.y += target_view_scrolling_;
@@ -215,8 +226,8 @@ void FlexItemsWidget::AdjustBottomRowItemsIfNeeded() {
   }
 }
 
-bool FlexItemsWidget::HandleInputEvents(SDL_KeyboardEvent* k,
-                                        SDL_ControllerButtonEvent* c) {
+bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
+                                       SDL_ControllerButtonEvent* c) {
   if (!activate_)
     return false;
 
@@ -395,9 +406,51 @@ size_t FlexItemsWidget::FindNextIndex(bool down) {
   return target_index;
 }
 
+bool FlexItemsWidget::FindItemIndexByMousePosition(int global_x,
+                                                   int global_y,
+                                                   size_t& index_out) {
+  // A faster way to find the hovered item.
+  int current_row_index = 0;
+  if (current_item_widget_) {
+    SDL_assert(!rows_to_first_item_.empty());
+    current_row_index = current_item_widget_->row_index();
+  }
+
+  int r = current_row_index;
+  int first_item_of_row = rows_to_first_item_[r];
+  while (first_item_of_row > 0 &&
+         (items_[first_item_of_row]->bounds().y +
+          items_[first_item_of_row]->bounds().h) >= 0) {
+    --r;
+    first_item_of_row = rows_to_first_item_[r];
+  }
+  int index_lower = first_item_of_row;
+
+  r = current_row_index;
+  first_item_of_row = rows_to_first_item_[r];
+  while (items_[first_item_of_row]->bounds().y <= bounds().h) {
+    ++r;
+    if (rows_to_first_item_.find(r) == rows_to_first_item_.end())
+      break;
+    first_item_of_row = rows_to_first_item_[r];
+  }
+  int index_upper = first_item_of_row;
+
+  SDL_Point pos{global_x, global_y};
+  for (int i = index_lower; i <= index_upper; ++i) {
+    SDL_Rect item_bounds_to_window = MapToGlobal(items_[i]->bounds());
+    if (SDL_PointInRect(&pos, &item_bounds_to_window)) {
+      index_out = i;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 void FlexItemsWidget::Paint() {
   if (first_paint_) {
-    Layout();
+    Layout(LayoutOption::kAdjustScrolling);
     first_paint_ = false;
   }
 
@@ -431,9 +484,9 @@ void FlexItemsWidget::PostPaint() {
   if (current_item_widget_) {
     current_item_widget_->Render();
   }
-  
+
   if (!activate_) {
-    SDL_Rect global_bounds = MapToParent(bounds());
+    SDL_Rect global_bounds = MapToGlobal(bounds());
     ImGui::GetWindowDrawList()->AddRectFilled(
         ImVec2(global_bounds.x, global_bounds.y),
         ImVec2(global_bounds.x + global_bounds.w,
@@ -443,21 +496,31 @@ void FlexItemsWidget::PostPaint() {
 }
 
 void FlexItemsWidget::OnWindowResized() {
-  Layout();
+  need_layout_all_ = true;
+  Layout(LayoutOption::kAdjustScrolling);
 }
 
 bool FlexItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
-  return HandleInputEvents(event, nullptr);
+  return HandleInputEvent(event, nullptr);
+}
+
+bool FlexItemsWidget::OnMouseMove(SDL_MouseMotionEvent* event) {
+  size_t index = 0;
+  if (FindItemIndexByMousePosition(event->x, event->y, index)) {
+    SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+    return true;
+  }
+  return false;
 }
 
 bool FlexItemsWidget::OnControllerButtonPressed(
     SDL_ControllerButtonEvent* event) {
-  return HandleInputEvents(nullptr, event);
+  return HandleInputEvent(nullptr, event);
 }
 
-bool FlexItemsWidget::OnControllerAxisMotionEvents(
+bool FlexItemsWidget::OnControllerAxisMotionEvent(
     SDL_ControllerAxisEvent* event) {
-  return HandleInputEvents(nullptr, nullptr);
+  return HandleInputEvent(nullptr, nullptr);
 }
 
 void FlexItemsWidget::OnWindowPreRender() {
@@ -467,4 +530,10 @@ void FlexItemsWidget::OnWindowPreRender() {
 
 void FlexItemsWidget::OnWindowPostRender() {
   ImGui::PopStyleVar(2);
+}
+
+bool FlexItemsWidget::ChildrenAcceptHitTest() {
+  // Children don't accept any hit test, and mouse events. All mouse events are
+  // handled by this FlexItemsWidget.
+  return false;
 }

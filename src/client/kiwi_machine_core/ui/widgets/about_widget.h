@@ -43,7 +43,7 @@ class AboutWidget : public Widget {
 #endif
 
  private:
-  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
  private:
   NESRuntime::Data* runtime_data_ = nullptr;

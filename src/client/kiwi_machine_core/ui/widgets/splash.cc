@@ -94,8 +94,8 @@ void Splash::Paint() {
   }
 }
 
-bool Splash::HandleInputEvents(SDL_KeyboardEvent* k,
-                               SDL_ControllerButtonEvent* c) {
+bool Splash::HandleInputEvent(SDL_KeyboardEvent* k,
+                              SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
       IsKeyboardOrControllerAxisMotionMatch(
@@ -113,15 +113,15 @@ bool Splash::HandleInputEvents(SDL_KeyboardEvent* k,
 }
 
 bool Splash::OnKeyPressed(SDL_KeyboardEvent* event) {
-  return HandleInputEvents(event, nullptr);
+  return HandleInputEvent(event, nullptr);
 }
 
 bool Splash::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
-  return HandleInputEvents(nullptr, event);
+  return HandleInputEvent(nullptr, event);
 }
 
 bool Splash::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   SDL_ControllerButtonEvent c;
   c.button = SDL_CONTROLLER_BUTTON_A;
-  return HandleInputEvents(nullptr, &c);
+  return HandleInputEvent(nullptr, &c);
 }

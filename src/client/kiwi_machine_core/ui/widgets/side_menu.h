@@ -47,10 +47,10 @@ class SideMenu : public Widget {
   void Paint() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
-  bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
-  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
  private:
   MainWindow* main_window_ = nullptr;

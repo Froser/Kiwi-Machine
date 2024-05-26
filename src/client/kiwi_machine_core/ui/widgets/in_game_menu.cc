@@ -896,19 +896,19 @@ void InGameMenu::Paint() {
 }
 
 bool InGameMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
-  return HandleInputEvents(event, nullptr);
+  return HandleInputEvent(event, nullptr);
 }
 
 bool InGameMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
-  return HandleInputEvents(nullptr, event);
+  return HandleInputEvent(nullptr, event);
 }
 
-bool InGameMenu::OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) {
-  return HandleInputEvents(nullptr, nullptr);
+bool InGameMenu::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
+  return HandleInputEvent(nullptr, nullptr);
 }
 
-bool InGameMenu::HandleInputEvents(SDL_KeyboardEvent* k,
-                                   SDL_ControllerButtonEvent* c) {
+bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* k,
+                                  SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {

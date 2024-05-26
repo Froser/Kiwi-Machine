@@ -77,11 +77,11 @@ void AboutWidget::OnWindowResized() {
 }
 
 bool AboutWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
-  return HandleInputEvents(event, nullptr);
+  return HandleInputEvent(event, nullptr);
 }
 
 bool AboutWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
-  return HandleInputEvents(nullptr, event);
+  return HandleInputEvent(nullptr, event);
 }
 
 #if KIWI_MOBILE
@@ -92,7 +92,7 @@ bool AboutWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
 }
 #endif
 
-bool AboutWidget::HandleInputEvents(SDL_KeyboardEvent* k,
+bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
                                     SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kB, k) ||

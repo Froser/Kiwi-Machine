@@ -90,10 +90,6 @@ set(Sources
         ui/widgets/joystick_button.h
         ui/widgets/kiwi_bg_widget.cc
         ui/widgets/kiwi_bg_widget.h
-        ui/widgets/kiwi_item_widget.cc
-        ui/widgets/kiwi_item_widget.h
-        ui/widgets/kiwi_items_widget.cc
-        ui/widgets/kiwi_items_widget.h
         ui/widgets/loading_widget.cc
         ui/widgets/loading_widget.h
         ui/widgets/memory_widget.cc

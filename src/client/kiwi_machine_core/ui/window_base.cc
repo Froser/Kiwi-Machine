@@ -128,13 +128,13 @@ void WindowBase::Resize(int width, int height) {
   }
 }
 
-void WindowBase::HandleKeyEvents(SDL_KeyboardEvent* event) {
+void WindowBase::HandleKeyEvent(SDL_KeyboardEvent* event) {
   switch (event->type) {
     case SDL_KEYDOWN:
     case SDL_KEYUP: {
       for (auto& widget : widgets_) {
         if (widget->visible() && widget->enabled() &&
-            widget->HandleKeyEvents(event)) {
+            widget->HandleKeyEvent(event)) {
           break;
         }
       }
@@ -145,13 +145,13 @@ void WindowBase::HandleKeyEvents(SDL_KeyboardEvent* event) {
   }
 }
 
-void WindowBase::HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event) {
+void WindowBase::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
   switch (event->type) {
     case SDL_CONTROLLERBUTTONDOWN:
     case SDL_CONTROLLERBUTTONUP: {
       for (auto& widget : widgets_) {
         if (widget->visible() && widget->enabled() &&
-            widget->HandleJoystickButtonEvents(event)) {
+            widget->HandleJoystickButtonEvent(event)) {
           break;
         }
       }
@@ -161,17 +161,23 @@ void WindowBase::HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event) {
   }
 }
 
-void WindowBase::HandleJoystickAxisMotionEvents(
-    SDL_ControllerAxisEvent* event) {
+void WindowBase::HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event) {
   for (auto& widget : widgets_) {
     if (widget->visible() && widget->enabled() &&
-        widget->HandleJoystickAxisMotionEvents(event)) {
+        widget->HandleJoystickAxisMotionEvent(event)) {
       break;
     }
   }
 }
 
-void WindowBase::HandleJoystickDeviceEvents(SDL_ControllerDeviceEvent* event) {
+void WindowBase::HandleMouseMoveEvent(SDL_MouseMotionEvent* event) {
+  for (auto& widget : widgets_) {
+    if (widget->HandleMouseMoveEvent(event))
+      break;
+  }
+}
+
+void WindowBase::HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event) {
   switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:
       OnControllerDeviceAdded(event);

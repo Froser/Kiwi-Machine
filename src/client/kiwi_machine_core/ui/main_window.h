@@ -112,7 +112,7 @@ class MainWindow : public WindowBase,
 
   // WindowBase:
   SDL_Rect GetClientBounds() override;
-  void HandleKeyEvents(SDL_KeyboardEvent* event) override;
+  void HandleKeyEvent(SDL_KeyboardEvent* event) override;
   void OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) override;
   void OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) override;
   void HandleResizedEvent() override;

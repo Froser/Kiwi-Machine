@@ -88,28 +88,28 @@ void Application::HandleEvent(SDL_Event* event) {
     case SDL_KEYUP: {
       WindowBase* target = FindWindowFromID(event->key.windowID);
       if (target)
-        target->HandleKeyEvents(&event->key);
+        target->HandleKeyEvent(&event->key);
     } break;
     case SDL_CONTROLLERAXISMOTION: {
       for (const auto& w : windows_) {
-        w.second->HandleJoystickAxisMotionEvents(&event->caxis);
+        w.second->HandleJoystickAxisMotionEvent(&event->caxis);
       }
     } break;
     case SDL_CONTROLLERBUTTONDOWN:
     case SDL_CONTROLLERBUTTONUP: {
       for (const auto& w : windows_) {
-        w.second->HandleJoystickButtonEvents(&event->cbutton);
+        w.second->HandleJoystickButtonEvent(&event->cbutton);
       }
     } break;
     case SDL_CONTROLLERDEVICEADDED: {
       AddGameController(event->cdevice.which);
       for (const auto& w : windows_) {
-        w.second->HandleJoystickDeviceEvents(&event->cdevice);
+        w.second->HandleJoystickDeviceEvent(&event->cdevice);
       }
     } break;
     case SDL_CONTROLLERDEVICEREMOVED: {
       for (const auto& w : windows_) {
-        w.second->HandleJoystickDeviceEvents(&event->cdevice);
+        w.second->HandleJoystickDeviceEvent(&event->cdevice);
       }
       RemoveGameController(event->cdevice.which);
     } break;
@@ -132,7 +132,12 @@ void Application::HandleEvent(SDL_Event* event) {
       WindowBase* target = FindWindowFromID(event->tfinger.windowID);
       if (target)
         target->HandleTouchFingerEvent(&event->tfinger);
-    }
+    } break;
+    case SDL_MOUSEMOTION: {
+      WindowBase* target = FindWindowFromID(event->motion.windowID);
+      if (target)
+        target->HandleMouseMoveEvent(&event->motion);
+    } break;
     default:
       break;
   }

@@ -78,7 +78,7 @@ void FlexItemWidget::Trigger() {
 
 void FlexItemWidget::Paint() {
   CreateTextureIfNotExists();
-  const SDL_Rect kBoundsToParent = MapToParent(bounds());
+  const SDL_Rect kBoundsToParent = MapToGlobal(bounds());
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
   // Draw stretched image

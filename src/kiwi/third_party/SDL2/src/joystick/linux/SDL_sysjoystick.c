@@ -1486,7 +1486,7 @@ static void PollAllValues(SDL_Joystick *joystick)
     /* Joyballs are relative input, so there's no poll state. Events only! */
 }
 
-static void HandleInputEvents(SDL_Joystick *joystick)
+static void HandleInputEvent(SDL_Joystick *joystick)
 {
     struct input_event events[32];
     int i, len, code, hat_index;
@@ -1640,7 +1640,7 @@ static void LINUX_JoystickUpdate(SDL_Joystick *joystick)
     if (joystick->hwdata->classic) {
         HandleClassicEvents(joystick);
     } else {
-        HandleInputEvents(joystick);
+        HandleInputEvent(joystick);
     }
 
     /* Deliver ball motion updates */

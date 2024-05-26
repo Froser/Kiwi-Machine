@@ -23,6 +23,11 @@ class MainWindow;
 class FlexItemWidget;
 class FlexItemsWidget : public Widget {
  public:
+  enum class LayoutOption {
+    kAdjustScrolling,
+    kDoNotAdjustScrolling,
+  };
+
   explicit FlexItemsWidget(MainWindow* main_window, NESRuntimeID runtime_id);
   ~FlexItemsWidget() override;
 
@@ -43,33 +48,39 @@ class FlexItemsWidget : public Widget {
   }
 
  private:
-  void Layout();
-  void LayoutAll();
-  void LayoutPartial();
+  void SetIndex(size_t index, LayoutOption option);
+  void Layout(LayoutOption option);
+  void LayoutAll(LayoutOption);
+  void LayoutPartial(LayoutOption);
   // Highlight specified item, calculate its scrolling. If item's bounds
   // exceeded parent's local bounds, it returns true, otherwise it returns
   // false.
-  bool HighlightItem(FlexItemWidget* item);
+  bool HighlightItem(FlexItemWidget* item, LayoutOption option);
   void ResetScrollingAnimation();
   void AdjustBottomRowItemsIfNeeded();
 
-  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void TriggerCurrentItem();
   void ApplyScrolling(int scrolling);
 
   enum Direction { kUp, kDown, kLeft, kRight };
   size_t FindNextIndex(Direction direction);
   size_t FindNextIndex(bool down);
+  bool FindItemIndexByMousePosition(int global_x,
+                                    int global_y,
+                                    size_t& index_out);
 
  protected:
   void Paint() override;
   void PostPaint() override;
   void OnWindowResized() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
+  bool OnMouseMove(SDL_MouseMotionEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
-  bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
+  bool ChildrenAcceptHitTest() override;
 
  private:
   MainWindow* main_window_ = nullptr;

@@ -71,7 +71,7 @@ class InGameMenu : public Widget {
   void HideMenu(int index);
 
  private:
-  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void HandleMenuItemForCurrentSelection();
   void HandleSettingsItemForCurrentSelection(bool go_left);
   void MoveSelection(bool up);
@@ -82,7 +82,7 @@ class InGameMenu : public Widget {
   void Paint() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
-  bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) override;
+  bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
 
 #if KIWI_MOBILE
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;

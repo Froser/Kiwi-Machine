@@ -72,9 +72,10 @@ class Widget {
   void RemoveWidget(Widget* widget);
   void ChildZOrderChanged(Widget* child);
   void Render();
-  bool HandleKeyEvents(SDL_KeyboardEvent* event);
-  bool HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event);
-  bool HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event);
+  bool HandleKeyEvent(SDL_KeyboardEvent* event);
+  bool HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event);
+  bool HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event);
+  bool HandleMouseMoveEvent(SDL_MouseMotionEvent* event);
   void HandleResizedEvent();
   void HandleDisplayEvent();
   bool HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
@@ -83,22 +84,26 @@ class Widget {
  protected:
   WindowBase* window() { return window_; }
   Widget* parent() { return parent_; }
-  SDL_Rect MapToParent(const SDL_Rect& bounds);
+  SDL_Rect MapToGlobal(const SDL_Rect& bounds);
   Widgets& children() { return widgets_; }
   void RemovePendingWidgets();
 
  private:
   void set_parent(Widget* parent) { parent_ = parent; }
+  Widget* HitTest(int global_x, int global_y);
 
  protected:
   virtual void Paint();
   virtual void PostPaint();
   virtual bool IsWindowless();
+  virtual bool AcceptHitTest();
+  virtual bool ChildrenAcceptHitTest();
   virtual bool OnKeyPressed(SDL_KeyboardEvent* event);
   virtual bool OnKeyReleased(SDL_KeyboardEvent* event);
   virtual bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event);
   virtual bool OnControllerButtonReleased(SDL_ControllerButtonEvent* event);
-  virtual bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event);
+  virtual bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event);
+  virtual bool OnMouseMove(SDL_MouseMotionEvent* event);
   virtual void OnWindowResized();
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();

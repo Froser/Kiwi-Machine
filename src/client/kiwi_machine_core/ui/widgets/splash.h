@@ -38,7 +38,7 @@ class Splash : public Widget {
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
 
  private:
-  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
  private:
   MainWindow* main_window_ = nullptr;

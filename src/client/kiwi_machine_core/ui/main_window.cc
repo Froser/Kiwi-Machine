@@ -413,7 +413,7 @@ SDL_Rect MainWindow::GetClientBounds() {
   return render_bounds;
 }
 
-void MainWindow::HandleKeyEvents(SDL_KeyboardEvent* event) {
+void MainWindow::HandleKeyEvent(SDL_KeyboardEvent* event) {
   if (!IsPause()) {
     // Do not handle emulator's key event when paused.
     if (event->type == SDL_KEYDOWN)
@@ -422,7 +422,7 @@ void MainWindow::HandleKeyEvents(SDL_KeyboardEvent* event) {
       pressing_keys_.erase(event->keysym.sym);
   }
 
-  WindowBase::HandleKeyEvents(event);
+  WindowBase::HandleKeyEvent(event);
 }
 
 void MainWindow::OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) {

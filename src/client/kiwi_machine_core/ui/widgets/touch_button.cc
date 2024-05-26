@@ -56,7 +56,7 @@ bool TouchButton::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   bool handled = false;
   SDL_Rect bounds = window()->GetClientBounds();
   ImVec2 touch_pt(event->x * bounds.w, event->y * bounds.h);
-  if (Contains(MapToParent(this->bounds()), touch_pt.x, touch_pt.y)) {
+  if (Contains(MapToGlobal(this->bounds()), touch_pt.x, touch_pt.y)) {
     triggered_fingers_.insert(std::make_pair(
         event->fingerId, TouchDetail{static_cast<int>(touch_pt.x),
                                      static_cast<int>(touch_pt.y)}));
@@ -106,7 +106,7 @@ bool TouchButton::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
 void TouchButton::CalculateButtonState() {
   button_state_ = ButtonState::kNormal;
   for (const auto& finger : triggered_fingers_) {
-    if (Contains(MapToParent(this->bounds()), finger.second.touch_point_x,
+    if (Contains(MapToGlobal(this->bounds()), finger.second.touch_point_x,
                  finger.second.touch_point_y))
       button_state_ = ButtonState::kDown;
   }
