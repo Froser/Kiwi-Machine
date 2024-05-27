@@ -53,6 +53,7 @@ class WindowBase {
   virtual void HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event);
   virtual void HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event);
   virtual void HandleMouseMoveEvent(SDL_MouseMotionEvent* event);
+  virtual void HandleMouseWheelEvent(SDL_MouseWheelEvent* event);
   virtual void HandleResizedEvent();
   virtual void HandleDisplayEvent(SDL_DisplayEvent* event);
   virtual void HandlePostEvent();

@@ -216,6 +216,15 @@ bool Widget::HandleMouseMoveEvent(SDL_MouseMotionEvent* event) {
   return false;
 }
 
+bool Widget::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->mouseX, event->mouseY);
+    if (target)
+      return target->OnMouseWheel(event);
+  }
+  return false;
+}
+
 bool Widget::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
   bool handled = false;
   switch (event->type) {
@@ -324,7 +333,8 @@ Widget* Widget::HitTest(int global_x, int global_y) {
         if (!candidate->AcceptHitTest())
           continue;
 
-        SDL_Rect candidate_bounds_to_window = MapToGlobal(candidate->bounds());
+        SDL_Rect candidate_bounds_to_window =
+            candidate->MapToGlobal(candidate->bounds());
         if (SDL_PointInRect(&kGlobalMousePos, &candidate_bounds_to_window)) {
           return candidate->HitTest(global_x, global_y);
         }
@@ -356,6 +366,10 @@ bool Widget::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
 }
 
 bool Widget::OnMouseMove(SDL_MouseMotionEvent* event) {
+  return false;
+}
+
+bool Widget::OnMouseWheel(SDL_MouseWheelEvent* event) {
   return false;
 }
 

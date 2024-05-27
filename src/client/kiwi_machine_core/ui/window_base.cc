@@ -177,6 +177,13 @@ void WindowBase::HandleMouseMoveEvent(SDL_MouseMotionEvent* event) {
   }
 }
 
+void WindowBase::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
+  for (auto& widget : widgets_) {
+    if (widget->HandleMouseWheelEvent(event))
+      break;
+  }
+}
+
 void WindowBase::HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event) {
   switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:

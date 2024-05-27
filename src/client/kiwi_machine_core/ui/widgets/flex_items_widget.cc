@@ -153,7 +153,7 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
   if (current_index_exceeded_bottom)
     AdjustBottomRowItemsIfNeeded();
 
-  ResetScrollingAnimation();
+  ResetAnimationTimers();
   need_layout_all_ = false;
 }
 
@@ -165,7 +165,7 @@ void FlexItemsWidget::LayoutPartial(LayoutOption option) {
   if (current_index_exceeded_bottom && option == LayoutOption::kAdjustScrolling)
     AdjustBottomRowItemsIfNeeded();
 
-  ResetScrollingAnimation();
+  ResetAnimationTimers();
 }
 
 bool FlexItemsWidget::HighlightItem(FlexItemWidget* item, LayoutOption option) {
@@ -211,7 +211,7 @@ bool FlexItemsWidget::HighlightItem(FlexItemWidget* item, LayoutOption option) {
   return current_index_exceeded_bottom;
 }
 
-void FlexItemsWidget::ResetScrollingAnimation() {
+void FlexItemsWidget::ResetAnimationTimers() {
   selection_item_timer_.Reset();
   scrolling_timer_.Reset();
   updating_view_scrolling_ = true;
@@ -428,13 +428,16 @@ bool FlexItemsWidget::FindItemIndexByMousePosition(int global_x,
 
   r = current_row_index;
   first_item_of_row = rows_to_first_item_[r];
+  bool broke = false;
   while (items_[first_item_of_row]->bounds().y <= bounds().h) {
     ++r;
-    if (rows_to_first_item_.find(r) == rows_to_first_item_.end())
+    if (rows_to_first_item_.find(r) == rows_to_first_item_.end()) {
+      broke = true;
       break;
+    }
     first_item_of_row = rows_to_first_item_[r];
   }
-  int index_upper = first_item_of_row;
+  int index_upper = broke ? items_.size() - 1 : first_item_of_row;
 
   SDL_Point pos{global_x, global_y};
   for (int i = index_lower; i <= index_upper; ++i) {
@@ -454,17 +457,6 @@ void FlexItemsWidget::Paint() {
     first_paint_ = false;
   }
 
-  // Selected item animation
-  if (current_item_widget_) {
-    float percentage = selection_item_timer_.ElapsedInMilliseconds() /
-                       static_cast<float>(kItemAnimationMs);
-    if (percentage > 1.f)
-      percentage = 1.f;
-    current_item_widget_->set_bounds(Lerp(current_item_original_bounds_,
-                                          current_item_target_bounds_,
-                                          percentage));
-  }
-
   // Scrolling animation
   if (updating_view_scrolling_) {
     float percentage = scrolling_timer_.ElapsedInMilliseconds() /
@@ -476,6 +468,17 @@ void FlexItemsWidget::Paint() {
     int scrolling =
         Lerp(original_view_scrolling_, target_view_scrolling_, percentage);
     ApplyScrolling(scrolling);
+  }
+
+  // Selected item animation
+  if (current_item_widget_) {
+    float percentage = selection_item_timer_.ElapsedInMilliseconds() /
+                       static_cast<float>(kItemAnimationMs);
+    if (percentage > 1.f)
+      percentage = 1.f;
+    current_item_widget_->set_bounds(Lerp(current_item_original_bounds_,
+                                          current_item_target_bounds_,
+                                          percentage));
   }
 }
 
@@ -505,12 +508,56 @@ bool FlexItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool FlexItemsWidget::OnMouseMove(SDL_MouseMotionEvent* event) {
+  if (!activate_)
+    return true;
+
   size_t index = 0;
   if (FindItemIndexByMousePosition(event->x, event->y, index)) {
     SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
     return true;
   }
   return false;
+}
+
+bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
+  if (!activate_)
+    return true;
+
+  constexpr int kScrollingTurbo = 5;
+  if (!items_.empty()) {
+    const int kScrollingChangedValue = event->y * kScrollingTurbo;
+
+    // Scrolling
+    original_view_scrolling_ += kScrollingChangedValue;
+
+    // Avoid exceeding the top of the widget
+    if (original_view_scrolling_ >= 0)
+      original_view_scrolling_ = 0;
+
+    // Avoid exceeding the bottom of the widget
+    FlexItemWidget* last_item = items_[items_.size() - 1];
+    SDL_Rect last_item_absolute_bounds =
+        bounds_map_without_scrolling_[last_item];
+    if (last_item_absolute_bounds.y + last_item_absolute_bounds.h +
+            original_view_scrolling_ <
+        bounds().h) {
+      original_view_scrolling_ = bounds().h - last_item_absolute_bounds.h -
+                                 last_item_absolute_bounds.y;
+    }
+
+    target_view_scrolling_ = original_view_scrolling_;
+    updating_view_scrolling_ = true;
+
+    // Highlight
+    size_t item_index;
+    if (FindItemIndexByMousePosition(event->mouseX, event->mouseY,
+                                     item_index)) {
+      HighlightItem(items_[item_index], LayoutOption::kDoNotAdjustScrolling);
+    } else {
+      HighlightItem(current_item_widget_, LayoutOption::kDoNotAdjustScrolling);
+    }
+  }
+  return true;
 }
 
 bool FlexItemsWidget::OnControllerButtonPressed(

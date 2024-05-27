@@ -56,7 +56,7 @@ class FlexItemsWidget : public Widget {
   // exceeded parent's local bounds, it returns true, otherwise it returns
   // false.
   bool HighlightItem(FlexItemWidget* item, LayoutOption option);
-  void ResetScrollingAnimation();
+  void ResetAnimationTimers();
   void AdjustBottomRowItemsIfNeeded();
 
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
@@ -76,6 +76,7 @@ class FlexItemsWidget : public Widget {
   void OnWindowResized() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnMouseMove(SDL_MouseMotionEvent* event) override;
+  bool OnMouseWheel(SDL_MouseWheelEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
   void OnWindowPreRender() override;

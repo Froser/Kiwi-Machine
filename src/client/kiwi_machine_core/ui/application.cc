@@ -138,6 +138,11 @@ void Application::HandleEvent(SDL_Event* event) {
       if (target)
         target->HandleMouseMoveEvent(&event->motion);
     } break;
+    case SDL_MOUSEWHEEL: {
+      WindowBase* target = FindWindowFromID(event->wheel.windowID);
+      if (target)
+        target->HandleMouseWheelEvent(&event->wheel);
+    } break;
     default:
       break;
   }

@@ -76,6 +76,7 @@ class Widget {
   bool HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event);
   bool HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event);
   bool HandleMouseMoveEvent(SDL_MouseMotionEvent* event);
+  bool HandleMouseWheelEvent(SDL_MouseWheelEvent* event);
   void HandleResizedEvent();
   void HandleDisplayEvent();
   bool HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
@@ -104,6 +105,7 @@ class Widget {
   virtual bool OnControllerButtonReleased(SDL_ControllerButtonEvent* event);
   virtual bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event);
   virtual bool OnMouseMove(SDL_MouseMotionEvent* event);
+  virtual bool OnMouseWheel(SDL_MouseWheelEvent* event);
   virtual void OnWindowResized();
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();
