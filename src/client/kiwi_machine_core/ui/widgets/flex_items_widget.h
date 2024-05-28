@@ -57,7 +57,7 @@ class FlexItemsWidget : public Widget {
   // false.
   bool HighlightItem(FlexItemWidget* item, LayoutOption option);
   void ResetAnimationTimers();
-  void AdjustBottomRowItemsIfNeeded();
+  void AdjustBottomRowItemsIfNeeded(LayoutOption option);
 
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void TriggerCurrentItem();

@@ -151,7 +151,7 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
 
   // If the current index is the last row, viewport need to be adjusted.
   if (current_index_exceeded_bottom)
-    AdjustBottomRowItemsIfNeeded();
+    AdjustBottomRowItemsIfNeeded(option);
 
   ResetAnimationTimers();
   need_layout_all_ = false;
@@ -162,8 +162,8 @@ void FlexItemsWidget::LayoutPartial(LayoutOption option) {
   bool current_index_exceeded_bottom =
       HighlightItem(items_[current_index_], option);
   // If the current index is the last row, viewport need to be adjusted.
-  if (current_index_exceeded_bottom && option == LayoutOption::kAdjustScrolling)
-    AdjustBottomRowItemsIfNeeded();
+  if (current_index_exceeded_bottom)
+    AdjustBottomRowItemsIfNeeded(option);
 
   ResetAnimationTimers();
 }
@@ -193,15 +193,16 @@ bool FlexItemsWidget::HighlightItem(FlexItemWidget* item, LayoutOption option) {
     item_target_bounds.h += kItemSelectedHighlightedSize * 2;
   }
 
-  if (option == LayoutOption::kAdjustScrolling) {
-    if (target_view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
-        bounds().h) {
+  if (target_view_scrolling_ + item_target_bounds.y + item_target_bounds.h >
+      bounds().h) {
+    if (option == LayoutOption::kAdjustScrolling) {
       target_view_scrolling_ =
           bounds().h - (item_target_bounds.y + item_target_bounds.h);
-      current_index_exceeded_bottom = true;
-    } else if (target_view_scrolling_ + item_target_bounds.y < 0) {
-      target_view_scrolling_ = -item_target_bounds.y;
     }
+    current_index_exceeded_bottom = true;
+  } else if (target_view_scrolling_ + item_target_bounds.y < 0 &&
+             option == LayoutOption::kAdjustScrolling) {
+    target_view_scrolling_ = -item_target_bounds.y;
   }
 
   current_item_original_bounds_.y += target_view_scrolling_;
@@ -217,12 +218,16 @@ void FlexItemsWidget::ResetAnimationTimers() {
   updating_view_scrolling_ = true;
 }
 
-void FlexItemsWidget::AdjustBottomRowItemsIfNeeded() {
+void FlexItemsWidget::AdjustBottomRowItemsIfNeeded(LayoutOption option) {
   if (current_item_widget_ && current_item_widget_->row_index() == rows_) {
-    target_view_scrolling_ += kItemSelectedHighlightedSize;
-    current_item_target_bounds_.h -= kItemSelectedHighlightedSize;
-    current_item_target_bounds_.y += kItemSelectedHighlightedSize;
-    current_item_original_bounds_.y += kItemSelectedHighlightedSize;
+    if (option == LayoutOption::kAdjustScrolling) {
+      target_view_scrolling_ += kItemSelectedHighlightedSize;
+      current_item_target_bounds_.h -= kItemSelectedHighlightedSize;
+      current_item_target_bounds_.y += kItemSelectedHighlightedSize;
+      current_item_original_bounds_.y += kItemSelectedHighlightedSize;
+    } else {
+      current_item_target_bounds_.h -= kItemSelectedHighlightedSize;
+    }
   }
 }
 
@@ -550,12 +555,17 @@ bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
 
     // Highlight
     size_t item_index;
+    bool current_index_exceeded_bottom;
     if (FindItemIndexByMousePosition(event->mouseX, event->mouseY,
                                      item_index)) {
-      HighlightItem(items_[item_index], LayoutOption::kDoNotAdjustScrolling);
+      current_index_exceeded_bottom = HighlightItem(
+          items_[item_index], LayoutOption::kDoNotAdjustScrolling);
     } else {
-      HighlightItem(current_item_widget_, LayoutOption::kDoNotAdjustScrolling);
+      current_index_exceeded_bottom = HighlightItem(
+          current_item_widget_, LayoutOption::kDoNotAdjustScrolling);
     }
+    if (current_index_exceeded_bottom)
+      AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
   }
   return true;
 }
