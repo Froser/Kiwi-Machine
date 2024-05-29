@@ -184,6 +184,20 @@ void WindowBase::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
   }
 }
 
+void WindowBase::HandleMousePressedEvent(SDL_MouseButtonEvent* event) {
+  for (auto& widget : widgets_) {
+    if (widget->HandleMousePressedEvent(event))
+      break;
+  }
+}
+
+void WindowBase::HandleMouseReleasedEvent(SDL_MouseButtonEvent* event) {
+  for (auto& widget : widgets_) {
+    if (widget->HandleMouseReleasedEvent(event))
+      break;
+  }
+}
+
 void WindowBase::HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event) {
   switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:

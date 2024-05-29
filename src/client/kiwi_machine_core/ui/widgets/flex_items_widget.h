@@ -39,6 +39,8 @@ class FlexItemsWidget : public Widget {
   void SetIndex(size_t index);
   bool IsItemSelected(FlexItemWidget* item);
   void SetActivate(bool activate);
+  void ScrollWith(int scrolling_delta, int mouse_x, int mouse_y);
+
   bool empty() { return items_.empty(); }
   size_t size() { return items_.size(); }
   size_t current_index() { return current_index_; }
@@ -77,6 +79,8 @@ class FlexItemsWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnMouseMove(SDL_MouseMotionEvent* event) override;
   bool OnMouseWheel(SDL_MouseWheelEvent* event) override;
+  bool OnMousePressed(SDL_MouseButtonEvent* event) override;
+  bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
   void OnWindowPreRender() override;
@@ -100,6 +104,7 @@ class FlexItemsWidget : public Widget {
   int target_view_scrolling_ = 0;
   bool updating_view_scrolling_ = false;
   std::map<FlexItemWidget*, SDL_Rect> bounds_map_without_scrolling_;
+  bool mouse_locked_ = false;
 
   bool activate_ = false;
   int rows_ = 0;

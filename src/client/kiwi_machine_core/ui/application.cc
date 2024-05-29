@@ -143,6 +143,16 @@ void Application::HandleEvent(SDL_Event* event) {
       if (target)
         target->HandleMouseWheelEvent(&event->wheel);
     } break;
+    case SDL_MOUSEBUTTONDOWN: {
+      WindowBase* target = FindWindowFromID(event->button.windowID);
+      if (target)
+        target->HandleMousePressedEvent(&event->button);
+    } break;
+    case SDL_MOUSEBUTTONUP: {
+      WindowBase* target = FindWindowFromID(event->button.windowID);
+      if (target)
+        target->HandleMouseReleasedEvent(&event->button);
+    } break;
     default:
       break;
   }

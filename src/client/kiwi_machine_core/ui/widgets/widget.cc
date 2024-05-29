@@ -225,6 +225,24 @@ bool Widget::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
   return false;
 }
 
+bool Widget::HandleMousePressedEvent(SDL_MouseButtonEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->x, event->y);
+    if (target)
+      return target->OnMousePressed(event);
+  }
+  return false;
+}
+
+bool Widget::HandleMouseReleasedEvent(SDL_MouseButtonEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->x, event->y);
+    if (target)
+      return target->OnMouseReleased(event);
+  }
+  return false;
+}
+
 bool Widget::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
   bool handled = false;
   switch (event->type) {
@@ -370,6 +388,14 @@ bool Widget::OnMouseMove(SDL_MouseMotionEvent* event) {
 }
 
 bool Widget::OnMouseWheel(SDL_MouseWheelEvent* event) {
+  return false;
+}
+
+bool Widget::OnMousePressed(SDL_MouseButtonEvent* event) {
+  return false;
+}
+
+bool Widget::OnMouseReleased(SDL_MouseButtonEvent* event) {
   return false;
 }
 

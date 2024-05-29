@@ -92,6 +92,42 @@ void FlexItemsWidget::SetActivate(bool activate) {
   }
 }
 
+void FlexItemsWidget::ScrollWith(int scrolling_delta,
+                                 int mouse_x,
+                                 int mouse_y) {
+  // Scrolling
+  target_view_scrolling_ += scrolling_delta;
+
+  // Avoid exceeding the top of the widget
+  if (target_view_scrolling_ >= 0)
+    target_view_scrolling_ = 0;
+
+  // Avoid exceeding the bottom of the widget
+  FlexItemWidget* last_item = items_[items_.size() - 1];
+  SDL_Rect last_item_absolute_bounds = bounds_map_without_scrolling_[last_item];
+  if (last_item_absolute_bounds.y + last_item_absolute_bounds.h +
+          target_view_scrolling_ <
+      bounds().h) {
+    target_view_scrolling_ =
+        bounds().h - last_item_absolute_bounds.h - last_item_absolute_bounds.y;
+  }
+
+  updating_view_scrolling_ = true;
+
+  // Highlight
+  size_t item_index;
+  bool current_index_exceeded_bottom;
+  if (FindItemIndexByMousePosition(mouse_x, mouse_y, item_index)) {
+    current_index_exceeded_bottom =
+        HighlightItem(items_[item_index], LayoutOption::kDoNotAdjustScrolling);
+  } else {
+    current_index_exceeded_bottom = HighlightItem(
+        current_item_widget_, LayoutOption::kDoNotAdjustScrolling);
+  }
+  if (current_index_exceeded_bottom)
+    AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
+}
+
 void FlexItemsWidget::Layout(LayoutOption option) {
   if (need_layout_all_)
     LayoutAll(option);
@@ -513,60 +549,49 @@ bool FlexItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool FlexItemsWidget::OnMouseMove(SDL_MouseMotionEvent* event) {
-  if (!activate_)
+  if (!activate_ || mouse_locked_)
     return true;
 
   size_t index = 0;
-  if (FindItemIndexByMousePosition(event->x, event->y, index)) {
+  if (FindItemIndexByMousePosition(event->x, event->y, index))
     SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
-    return true;
-  }
-  return false;
+
+  return true;
 }
 
 bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
-  if (!activate_)
+  if (!activate_ || mouse_locked_)
     return true;
 
   constexpr int kScrollingTurbo = 5;
   if (!items_.empty()) {
-    const int kScrollingChangedValue = event->y * kScrollingTurbo;
-
-    // Scrolling
-    original_view_scrolling_ += kScrollingChangedValue;
-
-    // Avoid exceeding the top of the widget
-    if (original_view_scrolling_ >= 0)
-      original_view_scrolling_ = 0;
-
-    // Avoid exceeding the bottom of the widget
-    FlexItemWidget* last_item = items_[items_.size() - 1];
-    SDL_Rect last_item_absolute_bounds =
-        bounds_map_without_scrolling_[last_item];
-    if (last_item_absolute_bounds.y + last_item_absolute_bounds.h +
-            original_view_scrolling_ <
-        bounds().h) {
-      original_view_scrolling_ = bounds().h - last_item_absolute_bounds.h -
-                                 last_item_absolute_bounds.y;
-    }
-
-    target_view_scrolling_ = original_view_scrolling_;
-    updating_view_scrolling_ = true;
-
-    // Highlight
-    size_t item_index;
-    bool current_index_exceeded_bottom;
-    if (FindItemIndexByMousePosition(event->mouseX, event->mouseY,
-                                     item_index)) {
-      current_index_exceeded_bottom = HighlightItem(
-          items_[item_index], LayoutOption::kDoNotAdjustScrolling);
-    } else {
-      current_index_exceeded_bottom = HighlightItem(
-          current_item_widget_, LayoutOption::kDoNotAdjustScrolling);
-    }
-    if (current_index_exceeded_bottom)
-      AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
+    const int kScrollingChangedValue = event->preciseY * kScrollingTurbo;
+    ScrollWith(kScrollingChangedValue, event->mouseX, event->mouseY);
   }
+
+  return true;
+}
+
+bool FlexItemsWidget::OnMousePressed(SDL_MouseButtonEvent* event) {
+  mouse_locked_ = true;
+  return true;
+}
+
+bool FlexItemsWidget::OnMouseReleased(SDL_MouseButtonEvent* event) {
+  mouse_locked_ = false;
+
+  size_t index_before_released = current_index_;
+  size_t index = 0;
+  if (FindItemIndexByMousePosition(event->x, event->y, index)) {
+    // If the highlight item doesn't change, trigger it.
+    if (index_before_released == index) {
+      PlayEffect(audio_resources::AudioID::kStart);
+      TriggerCurrentItem();
+    } else {
+      SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+    }
+  }
+
   return true;
 }
 
