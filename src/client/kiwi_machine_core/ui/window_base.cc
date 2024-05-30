@@ -171,28 +171,32 @@ void WindowBase::HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event) {
 }
 
 void WindowBase::HandleMouseMoveEvent(SDL_MouseMotionEvent* event) {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     if (widget->HandleMouseMoveEvent(event))
       break;
   }
 }
 
 void WindowBase::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     if (widget->HandleMouseWheelEvent(event))
       break;
   }
 }
 
 void WindowBase::HandleMousePressedEvent(SDL_MouseButtonEvent* event) {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     if (widget->HandleMousePressedEvent(event))
       break;
   }
 }
 
 void WindowBase::HandleMouseReleasedEvent(SDL_MouseButtonEvent* event) {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     if (widget->HandleMouseReleasedEvent(event))
       break;
   }

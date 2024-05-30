@@ -194,14 +194,16 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
 }
 
 void FlexItemsWidget::LayoutPartial(LayoutOption option) {
-  original_view_scrolling_ = target_view_scrolling_;
-  bool current_index_exceeded_bottom =
-      HighlightItem(items_[current_index_], option);
-  // If the current index is the last row, viewport need to be adjusted.
-  if (current_index_exceeded_bottom)
-    AdjustBottomRowItemsIfNeeded(option);
+  if (current_item_widget_ != items_[current_index_]) {
+    original_view_scrolling_ = target_view_scrolling_;
+    bool current_index_exceeded_bottom =
+        HighlightItem(items_[current_index_], option);
+    // If the current index is the last row, viewport need to be adjusted.
+    if (current_index_exceeded_bottom)
+      AdjustBottomRowItemsIfNeeded(option);
 
-  ResetAnimationTimers();
+    ResetAnimationTimers();
+  }
 }
 
 bool FlexItemsWidget::HighlightItem(FlexItemWidget* item, LayoutOption option) {
@@ -573,25 +575,35 @@ bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
 }
 
 bool FlexItemsWidget::OnMousePressed(SDL_MouseButtonEvent* event) {
+  if (!activate_)
+    return true;
+
   mouse_locked_ = true;
   return true;
 }
 
 bool FlexItemsWidget::OnMouseReleased(SDL_MouseButtonEvent* event) {
-  mouse_locked_ = false;
+  if (activate_) {
+    mouse_locked_ = false;
 
-  size_t index_before_released = current_index_;
-  size_t index = 0;
-  if (FindItemIndexByMousePosition(event->x, event->y, index)) {
-    // If the highlight item doesn't change, trigger it.
-    if (index_before_released == index) {
-      PlayEffect(audio_resources::AudioID::kStart);
-      TriggerCurrentItem();
-    } else {
-      SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+    if (event->button == SDL_BUTTON_LEFT) {
+      size_t index_before_released = current_index_;
+      size_t index = 0;
+      if (FindItemIndexByMousePosition(event->x, event->y, index)) {
+        // If the highlight item doesn't change, trigger it.
+        if (index_before_released == index) {
+          PlayEffect(audio_resources::AudioID::kStart);
+          TriggerCurrentItem();
+        } else {
+          SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+        }
+      }
+    } else if (event->button == SDL_BUTTON_RIGHT) {
+      back_callback_.Run();
     }
+  } else {
+    main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
   }
-
   return true;
 }
 

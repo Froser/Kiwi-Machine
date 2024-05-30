@@ -384,19 +384,19 @@ bool Widget::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
 }
 
 bool Widget::OnMouseMove(SDL_MouseMotionEvent* event) {
-  return false;
+  return true;
 }
 
 bool Widget::OnMouseWheel(SDL_MouseWheelEvent* event) {
-  return false;
+  return true;
 }
 
 bool Widget::OnMousePressed(SDL_MouseButtonEvent* event) {
-  return false;
+  return true;
 }
 
 bool Widget::OnMouseReleased(SDL_MouseButtonEvent* event) {
-  return false;
+  return true;
 }
 
 void Widget::OnWindowResized() {}
