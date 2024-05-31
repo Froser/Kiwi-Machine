@@ -36,34 +36,25 @@ SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
 SideMenu::~SideMenu() = default;
 
 void SideMenu::Paint() {
-  SDL_Rect global_bounds = MapToGlobal(bounds());
+  Layout();
+
+  SDL_Rect kGlobalBounds = MapToGlobal(bounds());
   ImGui::GetWindowDrawList()->AddRectFilled(
-      ImVec2(global_bounds.x, global_bounds.y),
-      ImVec2(global_bounds.x + global_bounds.w,
-             global_bounds.y + global_bounds.h),
+      ImVec2(kGlobalBounds.x, kGlobalBounds.y),
+      ImVec2(kGlobalBounds.x + kGlobalBounds.w,
+             kGlobalBounds.y + kGlobalBounds.h),
       kBackgroundColor);
 
-  const int kX = global_bounds.x + kItemPadding;
-  int y = 0;
   for (int i = menu_items_.size() - 1; i >= 0; --i) {
     PreferredFontSize font_size(PreferredFontSize::k1x);
     std::string menu_content = menu_items_[i].first->GetLocalizedString();
     ScopedFont font = GetPreferredFont(font_size, menu_content.c_str());
-    ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
-    const int kItemHeight = text_size.y;
-    if (i == menu_items_.size() - 1)
-      y = global_bounds.h - kItemMarginBottom - kItemHeight - kItemPadding * 2;
-
     if (i == current_index_) {
       // Animation
       if (SDL_RectEmpty(&selection_current_rect_in_global_)) {
-        selection_current_rect_in_global_ =
-            SDL_Rect{kX, y, global_bounds.w - kItemPadding,
-                     kItemHeight + kItemPadding * 2};
+        selection_current_rect_in_global_ = items_bounds_map_[i];
       }
-      selection_target_rect_in_global_ =
-          SDL_Rect{kX, y, global_bounds.w - kItemPadding,
-                   kItemHeight + kItemPadding * 2};
+      selection_target_rect_in_global_ = items_bounds_map_[i];
       float percentage =
           timer_.ElapsedInMilliseconds() / static_cast<float>(kItemAnimationMs);
       if (percentage >= 1.f) {
@@ -80,23 +71,26 @@ void SideMenu::Paint() {
           ImVec2(selection_rect.x + selection_rect.w,
                  selection_rect.y + selection_rect.h),
           ImColor(255, 255, 255));
+
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFont()->FontSize,
-          ImVec2(kX + kItemPadding, y + kItemPadding), kBackgroundColor,
-          menu_content.c_str());
+          ImVec2(selection_target_rect_in_global_.x + kItemPadding,
+                 selection_target_rect_in_global_.y + kItemPadding),
+          kBackgroundColor, menu_content.c_str());
     } else {
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFont()->FontSize,
-          ImVec2(kX + kItemPadding, y + kItemPadding), ImColor(255, 255, 255),
-          menu_content.c_str());
+          ImVec2(items_bounds_map_[i].x + kItemPadding,
+                 items_bounds_map_[i].y + kItemPadding),
+          ImColor(255, 255, 255), menu_content.c_str());
     }
-    y -= kItemHeight + kItemPadding * 2;
   }
 }
 
 void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
                        MenuCallbacks callbacks) {
   menu_items_.emplace_back(std::move(string_updater), callbacks);
+  invalidate();
 
   // When the first widget is added, trigger its selected callback, because it
   // is selected by default.
@@ -160,6 +154,32 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
   }
 
   return false;
+}
+
+void SideMenu::Layout() {
+  if (!bounds_valid_) {
+    items_bounds_map_.resize(menu_items_.size());
+    SDL_Rect kGlobalBounds = MapToGlobal(bounds());
+    const int kX = kGlobalBounds.x + kItemPadding;
+    int y = 0;
+
+    for (int i = menu_items_.size() - 1; i >= 0; --i) {
+      PreferredFontSize font_size(PreferredFontSize::k1x);
+      std::string menu_content = menu_items_[i].first->GetLocalizedString();
+      ScopedFont font = GetPreferredFont(font_size, menu_content.c_str());
+      ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
+      const int kItemHeight = text_size.y;
+      if (i == menu_items_.size() - 1)
+        y = kGlobalBounds.h - kItemMarginBottom - kItemHeight -
+            kItemPadding * 2;
+
+      items_bounds_map_[i] = SDL_Rect{kX, y, kGlobalBounds.w - kItemPadding,
+                                      kItemHeight + kItemPadding * 2};
+      y -= kItemHeight + kItemPadding * 2;
+    }
+
+    bounds_valid_ = true;
+  }
 }
 
 bool SideMenu::OnKeyPressed(SDL_KeyboardEvent* event) {

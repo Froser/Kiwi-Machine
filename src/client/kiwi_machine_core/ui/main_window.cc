@@ -488,8 +488,13 @@ void MainWindow::Render() {
 
     int side_menu_width =
         Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
-    side_menu_->set_bounds(
-        SDL_Rect{0, 0, side_menu_width, GetClientBounds().h});
+    SDL_Rect side_menu_target_bounds =
+        SDL_Rect{0, 0, side_menu_width, GetClientBounds().h};
+    SDL_Rect side_menu_current_bounds = side_menu_->bounds();
+    if (!SDL_RectEquals(&side_menu_target_bounds, &side_menu_current_bounds)) {
+      side_menu_->set_bounds(side_menu_target_bounds);
+      side_menu_->invalidate();
+    }
   }
 }
 

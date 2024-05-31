@@ -42,6 +42,7 @@ class SideMenu : public Widget {
                MenuCallbacks callbacks);
   void set_activate(bool activate) { activate_ = activate; }
   bool activate() { return activate_; }
+  void invalidate() { bounds_valid_ = false; }
 
  private:
   void Paint() override;
@@ -51,12 +52,16 @@ class SideMenu : public Widget {
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  void Layout();
 
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
   std::vector<std::pair<std::unique_ptr<LocalizedStringUpdater>, MenuCallbacks>>
       menu_items_;
+  std::vector<SDL_Rect> items_bounds_map_;
+  bool bounds_valid_ = false;
+
   int current_index_ = 0;
   bool activate_ = false;
   Timer timer_;
