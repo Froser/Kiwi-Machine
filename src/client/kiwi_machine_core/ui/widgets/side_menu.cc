@@ -62,26 +62,29 @@ void SideMenu::Paint() {
         selection_current_rect_in_global_ = selection_target_rect_in_global_;
       }
 
-      SDL_Rect selection_rect =
-          Lerp(selection_current_rect_in_global_,
-               selection_target_rect_in_global_, percentage);
+      SDL_Rect global_selection_rect =
+          MapToGlobal(Lerp(selection_current_rect_in_global_,
+                           selection_target_rect_in_global_, percentage));
+      SDL_Rect global_target_selection_rect =
+          MapToGlobal(selection_target_rect_in_global_);
 
       ImGui::GetWindowDrawList()->AddRectFilled(
-          ImVec2(selection_rect.x, selection_rect.y),
-          ImVec2(selection_rect.x + selection_rect.w,
-                 selection_rect.y + selection_rect.h),
+          ImVec2(global_selection_rect.x, global_selection_rect.y),
+          ImVec2(global_selection_rect.x + global_selection_rect.w,
+                 global_selection_rect.y + global_selection_rect.h),
           ImColor(255, 255, 255));
 
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFont()->FontSize,
-          ImVec2(selection_target_rect_in_global_.x + kItemPadding,
-                 selection_target_rect_in_global_.y + kItemPadding),
+          ImVec2(global_target_selection_rect.x + kItemPadding,
+                 global_target_selection_rect.y + kItemPadding),
           kBackgroundColor, menu_content.c_str());
     } else {
+      SDL_Rect global_item_rect = MapToGlobal(items_bounds_map_[i]);
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFont()->FontSize,
-          ImVec2(items_bounds_map_[i].x + kItemPadding,
-                 items_bounds_map_[i].y + kItemPadding),
+          ImVec2(global_item_rect.x + kItemPadding,
+                 global_item_rect.y + kItemPadding),
           ImColor(255, 255, 255), menu_content.c_str());
     }
   }
@@ -110,9 +113,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
     int next_index = (current_index_ <= 0 ? 0 : current_index_ - 1);
     if (next_index != current_index_) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      current_index_ = next_index;
-      timer_.Reset();
-      menu_items_[current_index_].second.selected_callback.Run();
+      SetIndex(next_index);
     }
     return true;
   }
@@ -125,9 +126,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
                                                   : current_index_ + 1);
     if (next_index != current_index_) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      current_index_ = next_index;
-      timer_.Reset();
-      menu_items_[current_index_].second.selected_callback.Run();
+      SetIndex(next_index);
     }
     return true;
   }
@@ -148,7 +147,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kStart, k)) {
     if (activate_) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      menu_items_[current_index_].second.trigger_callback.Run();
+      TriggerCurrentItem();
     }
     return true;
   }
@@ -182,8 +181,64 @@ void SideMenu::Layout() {
   }
 }
 
+void SideMenu::SetIndex(int index) {
+  current_index_ = index;
+  timer_.Reset();
+  menu_items_[current_index_].second.selected_callback.Run();
+}
+
+void SideMenu::TriggerCurrentItem() {
+  menu_items_[current_index_].second.trigger_callback.Run();
+}
+
+bool SideMenu::FindItemIndexByMousePosition(int global_x,
+                                            int global_y,
+                                            int& index_out) {
+  // There's no intersection between each item's bounds, so we can find the
+  // target item easily
+  SDL_Point global_pt{global_x, global_y};
+  for (int i = 0; i < items_bounds_map_.size() - 1; ++i) {
+    SDL_Rect global_bounds = MapToGlobal(items_bounds_map_[i]);
+    if (SDL_PointInRect(&global_pt, &global_bounds)) {
+      index_out = i;
+      return true;
+    }
+  }
+  return false;
+}
+
 bool SideMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
   return HandleInputEvent(event, nullptr);
+}
+
+bool SideMenu::OnMousePressed(SDL_MouseButtonEvent* event) {
+  if (!activate_)
+    return true;
+
+  mouse_locked_ = true;
+  return true;
+}
+
+bool SideMenu::OnMouseReleased(SDL_MouseButtonEvent* event) {
+  if (activate_) {
+    mouse_locked_ = false;
+
+    if (event->button == SDL_BUTTON_LEFT) {
+      int index_before_released = current_index_;
+      int index = 0;
+      if (FindItemIndexByMousePosition(event->x, event->y, index)) {
+        // If the highlight item doesn't change, trigger it.
+        if (index_before_released != index) {
+          SetIndex(index);
+        } else {
+          TriggerCurrentItem();
+        }
+      }
+    }
+  } else {
+    main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
+  }
+  return true;
 }
 
 bool SideMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {

@@ -47,18 +47,24 @@ class SideMenu : public Widget {
  private:
   void Paint() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
+  bool OnMousePressed(SDL_MouseButtonEvent* event) override;
+  bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void Layout();
+  void SetIndex(int index);
+  void TriggerCurrentItem();
+  bool FindItemIndexByMousePosition(int global_x, int global_y, int& index_out);
 
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
   std::vector<std::pair<std::unique_ptr<LocalizedStringUpdater>, MenuCallbacks>>
       menu_items_;
+  // Order: from last added menu to first added menu
   std::vector<SDL_Rect> items_bounds_map_;
   bool bounds_valid_ = false;
 
@@ -67,6 +73,8 @@ class SideMenu : public Widget {
   Timer timer_;
   SDL_Rect selection_current_rect_in_global_;
   SDL_Rect selection_target_rect_in_global_;
+
+  bool mouse_locked_ = false;
 };
 
 #endif  // UI_WIDGETS_SIDE_MENU_H_
