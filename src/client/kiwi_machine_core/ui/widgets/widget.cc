@@ -341,20 +341,25 @@ void Widget::RemovePendingWidgets() {
 }
 
 Widget* Widget::HitTest(int global_x, int global_y) {
+  if (!enabled() || !visible())
+    return nullptr;
+
   SDL_Point kGlobalMousePos{global_x, global_y};
   SDL_Rect this_widget_bounds_to_window = MapToGlobal(bounds());
   if (SDL_PointInRect(&kGlobalMousePos, &this_widget_bounds_to_window) &&
       AcceptHitTest()) {
     if (ChildrenAcceptHitTest()) {
-      for (const auto& widget : widgets_) {
-        Widget* candidate = widget.get();
+      for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+        Widget* candidate = iter->get();
         if (!candidate->AcceptHitTest())
           continue;
 
         SDL_Rect candidate_bounds_to_window =
             candidate->MapToGlobal(candidate->bounds());
         if (SDL_PointInRect(&kGlobalMousePos, &candidate_bounds_to_window)) {
-          return candidate->HitTest(global_x, global_y);
+          Widget* found = candidate->HitTest(global_x, global_y);
+          if (found)
+            return found;
         }
       }
     }
