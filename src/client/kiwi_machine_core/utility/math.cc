@@ -12,6 +12,8 @@
 
 #include "utility/math.h"
 
+#include <cmath>
+
 bool operator==(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   return SDL_RectEquals(&lhs, &rhs);
 }
@@ -21,4 +23,15 @@ SDL_Rect Lerp(const SDL_Rect& start, const SDL_Rect& end, float percentage) {
                   static_cast<int>(start.y + (end.y - start.y) * percentage),
                   static_cast<int>(start.w + (end.w - start.w) * percentage),
                   static_cast<int>(start.h + (end.h - start.h) * percentage)};
+}
+
+SDL_Rect Triangle::BoundingBox() {
+  SDL_Point top_left;
+  SDL_Point bottom_right;
+  top_left.x = std::min(std::min(point[0].x, point[1].x), point[2].x);
+  top_left.y = std::min(std::min(point[0].y, point[1].y), point[2].y);
+  bottom_right.x = std::max(std::max(point[0].x, point[1].x), point[2].x);
+  bottom_right.y = std::max(std::max(point[0].y, point[1].y), point[2].y);
+  return SDL_Rect{top_left.x, top_left.y, bottom_right.x - top_left.x,
+                  bottom_right.y - top_left.y};
 }

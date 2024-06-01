@@ -132,7 +132,7 @@ class InGameMenu : public Widget {
     std::vector<OptionItemPaintHandler> options_handlers;
     int window_scaling_for_options;
     int volume_bar_height;
-    int volume_bar_spacing;
+    int options_items_spacing;
   };
 
   enum LayoutConstants {

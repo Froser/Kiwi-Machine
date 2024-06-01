@@ -14,6 +14,7 @@
 #define UTILITY_MATH_H_
 
 #include <SDL.h>
+#include <imgui.h>
 #include <kiwi_nes.h>
 #include <algorithm>
 
@@ -28,5 +29,10 @@ inline bool Contains(const SDL_Rect& rect, int x, int y) {
   SDL_Point temp{x, y};
   return SDL_PointInRect(&temp, &rect);
 }
+
+struct Triangle {
+  ImVec2 point[3];
+  SDL_Rect BoundingBox();
+};
 
 #endif  // UTILITY_MATH_H_
