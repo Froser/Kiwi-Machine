@@ -25,8 +25,8 @@ inline float Lerp(float start, float end, float percentage) {
 }
 
 inline bool Contains(const SDL_Rect& rect, int x, int y) {
-  return (rect.x <= x && x <= rect.x + rect.w && rect.y <= y &&
-          y <= rect.y + rect.h);
+  SDL_Point temp{x, y};
+  return SDL_PointInRect(&temp, &rect);
 }
 
 #endif  // UTILITY_MATH_H_

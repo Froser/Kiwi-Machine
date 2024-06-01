@@ -68,8 +68,8 @@ class FlexItemsWidget : public Widget {
   enum Direction { kUp, kDown, kLeft, kRight };
   size_t FindNextIndex(Direction direction);
   size_t FindNextIndex(bool down);
-  bool FindItemIndexByMousePosition(int global_x,
-                                    int global_y,
+  bool FindItemIndexByMousePosition(int x_in_window,
+                                    int y_in_window,
                                     size_t& index_out);
 
  protected:

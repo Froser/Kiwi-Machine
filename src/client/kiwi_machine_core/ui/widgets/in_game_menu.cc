@@ -24,8 +24,28 @@
 #include "utility/fonts.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
+#include "utility/math.h"
 
 constexpr int kMoveSpeed = 200;
+
+namespace {
+
+InGameMenu::SettingsItemContext MakePromptSettingsItemContext(bool go_left) {
+  InGameMenu::SettingsItemContext context;
+  context.type = InGameMenu::SettingsItemContext::SettingsItemType::kPrompt;
+  context.go_left = go_left;
+  return context;
+}
+
+InGameMenu::SettingsItemContext MakePromptSettingsItemComplex(
+    const SDL_Rect& complex_item_rect) {
+  InGameMenu::SettingsItemContext context;
+  context.type = InGameMenu::SettingsItemContext::SettingsItemType::kComplex;
+  context.bounds.items_bounds = complex_item_rect;
+  return context;
+}
+
+}  // namespace
 
 InGameMenu::InGameMenu(MainWindow* main_window,
                        NESRuntimeID runtime_id,
@@ -70,9 +90,7 @@ void InGameMenu::Paint() {
     first_paint_ = false;
   }
 
-#if KIWI_MOBILE
   CleanUpSettingsItemRects();
-#endif
 
   // Draw background
   ImDrawList* bg_draw_list = ImGui::GetBackgroundDrawList();
@@ -214,9 +232,8 @@ void InGameMenu::Paint() {
         left_enabled = false;
     }
 
-#if KIWI_MOBILE
-    AddRectForSettingsItem(
-        static_cast<int>(current_selection_),
+    AddRectForSettingsItemPrompt(
+        current_setting_,
         SDL_Rect{static_cast<int>(p0.x - kSnapshotPromptSpacing -
                                   kSnapshotPromptWidth),
                  static_cast<int>(kSnapshotPromptY + kSnapshotPromptHeight / 2),
@@ -224,7 +241,6 @@ void InGameMenu::Paint() {
         SDL_Rect{static_cast<int>(p1.x + kSnapshotPromptSpacing),
                  static_cast<int>(kSnapshotPromptY), kSnapshotPromptWidth,
                  kSnapshotPromptHeight});
-#endif
 
     // Left
     if (left_enabled) {
@@ -365,6 +381,7 @@ void InGameMenu::Paint() {
     const int kVolumeBarHeight = 7 * window_scaling_for_settings;
     const int kVolumeBarSpacing = 3 * window_scaling_for_settings;
     ImGui::Dummy(ImVec2(1, kVolumeBarHeight));
+
     // Window size
     {
       PreferredFontSize preferred_font_size(
@@ -378,9 +395,11 @@ void InGameMenu::Paint() {
     }
     // Joysticks
     {
-      PreferredFontSize preferred_font_size(main_window_->is_fullscreen()
-                                                ? PreferredFontSize::k2x
-                                                : PreferredFontSize::k1x);
+      PreferredFontSize preferred_font_size(
+          main_window_->window_scale() > 3.f
+              ? PreferredFontSize::k3x
+              : (main_window_->window_scale() > 2.f ? PreferredFontSize::k2x
+                                                    : PreferredFontSize::k1x));
       ScopedFont scoped_font(
           GetPreferredFontType(preferred_font_size, kSettingsItems[0]));
       ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
@@ -424,6 +443,21 @@ void InGameMenu::Paint() {
               ImGui::GetCursorPosY() + kVolumeBarHeight + kTitleMenuHeight);
 
           ImGui::GetWindowDrawList()->AddRect(p0, p1, IM_COL32_WHITE);
+          const SDL_Rect kVolumeMenuBounds{
+              static_cast<int>(p0.x),
+              static_cast<int>(p0.y) -
+                  kTitleMenuHeight,  // Rect draw is relative to window's
+                                     // position, so minus menu height here,
+                                     // to get the position relative to this
+                                     // widget
+              static_cast<int>(p1.x - p0.x), kVolumeBarHeight};
+          AddRectForSettingsItem(SettingsItem::kVolume, kVolumeMenuBounds);
+
+          const SDL_Rect kVolumeOperationBounds = {
+              static_cast<int>(p0.x), static_cast<int>(p0.y),
+              static_cast<int>(p1.x - p0.x), kVolumeBarHeight};
+          AddRectForSettingsItemPrompt(SettingsItem::kVolume,
+                                       kVolumeOperationBounds);
           ImGui::Dummy(ImVec2(p1.x - p0.x, p1.y - p0.y));
 
           float volume = runtime_data_->emulator->GetVolume();
@@ -432,6 +466,7 @@ void InGameMenu::Paint() {
           ImVec2 inner_p1(p0.x + 1 + (kInnerBarWidth * volume), p1.y - 1);
           ImGui::GetWindowDrawList()->AddRectFilled(inner_p0, inner_p1,
                                                     IM_COL32_WHITE);
+
           if (settings_entered_ && current_setting_ == SettingsItem::kVolume) {
             ImGui::GetWindowDrawList()->AddTriangleFilled(
                 ImVec2(p0.x - prompt_width - kVolumeBarSpacing, p0.y),
@@ -576,11 +611,10 @@ void InGameMenu::Paint() {
           int text_y = ImGui::GetCursorPosY();
           ImGui::Text("%s", kSizeStr);
 
-#if KIWI_MOBILE
-          settings_positions_[SettingsItem::kWindowSize] =
+          AddRectForSettingsItem(
+              SettingsItem::kWindowSize,
               SDL_Rect{kCenterX, text_y, kCenterX,
-                       static_cast<int>(ImGui::GetCursorPosY() - text_y)};
-#endif
+                       static_cast<int>(ImGui::GetCursorPosY() - text_y)});
 
           if (settings_entered_ &&
               current_setting_ == SettingsItem::kWindowSize) {
@@ -602,9 +636,10 @@ void InGameMenu::Paint() {
 #else
             bool has_no_left = !main_window_->is_stretch_mode();
             bool has_right = has_no_left;
+#endif
 
-            AddRectForSettingsItem(
-                1,
+            AddRectForSettingsItemPrompt(
+                SettingsItem::kWindowSize,
                 SDL_Rect{static_cast<int>(triangle_p0.x - prompt_width -
                                           kVolumeBarSpacing),
                          static_cast<int>(triangle_p0.y),
@@ -615,7 +650,6 @@ void InGameMenu::Paint() {
                          static_cast<int>(triangle_p0.y),
                          static_cast<int>(prompt_width),
                          static_cast<int>(prompt_height)});
-#endif
 
             if (has_no_left) {
               ImGui::GetWindowDrawList()->AddTriangle(
@@ -663,7 +697,8 @@ void InGameMenu::Paint() {
                 GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NONE)
                     .c_str();
             ScopedFont joy_font(styles::in_game_menu::GetJoystickFontType(
-                main_window_->is_fullscreen(), kStrNone));
+                main_window_->is_fullscreen(), main_window_->window_scale(),
+                kStrNone));
             std::string joyname =
                 std::string("P") + kiwi::base::NumberToString(j + 1) +
                 std::string(": ") +
@@ -680,12 +715,11 @@ void InGameMenu::Paint() {
             float prompt_height = ImGui::GetFontSize();
             float prompt_width = prompt_height * .8f;
 
-#if KIWI_MOBILE
-            settings_positions_[static_cast<SettingsItem>(
-                j + static_cast<int>(SettingsItem::kJoyP1))] =
+            AddRectForSettingsItem(
+                static_cast<SettingsItem>(
+                    j + static_cast<int>(SettingsItem::kJoyP1)),
                 SDL_Rect{kCenterX, text_y, kCenterX,
-                         static_cast<int>(ImGui::GetCursorPosY() - text_y)};
-#endif
+                         static_cast<int>(ImGui::GetCursorPosY() - text_y)});
 
             if (settings_entered_ &&
                     (j == 0 && current_setting_ == SettingsItem::kJoyP1) ||
@@ -693,9 +727,8 @@ void InGameMenu::Paint() {
               ImVec2 triangle_p0(kCenterX + kMargin + prompt_width + kMargin,
                                  text_y + kTitleMenuHeight);
 
-#if KIWI_MOBILE
-              AddRectForSettingsItem(
-                  static_cast<int>(current_setting_),
+              AddRectForSettingsItemPrompt(
+                  current_setting_,
                   SDL_Rect{static_cast<int>(triangle_p0.x - prompt_width -
                                             kVolumeBarSpacing),
                            static_cast<int>(triangle_p0.y),
@@ -706,7 +739,6 @@ void InGameMenu::Paint() {
                            static_cast<int>(triangle_p0.y),
                            static_cast<int>(prompt_width),
                            static_cast<int>(prompt_height)});
-#endif
 
               bool has_left = false, has_right = false;
               auto controllers = GetControllerList();
@@ -807,6 +839,11 @@ void InGameMenu::Paint() {
           int text_y = ImGui::GetCursorPosY();
           ImGui::Text("%s", str_lang);
 
+          AddRectForSettingsItem(
+              SettingsItem::kLanguage,
+              SDL_Rect{kCenterX, text_y, kCenterX,
+                       static_cast<int>(ImGui::GetCursorPosY() - text_y)});
+
           if (settings_entered_ &&
               current_setting_ == SettingsItem::kLanguage) {
             ImVec2 triangle_p0(kCenterX + kMargin + prompt_width + kMargin,
@@ -852,6 +889,19 @@ void InGameMenu::Paint() {
                          triangle_p0.y + prompt_height / 2),
                   IM_COL32_WHITE);
             }
+
+            AddRectForSettingsItemPrompt(
+                SettingsItem::kLanguage,
+                SDL_Rect{static_cast<int>(triangle_p0.x - prompt_width -
+                                          kVolumeBarSpacing),
+                         static_cast<int>(triangle_p0.y),
+                         static_cast<int>(prompt_width),
+                         static_cast<int>(prompt_height)},
+                SDL_Rect{static_cast<int>(window_pos.x + window_size.x -
+                                          kMargin - prompt_width),
+                         static_cast<int>(triangle_p0.y),
+                         static_cast<int>(prompt_width),
+                         static_cast<int>(prompt_height)});
           }
         } break;
         default:
@@ -874,8 +924,7 @@ void InGameMenu::Paint() {
              selection_rect_pt1.y + kSelectionPadding + menu_font_size),
       IM_COL32_WHITE);
 
-#if KIWI_MOBILE
-  // Register menu position to response finger touch events.
+  // Register menu position to response finger touch/click events.
   // The responding area is exactly the 'draw-selection area'.
   if (menu_positions_.empty()) {
     int i = 0;
@@ -892,7 +941,6 @@ void InGameMenu::Paint() {
       }
     }
   }
-#endif
 }
 
 bool InGameMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
@@ -905,6 +953,11 @@ bool InGameMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 
 bool InGameMenu::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
   return HandleInputEvent(nullptr, nullptr);
+}
+
+bool InGameMenu::OnMousePressed(SDL_MouseButtonEvent* event) {
+  return HandleMouseOrFingerEvents(MouseOrFingerEventType::kMousePressed,
+                                   event->x, event->y);
 }
 
 bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* k,
@@ -946,14 +999,14 @@ bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* k,
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
-    HandleSettingsItemForCurrentSelection(true);
+    HandleSettingsItemForCurrentSelection(MakePromptSettingsItemContext(true));
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
-    HandleSettingsItemForCurrentSelection(false);
+    HandleSettingsItemForCurrentSelection(MakePromptSettingsItemContext(false));
     return true;
   }
 
@@ -985,11 +1038,19 @@ void InGameMenu::HandleMenuItemForCurrentSelection() {
   }
 }
 
-void InGameMenu::HandleSettingsItemForCurrentSelection(bool go_left) {
-  if (go_left) {
-    if (settings_entered_) {
-      settings_callback_.Run(current_setting_, true);
-    } else {
+void InGameMenu::HandleSettingsItemForCurrentSelection(
+    SettingsItemContext context) {
+  if (settings_entered_) {
+    settings_callback_.Run(current_setting_, context);
+  } else {
+    HandleSettingsItemForCurrentSelectionInternal(context);
+  }
+}
+
+void InGameMenu::HandleSettingsItemForCurrentSelectionInternal(
+    SettingsItemContext context) {
+  if (context.type == SettingsItemContext::SettingsItemType::kPrompt) {
+    if (context.go_left) {
       if (current_selection_ == MenuItem::kSaveState ||
           current_selection_ == MenuItem::kLoadState) {
         --which_state_;
@@ -1006,10 +1067,6 @@ void InGameMenu::HandleSettingsItemForCurrentSelection(bool go_left) {
           RequestCurrentThumbnail();
         }
       }
-    }
-  } else {
-    if (settings_entered_) {
-      settings_callback_.Run(current_setting_, false);
     } else {
       if (current_selection_ == MenuItem::kSaveState ||
           current_selection_ == MenuItem::kLoadState) {
@@ -1128,4 +1185,94 @@ void InGameMenu::OnGotState(const NESRuntime::Data::StateResult& state_result) {
 
 void InGameMenu::HideMenu(int index) {
   hide_menus_.insert(index);
+}
+
+void InGameMenu::AddRectForSettingsItemPrompt(
+    SettingsItem settings_index,
+    const SDL_Rect& rect_for_left_prompt,
+    const SDL_Rect& rect_for_right_prompt) {
+  settings_prompt_positions_[settings_index].push_back(std::make_pair(
+      rect_for_left_prompt, MakePromptSettingsItemContext(true)));
+  settings_prompt_positions_[settings_index].push_back(std::make_pair(
+      rect_for_right_prompt, MakePromptSettingsItemContext(false)));
+}
+
+void InGameMenu::AddRectForSettingsItemPrompt(
+    SettingsItem settings_index,
+    const SDL_Rect& complex_item_rect) {
+  settings_prompt_positions_[settings_index].push_back(std::make_pair(
+      complex_item_rect, MakePromptSettingsItemComplex(complex_item_rect)));
+}
+
+void InGameMenu::AddRectForSettingsItem(SettingsItem settings_index,
+                                        const SDL_Rect& rect) {
+  settings_positions_[settings_index] = rect;
+}
+
+void InGameMenu::CleanUpSettingsItemRects() {
+  settings_positions_.clear();
+  settings_prompt_positions_.clear();
+}
+
+bool InGameMenu::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
+                                           int x_in_window,
+                                           int y_in_window) {
+  // Moving finger/mouse only affects selection. It won't trigger the menu item.
+  bool suppress_trigger = type == MouseOrFingerEventType::kFingerMove;
+
+  SDL_Rect bounds = window()->GetClientBounds();
+  // Find if touched/clicked any menu item.
+  for (const auto& menu : menu_positions_) {
+    if (Contains(menu.second, x_in_window, y_in_window)) {
+      if (settings_entered_)
+        settings_entered_ = false;
+      if (current_selection_ != menu.first)
+        current_selection_ = menu.first;
+      else if (!suppress_trigger)
+        HandleMenuItemForCurrentSelection();
+      return true;
+    }
+  }
+
+  // Find if touched/clicked any settings item. Ignoring finger moving.
+  if (type == MouseOrFingerEventType::kFingerDown ||
+      type == MouseOrFingerEventType::kMousePressed) {
+    // Find settings item first.
+    for (const auto& setting : settings_positions_) {
+      // If the setting hasn't been entered, enter the setting first.
+      // If current setting item has already been selected, propagates the event
+      // to its prompt.
+      SDL_Rect setting_bounds_in_window = MapToWindow(setting.second);
+      if (Contains(setting_bounds_in_window, x_in_window, y_in_window) &&
+          (current_setting_ != setting.first || !settings_entered_)) {
+        settings_entered_ = true;
+        current_setting_ = setting.first;
+        return true;
+      }
+    }
+
+    // Find prompt.
+    for (const auto& prompt_position : settings_prompt_positions_) {
+      for (const auto& prompt : prompt_position.second) {
+        // Prompt.first represents the button position
+        // Prompt.second represents its context.
+        if (Contains(prompt.first, x_in_window, y_in_window)) {
+          current_setting_ = prompt_position.first;
+          if (prompt.second.type ==
+              SettingsItemContext::SettingsItemType::kPrompt) {
+            HandleSettingsItemForCurrentSelection(prompt.second);
+          } else {
+            // Inserts bound information
+            SettingsItemContext context = prompt.second;
+            context.bounds.trigger_position =
+                SDL_Point{x_in_window, y_in_window};
+            HandleSettingsItemForCurrentSelection(context);
+          }
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }

@@ -449,8 +449,8 @@ size_t FlexItemsWidget::FindNextIndex(bool down) {
   return target_index;
 }
 
-bool FlexItemsWidget::FindItemIndexByMousePosition(int global_x,
-                                                   int global_y,
+bool FlexItemsWidget::FindItemIndexByMousePosition(int x_in_window,
+                                                   int y_in_window,
                                                    size_t& index_out) {
   // A faster way to find the hovered item.
   int current_row_index = 0;
@@ -482,10 +482,9 @@ bool FlexItemsWidget::FindItemIndexByMousePosition(int global_x,
   }
   int index_upper = broke ? items_.size() - 1 : first_item_of_row;
 
-  SDL_Point pos{global_x, global_y};
   for (int i = index_lower; i <= index_upper; ++i) {
-    SDL_Rect item_bounds_to_window = MapToGlobal(items_[i]->bounds());
-    if (SDL_PointInRect(&pos, &item_bounds_to_window)) {
+    SDL_Rect item_bounds_to_window = MapToWindow(items_[i]->bounds());
+    if (Contains(item_bounds_to_window, x_in_window, y_in_window)) {
       index_out = i;
       return true;
     }
@@ -532,11 +531,11 @@ void FlexItemsWidget::PostPaint() {
   }
 
   if (!activate_) {
-    SDL_Rect global_bounds = MapToGlobal(bounds());
+    SDL_Rect bounds_to_window = MapToWindow(bounds());
     ImGui::GetWindowDrawList()->AddRectFilled(
-        ImVec2(global_bounds.x, global_bounds.y),
-        ImVec2(global_bounds.x + global_bounds.w,
-               global_bounds.y + global_bounds.h),
+        ImVec2(bounds_to_window.x, bounds_to_window.y),
+        ImVec2(bounds_to_window.x + bounds_to_window.w,
+               bounds_to_window.y + bounds_to_window.h),
         ImColor(0, 0, 0, 196));
   }
 }

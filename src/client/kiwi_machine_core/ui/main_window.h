@@ -198,9 +198,12 @@ class MainWindow : public WindowBase,
   void OnDebugNametable();
   void OnInGameMenuTrigger();
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
-  void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item, bool is_left);
+  void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
+                                   InGameMenu::SettingsItemContext context);
   void OnInGameSettingsHandleWindowSize(bool is_left);
   void OnInGameSettingsHandleVolume(bool is_left);
+  void OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
+                                    const SDL_Point& trigger_point);
   void OnVirtualJoystickChanged(int state);
 
 #if KIWI_MOBILE

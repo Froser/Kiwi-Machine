@@ -1636,37 +1636,49 @@ void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
   }
 }
 
-void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
-                                             bool is_left) {
+void MainWindow::OnInGameSettingsItemTrigger(
+    InGameMenu::SettingsItem item,
+    InGameMenu::SettingsItemContext context) {
   switch (item) {
     case InGameMenu::SettingsItem::kVolume:
       PlayEffect(audio_resources::AudioID::kSelect);
-      OnInGameSettingsHandleVolume(is_left);
+      if (context.type ==
+          InGameMenu::SettingsItemContext::SettingsItemType::kPrompt)
+        OnInGameSettingsHandleVolume(context.go_left);
+      else
+        OnInGameSettingsHandleVolume(context.bounds.items_bounds,
+                                     context.bounds.trigger_position);
       break;
     case InGameMenu::SettingsItem::kWindowSize:
-      OnInGameSettingsHandleWindowSize(is_left);
+      SDL_assert(context.type ==
+                 InGameMenu::SettingsItemContext::SettingsItemType::kPrompt);
+      OnInGameSettingsHandleWindowSize(context.go_left);
       break;
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
+      SDL_assert(context.type ==
+                 InGameMenu::SettingsItemContext::SettingsItemType::kPrompt);
       std::vector<SDL_GameController*> controllers = GetControllerList();
       int player_index = (item == InGameMenu::SettingsItem::kJoyP1 ? 0 : 1);
       // Find next controller
       auto iter =
           std::find(controllers.begin(), controllers.end(),
                     runtime_data_->joystick_mappings[player_index].which);
-      if (is_left && iter != controllers.begin()) {
+      if (context.go_left && iter != controllers.begin()) {
         SDL_GameController* next_controller = *(iter - 1);
         SetControllerMapping(runtime_data_, player_index, next_controller,
                              false);
-      } else if (!is_left && (iter != controllers.end() - 1)) {
+      } else if (!context.go_left && (iter != controllers.end() - 1)) {
         SDL_GameController* next_controller = *(iter + 1);
         SetControllerMapping(runtime_data_, player_index, next_controller,
                              false);
       }
     } break;
     case InGameMenu::SettingsItem::kLanguage: {
+      SDL_assert(context.type ==
+                 InGameMenu::SettingsItemContext::SettingsItemType::kPrompt);
       SupportedLanguage language = GetCurrentSupportedLanguage();
-      if (is_left) {
+      if (context.go_left) {
         language = static_cast<SupportedLanguage>(
             (static_cast<int>(language) - 1 < 0)
                 ? static_cast<int>(SupportedLanguage::kMax) - 1
@@ -1717,6 +1729,20 @@ void MainWindow::OnInGameSettingsHandleVolume(bool is_left) {
   float volume = runtime_data_->emulator->GetVolume();
   volume = (is_left ? volume - .1f : volume + .1f);
   OnSetAudioVolume(volume);
+}
+
+void MainWindow::OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
+                                              const SDL_Point& trigger_point) {
+  // Divide volume bar to `kSeparatedCount` segments
+  constexpr int kSeparatedCount = 10;
+  if (SDL_PointInRect(&trigger_point, &volume_bounds)) {
+    float percentage = (trigger_point.x - volume_bounds.x) /
+                       static_cast<float>(volume_bounds.w);
+    OnSetAudioVolume(percentage);
+  } else {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "%s: point is not in bounds, which is unexpected.", __func__);
+  }
 }
 #endif
 

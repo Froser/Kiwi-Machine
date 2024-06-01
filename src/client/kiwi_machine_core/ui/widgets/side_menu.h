@@ -57,7 +57,7 @@ class SideMenu : public Widget {
   void Layout();
   void SetIndex(int index);
   void TriggerCurrentItem();
-  bool FindItemIndexByMousePosition(int global_x, int global_y, int& index_out);
+  bool FindItemIndexByMousePosition(int x_in_window, int y_in_window, int& index_out);
 
  private:
   MainWindow* main_window_ = nullptr;

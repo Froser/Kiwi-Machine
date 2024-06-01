@@ -41,7 +41,9 @@ int GetSnapshotThumbnailWidth(bool is_landscape, float window_scale);
 int GetSnapshotThumbnailHeight(bool is_landscape, float window_scale);
 int GetSnapshotPromptHeight(float window_scale);
 int GetOptionsSpacing();
-FontType GetJoystickFontType(bool is_fullscreen, const char* str_hint);
+FontType GetJoystickFontType(bool is_fullscreen,
+                             float window_scale,
+                             const char* str_hint);
 FontType GetSlotNameFontType(bool is_landscape, const char* str_hint);
 
 }  // namespace in_game_menu

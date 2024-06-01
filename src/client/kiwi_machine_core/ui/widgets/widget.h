@@ -87,13 +87,13 @@ class Widget {
  protected:
   WindowBase* window() { return window_; }
   Widget* parent() { return parent_; }
-  SDL_Rect MapToGlobal(const SDL_Rect& bounds);
+  SDL_Rect MapToWindow(const SDL_Rect& bounds);
   Widgets& children() { return widgets_; }
   void RemovePendingWidgets();
 
  private:
   void set_parent(Widget* parent) { parent_ = parent; }
-  Widget* HitTest(int global_x, int global_y);
+  Widget* HitTest(int x_in_window, int y_in_window);
 
  protected:
   virtual void Paint();

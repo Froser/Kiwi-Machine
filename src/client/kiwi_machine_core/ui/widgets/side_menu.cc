@@ -38,11 +38,11 @@ SideMenu::~SideMenu() = default;
 void SideMenu::Paint() {
   Layout();
 
-  SDL_Rect kGlobalBounds = MapToGlobal(bounds());
+  SDL_Rect kBoundsToWindow = MapToWindow(bounds());
   ImGui::GetWindowDrawList()->AddRectFilled(
-      ImVec2(kGlobalBounds.x, kGlobalBounds.y),
-      ImVec2(kGlobalBounds.x + kGlobalBounds.w,
-             kGlobalBounds.y + kGlobalBounds.h),
+      ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+      ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+             kBoundsToWindow.y + kBoundsToWindow.h),
       kBackgroundColor);
 
   for (int i = menu_items_.size() - 1; i >= 0; --i) {
@@ -63,10 +63,10 @@ void SideMenu::Paint() {
       }
 
       SDL_Rect global_selection_rect =
-          MapToGlobal(Lerp(selection_current_rect_in_global_,
+          MapToWindow(Lerp(selection_current_rect_in_global_,
                            selection_target_rect_in_global_, percentage));
       SDL_Rect global_target_selection_rect =
-          MapToGlobal(selection_target_rect_in_global_);
+          MapToWindow(selection_target_rect_in_global_);
 
       ImGui::GetWindowDrawList()->AddRectFilled(
           ImVec2(global_selection_rect.x, global_selection_rect.y),
@@ -80,7 +80,7 @@ void SideMenu::Paint() {
                  global_target_selection_rect.y + kItemPadding),
           kBackgroundColor, menu_content.c_str());
     } else {
-      SDL_Rect global_item_rect = MapToGlobal(items_bounds_map_[i]);
+      SDL_Rect global_item_rect = MapToWindow(items_bounds_map_[i]);
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFont()->FontSize,
           ImVec2(global_item_rect.x + kItemPadding,
@@ -158,8 +158,8 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
 void SideMenu::Layout() {
   if (!bounds_valid_) {
     items_bounds_map_.resize(menu_items_.size());
-    SDL_Rect kGlobalBounds = MapToGlobal(bounds());
-    const int kX = kGlobalBounds.x + kItemPadding;
+    SDL_Rect kBoundsToWindow = MapToWindow(bounds());
+    const int kX = kBoundsToWindow.x + kItemPadding;
     int y = 0;
 
     for (int i = menu_items_.size() - 1; i >= 0; --i) {
@@ -169,10 +169,10 @@ void SideMenu::Layout() {
       ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
       const int kItemHeight = text_size.y;
       if (i == menu_items_.size() - 1)
-        y = kGlobalBounds.h - kItemMarginBottom - kItemHeight -
+        y = kBoundsToWindow.h - kItemMarginBottom - kItemHeight -
             kItemPadding * 2;
 
-      items_bounds_map_[i] = SDL_Rect{kX, y, kGlobalBounds.w - kItemPadding,
+      items_bounds_map_[i] = SDL_Rect{kX, y, kBoundsToWindow.w - kItemPadding,
                                       kItemHeight + kItemPadding * 2};
       y -= kItemHeight + kItemPadding * 2;
     }
@@ -191,15 +191,14 @@ void SideMenu::TriggerCurrentItem() {
   menu_items_[current_index_].second.trigger_callback.Run();
 }
 
-bool SideMenu::FindItemIndexByMousePosition(int global_x,
-                                            int global_y,
+bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
+                                            int y_in_window,
                                             int& index_out) {
   // There's no intersection between each item's bounds, so we can find the
   // target item easily
-  SDL_Point global_pt{global_x, global_y};
-  for (int i = 0; i < items_bounds_map_.size() - 1; ++i) {
-    SDL_Rect global_bounds = MapToGlobal(items_bounds_map_[i]);
-    if (SDL_PointInRect(&global_pt, &global_bounds)) {
+  for (int i = 0; i < items_bounds_map_.size(); ++i) {
+    SDL_Rect bounds_to_window = MapToWindow(items_bounds_map_[i]);
+    if (Contains(bounds_to_window, x_in_window, y_in_window)) {
       index_out = i;
       return true;
     }

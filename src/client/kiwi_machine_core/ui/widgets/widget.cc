@@ -16,6 +16,7 @@
 #include <algorithm>
 
 #include "ui/window_base.h"
+#include "utility/math.h"
 
 Widget::Widget(WindowBase* window) : window_(window) {}
 
@@ -68,7 +69,7 @@ void Widget::Render() {
       if (bounds_changed_) {
         // If user changed the bounds by set_bounds(), use it as the default
         // bounds when rendering.
-        SDL_Rect bounds_to_parent = MapToGlobal(bounds_);
+        SDL_Rect bounds_to_parent = MapToWindow(bounds_);
         ImGui::SetNextWindowPos(ImVec2(bounds_to_parent.x, bounds_to_parent.y),
                                 ImGuiCond_Once);
         if (bounds_to_parent.w > 0 && bounds_to_parent.h > 0) {
@@ -122,7 +123,7 @@ void Widget::Render() {
   }
 }
 
-SDL_Rect Widget::MapToGlobal(const SDL_Rect& bounds) {
+SDL_Rect Widget::MapToWindow(const SDL_Rect& bounds) {
   SDL_Rect bounds_to_parent;
 
   // There's no parent, accumulates it with client bounds
@@ -134,7 +135,7 @@ SDL_Rect Widget::MapToGlobal(const SDL_Rect& bounds) {
     bounds_to_parent = {parent()->bounds().x + bounds.x,
                         parent()->bounds().y + bounds.y, bounds.w, bounds.h};
 
-    bounds_to_parent = parent()->MapToGlobal(bounds_to_parent);
+    bounds_to_parent = parent()->MapToWindow(bounds_to_parent);
   }
 
   return bounds_to_parent;
@@ -340,13 +341,12 @@ void Widget::RemovePendingWidgets() {
   }
 }
 
-Widget* Widget::HitTest(int global_x, int global_y) {
+Widget* Widget::HitTest(int x_in_window, int y_in_window) {
   if (!enabled() || !visible())
     return nullptr;
 
-  SDL_Point kGlobalMousePos{global_x, global_y};
-  SDL_Rect this_widget_bounds_to_window = MapToGlobal(bounds());
-  if (SDL_PointInRect(&kGlobalMousePos, &this_widget_bounds_to_window) &&
+  SDL_Rect this_widget_bounds_to_window = MapToWindow(bounds());
+  if (Contains(this_widget_bounds_to_window, x_in_window, y_in_window) &&
       AcceptHitTest()) {
     if (ChildrenAcceptHitTest()) {
       for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
@@ -355,9 +355,9 @@ Widget* Widget::HitTest(int global_x, int global_y) {
           continue;
 
         SDL_Rect candidate_bounds_to_window =
-            candidate->MapToGlobal(candidate->bounds());
-        if (SDL_PointInRect(&kGlobalMousePos, &candidate_bounds_to_window)) {
-          Widget* found = candidate->HitTest(global_x, global_y);
+            candidate->MapToWindow(candidate->bounds());
+        if (Contains(candidate_bounds_to_window, x_in_window, y_in_window)) {
+          Widget* found = candidate->HitTest(x_in_window, y_in_window);
           if (found)
             return found;
         }

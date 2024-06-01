@@ -100,14 +100,18 @@ int GetOptionsSpacing() {
 #endif
 }
 
-FontType GetJoystickFontType(bool is_fullscreen, const char* str_hint) {
+FontType GetJoystickFontType(bool is_fullscreen,
+                             float window_scale,
+                             const char* str_hint) {
 #if KIWI_ANDROID
   return FontType::kDefault2x;
 #elif KIWI_IOS
   return FontType::kDefault;
 #else
-  PreferredFontSize font_size =
-      is_fullscreen ? PreferredFontSize::k2x : PreferredFontSize::k1x;
+  PreferredFontSize font_size(
+      window_scale > 3.f ? PreferredFontSize::k3x
+                         : (window_scale > 2.f ? PreferredFontSize::k2x
+                                               : PreferredFontSize::k1x));
   return GetPreferredFontType(font_size, str_hint);
 #endif
 }

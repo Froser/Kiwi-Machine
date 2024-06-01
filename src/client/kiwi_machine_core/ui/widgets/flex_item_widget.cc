@@ -78,14 +78,14 @@ void FlexItemWidget::Trigger() {
 
 void FlexItemWidget::Paint() {
   CreateTextureIfNotExists();
-  const SDL_Rect kBoundsToParent = MapToGlobal(bounds());
+  const SDL_Rect kBoundsToWindow = MapToWindow(bounds());
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
   // Draw stretched image
   draw_list->AddImage(cover_texture_,
-                      ImVec2(kBoundsToParent.x, kBoundsToParent.y),
-                      ImVec2(kBoundsToParent.x + kBoundsToParent.w,
-                             kBoundsToParent.y + kBoundsToParent.h));
+                      ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+                      ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+                             kBoundsToWindow.y + kBoundsToWindow.h));
 
   // Highlight selected item.
   if (parent_->IsItemSelected(this)) {
@@ -94,9 +94,9 @@ void FlexItemWidget::Paint() {
     if (rgb > 255)
       rgb = 512 - rgb;
 
-    draw_list->AddRect(ImVec2(kBoundsToParent.x, kBoundsToParent.y),
-                       ImVec2(kBoundsToParent.x + kBoundsToParent.w,
-                              kBoundsToParent.y + kBoundsToParent.h),
+    draw_list->AddRect(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+                       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+                              kBoundsToWindow.y + kBoundsToWindow.h),
                        ImColor(rgb, rgb, rgb));
   } else {
     fade_timer_.Reset();
