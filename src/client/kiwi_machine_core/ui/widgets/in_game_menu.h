@@ -24,6 +24,7 @@
 #include "models/nes_runtime.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
+#include "utility/fonts.h"
 
 class MainWindow;
 class InGameMenu : public Widget {
@@ -108,6 +109,59 @@ class InGameMenu : public Widget {
 #endif
 
  private:
+  // Layout flow
+  struct LayoutImmediateContext {
+    ImVec2 window_pos;
+    ImVec2 window_size;
+    std::vector<const char*> menu_items;
+    PreferredFontSize font_size;
+
+    // Following variables are for faster calculation:
+    const int title_menu_height = 0;
+    const int window_center_x = 0;
+
+    // Menu items
+    int menu_tops[static_cast<int>(
+        MenuItem::kMax)];  // A list of each menu item's top position
+    int menu_font_size;
+
+    // Options
+    std::vector<const char*> options_items;
+    using OptionItemPaintHandler =
+        void (InGameMenu::*)(LayoutImmediateContext& context);
+    std::vector<OptionItemPaintHandler> options_handlers;
+    int window_scaling_for_options;
+    int volume_bar_height;
+    int volume_bar_spacing;
+  };
+
+  enum LayoutConstants {
+    kMenuItemMargin = 10,
+  };
+
+  LayoutImmediateContext PreLayoutImmediate();
+  void DrawBackgroundImmediate(LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate(LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_LayoutMenuItems(LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems(LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_SaveLoad(
+      LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_Options(
+      LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_OptionsLayout(
+      LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_Options_PaintEachOption(
+      LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_Options_Volume(
+      LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_Options_WindowSize(
+      LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_Options_Joysticks(
+      LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_Options_Languages(
+      LayoutImmediateContext& context);
+  void DrawSelectionImmediate(LayoutImmediateContext& context);
+
   void AddRectForSettingsItemPrompt(SettingsItem settings_index,
                                     const SDL_Rect& rect_for_left,
                                     const SDL_Rect& rect_for_right);
