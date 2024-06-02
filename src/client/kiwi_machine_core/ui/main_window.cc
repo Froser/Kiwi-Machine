@@ -671,21 +671,23 @@ void MainWindow::InitializeUI() {
 
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_GAME),
+        image_resources::ImageID::kMenuNes,
         CreateMenuChangeFocusToGameItemsCallbacks(main_nes_items_widget_));
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(
             string_resources::IDR_SIDE_MENU_SPECIAL),
+        image_resources::ImageID::kMenuNes,
         CreateMenuChangeFocusToGameItemsCallbacks(special_nes_items_widget_));
     side_menu->AddMenu(std::make_unique<StringUpdater>(
                            string_resources::IDR_SIDE_MENU_SETTINGS),
+                       image_resources::ImageID::kMenuSettings,
                        CreateMenuSettingsCallbacks());
-
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         &MainWindow::OnQuit, kiwi::base::Unretained(this));
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
-        quit_callbacks);
+        image_resources::ImageID::kMenuQuit, quit_callbacks);
     side_menu_ = side_menu.get();
     bg_widget_->AddWidget(std::move(side_menu));
     ChangeFocus(MainFocus::kContents);
@@ -1237,14 +1239,14 @@ void MainWindow::CloseInGameMenu() {
 void MainWindow::FlexLayout() {
   SDL_Rect client_bounds = GetClientBounds();
   side_menu_timer_.Reset();
-  int left_width = client_bounds.w * .1f;
+  int left_width = side_menu_->GetSuggestedCollapsedWidth();
   int right_width = client_bounds.w - left_width;
   // An activated side menu needs more space.
   if (side_menu_->activate()) {
     side_menu_original_width_ = left_width;
-    side_menu_target_width_ = left_width * 2;
+    side_menu_target_width_ = client_bounds.w * .1f;
   } else {
-    side_menu_original_width_ = left_width * 2;
+    side_menu_original_width_ = client_bounds.w * .1f;
     side_menu_target_width_ = left_width;
   }
 

@@ -17,6 +17,7 @@
 
 #include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
+#include "utility/images.h"
 #include "utility/timer.h"
 
 class MainWindow;
@@ -39,10 +40,12 @@ class SideMenu : public Widget {
 
  public:
   void AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
+               image_resources::ImageID icon,
                MenuCallbacks callbacks);
   void set_activate(bool activate) { activate_ = activate; }
   bool activate() { return activate_; }
   void invalidate() { bounds_valid_ = false; }
+  int GetSuggestedCollapsedWidth();
 
  private:
   void Paint() override;
@@ -57,13 +60,23 @@ class SideMenu : public Widget {
   void Layout();
   void SetIndex(int index);
   void TriggerCurrentItem();
-  bool FindItemIndexByMousePosition(int x_in_window, int y_in_window, int& index_out);
+  bool FindItemIndexByMousePosition(int x_in_window,
+                                    int y_in_window,
+                                    int& index_out);
 
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
-  std::vector<std::pair<std::unique_ptr<LocalizedStringUpdater>, MenuCallbacks>>
-      menu_items_;
+  struct MenuItem {
+    MenuItem(std::unique_ptr<LocalizedStringUpdater> string_updater,
+             image_resources::ImageID icon,
+             MenuCallbacks callbacks);
+
+    std::unique_ptr<LocalizedStringUpdater> string_updater;
+    image_resources::ImageID icon;
+    MenuCallbacks callbacks;
+  };
+  std::vector<MenuItem> menu_items_;
   // Order: from last added menu to first added menu
   std::vector<SDL_Rect> items_bounds_map_;
   bool bounds_valid_ = false;
