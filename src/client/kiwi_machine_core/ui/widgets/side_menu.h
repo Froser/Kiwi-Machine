@@ -41,11 +41,13 @@ class SideMenu : public Widget {
  public:
   void AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
                image_resources::ImageID icon,
+               image_resources::ImageID highlight_icon,
                MenuCallbacks callbacks);
   void set_activate(bool activate) { activate_ = activate; }
   bool activate() { return activate_; }
   void invalidate() { bounds_valid_ = false; }
   int GetSuggestedCollapsedWidth();
+  int GetMinExtendedWidth();
 
  private:
   void Paint() override;
@@ -70,10 +72,12 @@ class SideMenu : public Widget {
   struct MenuItem {
     MenuItem(std::unique_ptr<LocalizedStringUpdater> string_updater,
              image_resources::ImageID icon,
+             image_resources::ImageID highlight_icon,
              MenuCallbacks callbacks);
 
     std::unique_ptr<LocalizedStringUpdater> string_updater;
     image_resources::ImageID icon;
+    image_resources::ImageID highlight_icon;
     MenuCallbacks callbacks;
   };
   std::vector<MenuItem> menu_items_;

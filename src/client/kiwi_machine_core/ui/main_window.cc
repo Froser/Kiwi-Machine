@@ -672,22 +672,26 @@ void MainWindow::InitializeUI() {
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_GAME),
         image_resources::ImageID::kMenuNes,
+        image_resources::ImageID::kMenuNesHighlight,
         CreateMenuChangeFocusToGameItemsCallbacks(main_nes_items_widget_));
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(
             string_resources::IDR_SIDE_MENU_SPECIAL),
         image_resources::ImageID::kMenuNes,
+        image_resources::ImageID::kMenuNesHighlight,
         CreateMenuChangeFocusToGameItemsCallbacks(special_nes_items_widget_));
     side_menu->AddMenu(std::make_unique<StringUpdater>(
                            string_resources::IDR_SIDE_MENU_SETTINGS),
                        image_resources::ImageID::kMenuSettings,
+                       image_resources::ImageID::kMenuSettingsHighlight,
                        CreateMenuSettingsCallbacks());
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         &MainWindow::OnQuit, kiwi::base::Unretained(this));
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
-        image_resources::ImageID::kMenuQuit, quit_callbacks);
+        image_resources::ImageID::kMenuQuit,
+        image_resources::ImageID::kMenuQuitHighlight, quit_callbacks);
     side_menu_ = side_menu.get();
     bg_widget_->AddWidget(std::move(side_menu));
     ChangeFocus(MainFocus::kContents);
@@ -1241,12 +1245,17 @@ void MainWindow::FlexLayout() {
   side_menu_timer_.Reset();
   int left_width = side_menu_->GetSuggestedCollapsedWidth();
   int right_width = client_bounds.w - left_width;
+
   // An activated side menu needs more space.
+  int extended_width = client_bounds.w * .1f < side_menu_->GetMinExtendedWidth()
+                           ? side_menu_->GetMinExtendedWidth()
+                           : client_bounds.w * .1f;
+
   if (side_menu_->activate()) {
     side_menu_original_width_ = left_width;
-    side_menu_target_width_ = client_bounds.w * .1f;
+    side_menu_target_width_ = extended_width;
   } else {
-    side_menu_original_width_ = client_bounds.w * .1f;
+    side_menu_original_width_ = extended_width;
     side_menu_target_width_ = left_width;
   }
 
