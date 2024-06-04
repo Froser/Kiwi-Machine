@@ -21,12 +21,12 @@
 #include "utility/localization.h"
 #include "utility/math.h"
 
-constexpr int kItemHeight = 40;
+constexpr int kItemHeight = 20;
 constexpr int kItemMarginBottom = 15;
-constexpr int kItemPadding = 3;
+constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
 constexpr int kIconSpacing = 4;
-constexpr float kIconSizeScale = .8f;
+constexpr float kIconSizeScale = .7f;
 constexpr ImColor kBackgroundColor = ImColor(171, 238, 80);
 constexpr PreferredFontSize kPreferredFontSize(PreferredFontSize::k1x);
 
@@ -217,18 +217,18 @@ void SideMenu::Layout() {
   if (!bounds_valid_) {
     items_bounds_map_.resize(menu_items_.size());
     SDL_Rect kBoundsToWindow = MapToWindow(bounds());
-    const int kX = kBoundsToWindow.x + SCALED(kItemPadding);
+    const int kX = kBoundsToWindow.x + SCALED(kItemSpacing.x);
     int y = 0;
 
     for (int i = menu_items_.size() - 1; i >= 0; --i) {
       if (i == menu_items_.size() - 1)
         y = kBoundsToWindow.h - SCALED(kItemMarginBottom) -
-            SCALED(kItemHeight) - SCALED(kItemPadding) * 2;
+            SCALED(kItemHeight) - SCALED(kItemSpacing.y) * 2;
 
       items_bounds_map_[i] =
-          SDL_Rect{kX, y, kBoundsToWindow.w - SCALED(kItemPadding),
-                   SCALED(kItemHeight + kItemPadding * 2)};
-      y -= SCALED(kItemHeight + kItemPadding * 2);
+          SDL_Rect{kX, y, kBoundsToWindow.w - SCALED(kItemSpacing.x),
+                   SCALED(kItemHeight + kItemSpacing.y * 2)};
+      y -= SCALED(kItemHeight + kItemSpacing.y * 2);
     }
 
     bounds_valid_ = true;

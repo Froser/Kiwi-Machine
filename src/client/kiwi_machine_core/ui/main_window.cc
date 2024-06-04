@@ -677,8 +677,8 @@ void MainWindow::InitializeUI() {
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(
             string_resources::IDR_SIDE_MENU_SPECIAL),
-        image_resources::ImageID::kMenuNes,
-        image_resources::ImageID::kMenuNesHighlight,
+        image_resources::ImageID::kMenuSpecialNes,
+        image_resources::ImageID::kMenuSpecialNesHighlight,
         CreateMenuChangeFocusToGameItemsCallbacks(special_nes_items_widget_));
     side_menu->AddMenu(std::make_unique<StringUpdater>(
                            string_resources::IDR_SIDE_MENU_SETTINGS),
