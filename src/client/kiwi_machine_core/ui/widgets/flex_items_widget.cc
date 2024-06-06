@@ -22,7 +22,7 @@
 #include "utility/math.h"
 
 namespace {
-constexpr int kItemHeightHint = 145;
+constexpr int kItemHeightHint = 160;
 constexpr int kItemSelectedHighlightedSize = 20;
 constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
@@ -63,6 +63,17 @@ size_t FlexItemsWidget::AddItem(
   need_layout_all_ = true;
 
   return items_.size() - 1;
+}
+
+void FlexItemsWidget::AddSubItem(
+    size_t item_index,
+    std::unique_ptr<LocalizedStringUpdater> title_updater,
+    const kiwi::nes::Byte* cover_img_ref,
+    size_t cover_size,
+    kiwi::base::RepeatingClosure on_trigger) {
+  SDL_assert(item_index < items_.size());
+  items_[item_index]->AddSubItem(std::move(title_updater), cover_img_ref,
+                                 cover_size, on_trigger);
 }
 
 void FlexItemsWidget::SetIndex(size_t index) {
@@ -344,17 +355,15 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
     return true;
   }
 
-  // if (IsKeyboardOrControllerAxisMotionMatch(
-  //         runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
-  //   if (!GetSubItemsByIndex(current_idx_).empty()) {
-  //     PlayEffect(audio_resources::AudioID::kSelect);
-  //     SwapCurrentItem();
-  //   }
-  //   return true;
-  // }
-  // }
-  //
-  //  return false;
+  if (IsKeyboardOrControllerAxisMotionMatch(
+          runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
+    if (items_[current_index_]->has_sub_items()) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      items_[current_index_]->SwapToNextSubItem();
+    }
+    return true;
+  }
+
   return false;
 }
 

@@ -22,6 +22,18 @@
 class MainWindow;
 class FlexItemsWidget;
 class FlexItemWidget : public Widget {
+ private:
+  struct Data {
+    std::unique_ptr<LocalizedStringUpdater> title_updater;
+    const kiwi::nes::Byte* cover_img = nullptr;
+    size_t cover_size = 0u;
+    kiwi::base::RepeatingClosure on_trigger_callback;
+    SDL_Surface* cover_surface = nullptr;
+    SDL_Texture* cover_texture = nullptr;
+    int cover_width = 0;
+    int cover_height = 0;
+  };
+
  public:
   explicit FlexItemWidget(MainWindow* main_window,
                           FlexItemsWidget* parent,
@@ -33,18 +45,26 @@ class FlexItemWidget : public Widget {
   // Caller must ensure that |cover_img| is never release when KiwiItemWidget is
   // alive.
   void set_cover(const kiwi::nes::Byte* cover_img, size_t cover_size) {
-    cover_img_ = cover_img;
-    cover_size_ = cover_size;
+    current_data()->cover_img = cover_img;
+    current_data()->cover_size = cover_size;
   }
 
   void set_row_index(int row_index) { row_index_ = row_index; }
   void set_column_index(int column_index) { column_index_ = column_index; }
   int row_index() { return row_index_; }
   int column_index() { return column_index_; }
+  Data* current_data() { return current_data_; }
 
   SDL_Rect GetSuggestedSize(int item_height, bool is_selected);
 
   void Trigger();
+
+  void AddSubItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
+                  const kiwi::nes::Byte* cover_img_ref,
+                  size_t cover_size,
+                  kiwi::base::RepeatingClosure on_trigger);
+  bool has_sub_items() { return sub_data_.size() > 0; }
+  void SwapToNextSubItem();
 
  private:
   void CreateTextureIfNotExists();
@@ -55,15 +75,7 @@ class FlexItemWidget : public Widget {
  private:
   MainWindow* main_window_ = nullptr;
   FlexItemsWidget* parent_ = nullptr;
-  std::string title_;
-  std::unique_ptr<LocalizedStringUpdater> title_updater_;
-  const kiwi::nes::Byte* cover_img_ = nullptr;
-  size_t cover_size_ = 0u;
-  kiwi::base::RepeatingClosure on_trigger_callback_;
-  SDL_Surface* cover_surface_ = nullptr;
-  SDL_Texture* cover_texture_ = nullptr;
-  int cover_width_ = 0;
-  int cover_height_ = 0;
+  Data* current_data_ = nullptr;
 
   // Location
   int row_index_ = 0;
@@ -71,6 +83,10 @@ class FlexItemWidget : public Widget {
 
   // Fade
   Timer fade_timer_;
+
+  // Children
+  std::vector<std::unique_ptr<Data>> sub_data_;
+  int current_sub_item_index = -1;  // -1 means no sub_data is selected
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEM_WIDGET_H_

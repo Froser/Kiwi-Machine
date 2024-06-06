@@ -35,6 +35,11 @@ class FlexItemsWidget : public Widget {
                  const kiwi::nes::Byte* cover_img_ref,
                  size_t cover_size,
                  kiwi::base::RepeatingClosure on_trigger);
+  void AddSubItem(size_t item_index,
+                  std::unique_ptr<LocalizedStringUpdater> title_updater,
+                  const kiwi::nes::Byte* cover_img_ref,
+                  size_t cover_size,
+                  kiwi::base::RepeatingClosure on_trigger);
 
   void SetIndex(size_t index);
   bool IsItemSelected(FlexItemWidget* item);

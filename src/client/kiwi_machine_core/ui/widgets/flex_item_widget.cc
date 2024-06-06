@@ -28,38 +28,42 @@ FlexItemWidget::FlexItemWidget(
     FlexItemsWidget* parent,
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     kiwi::base::RepeatingClosure on_trigger)
-    : Widget(main_window),
-      main_window_(main_window),
-      parent_(parent),
-      title_updater_(std::move(title_updater)),
-      on_trigger_callback_(on_trigger) {
+    : Widget(main_window), main_window_(main_window), parent_(parent) {
   SDL_assert(parent_);
+
+  // Initialize the default data
+  std::unique_ptr<Data> default_data = std::make_unique<Data>();
+  default_data->title_updater = std::move(title_updater);
+  default_data->on_trigger_callback = std::move(on_trigger);
+  current_data_ = default_data.get();
+  sub_data_.push_back(std::move(default_data));
 
   // Since title won't change during the instance created, calculates the font
   // once to improve performance.
-  SDL_assert(title_updater_);
-  // UpdateTitleAndFont();
+  SDL_assert(current_data()->title_updater);
 }
 
 FlexItemWidget::~FlexItemWidget() {
-  if (cover_surface_)
-    SDL_FreeSurface(cover_surface_);
+  if (current_data()->cover_surface)
+    SDL_FreeSurface(current_data()->cover_surface);
 
-  if (cover_texture_)
-    SDL_DestroyTexture(cover_texture_);
+  if (current_data()->cover_texture)
+    SDL_DestroyTexture(current_data()->cover_texture);
 }
 
 void FlexItemWidget::CreateTextureIfNotExists() {
-  if (!cover_surface_) {
-    SDL_assert(!cover_texture_);
+  if (!current_data()->cover_surface) {
+    SDL_assert(!current_data()->cover_texture);
     SDL_RWops* bg_res =
-        SDL_RWFromMem(const_cast<unsigned char*>(cover_img_), cover_size_);
-    cover_surface_ = IMG_Load_RW(bg_res, 1);
-    cover_texture_ =
-        SDL_CreateTextureFromSurface(window()->renderer(), cover_surface_);
-    SDL_SetTextureScaleMode(cover_texture_, SDL_ScaleModeBest);
-    SDL_QueryTexture(cover_texture_, nullptr, nullptr, &cover_width_,
-                     &cover_height_);
+        SDL_RWFromMem(const_cast<unsigned char*>(current_data()->cover_img),
+                      current_data()->cover_size);
+    current_data()->cover_surface = IMG_Load_RW(bg_res, 1);
+    current_data()->cover_texture = SDL_CreateTextureFromSurface(
+        window()->renderer(), current_data()->cover_surface);
+    SDL_SetTextureScaleMode(current_data()->cover_texture, SDL_ScaleModeBest);
+    SDL_QueryTexture(current_data()->cover_texture, nullptr, nullptr,
+                     &current_data()->cover_width,
+                     &current_data()->cover_height);
   }
 }
 
@@ -67,13 +71,34 @@ SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height, bool is_selected) {
   SDL_Rect bs = bounds();
   bs.h = item_height;
   CreateTextureIfNotExists();
-  bs.w = bs.h * cover_width_ / cover_height_;
+  bs.w = bs.h * current_data()->cover_width / current_data()->cover_height;
   return bs;
 }
 
 void FlexItemWidget::Trigger() {
-  if (on_trigger_callback_)
-    on_trigger_callback_.Run();
+  if (current_data()->on_trigger_callback)
+    current_data()->on_trigger_callback.Run();
+}
+
+void FlexItemWidget::AddSubItem(
+    std::unique_ptr<LocalizedStringUpdater> title_updater,
+    const kiwi::nes::Byte* cover_img_ref,
+    size_t cover_size,
+    kiwi::base::RepeatingClosure on_trigger) {
+  std::unique_ptr<Data> data = std::make_unique<Data>();
+  data->title_updater = std::move(title_updater);
+  data->cover_img = cover_img_ref;
+  data->cover_size = cover_size;
+  data->on_trigger_callback = on_trigger;
+  sub_data_.push_back(std::move(data));
+}
+
+void FlexItemWidget::SwapToNextSubItem() {
+  ++current_sub_item_index;
+  if (current_sub_item_index >= sub_data_.size())
+    current_sub_item_index = 0;
+
+  current_data_ = sub_data_[current_sub_item_index].get();
 }
 
 void FlexItemWidget::Paint() {
@@ -82,7 +107,7 @@ void FlexItemWidget::Paint() {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
   // Draw stretched image
-  draw_list->AddImage(cover_texture_,
+  draw_list->AddImage(current_data()->cover_texture,
                       ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
                       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
                              kBoundsToWindow.y + kBoundsToWindow.h));

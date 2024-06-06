@@ -613,23 +613,22 @@ void MainWindow::InitializeUI() {
     for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::GetPresetRoms()[i];
       FillRomDataFromZip(rom);
-      int main_item_index = main_nes_items_widget->AddItem(
+      size_t main_item_index = main_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                     kiwi::base::Unretained(this), rom));
 
-      /* TODO */
-      // for (const auto& alternative_rom : rom.alternates) {
-      //   items_widget->AddSubItem(
-      //       main_item_index,
-      //       std::make_unique<ROMTitleUpdater>(alternative_rom),
-      //       alternative_rom.rom_cover.data(),
-      //       alternative_rom.rom_cover.size(),
-      //       kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-      //                                 kiwi::base::Unretained(this),
-      //                                 alternative_rom));
-      // }
+      for (const auto& alternative_rom : rom.alternates) {
+        main_nes_items_widget->AddSubItem(
+            main_item_index,
+            std::make_unique<ROMTitleUpdater>(alternative_rom),
+            alternative_rom.rom_cover.data(),
+            alternative_rom.rom_cover.size(),
+            kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+                                      kiwi::base::Unretained(this),
+                                      alternative_rom));
+      }
     }
     // items_widget->Sort();
 
