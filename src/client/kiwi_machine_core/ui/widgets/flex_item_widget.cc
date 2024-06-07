@@ -21,6 +21,8 @@
 namespace {
 constexpr float kCoverHWRatio = 250.f / 200;
 constexpr float kFadeDurationInMs = 1000;
+constexpr int kBadgeSize = 32;
+constexpr int kBadgeMargin = 5;
 }  // namespace
 
 FlexItemWidget::FlexItemWidget(
@@ -41,6 +43,9 @@ FlexItemWidget::FlexItemWidget(
   // Since title won't change during the instance created, calculates the font
   // once to improve performance.
   SDL_assert(current_data()->title_updater);
+
+  badge_texture_ =
+      GetImage(window()->renderer(), image_resources::ImageID::kItemBadge);
 }
 
 FlexItemWidget::~FlexItemWidget() {
@@ -93,12 +98,17 @@ void FlexItemWidget::AddSubItem(
   sub_data_.push_back(std::move(data));
 }
 
-void FlexItemWidget::SwapToNextSubItem() {
-  ++current_sub_item_index;
-  if (current_sub_item_index >= sub_data_.size())
-    current_sub_item_index = 0;
+void FlexItemWidget::RestoreToDefaultItem() {
+  current_sub_item_index_ = 0;
+  current_data_ = sub_data_[current_sub_item_index_].get();
+}
 
-  current_data_ = sub_data_[current_sub_item_index].get();
+void FlexItemWidget::SwapToNextSubItem() {
+  ++current_sub_item_index_;
+  if (current_sub_item_index_ >= sub_data_.size())
+    current_sub_item_index_ = 0;
+
+  current_data_ = sub_data_[current_sub_item_index_].get();
 }
 
 void FlexItemWidget::Paint() {
@@ -111,6 +121,17 @@ void FlexItemWidget::Paint() {
                       ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
                       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
                              kBoundsToWindow.y + kBoundsToWindow.h));
+
+  if (has_sub_items()) {
+    // Draw a badge icon if it has sub items.
+    draw_list->AddImage(
+        badge_texture_,
+        ImVec2(
+            kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin - kBadgeSize,
+            kBoundsToWindow.y + kBadgeMargin),
+        ImVec2(kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin,
+               kBoundsToWindow.y + kBadgeMargin + kBadgeSize));
+  }
 
   // Highlight selected item.
   if (parent_->IsItemSelected(this)) {

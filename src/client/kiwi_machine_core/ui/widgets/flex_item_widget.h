@@ -63,7 +63,8 @@ class FlexItemWidget : public Widget {
                   const kiwi::nes::Byte* cover_img_ref,
                   size_t cover_size,
                   kiwi::base::RepeatingClosure on_trigger);
-  bool has_sub_items() { return sub_data_.size() > 0; }
+  bool has_sub_items() { return sub_data_.size() > 1; }
+  void RestoreToDefaultItem();
   void SwapToNextSubItem();
 
  private:
@@ -76,6 +77,7 @@ class FlexItemWidget : public Widget {
   MainWindow* main_window_ = nullptr;
   FlexItemsWidget* parent_ = nullptr;
   Data* current_data_ = nullptr;
+  SDL_Texture* badge_texture_ = nullptr;
 
   // Location
   int row_index_ = 0;
@@ -86,7 +88,7 @@ class FlexItemWidget : public Widget {
 
   // Children
   std::vector<std::unique_ptr<Data>> sub_data_;
-  int current_sub_item_index = -1;  // -1 means no sub_data is selected
+  int current_sub_item_index_ = 0;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEM_WIDGET_H_

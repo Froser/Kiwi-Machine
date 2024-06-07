@@ -82,6 +82,7 @@ void FlexItemsWidget::SetIndex(size_t index) {
 
 void FlexItemsWidget::SetIndex(size_t index, LayoutOption option) {
   if (current_index_ != index) {
+    items_[current_index_]->RestoreToDefaultItem();
     current_index_ = index;
     if (items_.empty())
       current_index_ = 0;
