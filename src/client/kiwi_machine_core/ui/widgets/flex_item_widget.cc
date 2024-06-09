@@ -49,11 +49,13 @@ FlexItemWidget::FlexItemWidget(
 }
 
 FlexItemWidget::~FlexItemWidget() {
-  if (current_data()->cover_surface)
-    SDL_FreeSurface(current_data()->cover_surface);
+  for (std::unique_ptr<Data>& data : sub_data_) {
+    if (data->cover_surface)
+      SDL_FreeSurface(data->cover_surface);
 
-  if (current_data()->cover_texture)
-    SDL_DestroyTexture(current_data()->cover_texture);
+    if (data->cover_texture)
+      SDL_DestroyTexture(data->cover_texture);
+  }
 }
 
 void FlexItemWidget::CreateTextureIfNotExists() {
@@ -72,7 +74,7 @@ void FlexItemWidget::CreateTextureIfNotExists() {
   }
 }
 
-SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height, bool is_selected) {
+SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height) {
   SDL_Rect bs = bounds();
   bs.h = item_height;
   CreateTextureIfNotExists();
@@ -98,17 +100,23 @@ void FlexItemWidget::AddSubItem(
   sub_data_.push_back(std::move(data));
 }
 
-void FlexItemWidget::RestoreToDefaultItem() {
-  current_sub_item_index_ = 0;
-  current_data_ = sub_data_[current_sub_item_index_].get();
+bool FlexItemWidget::RestoreToDefaultItem() {
+  bool changed = current_sub_item_index_ != 0;
+  if (changed) {
+    current_sub_item_index_ = 0;
+    current_data_ = sub_data_[current_sub_item_index_].get();
+  }
+  return changed;
 }
 
-void FlexItemWidget::SwapToNextSubItem() {
+bool FlexItemWidget::SwapToNextSubItem() {
+  int sub_item_index_before = current_sub_item_index_;
   ++current_sub_item_index_;
   if (current_sub_item_index_ >= sub_data_.size())
     current_sub_item_index_ = 0;
 
   current_data_ = sub_data_[current_sub_item_index_].get();
+  return current_sub_item_index_ != sub_item_index_before;
 }
 
 void FlexItemWidget::Paint() {

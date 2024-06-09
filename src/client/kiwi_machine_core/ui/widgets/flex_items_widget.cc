@@ -82,7 +82,7 @@ void FlexItemsWidget::SetIndex(size_t index) {
 
 void FlexItemsWidget::SetIndex(size_t index, LayoutOption option) {
   if (current_index_ != index) {
-    items_[current_index_]->RestoreToDefaultItem();
+    RestoreCurrentItemToDefault();
     current_index_ = index;
     if (items_.empty())
       current_index_ = 0;
@@ -161,8 +161,7 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
 
   bool current_index_exceeded_bottom = false;
   for (auto* item : items_) {
-    bool is_selected = (index == current_index_);
-    SDL_Rect item_bounds = item->GetSuggestedSize(kItemHeightHint, is_selected);
+    SDL_Rect item_bounds = item->GetSuggestedSize(kItemHeightHint);
     if (anchor_x + item_bounds.w > bounds().w) {
       anchor_y += item_bounds.h;
       anchor_x = 0;
@@ -219,10 +218,17 @@ void FlexItemsWidget::LayoutPartial(LayoutOption option) {
 }
 
 bool FlexItemsWidget::HighlightItem(FlexItemWidget* item, LayoutOption option) {
+  return HighlightItem(item, option, bounds_map_without_scrolling_[item]);
+}
+
+bool FlexItemsWidget::HighlightItem(
+    FlexItemWidget* item,
+    LayoutOption option,
+    const SDL_Rect& target_bounds_without_scrolling) {
   bool current_index_exceeded_bottom = false;
   current_item_widget_ = item;
 
-  SDL_Rect item_target_bounds = bounds_map_without_scrolling_[item];
+  SDL_Rect item_target_bounds = target_bounds_without_scrolling;
   current_item_original_bounds_ = item_target_bounds;
 
   if (item_target_bounds.x == 0) {
@@ -230,7 +236,10 @@ bool FlexItemsWidget::HighlightItem(FlexItemWidget* item, LayoutOption option) {
   } else if (item_target_bounds.x + item_target_bounds.w +
                  kItemSelectedHighlightedSize >
              bounds().w) {
+    int diff = item_target_bounds.x + item_target_bounds.w +
+               kItemSelectedHighlightedSize - bounds().w;
     item_target_bounds.x -= kItemSelectedHighlightedSize;
+    item_target_bounds.w += kItemSelectedHighlightedSize * 2 - diff;
   } else {
     item_target_bounds.x -= kItemSelectedHighlightedSize;
     item_target_bounds.w += kItemSelectedHighlightedSize * 2;
@@ -360,7 +369,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
     if (items_[current_index_]->has_sub_items()) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      items_[current_index_]->SwapToNextSubItem();
+      SwapCurrentItemToNextSubItem();
     }
     return true;
   }
@@ -501,6 +510,32 @@ bool FlexItemsWidget::FindItemIndexByMousePosition(int x_in_window,
   }
 
   return false;
+}
+
+void FlexItemsWidget::SwapCurrentItemToNextSubItem() {
+  if (items_[current_index_]->SwapToNextSubItem()) {
+    RefreshCurrentItemBounds();
+  }
+}
+
+void FlexItemsWidget::RestoreCurrentItemToDefault() {
+  if (items_[current_index_]->RestoreToDefaultItem()) {
+    RefreshCurrentItemBounds();
+  }
+}
+
+void FlexItemsWidget::RefreshCurrentItemBounds() {
+  FlexItemWidget* item = items_[current_index_];
+  SDL_Rect item_bounds =
+      items_[current_index_]->GetSuggestedSize(kItemHeightHint);
+
+  // The new bound is center aligned
+  const SDL_Rect& kBounds = bounds_map_without_scrolling_[item];
+  const int kMiddleX = kBounds.x + kBounds.w / 2;
+  item_bounds.x = kMiddleX - item_bounds.w / 2;
+  item_bounds.y = kBounds.y;
+  HighlightItem(item, LayoutOption::kDoNotAdjustScrolling, item_bounds);
+  ResetAnimationTimers();
 }
 
 void FlexItemsWidget::Paint() {

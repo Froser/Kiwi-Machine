@@ -63,6 +63,9 @@ class FlexItemsWidget : public Widget {
   // exceeded parent's local bounds, it returns true, otherwise it returns
   // false.
   bool HighlightItem(FlexItemWidget* item, LayoutOption option);
+  bool HighlightItem(FlexItemWidget* item,
+                     LayoutOption option,
+                     const SDL_Rect& target_bounds_without_scrolling);
   void ResetAnimationTimers();
   void AdjustBottomRowItemsIfNeeded(LayoutOption option);
 
@@ -76,6 +79,10 @@ class FlexItemsWidget : public Widget {
   bool FindItemIndexByMousePosition(int x_in_window,
                                     int y_in_window,
                                     size_t& index_out);
+
+  void SwapCurrentItemToNextSubItem();
+  void RestoreCurrentItemToDefault();
+  void RefreshCurrentItemBounds();
 
  protected:
   void Paint() override;

@@ -55,7 +55,7 @@ class FlexItemWidget : public Widget {
   int column_index() { return column_index_; }
   Data* current_data() { return current_data_; }
 
-  SDL_Rect GetSuggestedSize(int item_height, bool is_selected);
+  SDL_Rect GetSuggestedSize(int item_height);
 
   void Trigger();
 
@@ -64,8 +64,8 @@ class FlexItemWidget : public Widget {
                   size_t cover_size,
                   kiwi::base::RepeatingClosure on_trigger);
   bool has_sub_items() { return sub_data_.size() > 1; }
-  void RestoreToDefaultItem();
-  void SwapToNextSubItem();
+  bool RestoreToDefaultItem();
+  bool SwapToNextSubItem();
 
  private:
   void CreateTextureIfNotExists();

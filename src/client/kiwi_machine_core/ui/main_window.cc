@@ -621,10 +621,8 @@ void MainWindow::InitializeUI() {
 
       for (const auto& alternative_rom : rom.alternates) {
         main_nes_items_widget->AddSubItem(
-            main_item_index,
-            std::make_unique<ROMTitleUpdater>(alternative_rom),
-            alternative_rom.rom_cover.data(),
-            alternative_rom.rom_cover.size(),
+            main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
+            alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
             kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                       kiwi::base::Unretained(this),
                                       alternative_rom));
@@ -1246,9 +1244,9 @@ void MainWindow::FlexLayout() {
   int right_width = client_bounds.w - left_width;
 
   // An activated side menu needs more space.
-  int extended_width = client_bounds.w * .1f < side_menu_->GetMinExtendedWidth()
+  int extended_width = client_bounds.w * .15f < side_menu_->GetMinExtendedWidth()
                            ? side_menu_->GetMinExtendedWidth()
-                           : client_bounds.w * .1f;
+                           : client_bounds.w * .15f;
 
   if (side_menu_->activate()) {
     side_menu_original_width_ = left_width;
