@@ -26,6 +26,8 @@ constexpr int kItemHeightHint = 160;
 constexpr int kItemSelectedHighlightedSize = 20;
 constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
+constexpr int kDetailWidgetMargin = 25;
+constexpr int kDetailWidgetPadding = 5;
 
 int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   SDL_assert(lhs.h == rhs.h);
@@ -538,6 +540,58 @@ void FlexItemsWidget::RefreshCurrentItemBounds() {
   ResetAnimationTimers();
 }
 
+void FlexItemsWidget::PaintDetails() {
+  FlexItemWidget* item = items_[current_index_];
+  std::string title = item->current_data()->title_updater->GetLocalizedString();
+  std::string hint =
+      item->current_data()->title_updater->GetCollateStringHint();
+
+  PreferredFontSize preferred_font_size = PreferredFontSize::k1x;
+  ScopedFont font = GetPreferredFont(preferred_font_size, title.c_str());
+  ImVec2 text_size = ImGui::CalcTextSize(title.c_str());
+  SDL_Rect text_bounds_top =
+      MapToWindow({static_cast<int>(bounds().w - kDetailWidgetMargin -
+                                    kDetailWidgetPadding * 2 - text_size.x),
+                   kDetailWidgetMargin,
+                   static_cast<int>(text_size.x + kDetailWidgetPadding * 2),
+                   static_cast<int>(text_size.y + kDetailWidgetPadding * 2)});
+  SDL_Rect text_bounds_bottom =
+      MapToWindow({static_cast<int>(bounds().w - kDetailWidgetMargin -
+                                    kDetailWidgetPadding * 2 - text_size.x),
+                   static_cast<int>(bounds().h - kDetailWidgetMargin -
+                                    kDetailWidgetPadding * 2 - text_size.y),
+                   static_cast<int>(text_size.x + kDetailWidgetPadding * 2),
+                   static_cast<int>(text_size.y + kDetailWidgetPadding * 2)});
+
+  const SDL_Rect* kTextBounds = nullptr;
+  if (last_detail_widget_position_ == kTop) {
+    if (Intersect(MapToWindow(current_item_target_bounds_), text_bounds_top)) {
+      kTextBounds = &text_bounds_bottom;
+      last_detail_widget_position_ = kBottom;
+    } else {
+      kTextBounds = &text_bounds_top;
+    }
+  } else {
+    if (Intersect(MapToWindow(current_item_target_bounds_),
+                  text_bounds_bottom)) {
+      kTextBounds = &text_bounds_top;
+      last_detail_widget_position_ = kTop;
+    } else {
+      kTextBounds = &text_bounds_bottom;
+    }
+  }
+
+  ImGui::GetWindowDrawList()->AddRectFilled(
+      ImVec2(kTextBounds->x, kTextBounds->y),
+      ImVec2(kTextBounds->x + kTextBounds->w, kTextBounds->y + kTextBounds->h),
+      ImColor(0.f, 0.f, 0.f, .7f));
+  ImGui::GetWindowDrawList()->AddText(
+      font.GetFont(), font.GetFont()->FontSize,
+      ImVec2(kTextBounds->x + kDetailWidgetPadding,
+             kTextBounds->y + kDetailWidgetPadding),
+      ImColor(1.f, 1.f, 1.f), title.c_str());
+}
+
 void FlexItemsWidget::Paint() {
   if (first_paint_) {
     Layout(LayoutOption::kAdjustScrolling);
@@ -583,6 +637,8 @@ void FlexItemsWidget::PostPaint() {
                bounds_to_window.y + bounds_to_window.h),
         ImColor(0, 0, 0, 196));
   }
+
+  PaintDetails();
 }
 
 void FlexItemsWidget::OnWindowResized() {

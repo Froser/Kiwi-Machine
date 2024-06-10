@@ -84,6 +84,8 @@ class FlexItemsWidget : public Widget {
   void RestoreCurrentItemToDefault();
   void RefreshCurrentItemBounds();
 
+  void PaintDetails();
+
  protected:
   void Paint() override;
   void PostPaint() override;
@@ -123,6 +125,9 @@ class FlexItemsWidget : public Widget {
   std::unordered_map<int, int> rows_to_first_item_;
   Timer selection_item_timer_;
   Timer scrolling_timer_;
+
+  // Detail widget
+  enum { kTop, kBottom } last_detail_widget_position_ = kTop;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEMS_WIDGET_H_

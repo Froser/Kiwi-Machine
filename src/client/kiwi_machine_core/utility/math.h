@@ -30,6 +30,10 @@ inline bool Contains(const SDL_Rect& rect, int x, int y) {
   return SDL_PointInRect(&temp, &rect);
 }
 
+inline bool Intersect(const SDL_Rect& lhs, const SDL_Rect& rhs) {
+  return SDL_HasIntersection(&lhs, &rhs);
+}
+
 struct Triangle {
   ImVec2 point[3];
   SDL_Rect BoundingBox();
