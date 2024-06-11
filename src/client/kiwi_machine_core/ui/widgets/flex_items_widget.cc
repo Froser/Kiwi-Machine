@@ -629,6 +629,8 @@ void FlexItemsWidget::PostPaint() {
     current_item_widget_->Render();
   }
 
+  PaintDetails();
+
   if (!activate_) {
     SDL_Rect bounds_to_window = MapToWindow(bounds());
     ImGui::GetWindowDrawList()->AddRectFilled(
@@ -637,8 +639,6 @@ void FlexItemsWidget::PostPaint() {
                bounds_to_window.y + bounds_to_window.h),
         ImColor(0, 0, 0, 196));
   }
-
-  PaintDetails();
 }
 
 void FlexItemsWidget::OnWindowResized() {

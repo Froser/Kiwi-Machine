@@ -689,6 +689,7 @@ void MainWindow::InitializeUI() {
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
         image_resources::ImageID::kMenuQuit,
         image_resources::ImageID::kMenuQuitHighlight, quit_callbacks);
+    side_menu->Layout();
     side_menu_ = side_menu.get();
     bg_widget_->AddWidget(std::move(side_menu));
     ChangeFocus(MainFocus::kContents);

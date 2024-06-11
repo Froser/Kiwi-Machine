@@ -48,6 +48,7 @@ class SideMenu : public Widget {
   void invalidate() { bounds_valid_ = false; }
   int GetSuggestedCollapsedWidth();
   int GetMinExtendedWidth();
+  void Layout();
 
  private:
   void Paint() override;
@@ -59,7 +60,6 @@ class SideMenu : public Widget {
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
-  void Layout();
   void SetIndex(int index);
   void TriggerCurrentItem();
   bool FindItemIndexByMousePosition(int x_in_window,

@@ -27,7 +27,7 @@ constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
 constexpr int kIconSpacing = 4;
 constexpr float kIconSizeScale = .7f;
-constexpr ImColor kBackgroundColor = ImColor(171, 238, 80);
+constexpr ImColor kBackgroundColor = ImColor(21, 149, 5);
 constexpr PreferredFontSize kPreferredFontSize(PreferredFontSize::k1x);
 
 #define SCALED(x) \
