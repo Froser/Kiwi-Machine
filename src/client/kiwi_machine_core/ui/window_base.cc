@@ -61,7 +61,7 @@ void WindowBase::AddWidget(std::unique_ptr<Widget> widget) {
   // Adding widget during rendering is not allowed. It may cause widgets
   // reallocation and crash.
   SDL_assert(!is_rendering_);
-  widgets_.push_back(std::move(widget));
+  widgets_.insert(std::move(widget));
 }
 
 void WindowBase::RemoveWidgetLater(Widget* widget) {
@@ -128,11 +128,20 @@ void WindowBase::Resize(int width, int height) {
   }
 }
 
+SDL_Rect WindowBase::GetWindowBounds() {
+  SDL_assert(window_);
+  SDL_Rect bounds;
+  SDL_GetWindowSize(window_, &bounds.w, &bounds.h);
+  SDL_GetWindowPosition(window_, &bounds.x, &bounds.y);
+  return bounds;
+}
+
 void WindowBase::HandleKeyEvent(SDL_KeyboardEvent* event) {
   switch (event->type) {
     case SDL_KEYDOWN:
     case SDL_KEYUP: {
-      for (auto& widget : widgets_) {
+      for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+        Widget* widget = iter->get();
         if (widget->visible() && widget->enabled() &&
             widget->HandleKeyEvent(event)) {
           break;
@@ -149,7 +158,8 @@ void WindowBase::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
   switch (event->type) {
     case SDL_CONTROLLERBUTTONDOWN:
     case SDL_CONTROLLERBUTTONUP: {
-      for (auto& widget : widgets_) {
+      for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+        Widget* widget = iter->get();
         if (widget->visible() && widget->enabled() &&
             widget->HandleJoystickButtonEvent(event)) {
           break;
@@ -162,7 +172,8 @@ void WindowBase::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
 }
 
 void WindowBase::HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event) {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     if (widget->visible() && widget->enabled() &&
         widget->HandleJoystickAxisMotionEvent(event)) {
       break;
@@ -215,13 +226,15 @@ void WindowBase::HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event) {
 }
 
 void WindowBase::HandleResizedEvent() {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     widget->HandleResizedEvent();
   }
 }
 
 void WindowBase::HandleDisplayEvent(SDL_DisplayEvent* event) {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     widget->HandleDisplayEvent();
   }
 }
@@ -248,7 +261,8 @@ void WindowBase::Render() {
 void WindowBase::HandlePostEvent() {}
 
 void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     if (widget->visible() && widget->enabled() &&
         widget->HandleTouchFingerEvent(event)) {
       break;
@@ -257,7 +271,8 @@ void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
 }
 
 void WindowBase::HandleLocaleChanged() {
-  for (auto& widget : widgets_) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
     widget->HandleLocaleChanged();
   }
 }

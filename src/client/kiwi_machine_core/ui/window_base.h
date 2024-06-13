@@ -38,6 +38,7 @@ class WindowBase {
 
   uint32_t GetWindowID();
   void Resize(int width, int height);
+  SDL_Rect GetWindowBounds();
   SDL_Renderer* renderer() { return renderer_; }
   SDL_Window* native_window() { return window_; }
 
@@ -75,7 +76,7 @@ class WindowBase {
   SDL_Window* window_ = nullptr;
   SDL_Renderer* renderer_ = nullptr;
   bool is_rendering_ = false;
-  std::vector<std::unique_ptr<Widget>> widgets_;
+  Widget::Widgets widgets_;
   std::set<Widget*> widgets_to_be_removed_;
   std::string title_;
 };

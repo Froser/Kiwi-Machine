@@ -66,6 +66,7 @@ constexpr int kDefaultWindowWidth =
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
 constexpr int kSideMenuAnimationMs = 50;
+constexpr int kSplashTimeoutMs = 2000;
 
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
@@ -205,17 +206,33 @@ MainWindow::MainWindow(const std::string& title,
                        NESRuntimeID runtime_id,
                        scoped_refptr<NESConfig> config,
                        bool has_demo_widget)
-    : WindowBase(title), config_(config), has_demo_widget_(has_demo_widget) {
+    : WindowBase(title),
+      config_(config),
+      has_demo_widget_(has_demo_widget),
+      runtime_id_(runtime_id) {
 #if KIWI_WASM
   // Only one main window instance should exist in WASM.
   SDL_assert(!g_main_window_instance);
   g_main_window_instance = this;
 #endif
+}
 
-  Initialize(runtime_id);
+// Initialization flow:
+// UI: InitializeRuntimeData -> Audio -> UI -> IODevices
+// IO: ROMs data ------------------------^
+void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
+  InitializeRuntimeData();
   InitializeAudio();
-  InitializeUI();
-  InitializeIODevices();
+  ShowSplash(kiwi::base::DoNothing());
+  Application::Get()->GetIOTaskRunner()->PostTaskAndReply(
+      FROM_HERE,
+      kiwi::base::BindOnce(&MainWindow::InitializeIO,
+                           kiwi::base::Unretained(this)),
+      kiwi::base::BindOnce(&MainWindow::InitializeUI,
+                           kiwi::base::Unretained(this))
+          .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
+                                     kiwi::base::Unretained(this)))
+          .Then(std::move(callback)));
 }
 
 MainWindow::~MainWindow() {
@@ -283,6 +300,44 @@ void MainWindow::ExportFailed(const std::string& rom_name) {
 
 void MainWindow::Exporting(const std::string& rom_name) {
   export_widget_->SetCurrent(kiwi::base::FilePath::FromUTF8Unsafe(rom_name));
+}
+
+void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
+#if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
+               // here.
+  // Splash
+  if (!FLAGS_has_menu) {
+    // If we have menu, we don't show splash screen, because we probably want to
+    // do some debug works.
+    SDL_assert(!splash_);
+    std::unique_ptr<Splash> splash = std::make_unique<Splash>(this);
+    splash_ = splash.get();
+    splash_->SetZOrder(INT_MAX);
+    PlayEffect(audio_resources::AudioID::kStartup);
+    AddWidget(std::move(splash));
+  }
+#endif
+}
+
+void MainWindow::CloseSplash(kiwi::base::OnceClosure callback) {
+  if (splash_) {
+    int ms = splash_->GetElapsedMs();
+    if (ms > kSplashTimeoutMs) {
+      main_stack_widget_->set_visible(true);
+      RemoveWidgetLater(splash_);
+      std::move(callback).Run();
+    } else {
+      kiwi::base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+          FROM_HERE,
+          kiwi::base::BindOnce(&MainWindow::CloseSplash,
+                               kiwi::base::Unretained(this),
+                               std::move(callback)),
+          kiwi::base::Milliseconds(kSplashTimeoutMs - ms));
+    }
+  } else {
+    main_stack_widget_->set_visible(true);
+    std::move(callback).Run();
+  }
 }
 
 SDL_Rect MainWindow::Scaled(const SDL_Rect& rect) {
@@ -449,6 +504,10 @@ void MainWindow::HandleResizedEvent() {
     FillLayout(this, in_game_menu_);
   }
 
+  if (splash_) {
+    FillLayout(this, splash_);
+  }
+
   LayoutVirtualTouchButtons();
 
   if (is_fullscreen()) {
@@ -466,8 +525,8 @@ void MainWindow::HandleResizedEvent() {
 }
 
 void MainWindow::HandlePostEvent() {
-  SDL_assert(runtime_data_);
-  runtime_data_->emulator->RunOneFrame();
+  if (runtime_data_)
+    runtime_data_->emulator->RunOneFrame();
 }
 
 void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
@@ -519,11 +578,10 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
 }
 #endif
 
-void MainWindow::Initialize(NESRuntimeID runtime_id) {
-  SDL_assert(runtime_id >= 0);
+void MainWindow::InitializeRuntimeData() {
+  SDL_assert(runtime_id_ >= 0);
   is_headless_ = preset_roms::GetPresetRomsCount() == 0;
-  runtime_id_ = runtime_id;
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
+  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id_);
 
   if (FLAGS_has_menu) {
     // If menu is visible, debug will be enabled as well. Otherwise, there's no
@@ -574,6 +632,7 @@ void MainWindow::InitializeUI() {
   std::unique_ptr<StackWidget> main_stack_widget =
       std::make_unique<StackWidget>(this);
   main_stack_widget_ = main_stack_widget.get();
+  main_stack_widget_->set_visible(false);
   FillLayout(this, main_stack_widget_);
   AddWidget(std::move(main_stack_widget));
 
@@ -591,16 +650,6 @@ void MainWindow::InitializeUI() {
     contents_card_widget_ = contents_card_widget.get();
     contents_card_widget_->set_bounds(client_bounds);
     bg_widget_->AddWidget(std::move(contents_card_widget));
-
-#if defined(KIWI_USE_EXTERNAL_PAK)
-    OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
-                           kiwi::base::FilePath::FromUTF8Unsafe(
-                               preset_roms::GetPresetRomsPackageName()));
-    OpenRomDataFromPackage(
-        preset_roms::specials::GetPresetRoms(),
-        kiwi::base::FilePath::FromUTF8Unsafe(
-            preset_roms::specials::GetPresetRomsPackageName()));
-#endif
 
     // Main game items
     std::unique_ptr<FlexItemsWidget> main_nes_items_widget =
@@ -768,6 +817,7 @@ void MainWindow::InitializeUI() {
   // Create virtual touch buttons, which will invoke main items_widget's
   // methods.
   CreateVirtualTouchButtons();
+  LayoutVirtualTouchButtons();
 
   std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(this, runtime_id_);
   canvas_ = canvas.get();
@@ -853,23 +903,6 @@ void MainWindow::InitializeUI() {
   if (has_demo_widget_)
     AddWidget(std::make_unique<DemoWidget>(this));
 
-  bool has_splash = false;
-#if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
-               // here.
-  // Splash
-  if (!FLAGS_has_menu) {
-    // If we have menu, we don't show splash screen, because we probably want to
-    // do some debug works.
-    std::unique_ptr<Splash> splash =
-        std::make_unique<Splash>(this, main_stack_widget_, runtime_id_);
-    splash->Play();
-    splash->SetClosedCallback(kiwi::base::BindRepeating(
-        &MainWindow::RunAllAfterSplashCallbacks, kiwi::base::Unretained(this)));
-    main_stack_widget_->PushWidget(std::move(splash));
-    has_splash = true;
-  }
-#endif
-
 #if !KIWI_MOBILE
   OnScaleChanged();
   if (is_fullscreen())
@@ -877,12 +910,14 @@ void MainWindow::InitializeUI() {
 #else
   OnScaleModeChanged();
 #endif
-  LayoutVirtualTouchButtons();
 
-  // If there's no splash, run callbacks at once.
-  if (!has_splash) {
-    RunAllAfterSplashCallbacks();
+  if (splash_) {
+    // Splash will be the first element shown on the screen, so it has to
+    // resized immediately.
+    SDL_Rect window_bounds = GetWindowBounds();
+    splash_->set_bounds(SDL_Rect{0, 0, window_bounds.w, window_bounds.h});
   }
+  CloseSplash(kiwi::base::DoNothing());
 }
 
 void MainWindow::InitializeIODevices() {
@@ -897,19 +932,16 @@ void MainWindow::InitializeIODevices() {
   runtime_data_->emulator->SetIODevices(std::move(io_devices));
 }
 
-void MainWindow::AddAfterSplashCallback(kiwi::base::OnceClosure callback) {
-  if (splash_done_)
-    std::move(callback).Run();
-  else
-    post_splash_callbacks_.push_back(std::move(callback));
-}
-
-void MainWindow::RunAllAfterSplashCallbacks() {
-  splash_done_ = true;
-  for (auto&& callback : post_splash_callbacks_) {
-    std::move(callback).Run();
-  }
-  post_splash_callbacks_.clear();
+void MainWindow::InitializeIO() {
+#if defined(KIWI_USE_EXTERNAL_PAK)
+  OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
+                         kiwi::base::FilePath::FromUTF8Unsafe(
+                             preset_roms::GetPresetRomsPackageName()));
+  OpenRomDataFromPackage(
+      preset_roms::specials::GetPresetRoms(),
+      kiwi::base::FilePath::FromUTF8Unsafe(
+          preset_roms::specials::GetPresetRomsPackageName()));
+#endif
 }
 
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
@@ -1245,9 +1277,10 @@ void MainWindow::FlexLayout() {
   int right_width = client_bounds.w - left_width;
 
   // An activated side menu needs more space.
-  int extended_width = client_bounds.w * .15f < side_menu_->GetMinExtendedWidth()
-                           ? side_menu_->GetMinExtendedWidth()
-                           : client_bounds.w * .15f;
+  int extended_width =
+      client_bounds.w * .15f < side_menu_->GetMinExtendedWidth()
+          ? side_menu_->GetMinExtendedWidth()
+          : client_bounds.w * .15f;
 
   if (side_menu_->activate()) {
     side_menu_original_width_ = left_width;

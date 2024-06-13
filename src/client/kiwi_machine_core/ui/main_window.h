@@ -37,6 +37,7 @@ class DisassemblyWidget;
 class GroupWidget;
 class FlexItemsWidget;
 class CardWidget;
+class Splash;
 
 namespace preset_roms {
 struct PresetROM;
@@ -76,6 +77,9 @@ class MainWindow : public WindowBase,
                       scoped_refptr<NESConfig> config,
                       bool has_demo_widget);
   ~MainWindow() override;
+
+  // InitializeAsync() must be called before rendering.
+  void InitializeAsync(kiwi::base::OnceClosure callback);
 
 #if KIWI_WASM
   // WASM environment uses this instance to load roms.
@@ -125,13 +129,12 @@ class MainWindow : public WindowBase,
                             scoped_refptr<NESFrame> frame) override;
 
  private:
-  void Initialize(NESRuntimeID runtime_id);
+  void InitializeRuntimeData();
   void InitializeAudio();
   void InitializeUI();
   void InitializeIODevices();
-  // |callback| will be run once all initializations are ready.
-  void AddAfterSplashCallback(kiwi::base::OnceClosure callback);
-  void RunAllAfterSplashCallbacks();
+  void InitializeIO();
+
   void LoadROMByPath(kiwi::base::FilePath rom_path);
   void StartAutoSave();
   void StopAutoSave();
@@ -157,6 +160,10 @@ class MainWindow : public WindowBase,
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
   SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
       FlexItemsWidget* items_widget);
+
+  // Splash screen
+  void ShowSplash(kiwi::base::OnceClosure callback);
+  void CloseSplash(kiwi::base::OnceClosure callback);
 
   // Menu callbacks:
   void OnRomLoaded(const std::string& name);
@@ -217,8 +224,7 @@ class MainWindow : public WindowBase,
   bool is_headless_ = false;
   std::set<int> pressing_keys_;
   bool has_demo_widget_ = false;
-  bool splash_done_ = false;
-  std::vector<kiwi::base::OnceClosure> post_splash_callbacks_;
+  Splash* splash_ = nullptr;
   // Canvas is owned by this window.
   Canvas* canvas_ = nullptr;
   InGameMenu* in_game_menu_ = nullptr;

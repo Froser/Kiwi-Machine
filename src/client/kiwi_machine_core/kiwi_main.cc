@@ -47,7 +47,7 @@ int KiwiMain(int argc, char** argv) {
 
   MainWindow main_window("Kiwi Machine", application.runtime_id(),
                          application.config(), FLAGS_demo_window);
-
+  main_window.InitializeAsync(kiwi::base::DoNothing());
   application.Run();
   return 0;
 }
