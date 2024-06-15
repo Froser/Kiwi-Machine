@@ -135,6 +135,15 @@ bool InGameMenu::OnMousePressed(SDL_MouseButtonEvent* event) {
                                    event->x, event->y);
 }
 
+void InGameMenu::OnWindowPreRender() {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+}
+
+void InGameMenu::OnWindowPostRender() {
+  ImGui::PopStyleVar(2);
+}
+
 bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* k,
                                   SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
@@ -418,8 +427,7 @@ InGameMenu::LayoutImmediateContext InGameMenu::PreLayoutImmediate() {
 }
 
 void InGameMenu::DrawBackgroundImmediate(LayoutImmediateContext& context) {
-  ImDrawList* bg_draw_list = ImGui::GetBackgroundDrawList();
-  bg_draw_list->AddRectFilled(
+  ImGui::GetWindowDrawList()->AddRectFilled(
       context.window_pos,
       ImVec2(context.window_pos.x + context.window_size.x + 1,
              context.window_pos.y + context.window_size.y + 1),
@@ -483,10 +491,13 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems(
     ImVec2 text_size = ImGui::CalcTextSize(item);
     ImGui::SetCursorPosX(context.window_center_x - kMenuItemMargin -
                          text_size.x);
-    if (current_selection == static_cast<int>(current_selection_))
-      ImGui::TextColored(ImVec4(0.f, 0.f, 0.f, 1.f), "%s", item);
-    else
+    if (current_selection == static_cast<int>(current_selection_)) {
+      context.selection_menu_item_position = ImGui::GetCursorPos();
+      context.selection_menu_item_text = item;
+      ImGui::Dummy(text_size);
+    } else {
       ImGui::Text("%s", item);
+    }
 
     ++current_selection;
   }
@@ -909,6 +920,8 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_Options_WindowSize(
 
 void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_Options_Joysticks(
     LayoutImmediateContext& context) {
+  constexpr int kPlayerStrings[] = {string_resources::IDR_IN_GAME_MENU_P1,
+                                    string_resources::IDR_IN_GAME_MENU_P2};
   for (int j = 0; j < 2; ++j) {
     const int kJoyDescSpacing = 3 * main_window_->window_scale();
     const char* kStrNone =
@@ -916,8 +929,7 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_Options_Joysticks(
     ScopedFont joy_font(
         styles::in_game_menu::GetJoystickFontType(kStrNone, context.font_size));
     std::string joyname =
-        std::string("P") + kiwi::base::NumberToString(j + 1) +
-        std::string(": ") +
+        GetLocalizedString(kPlayerStrings[j]) +
         (runtime_data_->joystick_mappings[j].which
              ? (SDL_GameControllerName(reinterpret_cast<SDL_GameController*>(
                    runtime_data_->joystick_mappings[j].which)))
@@ -1057,12 +1069,22 @@ void InGameMenu::DrawSelectionImmediate(LayoutImmediateContext& context) {
       context.window_center_x - 1,
       context.menu_tops[current_selection] + context.title_menu_height);
 
-  ImDrawList* bg_draw_list = ImGui::GetBackgroundDrawList();
-  bg_draw_list->AddRectFilled(
+  ImGui::GetWindowDrawList()->AddRectFilled(
       ImVec2(selection_rect_pt0.x, selection_rect_pt0.y - kSelectionPadding),
       ImVec2(selection_rect_pt1.x,
              selection_rect_pt1.y + kSelectionPadding + context.menu_font_size),
       IM_COL32_WHITE);
+
+  // Draw selection menu item after selection rect drawn
+  {
+    ScopedFont font =
+        GetPreferredFont(context.font_size, context.menu_items[0]);
+    ImVec2 pos_cache = ImGui::GetCursorPos();
+    ImGui::SetCursorPos(context.selection_menu_item_position);
+    ImGui::TextColored(ImVec4(0.f, 0.f, 0.f, 1.f), "%s",
+                       context.selection_menu_item_text);
+    ImGui::SetCursorPos(pos_cache);
+  }
 
   // Register menu position to response finger touch/click events.
   // The responding area is exactly the 'draw-selection area'.

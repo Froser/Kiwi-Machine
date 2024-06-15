@@ -158,6 +158,7 @@ class MainWindow : public WindowBase,
   void FlexLayout();
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
+  SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
   SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
       FlexItemsWidget* items_widget);
 

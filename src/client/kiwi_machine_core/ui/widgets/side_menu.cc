@@ -144,7 +144,7 @@ void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
   // When the first widget is added, trigger its selected callback, because it
   // is selected by default.
   if (menu_items_.size() == 1)
-    menu_items_[0].callbacks.selected_callback.Run();
+    menu_items_[0].callbacks.trigger_callback.Run();
 }
 
 int SideMenu::GetSuggestedCollapsedWidth() {
@@ -194,7 +194,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (activate_) {
       PlayEffect(audio_resources::AudioID::kSelect);
-      menu_items_[current_index_].callbacks.enter_callback.Run();
+      EnterIndex(current_index_);
     }
     return true;
   }
@@ -238,10 +238,20 @@ void SideMenu::Layout() {
 void SideMenu::SetIndex(int index) {
   current_index_ = index;
   timer_.Reset();
-  menu_items_[current_index_].callbacks.selected_callback.Run();
+}
+
+void SideMenu::EnterIndex(int index) {
+  // If the menu to be entered is not triggered yet, do not enter, and switch
+  // back to triggered item.
+  if (index != triggered_index_) {
+    index = triggered_index_;
+    SetIndex(triggered_index_);
+  }
+  menu_items_[index].callbacks.enter_callback.Run();
 }
 
 void SideMenu::TriggerCurrentItem() {
+  triggered_index_ = current_index_;
   menu_items_[current_index_].callbacks.trigger_callback.Run();
 }
 

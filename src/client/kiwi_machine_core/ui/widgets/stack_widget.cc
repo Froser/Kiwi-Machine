@@ -25,12 +25,10 @@ void StackWidget::PushWidget(std::unique_ptr<Widget> widget) {
     auto back = children().rbegin();
     SDL_assert(*back);
     (*back)->set_enabled(false);
-    (*back)->set_visible(false);
   }
 
   widget->SetZOrder(current_zorder_++);
   widget->set_enabled(true);
-  widget->set_visible(true);
   AddWidget(std::move(widget));
 }
 
@@ -51,7 +49,6 @@ void StackWidget::PopWidget() {
     SDL_assert(*next_back);
     Widget* front = next_back->get();
     front->set_enabled(true);
-    front->set_visible(true);
   }
 }
 
@@ -64,7 +61,6 @@ void StackWidget::OnWidgetsRemoved() {
     auto back = children().rbegin();
     SDL_assert(*back);
     (*back)->set_enabled(true);
-    (*back)->set_visible(true);
   }
 }
 

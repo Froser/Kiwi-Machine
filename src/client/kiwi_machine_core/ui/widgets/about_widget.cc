@@ -36,20 +36,6 @@ AboutWidget::AboutWidget(MainWindow* main_window,
   set_flags(window_flags);
   set_title("About");
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
-
-  str_title_ = GetLocalizedString(string_resources::IDR_ABOUT_TITLE);
-  font_title_ =
-      GetPreferredFontType(PreferredFontSize::k2x, str_title_.c_str());
-  str_contents_ = GetLocalizedString(string_resources::IDR_ABOUT_CONTENTS);
-  font_contents_ =
-      GetPreferredFontType(PreferredFontSize::k1x, str_contents_.c_str());
-#if !KIWI_MOBILE
-  str_go_back_ = GetLocalizedString(string_resources::IDR_ABOUT_GO_BACK);
-#else
-  str_go_back_ = GetLocalizedString(string_resources::IDR_ABOUT_GO_BACK_MOBILE);
-#endif
-  font_go_back_ =
-      GetPreferredFontType(PreferredFontSize::k1x, str_go_back_.c_str());
 }
 
 AboutWidget::~AboutWidget() = default;
@@ -60,8 +46,12 @@ void AboutWidget::Close() {
 }
 
 void AboutWidget::Paint() {
-  SDL_Rect client_bounds = window()->GetClientBounds();
-  set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
+  SDL_Rect bounds_in_window = MapToWindow(bounds());
+  ImGui::GetWindowDrawList()->AddRectFilled(
+      ImVec2(bounds_in_window.x, bounds_in_window.y),
+      ImVec2(bounds_in_window.x + bounds_in_window.x,
+             bounds_in_window.y + bounds_in_window.y),
+      IM_COL32(0, 0, 0, 196));
 
   /*
   RichTextContent content(this);
@@ -84,16 +74,8 @@ bool AboutWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
   return HandleInputEvent(nullptr, event);
 }
 
-#if KIWI_MOBILE
-bool AboutWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
-  PlayEffect(audio_resources::AudioID::kBack);
-  Close();
-  return true;
-}
-#endif
-
 bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
-                                    SDL_ControllerButtonEvent* c) {
+                                   SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_B)) {

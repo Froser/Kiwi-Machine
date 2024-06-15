@@ -28,9 +28,6 @@ class SideMenu : public Widget {
     // Triggers when joystick key 'A' pressed
     kiwi::base::RepeatingClosure trigger_callback = kiwi::base::DoNothing();
 
-    // Triggers when selected
-    kiwi::base::RepeatingClosure selected_callback = kiwi::base::DoNothing();
-
     // Triggers when joystick 'right' pressed
     kiwi::base::RepeatingClosure enter_callback = kiwi::base::DoNothing();
   };
@@ -61,6 +58,7 @@ class SideMenu : public Widget {
   void OnWindowPostRender() override;
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void SetIndex(int index);
+  void EnterIndex(int index);
   void TriggerCurrentItem();
   bool FindItemIndexByMousePosition(int x_in_window,
                                     int y_in_window,
@@ -86,6 +84,7 @@ class SideMenu : public Widget {
   bool bounds_valid_ = false;
 
   int current_index_ = 0;
+  int triggered_index_ = 0;
   bool activate_ = false;
   Timer timer_;
   SDL_Rect selection_current_rect_in_global_;

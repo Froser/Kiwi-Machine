@@ -38,10 +38,6 @@ class AboutWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
 
-#if KIWI_MOBILE
-  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
-#endif
-
  private:
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
 
@@ -49,13 +45,6 @@ class AboutWidget : public Widget {
   NESRuntime::Data* runtime_data_ = nullptr;
   StackWidget* parent_ = nullptr;
   MainWindow* main_window_ = nullptr;
-
-  std::string str_title_;
-  FontType font_title_;
-  std::string str_contents_;
-  FontType font_contents_;
-  std::string str_go_back_;
-  FontType font_go_back_;
 };
 
 #endif  // UI_WIDGETS_ABOUT_WIDGET_H_

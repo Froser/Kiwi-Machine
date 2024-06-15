@@ -1,24 +1,4 @@
 {
-  "IDR_ABOUT_TITLE": {
-    "default": "About Kiwi Machine",
-    "zh": "关于Kiwi Machine",
-    "ja": "Kiwi Machineについて"
-  },
-  "IDR_ABOUT_CONTENTS": {
-    "default": "\nKiwi machine is an open sources NES\nemulator with lots of preset games.\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nCore Version: Kiwi 1.1.0\nUI Version: 1.1.0\nProgrammed by Yu Yisi\n\n",
-    "zh": "\nKiwi machine是一个开源的红白机器模拟器，并内置许多游戏。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\n内核版本: Kiwi 1.1.0\nUI版本: 1.1.0\n程序：于益偲\n\n",
-    "ja": "\nKiwi machineとはオープンソースのFAMICOMシミュレーターで，たくさんのゲームが集めてあります。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nコアバージョン: Kiwi 1.1.0\nUIバージョン: 1.1.0\nプログラム：于益偲（エキ）\n\n"
-  },
-  "IDR_ABOUT_GO_BACK": {
-    "default": "Press joystick button 'B' to go back.",
-    "zh": "按手柄B键返回",
-    "ja": "ゲームパッドのBを押して戻る"
-  },
-  "IDR_ABOUT_GO_BACK_MOBILE": {
-    "default": "Touch screen to go back",
-    "zh": "触摸屏幕返回",
-    "ja": "スクリーンをタッチして戻る"
-  },
   "IDR_IN_GAME_MENU_CONTINUE": {
     "default": "Continue",
     "zh": "继续",
@@ -78,6 +58,16 @@
     "default": "Joysticks",
     "zh": "游戏手柄",
     "ja": "ゲームパッド"
+  },
+  "IDR_IN_GAME_MENU_P1": {
+    "default": "P1:",
+    "zh": "P1:",
+    "ja": "P1:"
+  },
+  "IDR_IN_GAME_MENU_P2": {
+    "default": "P2:",
+    "zh": "P2:",
+    "ja": "P2:"
   },
   "IDR_IN_GAME_MENU_SMALL": {
     "default": "Small",
@@ -178,6 +168,11 @@
     "default": "Special",
     "zh": "特别版",
     "ja": "スペシャル"
+  },
+  "IDR_SIDE_MENU_ABOUT": {
+    "default": "About",
+    "zh": "关于",
+    "ja": "アプリについて"
   },
   "IDR_SIDE_MENU_SETTINGS": {
     "default": "Settings",

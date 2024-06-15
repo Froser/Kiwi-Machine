@@ -731,6 +731,11 @@ void MainWindow::InitializeUI() {
                        image_resources::ImageID::kMenuSettings,
                        image_resources::ImageID::kMenuSettingsHighlight,
                        CreateMenuSettingsCallbacks());
+    side_menu->AddMenu(
+        std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_ABOUT),
+        image_resources::ImageID::kMenuAbout,
+        image_resources::ImageID::kMenuAboutHighlight,
+        CreateMenuAboutCallbacks());
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         &MainWindow::OnQuit, kiwi::base::Unretained(this));
@@ -1326,11 +1331,27 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
   return callbacks;
 }
 
+SideMenu::MenuCallbacks MainWindow::CreateMenuAboutCallbacks() {
+  SideMenu::MenuCallbacks callbacks;
+  callbacks.trigger_callback = kiwi::base::BindRepeating(
+      [](MainWindow* window, NESRuntimeID runtime_id) {
+        std::unique_ptr<AboutWidget> about_widget =
+            std::make_unique<AboutWidget>(window, window->main_stack_widget_,
+                                          runtime_id);
+        about_widget->set_bounds(
+            SDL_Rect{0, 0, window->main_stack_widget_->bounds().w,
+                     window->main_stack_widget_->bounds().h});
+        window->main_stack_widget_->PushWidget(std::move(about_widget));
+      },
+      this, runtime_id_);
+  return callbacks;
+}
+
 SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
     FlexItemsWidget* items_widget) {
   SDL_assert(items_widget);
   SideMenu::MenuCallbacks callbacks;
-  callbacks.selected_callback = kiwi::base::BindRepeating(
+  callbacks.trigger_callback = kiwi::base::BindRepeating(
       [](MainWindow* this_window, FlexItemsWidget* items_widget) {
         SDL_assert(this_window->contents_card_widget_);
         bool succeeded =
@@ -1341,7 +1362,6 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
   callbacks.enter_callback = kiwi::base::BindRepeating(
       &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
       MainFocus::kContents);
-  callbacks.trigger_callback = callbacks.enter_callback;
   return callbacks;
 }
 

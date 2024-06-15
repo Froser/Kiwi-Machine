@@ -102,6 +102,8 @@ class InGameMenu : public Widget {
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
   bool OnMousePressed(SDL_MouseButtonEvent* event) override;
+  void OnWindowPreRender() override;
+  void OnWindowPostRender() override;
 
 #if KIWI_MOBILE
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
@@ -124,6 +126,8 @@ class InGameMenu : public Widget {
     int menu_tops[static_cast<int>(
         MenuItem::kMax)];  // A list of each menu item's top position
     int menu_font_size;
+    ImVec2 selection_menu_item_position;
+    const char* selection_menu_item_text;
 
     // Options
     std::vector<const char*> options_items;
