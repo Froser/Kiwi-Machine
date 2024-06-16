@@ -139,11 +139,6 @@
     "zh": "设置",
     "ja": "設定"
   },
-  "IDR_MAIN_WINDOW_ABOUT": {
-    "default": "About Kiwi Machine",
-    "zh": "关于Kiwi Machine",
-    "ja": "Kiwi Machineについて"
-  },
   "IDR_MAIN_WINDOW_QUIT": {
     "default": "Quit",
     "zh": "退出",
@@ -183,5 +178,117 @@
     "default": "Quit",
     "zh": "退出",
     "ja": "終了"
+  },
+  "IDR_ABOUT_KIWI_MACHINE": {
+    "default": "Kiwi-Machine"
+  },
+  "IDR_ABOUT_INSTRUCTIONS": {
+    "default": "An open sources NES emulator",
+    "zh": "一个开源的红白机器模拟器",
+    "ja": "とはオープンソースのFAMICOMシミュレーターだ"
+  },
+  "IDR_ABOUT_CONTROLLER": {
+    "default": "Controller Manual",
+    "zh": "操作方法",
+    "ja": "操作方法"
+  },
+  "IDR_ABOUT_CONTROLLER_KEYBOARD": {
+    "default": "Keyboard",
+    "zh": "键盘",
+    "ja": "キーボード"
+  },
+  "IDR_ABOUT_CONTROLLER_GAMEPAD": {
+    "default": "Gamepad",
+    "zh": "手柄",
+    "ja": "ゲームパッド"
+  },
+  "IDR_ABOUT_CONTROLLER_INPUT": {
+    "default": "Input",
+    "zh": "设备",
+    "ja": "入力"
+  },
+  "IDR_ABOUT_CONTROLLER_KEYBOARD_1": {
+    "default": "Player 1 (Keyboard)",
+    "zh": "玩家1（键盘）",
+    "ja": "プレイヤー1（キーボード）"
+  },
+  "IDR_ABOUT_CONTROLLER_KEYBOARD_2": {
+    "default": "Player 2 (Keyboard)",
+    "zh": "玩家2（键盘）",
+    "ja": "プレイヤー2（キーボード）"
+  },
+  "IDR_ABOUT_CONTROLLER_XBOX": {
+    "default": "Player (XBox)",
+    "zh": "玩家（XBOX）",
+    "ja": "プレイヤー（XBOX）"
+  },
+  "IDR_ABOUT_CONTROLLER_DIRECTION": {
+    "default": "Direction",
+    "zh": "方向",
+    "ja": "方向"
+  },
+  "IDR_ABOUT_CONTROLLER_UP": {
+    "default": "Up",
+    "zh": "上",
+    "ja": "上"
+  },
+  "IDR_ABOUT_CONTROLLER_DOWN": {
+    "default": "Down",
+    "zh": "下",
+    "ja": "下"
+  },
+  "IDR_ABOUT_CONTROLLER_LEFT": {
+    "default": "Left",
+    "zh": "左",
+    "ja": "左"
+  },
+  "IDR_ABOUT_CONTROLLER_RIGHT": {
+    "default": "Right",
+    "zh": "右",
+    "ja": "右"
+  },
+  "IDR_ABOUT_CONTROLLER_A": {
+    "default": "A"
+  },
+  "IDR_ABOUT_CONTROLLER_B": {
+    "default": "B"
+  },
+  "IDR_ABOUT_CONTROLLER_SELECT": {
+    "default": "SELECT"
+  },
+  "IDR_ABOUT_CONTROLLER_START": {
+    "default": "START"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_UP": {
+    "default": "↑"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_DOWN": {
+    "default": "↓"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_LEFT": {
+    "default": "←"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_RIGHT": {
+    "default": "→"
+  },
+  "IDR_ABOUT_CONTROLLER_XBOX_DIRECTION": {
+    "default": "Stick Or D-Pad",
+    "zh": "控制杆或方向键",
+    "ja": "スティック又は方向パッド"
+  },
+  "IDR_ABOUT_CONTROLLER_XBOX_VIEW": {
+    "default": "View button",
+    "zh": "预览按钮",
+    "ja": "ビューボタン"
+  },
+  "IDR_ABOUT_CONTROLLER_XBOX_MENU": {
+    "default": "Menu button",
+    "zh": "菜单按钮",
+    "ja": "メニューボタン"
+  },
+  "IDR_ABOUT_GAME_SELECTION": {
+    "default": "Game Selection",
+    "zh": "游戏选择",
+    "ja": "ゲームの選択"
   }
 }

@@ -204,12 +204,8 @@ void MainWindow::Observer::OnVolumeChanged(float new_value) {}
 
 MainWindow::MainWindow(const std::string& title,
                        NESRuntimeID runtime_id,
-                       scoped_refptr<NESConfig> config,
-                       bool has_demo_widget)
-    : WindowBase(title),
-      config_(config),
-      has_demo_widget_(has_demo_widget),
-      runtime_id_(runtime_id) {
+                       scoped_refptr<NESConfig> config)
+    : WindowBase(title), config_(config), runtime_id_(runtime_id) {
 #if KIWI_WASM
   // Only one main window instance should exist in WASM.
   SDL_assert(!g_main_window_instance);
@@ -905,8 +901,10 @@ void MainWindow::InitializeUI() {
   nametable_widget_->set_visible(false);
   AddWidget(std::move(nametable_widget));
 
-  if (has_demo_widget_)
-    AddWidget(std::make_unique<DemoWidget>(this));
+  std::unique_ptr<Widget> demo_widget = std::make_unique<DemoWidget>(this);
+  demo_widget_ = demo_widget.get();
+  demo_widget_->set_visible(false);
+  AddWidget(std::move(demo_widget));
 
 #if !KIWI_MOBILE
   OnScaleChanged();
@@ -1160,8 +1158,14 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
          kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
                                    kiwi::base::Unretained(this))});
 
-    result.push_back(std::move(debug));
 #endif
+
+    debug.menu_items.push_back(
+        {"UI Demo Widget",
+         kiwi::base::BindRepeating(&MainWindow::OnShowUiDemoWidget,
+                                   kiwi::base::Unretained(this))});
+
+    result.push_back(std::move(debug));
   }
 
   return result;
@@ -1660,6 +1664,10 @@ void MainWindow::OnDebugDisassembly() {
 
 void MainWindow::OnDebugNametable() {
   nametable_widget_->set_visible(true);
+}
+
+void MainWindow::OnShowUiDemoWidget() {
+  demo_widget_->set_visible(true);
 }
 
 void MainWindow::OnInGameMenuTrigger() {

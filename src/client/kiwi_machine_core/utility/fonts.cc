@@ -98,6 +98,30 @@ void InitializeFonts() {
                 NULL);
 }
 
+FontType GetPreferredFontType(PreferredFontSize size, FontType default_type) {
+  switch (GetCurrentSupportedLanguage()) {
+#if !DISABLE_CHINESE_FONT
+    case SupportedLanguage::kSimplifiedChinese:
+      return (static_cast<FontType>(
+          static_cast<int>(FontType::kDefaultSimplifiedChinese) +
+          static_cast<int>(size)));
+#endif
+#if !DISABLE_JAPANESE_FONT
+    case SupportedLanguage::kJapanese:
+      return (
+          static_cast<FontType>(static_cast<int>(FontType::kDefaultJapanese) +
+                                static_cast<int>(size)));
+#endif
+    default:
+      return (static_cast<FontType>(static_cast<int>(default_type) +
+                                    static_cast<int>(size)));
+  }
+}
+
+ScopedFont GetPreferredFont(PreferredFontSize size, FontType default_type) {
+  return ScopedFont(GetPreferredFontType(size, default_type));
+}
+
 FontType GetPreferredFontType(PreferredFontSize size,
                               const char* text_hint,
                               FontType default_type) {

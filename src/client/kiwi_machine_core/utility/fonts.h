@@ -59,6 +59,10 @@ enum PreferredFontSize {
 };
 
 FontType GetPreferredFontType(PreferredFontSize size,
+                              FontType default_type = FontType::kDefault);
+ScopedFont GetPreferredFont(PreferredFontSize size,
+                            FontType default_type = FontType::kDefault);
+FontType GetPreferredFontType(PreferredFontSize size,
                               const char* text_hint,
                               FontType default_type = FontType::kDefault);
 ScopedFont GetPreferredFont(PreferredFontSize size,

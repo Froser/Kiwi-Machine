@@ -23,8 +23,6 @@
 #include <SDL_main.h>
 #endif
 
-DEFINE_bool(demo_window, false, "Show ImGui demo window.");
-
 #if defined(__IPHONEOS__)
 int KiwiMain(int argc, char** argv) {
   int KiwiMainReal(int argc, char** argv);
@@ -46,7 +44,7 @@ int KiwiMain(int argc, char** argv) {
 #endif
 
   MainWindow main_window("Kiwi Machine", application.runtime_id(),
-                         application.config(), FLAGS_demo_window);
+                         application.config());
   main_window.InitializeAsync(kiwi::base::DoNothing());
   application.Run();
   return 0;

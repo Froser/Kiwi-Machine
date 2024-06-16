@@ -24,6 +24,11 @@
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 
+template <size_t N, typename T>
+constexpr size_t ArrayCount(const T (&)[N]) {
+  return N;
+}
+
 AboutWidget::AboutWidget(MainWindow* main_window,
                          StackWidget* parent,
                          NESRuntimeID runtime_id)
@@ -46,20 +51,10 @@ void AboutWidget::Close() {
 }
 
 void AboutWidget::Paint() {
-  SDL_Rect bounds_in_window = MapToWindow(bounds());
-  ImGui::GetWindowDrawList()->AddRectFilled(
-      ImVec2(bounds_in_window.x, bounds_in_window.y),
-      ImVec2(bounds_in_window.x + bounds_in_window.x,
-             bounds_in_window.y + bounds_in_window.y),
-      IM_COL32(0, 0, 0, 196));
-
-  /*
-  RichTextContent content(this);
-  content.AddContent(font_title_, str_title_.c_str());
-  content.AddContent(font_contents_, str_contents_.c_str());
-  content.AddContent(font_go_back_, str_go_back_.c_str());
-  content.DrawContents(IM_COL32_BLACK);
-   */
+  DrawBackground();
+  DrawTitle();
+  DrawController();
+  DrawGameSelection();
 }
 
 void AboutWidget::OnWindowResized() {
@@ -74,6 +69,15 @@ bool AboutWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
   return HandleInputEvent(nullptr, event);
 }
 
+void AboutWidget::OnWindowPreRender() {
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+}
+
+void AboutWidget::OnWindowPostRender() {
+  ImGui::PopStyleVar(2);
+}
+
 bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
                                    SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
@@ -85,4 +89,174 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   }
 
   return false;
+}
+
+void AboutWidget::DrawBackground() {
+  SDL_Rect bounds_in_window = MapToWindow(bounds());
+  ImGui::GetWindowDrawList()->AddRectFilled(
+      ImVec2(bounds_in_window.x, bounds_in_window.y),
+      ImVec2(bounds_in_window.x + bounds_in_window.w,
+             bounds_in_window.y + bounds_in_window.h),
+      IM_COL32(0, 0, 0, 196));
+}
+
+void AboutWidget::DrawTitle() {
+  using namespace string_resources;
+  ImGui::BeginGroup();
+  ImGui::Image(
+      GetImage(window()->renderer(), image_resources::ImageID::kKiwiMachine),
+      ImVec2(80, 80));
+  ImGui::EndGroup();
+  ImGui::SameLine();
+
+  ImGui::BeginGroup();
+  {
+    const char* title = GetLocalizedString(IDR_ABOUT_KIWI_MACHINE).c_str();
+    ScopedFont font_title = GetPreferredFont(PreferredFontSize::k3x, title);
+    ImGui::TextUnformatted(title);
+  }
+  {
+    ScopedFont font_title =
+        GetPreferredFont(PreferredFontSize::k1x,
+                         GetLocalizedString(IDR_ABOUT_INSTRUCTIONS).c_str());
+    ImGui::TextUnformatted(
+        GetLocalizedString(string_resources::IDR_ABOUT_INSTRUCTIONS).c_str());
+  }
+  ImGui::EndGroup();
+}
+
+void AboutWidget::DrawController() {
+  using namespace string_resources;
+  {
+    ScopedFont font_title = GetPreferredFont(
+        PreferredFontSize::k2x,
+        GetLocalizedString(string_resources::IDR_ABOUT_CONTROLLER).c_str());
+    ImGui::TextUnformatted(
+        GetLocalizedString(string_resources::IDR_ABOUT_CONTROLLER).c_str());
+  }
+
+  ImGui::BeginGroup();
+  ImGui::Image(GetImage(window()->renderer(),
+                        image_resources::ImageID::kAboutNesJoysticks),
+               ImVec2(240, 240));
+  ImGui::EndGroup();
+  ImGui::SameLine();
+
+  const char* kKeyboardHeaderStrings[] = {
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_INPUT).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_UP).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_DOWN).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_LEFT).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_RIGHT).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_A).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_B).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_SELECT).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_START).c_str(),
+  };
+
+  const char* kKeyboardStringsP1[] = {
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD_1).c_str(),
+      "W",
+      "S",
+      "A",
+      "D",
+      "J",
+      "K",
+      "L",
+      "Enter",
+  };
+
+  const char* kKeyboardStringsP2[] = {
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD_2).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_KEY_UP).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_KEY_DOWN).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_KEY_LEFT).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_KEY_RIGHT).c_str(),
+      "Delete",
+      "End",
+      "PageDown",
+      "Home",
+  };
+
+  const char* kGamepadHeaderStrings[] = {
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_INPUT).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_DIRECTION).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_A).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_B).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_SELECT).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_START).c_str(),
+  };
+
+  const char* kXBoxStrings[] = {
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_DIRECTION).c_str(),
+      "A",
+      "X",
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_VIEW).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_MENU).c_str(),
+  };
+  static_assert(
+      ArrayCount(kKeyboardHeaderStrings) == ArrayCount(kKeyboardStringsP1) &&
+      ArrayCount(kKeyboardHeaderStrings) == ArrayCount(kKeyboardStringsP2));
+  static_assert(ArrayCount(kGamepadHeaderStrings) == ArrayCount(kXBoxStrings));
+  const char** kKeyboardRowContents[] = {
+      kKeyboardHeaderStrings, kKeyboardStringsP1, kKeyboardStringsP2};
+
+  ImGui::BeginGroup();
+  {
+    ScopedFont font = GetPreferredFont(
+        PreferredFontSize::k1x,
+        GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD).c_str());
+    ImGui::TextUnformatted(
+        GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD).c_str());
+  }
+  if (ImGui::BeginTable("keyboard_table", ArrayCount(kKeyboardHeaderStrings),
+                        ImGuiTableFlags_Borders |
+                            ImGuiTableFlags_NoHostExtendX |
+                            ImGuiTableFlags_SizingFixedFit)) {
+    for (const auto& kRowContent : kKeyboardRowContents) {
+      (kRowContent == kKeyboardRowContents[0]) ? ImGui::TableHeadersRow()
+                                               : ImGui::TableNextRow();
+      for (int column = 0; column < ArrayCount(kKeyboardHeaderStrings);
+           ++column) {
+        ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
+        ImGui::TableSetColumnIndex(column);
+        ImGui::TextUnformatted(kRowContent[column]);
+      }
+    }
+    ImGui::EndTable();
+  }
+
+  {
+    ScopedFont font = GetPreferredFont(
+        PreferredFontSize::k1x,
+        GetLocalizedString(IDR_ABOUT_CONTROLLER_GAMEPAD).c_str());
+    ImGui::TextUnformatted(
+        GetLocalizedString(IDR_ABOUT_CONTROLLER_GAMEPAD).c_str());
+  }
+  const char** kGamepadRowContents[] = {kGamepadHeaderStrings, kXBoxStrings};
+  if (ImGui::BeginTable("gamepad_table", ArrayCount(kGamepadHeaderStrings),
+                        ImGuiTableFlags_Borders |
+                            ImGuiTableFlags_NoHostExtendX |
+                            ImGuiTableFlags_SizingFixedFit)) {
+    for (const auto& kRowContent : kGamepadRowContents) {
+      (kRowContent == kGamepadRowContents[0]) ? ImGui::TableHeadersRow()
+                                              : ImGui::TableNextRow();
+      for (int column = 0; column < ArrayCount(kGamepadHeaderStrings);
+           ++column) {
+        ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
+        ImGui::TableSetColumnIndex(column);
+        ImGui::TextUnformatted(kRowContent[column]);
+      }
+    }
+    ImGui::EndTable();
+  }
+  ImGui::EndGroup();
+}
+
+void AboutWidget::DrawGameSelection() {
+  using namespace string_resources;
+  const char* title = GetLocalizedString(IDR_ABOUT_GAME_SELECTION).c_str();
+  ScopedFont font = GetPreferredFont(PreferredFontSize::k2x, title);
+  ImGui::TextUnformatted(title);
 }

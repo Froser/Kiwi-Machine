@@ -37,9 +37,15 @@ class AboutWidget : public Widget {
   void OnWindowResized() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
+  void OnWindowPreRender() override;
+  void OnWindowPostRender() override;
 
  private:
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  void DrawBackground();
+  void DrawTitle();
+  void DrawController();
+  void DrawGameSelection();
 
  private:
   NESRuntime::Data* runtime_data_ = nullptr;

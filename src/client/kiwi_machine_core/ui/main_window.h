@@ -74,8 +74,7 @@ class MainWindow : public WindowBase,
  public:
   explicit MainWindow(const std::string& title,
                       NESRuntimeID runtime_id,
-                      scoped_refptr<NESConfig> config,
-                      bool has_demo_widget);
+                      scoped_refptr<NESConfig> config);
   ~MainWindow() override;
 
   // InitializeAsync() must be called before rendering.
@@ -204,6 +203,7 @@ class MainWindow : public WindowBase,
   void OnDebugMemory();
   void OnDebugDisassembly();
   void OnDebugNametable();
+  void OnShowUiDemoWidget();
   void OnInGameMenuTrigger();
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
@@ -224,7 +224,6 @@ class MainWindow : public WindowBase,
   // shouldn't load all ROMs in a row, but has to load the ROM dynamically.
   bool is_headless_ = false;
   std::set<int> pressing_keys_;
-  bool has_demo_widget_ = false;
   Splash* splash_ = nullptr;
   // Canvas is owned by this window.
   Canvas* canvas_ = nullptr;
@@ -233,6 +232,7 @@ class MainWindow : public WindowBase,
   Widget* palette_widget_ = nullptr;
   Widget* pattern_widget_ = nullptr;
   Widget* frame_rate_widget_ = nullptr;
+  Widget* demo_widget_ = nullptr;
   StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
   FlexItemsWidget* main_nes_items_widget_ = nullptr;

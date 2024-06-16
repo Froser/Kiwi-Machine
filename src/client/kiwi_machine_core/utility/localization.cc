@@ -22,6 +22,11 @@
 #include "utility/zip_reader.h"
 
 namespace {
+constexpr char kVisibleChars[] =
+    "!\"#$%&'()*+,-./"
+    "0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+    "abcdefghijklmnopqrstuvwxyz{|}~";
+static_assert(sizeof(kVisibleChars) == 95);
 std::string g_global_language;
 
 using GlyphRangePtr = std::unique_ptr<ImVector<ImWchar>>;
@@ -90,6 +95,7 @@ const std::string& GetLocalizedString(SupportedLanguage language, int id) {
 void BuildGlyphRanges(SupportedLanguage language,
                       ImVector<ImWchar>& out_ranges) {
   ImFontGlyphRangesBuilder ranges_builder;
+  ranges_builder.AddText(kVisibleChars);
   for (int i = 0; i < string_resources::END_OF_STRINGS; ++i) {
     ranges_builder.AddText(GetLocalizedString(language, i).c_str());
   }
