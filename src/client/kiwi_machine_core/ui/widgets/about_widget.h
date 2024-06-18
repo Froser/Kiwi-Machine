@@ -42,10 +42,14 @@ class AboutWidget : public Widget {
 
  private:
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  void ResetCursorX();
+  PreferredFontSize PreferredTitleFontSize();
+  void Separator();
   void DrawBackground();
   void DrawTitle();
   void DrawController();
   void DrawGameSelection();
+  void DrawAbout();
 
  private:
   NESRuntime::Data* runtime_data_ = nullptr;

@@ -290,5 +290,33 @@
     "default": "Game Selection",
     "zh": "游戏选择",
     "ja": "ゲームの選択"
+  },
+  "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0": {
+    "default": "If a game has a ",
+    "zh": "如果一个游戏封面上有一个",
+    "ja": "ゲームのカバーに"
+  },
+  "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_1": {
+    "default": ", it has alternative versions.",
+    "zh": "标记，则说明它拥有多个版本。",
+    "ja": "がある場合は、複数のバージョンがあります"
+  },
+  "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_2": {
+    "default": "You may change its version by pressing SELECT.",
+    "zh": "您可以通过按下SELECT来更换它的版本。",
+    "ja": "SELECTを押すと、バージョンを変更できる。"
+  },
+  "IDR_ABOUT_ABOUT": {
+    "default": "About this app",
+    "zh": "关于此程序",
+    "ja": "このアプリについて"
+  },
+  "IDR_ABOUT_ABOUT_GITHUB": {
+    "default": "https://github.com/Froser/Kiwi-Machine"
+  },
+  "IDR_ABOUT_ABOUT_AUTHOR": {
+    "default": "Author: Yu Yisi",
+    "zh": "作者：于益偲",
+    "ja": "プログラム：Yu Yisi（エキ）"
   }
 }

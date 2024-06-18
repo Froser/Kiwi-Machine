@@ -25,8 +25,6 @@
 #include "utility/localization.h"
 #include "utility/math.h"
 
-constexpr int kMoveSpeed = 200;
-
 namespace {
 
 InGameMenu::SettingsItemContext MakePromptSettingsItemContext(bool go_left) {

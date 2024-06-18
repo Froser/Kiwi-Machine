@@ -34,10 +34,8 @@ AboutWidget::AboutWidget(MainWindow* main_window,
                          NESRuntimeID runtime_id)
     : Widget(main_window), parent_(parent), main_window_(main_window) {
   ImGuiWindowFlags window_flags =
-      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
-      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
-      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground |
-      ImGuiWindowFlags_NoInputs;
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
+      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
   set_flags(window_flags);
   set_title("About");
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
@@ -51,10 +49,16 @@ void AboutWidget::Close() {
 }
 
 void AboutWidget::Paint() {
+  ImGui::SetCursorPosY(20);
+
   DrawBackground();
   DrawTitle();
+  Separator();
   DrawController();
+  Separator();
   DrawGameSelection();
+  Separator();
+  DrawAbout();
 }
 
 void AboutWidget::OnWindowResized() {
@@ -91,6 +95,25 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   return false;
 }
 
+PreferredFontSize AboutWidget::PreferredTitleFontSize() {
+  return main_window_->window_scale() > 2.f ? PreferredFontSize::k2x
+                                            : PreferredFontSize::k1x;
+}
+
+void AboutWidget::ResetCursorX() {
+  if (main_window_->window_scale() > 2.f)
+    ImGui::SetCursorPosX(40);
+  else
+    ImGui::SetCursorPosX(20);
+}
+
+void AboutWidget::Separator() {
+  if (main_window_->window_scale() > 2.f)
+    ImGui::Dummy(ImVec2(1, 20));
+  else
+    ImGui::Dummy(ImVec2(1, 10));
+}
+
 void AboutWidget::DrawBackground() {
   SDL_Rect bounds_in_window = MapToWindow(bounds());
   ImGui::GetWindowDrawList()->AddRectFilled(
@@ -102,6 +125,7 @@ void AboutWidget::DrawBackground() {
 
 void AboutWidget::DrawTitle() {
   using namespace string_resources;
+  ResetCursorX();
   ImGui::BeginGroup();
   ImGui::Image(
       GetImage(window()->renderer(), image_resources::ImageID::kKiwiMachine),
@@ -122,25 +146,38 @@ void AboutWidget::DrawTitle() {
     ImGui::TextUnformatted(
         GetLocalizedString(string_resources::IDR_ABOUT_INSTRUCTIONS).c_str());
   }
+  {
+    ScopedFont font_title =
+        GetPreferredFont(PreferredFontSize::k1x, FontType::kSystemDefault);
+    ImGui::Text("V1.1.0");
+  }
   ImGui::EndGroup();
 }
 
 void AboutWidget::DrawController() {
   using namespace string_resources;
   {
+    ResetCursorX();
     ScopedFont font_title = GetPreferredFont(
-        PreferredFontSize::k2x,
+        PreferredTitleFontSize(),
         GetLocalizedString(string_resources::IDR_ABOUT_CONTROLLER).c_str());
     ImGui::TextUnformatted(
         GetLocalizedString(string_resources::IDR_ABOUT_CONTROLLER).c_str());
   }
 
+  ResetCursorX();
   ImGui::BeginGroup();
-  ImGui::Image(GetImage(window()->renderer(),
-                        image_resources::ImageID::kAboutNesJoysticks),
-               ImVec2(240, 240));
+  ImGui::Image(
+      GetImage(window()->renderer(),
+               image_resources::ImageID::kAboutNesJoysticks),
+      main_window_->window_scale() > 2.f ? ImVec2(250, 150) : ImVec2(120, 72));
   ImGui::EndGroup();
-  ImGui::SameLine();
+  ImGui::SameLine(0, main_window_->window_scale() > 2.f ? 40 : 15);
+
+  ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, IM_COL32_WHITE);
+  ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, IM_COL32_WHITE);
+  ImGui::PushStyleColor(ImGuiCol_TableBorderLight, IM_COL32_WHITE);
+  ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10, 4));
 
   const char* kKeyboardHeaderStrings[] = {
       GetLocalizedString(IDR_ABOUT_CONTROLLER_INPUT).c_str(),
@@ -221,7 +258,9 @@ void AboutWidget::DrawController() {
            ++column) {
         ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
         ImGui::TableSetColumnIndex(column);
-        ImGui::TextUnformatted(kRowContent[column]);
+        (kRowContent == kKeyboardRowContents[0])
+            ? ImGui::TextColored(ImVec4(0, 0, 0, 1), "%s", kRowContent[column])
+            : ImGui::TextUnformatted(kRowContent[column]);
       }
     }
     ImGui::EndTable();
@@ -246,17 +285,61 @@ void AboutWidget::DrawController() {
            ++column) {
         ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
         ImGui::TableSetColumnIndex(column);
-        ImGui::TextUnformatted(kRowContent[column]);
+        (kRowContent == kGamepadRowContents[0])
+            ? ImGui::TextColored(ImVec4(0, 0, 0, 1), "%s", kRowContent[column])
+            : ImGui::TextUnformatted(kRowContent[column]);
       }
     }
     ImGui::EndTable();
   }
   ImGui::EndGroup();
+  ImGui::PopStyleVar(1);
+  ImGui::PopStyleColor(3);
 }
 
 void AboutWidget::DrawGameSelection() {
   using namespace string_resources;
-  const char* title = GetLocalizedString(IDR_ABOUT_GAME_SELECTION).c_str();
-  ScopedFont font = GetPreferredFont(PreferredFontSize::k2x, title);
-  ImGui::TextUnformatted(title);
+  {
+    ResetCursorX();
+    const char* title = GetLocalizedString(IDR_ABOUT_GAME_SELECTION).c_str();
+    ScopedFont font = GetPreferredFont(PreferredTitleFontSize(), title);
+    ImGui::TextUnformatted(title);
+  }
+  {
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 4));
+    ResetCursorX();
+    ScopedFont font = GetPreferredFont(
+        PreferredFontSize::k1x,
+        GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0).c_str());
+    ImGui::TextUnformatted(
+        GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0).c_str());
+    ImGui::SameLine();
+    ImGui::Image(
+        GetImage(window()->renderer(), image_resources::ImageID::kItemBadge),
+        ImVec2(font.GetFont()->FontSize, font.GetFont()->FontSize));
+    ImGui::SameLine();
+    ImGui::TextUnformatted(
+        GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_1).c_str());
+    ResetCursorX();
+    ImGui::TextUnformatted(
+        GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_2).c_str());
+    ImGui::PopStyleVar(1);
+  }
+}
+
+void AboutWidget::DrawAbout() {
+  using namespace string_resources;
+  {
+    ResetCursorX();
+    const char* title = GetLocalizedString(IDR_ABOUT_ABOUT).c_str();
+    ScopedFont font = GetPreferredFont(PreferredTitleFontSize(), title);
+    ImGui::TextUnformatted(title);
+  }
+  {
+    ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
+    ResetCursorX();
+    ImGui::TextUnformatted(GetLocalizedString(IDR_ABOUT_ABOUT_GITHUB).c_str());
+    ResetCursorX();
+    ImGui::TextUnformatted(GetLocalizedString(IDR_ABOUT_ABOUT_AUTHOR).c_str());
+  }
 }

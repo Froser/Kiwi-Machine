@@ -253,6 +253,7 @@ void SideMenu::EnterIndex(int index) {
 void SideMenu::TriggerCurrentItem() {
   triggered_index_ = current_index_;
   menu_items_[current_index_].callbacks.trigger_callback.Run();
+  menu_items_[current_index_].callbacks.enter_callback.Run();
 }
 
 bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
