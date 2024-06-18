@@ -16,11 +16,13 @@
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <imgui.h>
 
+#include "preset_roms/preset_roms.h"
 #include "ui/application.h"
 #include "utility/audio_effects.h"
 #include "utility/fonts.h"
 #include "utility/images.h"
 #include "utility/localization.h"
+#include "utility/zip_reader.h"
 
 namespace {
 constexpr int kInitializeSDLFailed = -1;
@@ -32,7 +34,12 @@ DEFINE_string(lang, "", "Set application's language.");
 
 ApplicationObserver::ApplicationObserver() = default;
 
-ApplicationObserver::~ApplicationObserver() = default;
+ApplicationObserver::~ApplicationObserver() {
+#if defined(KIWI_USE_EXTERNAL_PAK)
+  CloseRomDataFromPackage(preset_roms::GetPresetRoms());
+  CloseRomDataFromPackage(preset_roms::specials::GetPresetRoms());
+#endif
+}
 
 void ApplicationObserver::OnPreRender(int since_last_frame_ms) {}
 
@@ -213,6 +220,11 @@ scoped_refptr<kiwi::base::SequencedTaskRunner> Application::GetIOTaskRunner() {
   return io_thread_->task_runner();
 }
 
+void Application::Initialize() {
+  InitializeROMs();
+  InitializeFonts();
+}
+
 void Application::Run() {
   runloop_.Run();
 }
@@ -317,7 +329,6 @@ void Application::InitializeImGui() {
       [](SDL_Event* event) { ImGui_ImplSDL2_ProcessEvent(event); }));
 
   InitializeStyles();
-  InitializeFonts();
 }
 
 void Application::UninitializeImGui() {
@@ -358,6 +369,28 @@ void Application::InitializeRuntimeAndConfigs() {
   runtime_data->emulator->PowerOn();
   config->LoadConfigAndWait();
   config_ = config;
+}
+
+void Application::InitializeROMs() {
+#if defined(KIWI_USE_EXTERNAL_PAK)
+  OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
+                         kiwi::base::FilePath::FromUTF8Unsafe(
+                             preset_roms::GetPresetRomsPackageName()));
+  OpenRomDataFromPackage(
+      preset_roms::specials::GetPresetRoms(),
+      kiwi::base::FilePath::FromUTF8Unsafe(
+          preset_roms::specials::GetPresetRomsPackageName()));
+#endif
+
+  for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
+    const auto& rom = preset_roms::GetPresetRoms()[i];
+    FillRomDataFromZip(rom);
+  }
+
+  for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
+    const auto& rom = preset_roms::specials::GetPresetRoms()[i];
+    FillRomDataFromZip(rom);
+  }
 }
 
 void Application::AddWindowToEventHandler(WindowBase* window) {

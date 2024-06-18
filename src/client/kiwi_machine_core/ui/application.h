@@ -46,6 +46,8 @@ class Application {
  public:
   static Application* Get();
   scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
+  // Initialize application's necessary data. It may block the invoking thread.
+  void Initialize();
 
   void Run();
   void AddObserver(ApplicationObserver* observer);
@@ -68,6 +70,7 @@ class Application {
   void UninitializeImGui();
   void InitializeStyles();
   void InitializeRuntimeAndConfigs();
+  void InitializeROMs();
 
   // Window management:
   friend class WindowBase;

@@ -44,7 +44,6 @@
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 #include "utility/math.h"
-#include "utility/zip_reader.h"
 
 namespace {
 
@@ -222,8 +221,8 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   ShowSplash(kiwi::base::DoNothing());
   Application::Get()->GetIOTaskRunner()->PostTaskAndReply(
       FROM_HERE,
-      kiwi::base::BindOnce(&MainWindow::InitializeIO,
-                           kiwi::base::Unretained(this)),
+      kiwi::base::BindOnce(&Application::Initialize,
+                           kiwi::base::Unretained(Application::Get())),
       kiwi::base::BindOnce(&MainWindow::InitializeUI,
                            kiwi::base::Unretained(this))
           .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
@@ -238,11 +237,6 @@ MainWindow::~MainWindow() {
   runtime_data_->emulator->PowerOff();
   canvas_->RemoveObserver(this);
   SaveConfig();
-
-#if defined(KIWI_USE_EXTERNAL_PAK)
-  CloseRomDataFromPackage(preset_roms::GetPresetRoms());
-  CloseRomDataFromPackage(preset_roms::specials::GetPresetRoms());
-#endif
 
 #if KIWI_WASM
   g_main_window_instance = nullptr;
@@ -576,7 +570,6 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
 
 void MainWindow::InitializeRuntimeData() {
   SDL_assert(runtime_id_ >= 0);
-  is_headless_ = preset_roms::GetPresetRomsCount() == 0;
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id_);
 
   if (FLAGS_has_menu) {
@@ -611,6 +604,8 @@ void MainWindow::InitializeAudio() {
 }
 
 void MainWindow::InitializeUI() {
+  is_headless_ = preset_roms::GetPresetRomsCount() == 0;
+
   if (FLAGS_has_menu) {
     // Menu bar
     std::unique_ptr<MenuBar> menu_bar = std::make_unique<MenuBar>(this);
@@ -657,7 +652,7 @@ void MainWindow::InitializeUI() {
     SDL_assert(preset_roms::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::GetPresetRoms()[i];
-      FillRomDataFromZip(rom);
+      SDL_assert(rom.loaded);
       size_t main_item_index = main_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
@@ -673,7 +668,6 @@ void MainWindow::InitializeUI() {
                                       alternative_rom));
       }
     }
-    // items_widget->Sort();
 
     int main_items_index =
         std::clamp(config_->data().last_index, 0,
@@ -693,7 +687,7 @@ void MainWindow::InitializeUI() {
     SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-      FillRomDataFromZip(rom);
+      SDL_assert(rom.loaded);
 
       special_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
@@ -732,6 +726,9 @@ void MainWindow::InitializeUI() {
         image_resources::ImageID::kMenuAbout,
         image_resources::ImageID::kMenuAboutHighlight,
         CreateMenuAboutCallbacks());
+
+#if !KIWI_IOS
+    // iOS needn't quit the application manually.
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         &MainWindow::OnQuit, kiwi::base::Unretained(this));
@@ -739,80 +736,12 @@ void MainWindow::InitializeUI() {
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
         image_resources::ImageID::kMenuQuit,
         image_resources::ImageID::kMenuQuitHighlight, quit_callbacks);
+#endif
+
     side_menu->Layout();
     side_menu_ = side_menu.get();
     bg_widget_->AddWidget(std::move(side_menu));
     ChangeFocus(MainFocus::kContents);
-    /*
-    // About
-    std::unique_ptr<KiwiItemsWidget> settings_widget =
-        std::make_unique<KiwiItemsWidget>(this, runtime_id_);
-
-    // Settings items
-    std::unique_ptr<KiwiItemsWidget> controller_widget =
-        std::make_unique<KiwiItemsWidget>(this, runtime_id_);
-
-    settings_widget->set_can_sort(false);
-    settings_widget->AddItem(
-        std::make_unique<StringUpdater>(
-            string_resources::IDR_MAIN_WINDOW_SETTINGS),
-        image_resources::kSettingsLogo, image_resources::kSettingsLogoSize,
-        kiwi::base::BindRepeating(
-            [](MainWindow* window, StackWidget* stack_widget,
-               NESRuntimeID runtime_id) {
-              std::unique_ptr<InGameMenu> in_game_menu =
-                  std::make_unique<InGameMenu>(
-                      window, runtime_id,
-                      kiwi::base::BindRepeating(
-                          [](StackWidget* stack_widget,
-                             InGameMenu::MenuItem item, int param) {
-                            // Mapping button 'B' will trigger kContinue.
-                            if (item ==
-                                    InGameMenu::MenuItem::kToGameSelection ||
-                                item == InGameMenu::MenuItem::kContinue) {
-                              stack_widget->PopWidget();
-                            }
-                          },
-                          stack_widget),
-                      kiwi::base::BindRepeating(
-                          &MainWindow::OnInGameSettingsItemTrigger,
-                          kiwi::base::Unretained(window)));
-              in_game_menu->HideMenu(0);  // Hides 'Continue'
-              in_game_menu->HideMenu(1);  // Hides 'Load Auto Save'
-              in_game_menu->HideMenu(2);  // Hides 'Load State'
-              in_game_menu->HideMenu(3);  // Hides 'Save State'
-              in_game_menu->HideMenu(5);  // Hides 'Reset Game'
-              FillLayout(window, in_game_menu.get());
-              stack_widget->PushWidget(std::move(in_game_menu));
-            },
-            this, stack_widget_, runtime_id_));
-
-    settings_widget->AddItem(
-        std::make_unique<StringUpdater>(
-            string_resources::IDR_MAIN_WINDOW_ABOUT),
-        image_resources::kBackgroundLogo, image_resources::kBackgroundLogoSize,
-        kiwi::base::BindRepeating(
-            [](MainWindow* window, StackWidget* stack_widget,
-               NESRuntimeID runtime_id) {
-              stack_widget->PushWidget(std::make_unique<AboutWidget>(
-                  window, stack_widget, runtime_id));
-            },
-            this, stack_widget_, runtime_id_));
-            */
-
-#if !KIWI_IOS
-    // iOS needn't quit the application manually.
-    // TODO
-    // settings_widget->AddItem(
-    //     std::make_unique<StringUpdater>(string_resources::IDR_MAIN_WINDOW_QUIT),
-    //     image_resources::kExitLogo, image_resources::kExitLogoSize,
-    //     kiwi::base::BindRepeating(&MainWindow::OnQuit,
-    //                               kiwi::base::Unretained(this)));
-#endif
-
-    // End of settings items
-    // TODO
-    // main_group_widget_->AddWidget(std::move(settings_widget));
   }
 
   // Create virtual touch buttons, which will invoke main items_widget's
@@ -935,17 +864,6 @@ void MainWindow::InitializeIODevices() {
   runtime_data_->emulator->SetIODevices(std::move(io_devices));
 }
 
-void MainWindow::InitializeIO() {
-#if defined(KIWI_USE_EXTERNAL_PAK)
-  OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
-                         kiwi::base::FilePath::FromUTF8Unsafe(
-                             preset_roms::GetPresetRomsPackageName()));
-  OpenRomDataFromPackage(
-      preset_roms::specials::GetPresetRoms(),
-      kiwi::base::FilePath::FromUTF8Unsafe(
-          preset_roms::specials::GetPresetRomsPackageName()));
-#endif
-}
 
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
   SDL_assert(runtime_data_->emulator);

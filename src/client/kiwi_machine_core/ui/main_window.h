@@ -132,7 +132,6 @@ class MainWindow : public WindowBase,
   void InitializeAudio();
   void InitializeUI();
   void InitializeIODevices();
-  void InitializeIO();
 
   void LoadROMByPath(kiwi::base::FilePath rom_path);
   void StartAutoSave();
