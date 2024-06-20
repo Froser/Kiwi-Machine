@@ -17,7 +17,6 @@
 #include "ui/styles.h"
 #include "ui/widgets/canvas.h"
 #include "ui/widgets/joystick_button.h"
-#include "ui/widgets/kiwi_items_widget.h"
 #include "ui/widgets/touch_button.h"
 #include "ui/widgets/virtual_joystick.h"
 
@@ -397,4 +396,10 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
 
 void MainWindow::OnInGameSettingsHandleVolume(bool is_left) {
   OnSetAudioVolume(is_left ? 0.f : 1.f);
+}
+
+void MainWindow::OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
+                                              const SDL_Point& trigger_point) {
+  // Shouldn't be here, because in mobile app, there's no volume bar.
+  SDL_assert(false);
 }

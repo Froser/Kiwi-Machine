@@ -16,14 +16,16 @@
 #include <set>
 
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "ui/widgets/flex_item_widget.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/math.h"
 
 namespace {
-constexpr int kItemHeightHint = 160;
-constexpr int kItemSelectedHighlightedSize = 20;
+const int kItemHeightHint = styles::flex_items_widget::GetItemHeightHint();
+const int kItemSelectedHighlightedSize =
+    styles::flex_items_widget::GetItemHighlightedSize();
 constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
 constexpr int kDetailWidgetMargin = 25;

@@ -167,7 +167,7 @@
   "IDR_SIDE_MENU_ABOUT": {
     "default": "About",
     "zh": "关于",
-    "ja": "アプリについて"
+    "ja": "ヘルプ"
   },
   "IDR_SIDE_MENU_SETTINGS": {
     "default": "Settings",
@@ -210,17 +210,17 @@
   "IDR_ABOUT_CONTROLLER_KEYBOARD_1": {
     "default": "Player 1 (Keyboard)",
     "zh": "玩家1（键盘）",
-    "ja": "プレイヤー1（キーボード）"
+    "ja": "プレイヤー1"
   },
   "IDR_ABOUT_CONTROLLER_KEYBOARD_2": {
     "default": "Player 2 (Keyboard)",
     "zh": "玩家2（键盘）",
-    "ja": "プレイヤー2（キーボード）"
+    "ja": "プレイヤー2"
   },
   "IDR_ABOUT_CONTROLLER_XBOX": {
-    "default": "Player (XBox)",
-    "zh": "玩家（XBOX）",
-    "ja": "プレイヤー（XBOX）"
+    "default": "X-Box",
+    "zh": "X-Box",
+    "ja": "X-Box"
   },
   "IDR_ABOUT_CONTROLLER_DIRECTION": {
     "default": "Direction",

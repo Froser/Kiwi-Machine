@@ -219,10 +219,7 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   InitializeRuntimeData();
   InitializeAudio();
   ShowSplash(kiwi::base::DoNothing());
-  Application::Get()->GetIOTaskRunner()->PostTaskAndReply(
-      FROM_HERE,
-      kiwi::base::BindOnce(&Application::Initialize,
-                           kiwi::base::Unretained(Application::Get())),
+  Application::Get()->Initialize(
       kiwi::base::BindOnce(&MainWindow::InitializeUI,
                            kiwi::base::Unretained(this))
           .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
@@ -863,7 +860,6 @@ void MainWindow::InitializeIODevices() {
   io_devices->set_audio_device(audio_.get());
   runtime_data_->emulator->SetIODevices(std::move(io_devices));
 }
-
 
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
   SDL_assert(runtime_data_->emulator);

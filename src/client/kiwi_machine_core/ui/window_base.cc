@@ -47,6 +47,8 @@ WindowBase::WindowBase(const std::string& title) {
 
 WindowBase::~WindowBase() {
   Application::Get()->RemoveWindowFromEventHandler(this);
+  ImGui_ImplSDLRenderer2_Shutdown();
+  ImGui_ImplSDL2_Shutdown();
   SDL_DestroyRenderer(renderer_);
   SDL_DestroyWindow(window_);
 }
@@ -275,6 +277,11 @@ void WindowBase::HandleLocaleChanged() {
     Widget* widget = iter->get();
     widget->HandleLocaleChanged();
   }
+}
+
+void WindowBase::HandleFontChanged() {
+  ImGui_ImplSDLRenderer2_DestroyFontsTexture();
+  ImGui_ImplSDLRenderer2_CreateFontsTexture();
 }
 
 void WindowBase::RemovePendingWidgets() {

@@ -62,6 +62,7 @@ class WindowBase {
   virtual void HandlePostEvent();
   virtual void HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
   virtual void HandleLocaleChanged();
+  virtual void HandleFontChanged();
   virtual SDL_Rect GetClientBounds();
   virtual void Render();
 

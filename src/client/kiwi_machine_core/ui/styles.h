@@ -19,21 +19,12 @@
 
 namespace styles {
 
-namespace kiwi_item_widget {
+namespace flex_items_widget {
 
-int GetSpacingBetweenTitleAndCover();
-PreferredFontSize GetGameTitlePreferredFontSize();
-int GetItemMetrics(float window_scale, int metrics);
+int GetItemHeightHint();
+int GetItemHighlightedSize();
 
-}  // namespace kiwi_item_widget
-
-namespace kiwi_bg_widget {
-
-int GetKiwiPositionX(const SDL_Rect& safe_area_insets);
-int GetKiwiPositionY(const SDL_Rect& safe_area_insets);
-float GetKiwiScale(float window_scale);
-
-}  // namespace kiwi_bg_widget
+}  // namespace flex_items_widget
 
 namespace in_game_menu {
 
@@ -71,6 +62,14 @@ int GetJoystickPauseButtonPaddingY(float window_scale,
                                    const SDL_Rect& safe_area_insets);
 
 }  // namespace main_window
+
+namespace side_menu {
+
+int GetItemHeight();
+int GetMarginBottom();
+PreferredFontSize GetPreferredFontSize();
+
+}  // namespace side_menu
 
 }  // namespace styles
 

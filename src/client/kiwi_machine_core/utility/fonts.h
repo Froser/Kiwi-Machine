@@ -47,6 +47,7 @@ class ScopedFont {
   FontType type_;
 };
 
+void InitializeSystemFonts();
 void InitializeFonts();
 
 enum PreferredFontSize {

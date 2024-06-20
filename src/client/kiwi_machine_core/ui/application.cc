@@ -205,6 +205,12 @@ void Application::LocaleChanged() {
   }
 }
 
+void Application::FontChanged() {
+  for (const auto& w : windows_) {
+    w.second->HandleFontChanged();
+  }
+}
+
 void Application::HandlePostEvent() {
   for (const auto& w : windows_) {
     w.second->HandlePostEvent();
@@ -220,9 +226,20 @@ scoped_refptr<kiwi::base::SequencedTaskRunner> Application::GetIOTaskRunner() {
   return io_thread_->task_runner();
 }
 
-void Application::Initialize() {
-  InitializeROMs();
-  InitializeFonts();
+void Application::Initialize(kiwi::base::OnceClosure callback) {
+  if (!initialized_) {
+    GetIOTaskRunner()->PostTaskAndReply(
+        FROM_HERE,
+        kiwi::base::BindOnce(&Application::InitializeROMs,
+                             kiwi::base::Unretained(this)),
+        kiwi::base::BindOnce(&InitializeFonts)
+            .Then(kiwi::base::BindOnce(&Application::FontChanged,
+                                       kiwi::base::Unretained(this)))
+            .Then(std::move(callback)));
+    initialized_ = true;
+  } else {
+    std::move(callback).Run();
+  }
 }
 
 void Application::Run() {
@@ -329,13 +346,12 @@ void Application::InitializeImGui() {
       [](SDL_Event* event) { ImGui_ImplSDL2_ProcessEvent(event); }));
 
   InitializeStyles();
+  InitializeSystemFonts();
 }
 
 void Application::UninitializeImGui() {
   kiwi::base::SetPreEventHandlerForSDL2(kiwi::base::DoNothing());
   kiwi::base::SetRenderHandlerForSDL2(kiwi::base::DoNothing());
-  ImGui_ImplSDLRenderer2_Shutdown();
-  ImGui_ImplSDL2_Shutdown();
   ImGui::DestroyContext();
 }
 

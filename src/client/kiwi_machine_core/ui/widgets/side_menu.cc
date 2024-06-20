@@ -14,6 +14,7 @@
 
 #include "models/nes_runtime.h"
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "utility/audio_effects.h"
 #include "utility/fonts.h"
 #include "utility/images.h"
@@ -21,14 +22,15 @@
 #include "utility/localization.h"
 #include "utility/math.h"
 
-constexpr int kItemHeight = 20;
-constexpr int kItemMarginBottom = 15;
+const int kItemHeight = styles::side_menu::GetItemHeight();
+const int kItemMarginBottom = styles::side_menu::GetMarginBottom();
 constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
 constexpr int kIconSpacing = 4;
 constexpr float kIconSizeScale = .7f;
 constexpr ImColor kBackgroundColor = ImColor(21, 149, 5);
-constexpr PreferredFontSize kPreferredFontSize(PreferredFontSize::k1x);
+const PreferredFontSize kPreferredFontSize(
+    styles::side_menu::GetPreferredFontSize());
 
 #define SCALED(x) \
   static_cast<int>((main_window_->window_scale() >= 3.f ? (x) : ((x) / 1.5f)))

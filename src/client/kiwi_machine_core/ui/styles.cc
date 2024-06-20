@@ -18,53 +18,25 @@
 
 namespace styles {
 
-namespace kiwi_item_widget {
+namespace flex_items_widget {
 
-int GetSpacingBetweenTitleAndCover() {
+int GetItemHeightHint() {
 #if KIWI_ANDROID
-  return 48;
+  return 320;
 #else
-  return 16;
+  return 160;
 #endif
 }
 
-PreferredFontSize GetGameTitlePreferredFontSize() {
+int GetItemHighlightedSize() {
 #if KIWI_ANDROID
-  return PreferredFontSize::k2x;
+  return 40;
 #else
-  return PreferredFontSize::k1x;
+  return 20;
 #endif
 }
 
-int GetItemMetrics(float window_scale, int metrics) {
-#if !KIWI_IOS
-  return static_cast<int>(metrics) * window_scale;
-#else
-  return static_cast<int>(metrics) * 2;
-#endif
-}
-
-}  // namespace kiwi_item_widget
-
-namespace kiwi_bg_widget {
-
-int GetKiwiPositionX(const SDL_Rect& safe_area_insets) {
-  return 30 + safe_area_insets.x;
-}
-
-int GetKiwiPositionY(const SDL_Rect& safe_area_insets) {
-  return 30 + safe_area_insets.y;
-}
-
-float GetKiwiScale(float window_scale) {
-#if !KIWI_IOS
-  return 0.08f * window_scale;
-#else
-  return 0.16f;
-#endif
-}
-
-}  // namespace kiwi_bg_widget
+}  // namespace flex_items_widget
 
 namespace in_game_menu {
 
@@ -182,5 +154,33 @@ int GetJoystickPauseButtonPaddingY(float window_scale,
 }
 
 }  // namespace main_window
+
+namespace side_menu {
+
+int GetItemHeight() {
+#if KIWI_ANDROID
+  return 40;
+#else
+  return 20;
+#endif
+}
+
+int GetMarginBottom() {
+#if KIWI_ANDROID
+  return 30;
+#else
+  return 15;
+#endif
+}
+
+PreferredFontSize GetPreferredFontSize() {
+#if KIWI_ANDROID
+  return PreferredFontSize::k2x;
+#else
+  return PreferredFontSize::k1x;
+#endif
+}
+
+}  // namespace side_menu
 
 }  // namespace styles

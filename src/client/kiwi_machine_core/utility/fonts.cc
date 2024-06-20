@@ -12,6 +12,7 @@
 
 #include "utility/fonts.h"
 
+#include <SDL.h>
 #include <imgui.h>
 #include <kiwi_nes.h>
 
@@ -83,8 +84,11 @@ ImFont* ScopedFont::GetFont() {
     }                                                                          \
   }
 
-void InitializeFonts() {
+void InitializeSystemFonts() {
   REGISTER_SYS_FONT(FontType::kSystemDefault, 13);
+}
+
+void InitializeFonts() {
 #if !DISABLE_CHINESE_FONT
   REGISTER_FONT(FontType::kDefaultSimplifiedChinese,
                 font_resources::FontID::kDengb, 16,
@@ -96,6 +100,9 @@ void InitializeFonts() {
 #endif
   REGISTER_FONT(FontType::kDefault, font_resources::FontID::kSupermario256, 16,
                 NULL);
+
+  bool success = ImGui::GetIO().Fonts->Build();
+  SDL_assert(success);
 }
 
 FontType GetPreferredFontType(PreferredFontSize size, FontType default_type) {
