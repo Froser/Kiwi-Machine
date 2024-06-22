@@ -166,7 +166,7 @@ void AboutWidget::DrawTitle() {
   {
     ScopedFont font_title =
         GetPreferredFont(PreferredFontSize::k1x, FontType::kSystemDefault);
-    ImGui::Text("V1.1.0");
+    ImGui::Text("V2.0.0");
   }
   ImGui::EndGroup();
 }

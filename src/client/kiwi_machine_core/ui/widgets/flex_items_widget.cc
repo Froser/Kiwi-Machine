@@ -116,8 +116,8 @@ void FlexItemsWidget::SetActivate(bool activate) {
 }
 
 void FlexItemsWidget::ScrollWith(int scrolling_delta,
-                                 int mouse_x,
-                                 int mouse_y) {
+                                 const int* mouse_x,
+                                 const int* mouse_y) {
   // Scrolling
   target_view_scrolling_ += scrolling_delta;
 
@@ -138,17 +138,24 @@ void FlexItemsWidget::ScrollWith(int scrolling_delta,
   updating_view_scrolling_ = true;
 
   // Highlight
-  size_t item_index;
-  bool current_index_exceeded_bottom;
-  if (FindItemIndexByMousePosition(mouse_x, mouse_y, item_index)) {
-    current_index_exceeded_bottom =
-        HighlightItem(items_[item_index], LayoutOption::kDoNotAdjustScrolling);
+  if (mouse_x && mouse_y) {
+    size_t item_index;
+    bool current_index_exceeded_bottom;
+    if (FindItemIndexByMousePosition(*mouse_x, *mouse_y, item_index)) {
+      current_index_exceeded_bottom = HighlightItem(
+          items_[item_index], LayoutOption::kDoNotAdjustScrolling);
+    } else {
+      current_index_exceeded_bottom = HighlightItem(
+          current_item_widget_, LayoutOption::kDoNotAdjustScrolling);
+    }
+    if (current_index_exceeded_bottom)
+      AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
   } else {
-    current_index_exceeded_bottom = HighlightItem(
+    bool current_index_exceeded_bottom = HighlightItem(
         current_item_widget_, LayoutOption::kDoNotAdjustScrolling);
+    if (current_index_exceeded_bottom)
+      AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
   }
-  if (current_index_exceeded_bottom)
-    AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
 }
 
 void FlexItemsWidget::Layout(LayoutOption option) {
@@ -312,7 +319,6 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
     return true;
   }
 
-  // if (!is_finger_down_) { TODO
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
@@ -608,37 +614,41 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
   switch (type) {
     case MouseOrFingerEventType::kMousePressed:
     case MouseOrFingerEventType::kFingerDown: {
-      mouse_locked_ = true;
+      gesture_locked_ = true;
       if (!activate_)
         return true;
 
       return true;
     }
     case MouseOrFingerEventType::kFingerUp: {
-      AutoReset auto_reset(mouse_locked_);
+      AutoReset auto_reset(gesture_locked_);
       if (activate_) {
-        size_t index = 0;
-        if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
-          if (current_index_ == index) {
-            return HandleMouseOrFingerEvents(
-                MouseOrFingerEventType::kMouseReleased,
-                MouseButton::kLeftButton, x_in_window, y_in_window);
-          } else {
-            size_t select_index = 0;
-            if (FindItemIndexByMousePosition(x_in_window, y_in_window,
-                                             select_index))
-              SetIndex(index, LayoutOption::kAdjustScrolling);
+        // If the widget is scrolling by finger gesture, do not trigger the item
+        // until finger up.
+        if (!scrolling_by_finger_) {
+          size_t index = 0;
+          if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
+            if (current_index_ == index) {
+              return HandleMouseOrFingerEvents(
+                  MouseOrFingerEventType::kMouseReleased,
+                  MouseButton::kLeftButton, x_in_window, y_in_window);
+            } else {
+              size_t select_index = 0;
+              if (FindItemIndexByMousePosition(x_in_window, y_in_window,
+                                               select_index))
+                SetIndex(index, LayoutOption::kAdjustScrolling);
+            }
           }
         }
       } else {
         // Prevents finger up events triggered by other widget.
-        if (mouse_locked_)
+        if (gesture_locked_)
           main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
       }
       return true;
     }
     case MouseOrFingerEventType::kMouseMove: {
-      if (!activate_ || mouse_locked_)
+      if (!activate_ || gesture_locked_)
         return true;
 
       size_t index = 0;
@@ -648,7 +658,7 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
       return true;
     }
     case MouseOrFingerEventType::kMouseReleased: {
-      AutoReset auto_reset(mouse_locked_);
+      AutoReset auto_reset(gesture_locked_);
       if (activate_) {
         if (button == MouseButton::kLeftButton) {
           size_t index_before_released = current_index_;
@@ -667,7 +677,7 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
         }
       } else {
         // Prevents mouse released events triggered by other widget.
-        if (mouse_locked_)
+        if (gesture_locked_)
           main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
       }
       return true;
@@ -740,13 +750,13 @@ bool FlexItemsWidget::OnMouseMove(SDL_MouseMotionEvent* event) {
 }
 
 bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
-  if (!activate_ || mouse_locked_)
+  if (!activate_ || gesture_locked_)
     return true;
 
   constexpr int kScrollingTurbo = 5;
   if (!items_.empty()) {
     const int kScrollingChangedValue = event->preciseY * kScrollingTurbo;
-    ScrollWith(kScrollingChangedValue, event->mouseX, event->mouseY);
+    ScrollWith(kScrollingChangedValue, &event->mouseX, &event->mouseY);
   }
 
   return true;

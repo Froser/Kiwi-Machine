@@ -44,7 +44,7 @@ class FlexItemsWidget : public Widget {
   void SetIndex(size_t index);
   bool IsItemSelected(FlexItemWidget* item);
   void SetActivate(bool activate);
-  void ScrollWith(int scrolling_delta, int mouse_x, int mouse_y);
+  void ScrollWith(int scrolling_delta, const int* mouse_x, const int* mouse_y);
 
   bool empty() { return items_.empty(); }
   size_t size() { return items_.size(); }
@@ -140,7 +140,7 @@ class FlexItemsWidget : public Widget {
   int target_view_scrolling_ = 0;
   bool updating_view_scrolling_ = false;
   std::map<FlexItemWidget*, SDL_Rect> bounds_map_without_scrolling_;
-  bool mouse_locked_ = false;
+  bool gesture_locked_ = false;
 
   bool activate_ = false;
   int rows_ = 0;
@@ -150,6 +150,11 @@ class FlexItemsWidget : public Widget {
 
   // Detail widget
   enum { kTop, kBottom } last_detail_widget_position_ = kTop;
+
+  bool scrolling_by_finger_ = false;
+#if KIWI_MOBILE
+  SDL_TouchFingerEvent last_finger_down_event_;
+#endif
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEMS_WIDGET_H_

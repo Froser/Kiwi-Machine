@@ -17,6 +17,10 @@
 #include "ui/window_base.h"
 
 bool FlexItemsWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  if (activate_) {
+    last_finger_down_event_ = *event;
+  }
+
   SDL_Rect window_rect = window()->GetWindowBounds();
   return HandleMouseOrFingerEvents(
       MouseOrFingerEventType::kFingerDown, MouseButton::kLeftButton,
@@ -24,16 +28,24 @@ bool FlexItemsWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
 }
 
 bool FlexItemsWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
-  // return HandleMouseOrFingerEvents(MouseOrFingerEventType::kFingerMove,
-  //                                  MouseButton::kLeftButton,
-  //                                  event->x * bounds().w,
-  //                                  event->y * bounds().h);
+  if (gesture_locked_) {
+    SDL_Rect window_rect = window()->GetWindowBounds();
+    int y_distance = (event->y - last_finger_down_event_.y) * window_rect.h;
+    if (y_distance != 0) {
+      scrolling_by_finger_ = true;
+      ScrollWith(y_distance, nullptr, nullptr);
+    }
+
+    last_finger_down_event_ = *event;
+  }
   return false;
 }
 
 bool FlexItemsWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
   SDL_Rect window_rect = window()->GetWindowBounds();
-  return HandleMouseOrFingerEvents(
+  bool handled = HandleMouseOrFingerEvents(
       MouseOrFingerEventType::kFingerUp, MouseButton::kLeftButton,
       event->x * window_rect.w, event->y * window_rect.h);
+  scrolling_by_finger_ = false;
+  return handled;
 }

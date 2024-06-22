@@ -166,7 +166,6 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
   if (!activate_)
     return false;
 
-  // if (!is_finger_down_) { TODO
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
