@@ -83,11 +83,7 @@ FontType GetJoystickFontType(PreferredFontSize fallback_font_size) {
 }
 
 FontType GetSlotNameFontType(bool is_landscape, const char* str_hint) {
-#if KIWI_IOS
-  return is_landscape ? FontType::kDefault : FontType::kSystemDefault;
-#else
   return GetPreferredFontType(PreferredFontSize::k1x, str_hint);
-#endif
 }
 
 }  // namespace in_game_menu
