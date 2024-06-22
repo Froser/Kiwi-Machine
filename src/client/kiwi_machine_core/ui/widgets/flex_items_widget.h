@@ -85,6 +85,22 @@ class FlexItemsWidget : public Widget {
   void RefreshCurrentItemBounds();
 
   void PaintDetails();
+  enum class MouseOrFingerEventType {
+    kMousePressed,
+    kMouseReleased,
+    kMouseMove,
+    kFingerDown,
+    kFingerUp,
+  };
+  enum class MouseButton {
+    kLeftButton,
+    kRightButton,
+    kUnknownButton,
+  };
+  bool HandleMouseOrFingerEvents(MouseOrFingerEventType type,
+                                 MouseButton button,
+                                 int x_in_window,
+                                 int y_in_window);
 
  protected:
   void Paint() override;
@@ -99,7 +115,13 @@ class FlexItemsWidget : public Widget {
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
-  bool ChildrenAcceptHitTest() override;
+  int GetHitTestPolicy() override;
+
+#if KIWI_MOBILE
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
+#endif
 
  private:
   MainWindow* main_window_ = nullptr;

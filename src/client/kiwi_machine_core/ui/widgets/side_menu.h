@@ -54,9 +54,23 @@ class SideMenu : public Widget {
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
+#if KIWI_MOBILE
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
+#endif
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
+
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool HandleMouseOrFingerDown();
+  enum class MouseButton {
+    kLeftButton,
+    kRightButton,
+    kUnknownButton,
+  };
+  bool HandleMouseOrFingerUp(MouseButton button,
+                             int x_in_window,
+                             int y_in_window);
   void SetIndex(int index);
   void EnterIndex(int index);
   void TriggerCurrentItem();

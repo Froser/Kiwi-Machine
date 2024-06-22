@@ -32,7 +32,6 @@ class Widget {
 
  public:
   using Widgets = std::multiset<std::unique_ptr<Widget>, ZOrderComparer>;
-
   explicit Widget(WindowBase* window_base);
   virtual ~Widget();
 
@@ -99,8 +98,14 @@ class Widget {
   virtual void Paint();
   virtual void PostPaint();
   virtual bool IsWindowless();
-  virtual bool AcceptHitTest();
-  virtual bool ChildrenAcceptHitTest();
+  // Returns the combination of HitTestPolicy.
+  enum HitTestPolicy : int {
+    kNoHitTest = 0,
+    kAcceptHitTest = 1,
+    kAlwaysHitTest = 2,
+    kChildrenAcceptHitTest = 4,
+  };
+  virtual int GetHitTestPolicy();
   virtual bool OnKeyPressed(SDL_KeyboardEvent* event);
   virtual bool OnKeyReleased(SDL_KeyboardEvent* event);
   virtual bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event);

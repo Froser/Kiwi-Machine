@@ -31,6 +31,13 @@ constexpr int kScrollingAnimationMs = 20;
 constexpr int kDetailWidgetMargin = 25;
 constexpr int kDetailWidgetPadding = 5;
 
+struct AutoReset {
+  AutoReset(bool& value) : value_(value) {}
+  ~AutoReset() { value_ = false; }
+
+  bool& value_;
+};
+
 int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   SDL_assert(lhs.h == rhs.h);
   int lhs_x2 = lhs.x + lhs.w;
@@ -594,6 +601,80 @@ void FlexItemsWidget::PaintDetails() {
       ImColor(1.f, 1.f, 1.f), title.c_str());
 }
 
+bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
+                                                MouseButton button,
+                                                int x_in_window,
+                                                int y_in_window) {
+  switch (type) {
+    case MouseOrFingerEventType::kMousePressed:
+    case MouseOrFingerEventType::kFingerDown: {
+      mouse_locked_ = true;
+      if (!activate_)
+        return true;
+
+      return true;
+    }
+    case MouseOrFingerEventType::kFingerUp: {
+      AutoReset auto_reset(mouse_locked_);
+      if (activate_) {
+        size_t index = 0;
+        if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
+          if (current_index_ == index) {
+            return HandleMouseOrFingerEvents(
+                MouseOrFingerEventType::kMouseReleased,
+                MouseButton::kLeftButton, x_in_window, y_in_window);
+          } else {
+            size_t select_index = 0;
+            if (FindItemIndexByMousePosition(x_in_window, y_in_window,
+                                             select_index))
+              SetIndex(index, LayoutOption::kAdjustScrolling);
+          }
+        }
+      } else {
+        // Prevents finger up events triggered by other widget.
+        if (mouse_locked_)
+          main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
+      }
+      return true;
+    }
+    case MouseOrFingerEventType::kMouseMove: {
+      if (!activate_ || mouse_locked_)
+        return true;
+
+      size_t index = 0;
+      if (FindItemIndexByMousePosition(x_in_window, y_in_window, index))
+        SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+
+      return true;
+    }
+    case MouseOrFingerEventType::kMouseReleased: {
+      AutoReset auto_reset(mouse_locked_);
+      if (activate_) {
+        if (button == MouseButton::kLeftButton) {
+          size_t index_before_released = current_index_;
+          size_t index = 0;
+          if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
+            // If the highlight item doesn't change, trigger it.
+            if (index_before_released == index) {
+              PlayEffect(audio_resources::AudioID::kStart);
+              TriggerCurrentItem();
+            } else {
+              SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+            }
+          }
+        } else if (button == MouseButton::kRightButton) {
+          back_callback_.Run();
+        }
+      } else {
+        // Prevents mouse released events triggered by other widget.
+        if (mouse_locked_)
+          main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
+      }
+      return true;
+    }
+  }
+}
+
 void FlexItemsWidget::Paint() {
   if (first_paint_) {
     Layout(LayoutOption::kAdjustScrolling);
@@ -653,14 +734,9 @@ bool FlexItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool FlexItemsWidget::OnMouseMove(SDL_MouseMotionEvent* event) {
-  if (!activate_ || mouse_locked_)
-    return true;
-
-  size_t index = 0;
-  if (FindItemIndexByMousePosition(event->x, event->y, index))
-    SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
-
-  return true;
+  return HandleMouseOrFingerEvents(MouseOrFingerEventType::kMouseMove,
+                                   MouseButton::kUnknownButton, event->x,
+                                   event->y);
 }
 
 bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
@@ -677,36 +753,23 @@ bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
 }
 
 bool FlexItemsWidget::OnMousePressed(SDL_MouseButtonEvent* event) {
-  if (!activate_)
-    return true;
-
-  mouse_locked_ = true;
-  return true;
+  MouseButton button = (event->button == SDL_BUTTON_LEFT
+                            ? MouseButton::kLeftButton
+                            : ((event->button == SDL_BUTTON_RIGHT
+                                    ? MouseButton::kRightButton
+                                    : MouseButton::kUnknownButton)));
+  return HandleMouseOrFingerEvents(MouseOrFingerEventType::kMousePressed,
+                                   button, event->x, event->y);
 }
 
 bool FlexItemsWidget::OnMouseReleased(SDL_MouseButtonEvent* event) {
-  if (activate_) {
-    mouse_locked_ = false;
-
-    if (event->button == SDL_BUTTON_LEFT) {
-      size_t index_before_released = current_index_;
-      size_t index = 0;
-      if (FindItemIndexByMousePosition(event->x, event->y, index)) {
-        // If the highlight item doesn't change, trigger it.
-        if (index_before_released == index) {
-          PlayEffect(audio_resources::AudioID::kStart);
-          TriggerCurrentItem();
-        } else {
-          SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
-        }
-      }
-    } else if (event->button == SDL_BUTTON_RIGHT) {
-      back_callback_.Run();
-    }
-  } else {
-    main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
-  }
-  return true;
+  MouseButton button = (event->button == SDL_BUTTON_LEFT
+                            ? MouseButton::kLeftButton
+                            : ((event->button == SDL_BUTTON_RIGHT
+                                    ? MouseButton::kRightButton
+                                    : MouseButton::kUnknownButton)));
+  return HandleMouseOrFingerEvents(MouseOrFingerEventType::kMouseReleased,
+                                   button, event->x, event->y);
 }
 
 bool FlexItemsWidget::OnControllerButtonPressed(
@@ -728,8 +791,8 @@ void FlexItemsWidget::OnWindowPostRender() {
   ImGui::PopStyleVar(2);
 }
 
-bool FlexItemsWidget::ChildrenAcceptHitTest() {
+int FlexItemsWidget::GetHitTestPolicy() {
   // Children don't accept any hit test, and mouse events. All mouse events are
   // handled by this FlexItemsWidget.
-  return false;
+  return Widget::GetHitTestPolicy() & (~kChildrenAcceptHitTest);
 }

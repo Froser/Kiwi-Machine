@@ -17,13 +17,15 @@
 #include "ui/window_base.h"
 
 bool InGameMenu::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  SDL_Rect window_rect = window()->GetClientBounds();
   return HandleMouseOrFingerEvents(MouseOrFingerEventType::kFingerDown,
-                                   event->x * bounds().w,
-                                   event->y * bounds().h);
+                                   event->x * window_rect.w,
+                                   event->y * window_rect.h);
 }
 
 bool InGameMenu::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
+  SDL_Rect window_rect = window()->GetClientBounds();
   return HandleMouseOrFingerEvents(MouseOrFingerEventType::kFingerMove,
-                                   event->x * bounds().w,
-                                   event->y * bounds().h);
+                                   event->x * window_rect.w,
+                                   event->y * window_rect.h);
 }

@@ -215,6 +215,40 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
   return false;
 }
 
+bool SideMenu::HandleMouseOrFingerDown() {
+  if (!activate_) {
+    main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
+    return true;
+  }
+
+  mouse_locked_ = true;
+  return true;
+}
+
+bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
+                                     int x_in_window,
+                                     int y_in_window) {
+  if (activate_) {
+    mouse_locked_ = false;
+
+    if (button == MouseButton::kLeftButton) {
+      int index_before_released = current_index_;
+      int index = 0;
+      if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
+        // If the highlight item doesn't change, trigger it.
+        if (index_before_released != index) {
+          SetIndex(index);
+        } else {
+          TriggerCurrentItem();
+        }
+      }
+    }
+  } else if (button == MouseButton::kRightButton) {
+    main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
+  }
+  return true;
+}
+
 void SideMenu::Layout() {
   if (!bounds_valid_) {
     items_bounds_map_.resize(menu_items_.size());
@@ -278,33 +312,16 @@ bool SideMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool SideMenu::OnMousePressed(SDL_MouseButtonEvent* event) {
-  if (!activate_)
-    return true;
-
-  mouse_locked_ = true;
-  return true;
+  return HandleMouseOrFingerDown();
 }
 
 bool SideMenu::OnMouseReleased(SDL_MouseButtonEvent* event) {
-  if (activate_) {
-    mouse_locked_ = false;
-
-    if (event->button == SDL_BUTTON_LEFT) {
-      int index_before_released = current_index_;
-      int index = 0;
-      if (FindItemIndexByMousePosition(event->x, event->y, index)) {
-        // If the highlight item doesn't change, trigger it.
-        if (index_before_released != index) {
-          SetIndex(index);
-        } else {
-          TriggerCurrentItem();
-        }
-      }
-    }
-  } else {
-    main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
-  }
-  return true;
+  MouseButton button = (event->button == SDL_BUTTON_LEFT
+                            ? MouseButton::kLeftButton
+                            : ((event->button == SDL_BUTTON_RIGHT
+                                    ? MouseButton::kRightButton
+                                    : MouseButton::kUnknownButton)));
+  return HandleMouseOrFingerUp(button, event->x, event->y);
 }
 
 bool SideMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {

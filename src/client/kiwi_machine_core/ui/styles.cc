@@ -72,14 +72,13 @@ int GetOptionsSpacing() {
 #endif
 }
 
-FontType GetJoystickFontType(const char* str_hint,
-                             PreferredFontSize fallback_font_size) {
+FontType GetJoystickFontType(PreferredFontSize fallback_font_size) {
 #if KIWI_ANDROID
-  return FontType::kDefault2x;
+  return GetPreferredFontType(PreferredFontSize::k2x);
 #elif KIWI_IOS
-  return FontType::kDefault;
+  return GetPreferredFontType(PreferredFontSize::k1x);
 #else
-  return GetPreferredFontType(fallback_font_size, str_hint);
+  return GetPreferredFontType(fallback_font_size);
 #endif
 }
 

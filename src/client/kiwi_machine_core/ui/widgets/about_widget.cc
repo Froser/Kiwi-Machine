@@ -82,6 +82,23 @@ void AboutWidget::OnWindowPostRender() {
   ImGui::PopStyleVar(2);
 }
 
+bool AboutWidget::OnMouseReleased(SDL_MouseButtonEvent* event) {
+  if (event->button == SDL_BUTTON_RIGHT) {
+    PlayEffect(audio_resources::AudioID::kBack);
+    Close();
+    return true;
+  }
+  return false;
+}
+
+#if KIWI_MOBILE
+bool AboutWidget::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
+  PlayEffect(audio_resources::AudioID::kBack);
+  Close();
+  return true;
+}
+#endif
+
 bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
                                    SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(

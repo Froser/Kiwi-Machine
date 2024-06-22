@@ -149,12 +149,8 @@ bool Widget::IsWindowless() {
   return false;
 }
 
-bool Widget::AcceptHitTest() {
-  return true;
-}
-
-bool Widget::ChildrenAcceptHitTest() {
-  return true;
+int Widget::GetHitTestPolicy() {
+  return kAcceptHitTest | kChildrenAcceptHitTest;
 }
 
 bool Widget::HandleKeyEvent(SDL_KeyboardEvent* event) {
@@ -291,27 +287,22 @@ void Widget::HandleDisplayEvent() {
 }
 
 bool Widget::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
-  bool handled = false;
   if (enabled() && visible()) {
-    if (event->type == SDL_FINGERUP)
-      handled = OnTouchFingerUp(event);
-    else if (event->type == SDL_FINGERDOWN)
-      handled = OnTouchFingerDown(event);
-    else if (event->type == SDL_FINGERMOTION)
-      handled = OnTouchFingerMove(event);
-    else
+    SDL_Rect window_rect = window()->GetWindowBounds();
+    Widget* target =
+        HitTest(event->x * window_rect.w, event->y * window_rect.h);
+    if (target) {
+      if (event->type == SDL_FINGERUP)
+        return target->OnTouchFingerUp(event);
+      if (event->type == SDL_FINGERDOWN)
+        return target->OnTouchFingerDown(event);
+      if (event->type == SDL_FINGERMOTION)
+        return target->OnTouchFingerMove(event);
       SDL_assert(false);
-
-    if (!handled) {
-      for (auto& widget : widgets_) {
-        handled = widget->HandleTouchFingerEvent(event);
-        if (handled)
-          break;
-      }
     }
   }
 
-  return handled;
+  return false;
 }
 
 void Widget::HandleLocaleChanged() {
@@ -346,12 +337,13 @@ Widget* Widget::HitTest(int x_in_window, int y_in_window) {
     return nullptr;
 
   SDL_Rect this_widget_bounds_to_window = MapToWindow(bounds());
-  if (Contains(this_widget_bounds_to_window, x_in_window, y_in_window) &&
-      AcceptHitTest()) {
-    if (ChildrenAcceptHitTest()) {
+  if ((Contains(this_widget_bounds_to_window, x_in_window, y_in_window) &&
+       GetHitTestPolicy() & kAcceptHitTest) ||
+      (GetHitTestPolicy() & kAlwaysHitTest)) {
+    if (GetHitTestPolicy() & kChildrenAcceptHitTest) {
       for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
         Widget* candidate = iter->get();
-        if (!candidate->AcceptHitTest())
+        if (!(candidate->GetHitTestPolicy() & kAcceptHitTest))
           continue;
 
         SDL_Rect candidate_bounds_to_window =

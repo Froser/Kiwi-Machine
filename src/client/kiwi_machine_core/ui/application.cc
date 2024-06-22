@@ -140,6 +140,7 @@ void Application::HandleEvent(SDL_Event* event) {
       if (target)
         target->HandleTouchFingerEvent(&event->tfinger);
     } break;
+#if !KIWI_MOBILE
     case SDL_MOUSEMOTION: {
       WindowBase* target = FindWindowFromID(event->motion.windowID);
       if (target)
@@ -160,6 +161,7 @@ void Application::HandleEvent(SDL_Event* event) {
       if (target)
         target->HandleMouseReleasedEvent(&event->button);
     } break;
+#endif
     default:
       break;
   }

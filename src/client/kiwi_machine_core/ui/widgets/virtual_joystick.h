@@ -47,6 +47,7 @@ class VirtualJoystick : public Widget {
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
+  int GetHitTestPolicy() override;
 
  private:
   void CalculateJoystick();

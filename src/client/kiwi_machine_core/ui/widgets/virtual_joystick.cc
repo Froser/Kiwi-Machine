@@ -153,6 +153,10 @@ bool VirtualJoystick::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
   return false;
 }
 
+int VirtualJoystick::GetHitTestPolicy() {
+  return Widget::GetHitTestPolicy() | kAlwaysHitTest;
+}
+
 void VirtualJoystick::CalculateJoystick() {
   int joystick_states = kNotPressed;
   if (is_finger_down_) {

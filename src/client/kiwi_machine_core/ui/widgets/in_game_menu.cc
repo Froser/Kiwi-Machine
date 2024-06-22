@@ -898,7 +898,7 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_Options_Joysticks(
     const char* kStrNone =
         GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NONE).c_str();
     ScopedFont joy_font(
-        styles::in_game_menu::GetJoystickFontType(kStrNone, context.font_size));
+        styles::in_game_menu::GetJoystickFontType(context.font_size));
     std::string joyname =
         GetLocalizedString(kPlayerStrings[j]) +
         (runtime_data_->joystick_mappings[j].which

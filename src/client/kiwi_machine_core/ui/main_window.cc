@@ -724,8 +724,8 @@ void MainWindow::InitializeUI() {
         image_resources::ImageID::kMenuAboutHighlight,
         CreateMenuAboutCallbacks());
 
-#if !KIWI_IOS
-    // iOS needn't quit the application manually.
+#if !KIWI_MOBILE
+    // Mobile apps needn't quit the application manually.
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         &MainWindow::OnQuit, kiwi::base::Unretained(this));
