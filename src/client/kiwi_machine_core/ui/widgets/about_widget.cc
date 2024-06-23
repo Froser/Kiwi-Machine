@@ -104,7 +104,7 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
                                    SDL_ControllerButtonEvent* c) {
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
-      (c && c->button == SDL_CONTROLLER_BUTTON_B)) {
+      (c && c->button == SDL_CONTROLLER_BUTTON_X)) {
     PlayEffect(audio_resources::AudioID::kBack);
     Close();
     return true;
@@ -238,6 +238,7 @@ void AboutWidget::DrawController() {
       GetLocalizedString(IDR_ABOUT_CONTROLLER_B).c_str(),
       GetLocalizedString(IDR_ABOUT_CONTROLLER_SELECT).c_str(),
       GetLocalizedString(IDR_ABOUT_CONTROLLER_START).c_str(),
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_INVOKE_MENU).c_str(),
   };
 
   const char* kXBoxStrings[] = {
@@ -245,8 +246,9 @@ void AboutWidget::DrawController() {
       GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_DIRECTION).c_str(),
       "A",
       "X",
-      GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_VIEW).c_str(),
+      "Y         ",
       GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_MENU).c_str(),
+      "LB + RB"
   };
   static_assert(
       ArrayCount(kKeyboardHeaderStrings) == ArrayCount(kKeyboardStringsP1) &&

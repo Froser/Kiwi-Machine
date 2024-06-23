@@ -248,7 +248,7 @@ bool Widget::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
         handled = OnControllerButtonPressed(event);
         for (auto& widget : widgets_) {
           if (widget->HandleJoystickButtonEvent(event))
-            break;
+            return true;
         }
       }
       break;
@@ -258,7 +258,7 @@ bool Widget::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
         handled = OnControllerButtonReleased(event);
         for (auto& widget : widgets_) {
           if (widget->HandleJoystickButtonEvent(event))
-            break;
+            return true;
         }
       }
       break;

@@ -203,7 +203,9 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
       IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kStart, k)) {
+          runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
+      (c && c->button == SDL_CONTROLLER_BUTTON_A) ||
+      (c && c->button == SDL_CONTROLLER_BUTTON_START)) {
     if (activate_) {
       PlayEffect(audio_resources::AudioID::kSelect);
       TriggerCurrentItem();

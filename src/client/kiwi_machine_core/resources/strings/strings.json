@@ -259,6 +259,11 @@
   "IDR_ABOUT_CONTROLLER_START": {
     "default": "START"
   },
+  "IDR_ABOUT_CONTROLLER_INVOKE_MENU": {
+    "default": "Show Menu",
+    "zh": "唤起菜单",
+    "ja": "メニューを呼び出す"
+  },
   "IDR_ABOUT_CONTROLLER_KEY_UP": {
     "default": "↑"
   },
@@ -275,11 +280,6 @@
     "default": "Stick Or D-Pad",
     "zh": "控制杆或方向键",
     "ja": "スティック又は方向パッド"
-  },
-  "IDR_ABOUT_CONTROLLER_XBOX_VIEW": {
-    "default": "View button",
-    "zh": "预览按钮",
-    "ja": "ビューボタン"
   },
   "IDR_ABOUT_CONTROLLER_XBOX_MENU": {
     "default": "Menu button",

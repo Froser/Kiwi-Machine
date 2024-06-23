@@ -334,7 +334,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_B) {
+      c && c->button == SDL_CONTROLLER_BUTTON_X) {
     back_callback_.Run();
   }
 
@@ -383,7 +383,8 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kSelect, k)) {
+          runtime_data_, kiwi::nes::ControllerButton::kSelect, k) ||
+      (c && c->button == SDL_CONTROLLER_BUTTON_Y)) {
     if (items_[current_index_]->has_sub_items()) {
       PlayEffect(audio_resources::AudioID::kSelect);
       SwapCurrentItemToNextSubItem();

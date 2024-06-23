@@ -169,7 +169,7 @@ bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* k,
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_B) {
+      c && c->button == SDL_CONTROLLER_BUTTON_X) {
     PlayEffect(audio_resources::AudioID::kBack);
     if (settings_entered_)
       settings_entered_ = false;
