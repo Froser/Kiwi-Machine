@@ -30,6 +30,7 @@ constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
 constexpr int kDetailWidgetMargin = 25;
 constexpr int kDetailWidgetPadding = 5;
+constexpr int kItemHoverDurationMs = 1000;
 
 struct AutoReset {
   AutoReset(bool& value) : value_(value) {}
@@ -118,6 +119,9 @@ void FlexItemsWidget::SetActivate(bool activate) {
 void FlexItemsWidget::ScrollWith(int scrolling_delta,
                                  const int* mouse_x,
                                  const int* mouse_y) {
+  // Alternative rom's cover may have a different size, so we restore here.
+  RestoreCurrentItemToDefault();
+
   // Scrolling
   target_view_scrolling_ += scrolling_delta;
 
@@ -397,6 +401,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
 void FlexItemsWidget::TriggerCurrentItem() {
   items_[current_index_]->Trigger();
+  RestoreCurrentItemToDefault();
 }
 
 void FlexItemsWidget::ApplyScrolling(int scrolling) {
@@ -613,24 +618,39 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
                                                 int x_in_window,
                                                 int y_in_window) {
   switch (type) {
+    case MouseOrFingerEventType::kHover: {
+      if (!mouse_moved_ && !scrolling_by_finger_) {
+        gesture_locked_ = false;
+        if (items_[current_index_]->has_sub_items()) {
+          PlayEffect(audio_resources::AudioID::kSelect);
+          SwapCurrentItemToNextSubItem();
+        }
+      }
+      return true;
+    }
     case MouseOrFingerEventType::kMousePressed:
     case MouseOrFingerEventType::kFingerDown: {
+      mouse_moved_ = false;
       gesture_locked_ = true;
+      gesture_locked_timer_.Reset();
+      gesture_locked_button_ = button;
       return true;
     }
     case MouseOrFingerEventType::kFingerUp: {
       AutoReset auto_reset(gesture_locked_);
       if (activate_) {
-        // If the widget is scrolling by finger gesture, do not trigger the item
-        // until finger up.
-        if (!scrolling_by_finger_) {
-          size_t index = 0;
-          if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
-            if (current_index_ == index) {
-              return HandleMouseOrFingerEvents(
-                  MouseOrFingerEventType::kMouseReleased,
-                  MouseButton::kLeftButton, x_in_window, y_in_window);
-            } else {
+        if (gesture_locked_) {
+          // If the widget is scrolling by finger gesture, do not trigger the
+          // item until finger up.
+          if (!scrolling_by_finger_) {
+            size_t index = 0;
+            if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
+              if (current_index_ == index) {
+                return HandleMouseOrFingerEvents(
+                    MouseOrFingerEventType::kMouseReleased,
+                    MouseButton::kLeftButton, x_in_window, y_in_window);
+              }
+
               size_t select_index = 0;
               if (FindItemIndexByMousePosition(x_in_window, y_in_window,
                                                select_index))
@@ -646,6 +666,7 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
       return true;
     }
     case MouseOrFingerEventType::kMouseMove: {
+      mouse_moved_ = true;
       if (!activate_ || gesture_locked_)
         return true;
 
@@ -658,20 +679,22 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
     case MouseOrFingerEventType::kMouseReleased: {
       AutoReset auto_reset(gesture_locked_);
       if (activate_) {
-        if (button == MouseButton::kLeftButton) {
-          size_t index_before_released = current_index_;
-          size_t index = 0;
-          if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
-            // If the highlight item doesn't change, trigger it.
-            if (index_before_released == index) {
-              PlayEffect(audio_resources::AudioID::kStart);
-              TriggerCurrentItem();
-            } else {
-              SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+        if (gesture_locked_) {
+          if (button == MouseButton::kLeftButton) {
+            size_t index_before_released = current_index_;
+            size_t index = 0;
+            if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
+              // If the highlight item doesn't change, trigger it.
+              if (index_before_released == index) {
+                PlayEffect(audio_resources::AudioID::kStart);
+                TriggerCurrentItem();
+              } else {
+                SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+              }
             }
+          } else if (button == MouseButton::kRightButton) {
+            back_callback_.Run();
           }
-        } else if (button == MouseButton::kRightButton) {
-          back_callback_.Run();
         }
       } else {
         // Prevents mouse released events triggered by other widget.
@@ -713,6 +736,12 @@ void FlexItemsWidget::Paint() {
     current_item_widget_->set_bounds(Lerp(current_item_original_bounds_,
                                           current_item_target_bounds_,
                                           percentage));
+  }
+
+  if (gesture_locked_ &&
+      gesture_locked_timer_.ElapsedInMilliseconds() > kItemHoverDurationMs) {
+    HandleMouseOrFingerEvents(MouseOrFingerEventType::kHover,
+                              gesture_locked_button_, 0, 0);
   }
 }
 

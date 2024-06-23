@@ -208,13 +208,13 @@
     "ja": "入力"
   },
   "IDR_ABOUT_CONTROLLER_KEYBOARD_1": {
-    "default": "Player 1 (Keyboard)",
-    "zh": "玩家1（键盘）",
+    "default": "Player 1",
+    "zh": "玩家1",
     "ja": "プレイヤー1"
   },
   "IDR_ABOUT_CONTROLLER_KEYBOARD_2": {
-    "default": "Player 2 (Keyboard)",
-    "zh": "玩家2（键盘）",
+    "default": "Player 2",
+    "zh": "玩家2",
     "ja": "プレイヤー2"
   },
   "IDR_ABOUT_CONTROLLER_XBOX": {
@@ -260,21 +260,25 @@
     "default": "START"
   },
   "IDR_ABOUT_CONTROLLER_INVOKE_MENU": {
-    "default": "Show Menu",
-    "zh": "唤起菜单",
-    "ja": "メニューを呼び出す"
+    "default": "Menu",
+    "zh": "菜单",
+    "ja": "メニュー"
   },
   "IDR_ABOUT_CONTROLLER_KEY_UP": {
-    "default": "↑"
+    "default": "↑",
+    "en": "Up"
   },
   "IDR_ABOUT_CONTROLLER_KEY_DOWN": {
-    "default": "↓"
+    "default": "↓",
+    "en": "Down"
   },
   "IDR_ABOUT_CONTROLLER_KEY_LEFT": {
-    "default": "←"
+    "default": "←",
+    "en": "Left"
   },
   "IDR_ABOUT_CONTROLLER_KEY_RIGHT": {
-    "default": "→"
+    "default": "→",
+    "en": "Right"
   },
   "IDR_ABOUT_CONTROLLER_XBOX_DIRECTION": {
     "default": "Stick Or D-Pad",
@@ -302,9 +306,9 @@
     "ja": "がある場合は、複数のバージョンがあります"
   },
   "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_2": {
-    "default": "You may change its version by pressing SELECT.",
-    "zh": "您可以通过按下SELECT来更换它的版本。",
-    "ja": "SELECTを押すと、バージョンを変更できる。"
+    "default": "By pressing SELECT, or long press on the selected game, you may change its version.",
+    "zh": "您可以通过按下SELECT，或在它被选中时长按它来更换它的版本。",
+    "ja": "SELECTを押す又は選択されている間にゲームを長押すると、バージョンを変更できる。"
   },
   "IDR_ABOUT_ABOUT": {
     "default": "About this app",

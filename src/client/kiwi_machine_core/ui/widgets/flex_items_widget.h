@@ -91,6 +91,7 @@ class FlexItemsWidget : public Widget {
     kMouseMove,
     kFingerDown,
     kFingerUp,
+    kHover,  // Mouse pressed or finger down for a long time
   };
   enum class MouseButton {
     kLeftButton,
@@ -151,7 +152,10 @@ class FlexItemsWidget : public Widget {
   // Detail widget
   enum { kTop, kBottom } last_detail_widget_position_ = kTop;
 
+  Timer gesture_locked_timer_;
+  MouseButton gesture_locked_button_ = MouseButton::kLeftButton;
   bool scrolling_by_finger_ = false;
+  bool mouse_moved_ = false;
 #if KIWI_MOBILE
   SDL_TouchFingerEvent last_finger_down_event_;
 #endif
