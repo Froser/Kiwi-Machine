@@ -616,9 +616,6 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
     case MouseOrFingerEventType::kMousePressed:
     case MouseOrFingerEventType::kFingerDown: {
       gesture_locked_ = true;
-      if (!activate_)
-        return true;
-
       return true;
     }
     case MouseOrFingerEventType::kFingerUp: {
@@ -683,6 +680,8 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
       }
       return true;
     }
+    default:
+      return false;
   }
 }
 
@@ -754,7 +753,11 @@ bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
   if (!activate_ || gesture_locked_)
     return true;
 
+#if BUILDFLAG(IS_MAC)
   constexpr int kScrollingTurbo = 5;
+#else
+  constexpr int kScrollingTurbo = 25;
+#endif
   if (!items_.empty()) {
     const int kScrollingChangedValue = event->preciseY * kScrollingTurbo;
     ScrollWith(kScrollingChangedValue, &event->mouseX, &event->mouseY);
