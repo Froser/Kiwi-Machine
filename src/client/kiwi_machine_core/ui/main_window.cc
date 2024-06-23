@@ -249,8 +249,7 @@ MainWindow* MainWindow::GetInstance() {
 }
 
 void MainWindow::LoadROM_WASM(kiwi::base::FilePath rom_path) {
-  AddAfterSplashCallback(kiwi::base::BindOnce(
-      &MainWindow::LoadROMByPath, kiwi::base::Unretained(this), rom_path));
+  LoadROMByPath(rom_path);
 }
 
 void MainWindow::SetVolume_WASM(float volume) {

@@ -70,6 +70,12 @@ PreferredFontSize GetPreferredFontSize();
 
 }  // namespace side_menu
 
+namespace about_widget {
+
+int GetMarginX(float window_scale);
+
+}
+
 }  // namespace styles
 
 #endif  // UI_WINDOW_STYLES_H_

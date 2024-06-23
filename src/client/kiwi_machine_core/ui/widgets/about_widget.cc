@@ -17,6 +17,7 @@
 #include <nes/types.h>
 
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/window_base.h"
 #include "utility/audio_effects.h"
@@ -118,10 +119,8 @@ PreferredFontSize AboutWidget::PreferredTitleFontSize() {
 }
 
 void AboutWidget::ResetCursorX() {
-  if (main_window_->window_scale() > 2.f)
-    ImGui::SetCursorPosX(40);
-  else
-    ImGui::SetCursorPosX(20);
+  ImGui::SetCursorPosX(
+      styles::about_widget::GetMarginX(main_window_->window_scale()));
 }
 
 void AboutWidget::Separator() {

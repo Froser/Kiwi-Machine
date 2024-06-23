@@ -161,8 +161,10 @@ int GetItemHeight() {
 }
 
 int GetMarginBottom() {
-#if KIWI_ANDROID
-  return 30;
+#if KIWI_MOBILE
+  // Many mobile screen has a rounded corner, we set margin as a larger value
+  // here.
+  return 45;
 #else
   return 15;
 #endif
@@ -177,5 +179,19 @@ PreferredFontSize GetPreferredFontSize() {
 }
 
 }  // namespace side_menu
+
+namespace about_widget {
+
+int GetMarginX(float window_scale) {
+#if KIWI_MOBILE
+  return 80;
+#else
+  if (window_scale > 2.f)
+    return 40;
+  return 20;
+#endif
+}
+
+}  // namespace about_widget
 
 }  // namespace styles
