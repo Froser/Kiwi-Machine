@@ -40,24 +40,24 @@ FontType GetSlotNameFontType(bool is_landscape, const char* str_hint);
 namespace main_window {
 
 int GetJoystickSize(float window_scale);
-int GetJoystickPaddingX(float window_scale,
+int GetJoystickMarginX(float window_scale,
                         bool is_landscape,
                         const SDL_Rect& safe_area_insets);
-int GetJoystickPaddingY(float window_scale,
+int GetJoystickMarginY(float window_scale,
                         bool is_landscape,
                         const SDL_Rect& safe_area_insets);
-int GetJoystickButtonPaddingX(float window_scale,
+int GetJoystickButtonMarginX(float window_scale,
                               bool is_landscape,
                               const SDL_Rect& safe_area_insets);
-int GetJoystickButtonPaddingY(float window_scale,
+int GetJoystickButtonMarginY(float window_scale,
                               bool is_landscape,
                               const SDL_Rect& safe_area_insets);
-int GetJoystickSelectStartButtonPaddingBottom(float window_scale,
+int GetJoystickSelectStartButtonMarginBottom(float window_scale,
                                               bool is_landscape,
                                               const SDL_Rect& safe_area_insets);
-int GetJoystickPauseButtonPaddingX(float window_scale,
+int GetJoystickPauseButtonMarginX(float window_scale,
                                    const SDL_Rect& safe_area_insets);
-int GetJoystickPauseButtonPaddingY(float window_scale,
+int GetJoystickPauseButtonMarginY(float window_scale,
                                    const SDL_Rect& safe_area_insets);
 
 }  // namespace main_window

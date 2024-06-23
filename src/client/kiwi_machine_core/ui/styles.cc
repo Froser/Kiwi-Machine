@@ -83,11 +83,7 @@ FontType GetJoystickFontType(PreferredFontSize fallback_font_size) {
 }
 
 FontType GetSlotNameFontType(bool is_landscape, const char* str_hint) {
-#if KIWI_IOS
-  return is_landscape ? FontType::kDefault : FontType::kSystemDefault;
-#else
   return GetPreferredFontType(PreferredFontSize::k1x, str_hint);
-#endif
 }
 
 }  // namespace in_game_menu
@@ -98,57 +94,52 @@ int GetJoystickSize(float window_scale) {
   return 135 * window_scale;
 }
 
-int GetJoystickPaddingX(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets) {
-#if KIWI_ANDROID
-  int result = is_landscape ? 18 * window_scale : 10 * window_scale;
-#else
+int GetJoystickMarginX(float window_scale,
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 26 * window_scale : 10 * window_scale;
-#endif
   return result + safe_area_insets.x;
 }
 
-int GetJoystickPaddingY(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets) {
+int GetJoystickMarginY(float window_scale,
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets) {
 #if KIWI_ANDROID
-  int result = is_landscape ? 10 * window_scale : 40 * window_scale;
+  int result = is_landscape ? 20 * window_scale : 40 * window_scale;
 #else
   int result = is_landscape ? 26 * window_scale : 10 * window_scale;
 #endif
   return result + safe_area_insets.h;
 }
 
-int GetJoystickButtonPaddingX(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets) {
+int GetJoystickButtonMarginX(float window_scale,
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 40 * window_scale : 30 * window_scale;
   return result + safe_area_insets.x;
 }
 
-int GetJoystickButtonPaddingY(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets) {
+int GetJoystickButtonMarginY(float window_scale,
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 40 * window_scale : 60 * window_scale;
   return result + safe_area_insets.h;
 }
 
-int GetJoystickSelectStartButtonPaddingBottom(
-    float window_scale,
-    bool is_landscape,
-    const SDL_Rect& safe_area_insets) {
+int GetJoystickSelectStartButtonMarginBottom(float window_scale,
+                                             bool is_landscape,
+                                             const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 30 * window_scale : 10 * window_scale;
   return result + safe_area_insets.h;
 }
 
-int GetJoystickPauseButtonPaddingX(float window_scale,
-                                   const SDL_Rect& safe_area_insets) {
+int GetJoystickPauseButtonMarginX(float window_scale,
+                                  const SDL_Rect& safe_area_insets) {
   return 33 * window_scale + safe_area_insets.x;
 }
 
-int GetJoystickPauseButtonPaddingY(float window_scale,
-                                   const SDL_Rect& safe_area_insets) {
+int GetJoystickPauseButtonMarginY(float window_scale,
+                                  const SDL_Rect& safe_area_insets) {
   return 33 * window_scale + safe_area_insets.y;
 }
 

@@ -103,6 +103,10 @@ bool TouchButton::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
   return handled;
 }
 
+int TouchButton::GetHitTestPolicy() {
+  return Widget::GetHitTestPolicy() | kAlwaysHitTest;
+}
+
 void TouchButton::CalculateButtonState() {
   button_state_ = ButtonState::kNormal;
   for (const auto& finger : triggered_fingers_) {
