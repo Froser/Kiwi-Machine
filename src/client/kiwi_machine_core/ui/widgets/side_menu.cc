@@ -229,9 +229,7 @@ bool SideMenu::HandleMouseOrFingerDown() {
 bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
                                      int x_in_window,
                                      int y_in_window) {
-  if (activate_) {
-    mouse_locked_ = false;
-
+  if (activate_ && mouse_locked_) {
     if (button == MouseButton::kLeftButton) {
       int index_before_released = current_index_;
       int index = 0;
@@ -247,6 +245,7 @@ bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
   } else if (button == MouseButton::kRightButton) {
     main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
   }
+  mouse_locked_ = false;
   return true;
 }
 
