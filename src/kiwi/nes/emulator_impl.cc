@@ -49,9 +49,8 @@ void EmulatorImpl::PowerOn() {
   if (!working_thread_->StartWithOptions(std::move(options))) {
     LOG(FATAL) << "Failed to start working thread.";
   }
-  io_task_runner_ = working_thread_->task_runner();
   working_task_runner_ = emulate_on_working_thread_
-                             ? io_task_runner_
+                             ? working_thread_->task_runner()
                              : base::SequencedTaskRunner::GetCurrentDefault();
 
   controller1_.set_emulator(this);
@@ -232,8 +231,10 @@ void EmulatorImpl::Strobe(Byte strobe) {
 
 void EmulatorImpl::RunOneFrameOnProperThread() {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
-  if (running_state_ != RunningState::kRunning)
+  if (running_state_ != RunningState::kRunning) {
+    RunAllTasks();
     return;
+  }
 
   cpu_cycle_elapsed_ +=
       (std::chrono::high_resolution_clock::now() - cpu_cycle_timestamp_);
@@ -250,6 +251,8 @@ void EmulatorImpl::RunOneFrameOnProperThread() {
       break;
     StepInternal();
     cpu_cycle_elapsed_ -= kNanoPerCycle;
+
+    RunAllTasks();
   }
 }
 
@@ -317,6 +320,31 @@ void EmulatorImpl::AfterResetReply(RunningState last_state,
 void EmulatorImpl::OnIRQFromAPU() {
   // TODO Handle APU IRQ
   LOG(INFO) << "OnIRQFromAPU() is unhandled yet.";
+}
+
+void EmulatorImpl::PushTask(base::OnceClosure task) {
+  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
+  tasks_while_rendering_unsafe_.push(std::move(task));
+}
+
+void EmulatorImpl::RunAllTasks() {
+  // Checks if any task to be run
+  while (HasTask()) {
+    base::OnceClosure task = PopTask();
+    std::move(task).Run();
+  }
+}
+
+bool EmulatorImpl::HasTask() {
+  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
+  return !tasks_while_rendering_unsafe_.empty();
+}
+
+base::OnceClosure EmulatorImpl::PopTask() {
+  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
+  base::OnceClosure task = std::move(tasks_while_rendering_unsafe_.front());
+  tasks_while_rendering_unsafe_.pop();
+  return task;
 }
 
 void EmulatorImpl::OnPPUStepped() {
@@ -398,29 +426,27 @@ IODevices* EmulatorImpl::GetIODevices() {
 }
 
 void EmulatorImpl::SaveState(SaveStateCallback callback) {
-  if (working_task_runner_->RunsTasksInCurrentSequence()) {
-    Bytes data = SaveStateOnProperThread();
-    std::move(callback).Run(std::move(data));
-  } else {
-    working_task_runner_->PostTaskAndReplyWithResult(
-        FROM_HERE,
-        base::BindOnce(&EmulatorImpl::SaveStateOnProperThread,
-                       base::Unretained(this)),
-        std::move(callback));
-  }
+  SaveStateCallback bound_callback = base::BindPostTask(
+      base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
+
+  PushTask(base::BindOnce(
+      [](EmulatorImpl* emulator, SaveStateCallback callback) {
+        Bytes data = emulator->SaveStateOnProperThread();
+        std::move(callback).Run(std::move(data));
+      },
+      base::Unretained(this), std::move(bound_callback)));
 }
 
 void EmulatorImpl::LoadState(const Bytes& data, LoadCallback callback) {
-  if (working_task_runner_->RunsTasksInCurrentSequence()) {
-    bool result = LoadStateOnProperThread(data);
-    std::move(callback).Run(result);
-  } else {
-    working_task_runner_->PostTaskAndReplyWithResult(
-        FROM_HERE,
-        base::BindOnce(&EmulatorImpl::LoadStateOnProperThread,
-                       base::Unretained(this), data),
-        std::move(callback));
-  }
+  LoadCallback bound_callback = base::BindPostTask(
+      base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
+
+  PushTask(base::BindOnce(
+      [](EmulatorImpl* emulator, const Bytes& data, LoadCallback callback) {
+        bool result = emulator->LoadStateOnProperThread(data);
+        std::move(callback).Run(result);
+      },
+      base::Unretained(this), data, std::move(bound_callback)));
 }
 
 void EmulatorImpl::SetVolume(float volume) {

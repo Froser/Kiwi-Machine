@@ -14,6 +14,7 @@
 #define NES_EMULATOR_IMPL_H_
 
 #include <chrono>
+#include <queue>
 #include <set>
 
 #include "base/files/file_path.h"
@@ -104,12 +105,17 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   // Controllers
   void Strobe(Byte strobe);
 
+  // If any task need to be run on working task runner, use PushTask and
+  // PopTask.
+  void PushTask(base::OnceClosure task);
+
+ private:
+  void RunAllTasks();
+  base::OnceClosure PopTask();
+  bool HasTask();
+
  public:
   bool is_power_on() { return is_power_on_; }
-
-  scoped_refptr<base::SequencedTaskRunner> io_task_runner() {
-    return io_task_runner_;
-  }
 
  private:
   Cartridge::LoadCallback MakeLoadCallback(LoadCallback raw_callback);
@@ -144,8 +150,10 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
 
   DebugPort* debug_port_ = nullptr;
   scoped_refptr<base::SequencedTaskRunner> emulator_task_runner_;
-  scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> working_task_runner_;
+
+  std::queue<base::OnceClosure> tasks_while_rendering_unsafe_;
+  std::mutex mutex_for_tasks_while_rendering_;
 };
 
 }  // namespace nes

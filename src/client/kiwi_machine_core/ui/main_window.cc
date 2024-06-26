@@ -1411,6 +1411,7 @@ void MainWindow::OnTogglePause() {
 }
 
 void MainWindow::OnPause() {
+  StopAutoSave();
   // Cleanup all pressing keys when pausing.
   pressing_keys_.clear();
   runtime_data_->emulator->Pause();
@@ -1422,6 +1423,7 @@ void MainWindow::OnPause() {
 void MainWindow::OnResume() {
   runtime_data_->emulator->Run();
   SetVirtualButtonsVisible(true);
+  StartAutoSave();
 }
 
 void MainWindow::OnLoadPresetROM(const preset_roms::PresetROM& rom) {
