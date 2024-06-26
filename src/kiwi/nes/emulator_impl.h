@@ -115,7 +115,6 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   Cartridge::LoadCallback MakeLoadCallback(LoadCallback raw_callback);
   void StepInternal();
   void RunOneFrameOnProperThread();
-  void DoNextRunOnProperThread();
   void PowerOffOnProperThread();
   Bytes SaveStateOnProperThread();
   bool LoadStateOnProperThread(const Bytes& data);

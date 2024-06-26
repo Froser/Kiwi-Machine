@@ -253,16 +253,6 @@ void EmulatorImpl::RunOneFrameOnProperThread() {
   }
 }
 
-void EmulatorImpl::DoNextRunOnProperThread() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
-  if (running_state_ == RunningState::kRunning) {
-    // Post the task again
-    working_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&EmulatorImpl::RunOneFrameOnProperThread,
-                                  base::RetainedRef(this)));
-  }
-}
-
 void EmulatorImpl::PowerOffOnProperThread() {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   SetDebugPort(nullptr);

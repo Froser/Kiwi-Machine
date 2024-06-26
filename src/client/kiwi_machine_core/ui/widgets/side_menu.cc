@@ -171,7 +171,6 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
     int next_index = (current_index_ <= 0 ? 0 : current_index_ - 1);
     if (next_index != current_index_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
       SetIndex(next_index);
     }
     return true;
@@ -184,7 +183,6 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
         (current_index_ >= menu_items_.size() - 1 ? current_index_
                                                   : current_index_ + 1);
     if (next_index != current_index_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
       SetIndex(next_index);
     }
     return true;
@@ -194,7 +192,6 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (activate_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
       EnterIndex(current_index_);
     }
     return true;
@@ -207,7 +204,6 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
       (c && c->button == SDL_CONTROLLER_BUTTON_A) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_START)) {
     if (activate_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
       TriggerCurrentItem();
     }
     return true;
@@ -272,6 +268,7 @@ void SideMenu::Layout() {
 }
 
 void SideMenu::SetIndex(int index) {
+  PlayEffect(audio_resources::AudioID::kSelect);
   current_index_ = index;
   timer_.Reset();
 }
