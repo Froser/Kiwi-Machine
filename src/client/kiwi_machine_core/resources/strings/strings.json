@@ -144,6 +144,36 @@
     "zh": "退出",
     "ja": "終了"
   },
+  "IDR_MAIN_WINDOW_LOAD_SUCCEEDED": {
+    "default": "State loaded successfully",
+    "zh": "读取成功",
+    "ja": "ロード成功"
+  },
+  "IDR_MAIN_WINDOW_LOAD_FAILED": {
+    "default": "State loading failed",
+    "zh": "读取失败",
+    "ja": "ロード失敗"
+  },
+  "IDR_MAIN_WINDOW_SAVE_SUCCEEDED": {
+    "default": "State saved successfully",
+    "zh": "保存成功",
+    "ja": "セーブ成功"
+  },
+  "IDR_MAIN_WINDOW_SAVE_FAILED": {
+    "default": "State saving failed",
+    "zh": "保存失败",
+    "ja": "セーブ失敗"
+  },
+  "IDR_MAIN_WINDOW_CONNECTED": {
+    "default": " is connected",
+    "zh": "已连接",
+    "ja": "が接続した"
+  },
+  "IDR_MAIN_WINDOW_DISCONNECTED": {
+    "default": " is disconnected",
+    "zh": "已断开连接",
+    "ja": "が切れた"
+  },
   "IDR_ITEM_WIDGET": {
     "default": "(Press select to switch game version)",
     "zh": "(按下Select键切换游戏版本)",

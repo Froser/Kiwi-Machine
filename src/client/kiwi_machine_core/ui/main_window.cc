@@ -82,10 +82,13 @@ void FillLayout(WindowBase* window, Widget* widget) {
 void ToastGameControllersAddedOrRemoved(WindowBase* window,
                                         bool is_added,
                                         int which) {
+  using namespace string_resources;
   if (SDL_IsGameController(which)) {
     std::string name = SDL_GameControllerNameForIndex(which);
     Toast::ShowToast(
-        window, name + (is_added ? " is connected." : " is disconnected."));
+        window,
+        name + (is_added ? GetLocalizedString(IDR_MAIN_WINDOW_CONNECTED)
+                         : GetLocalizedString(IDR_MAIN_WINDOW_DISCONNECTED)));
   }
 }
 
@@ -1368,17 +1371,21 @@ void MainWindow::OnLoadAutoSavedState(int timestamp) {
 }
 
 void MainWindow::OnStateSaved(bool succeed) {
+  using namespace string_resources;
+
   if (succeed) {
     SDL_assert(in_game_menu_);
     in_game_menu_->RequestCurrentThumbnail();
-    Toast::ShowToast(this, "State saved.");
+    Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_SUCCEEDED));
   } else {
-    Toast::ShowToast(this, "State save failed.");
+    Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_FAILED));
   }
 }
 
 void MainWindow::OnStateLoaded(
     const NESRuntime::Data::StateResult& state_result) {
+  using namespace string_resources;
+
   if (state_result.success && !state_result.state_data.empty()) {
     audio_->Reset();
     runtime_data_->emulator->LoadState(
@@ -1386,9 +1393,11 @@ void MainWindow::OnStateLoaded(
         kiwi::base::BindOnce(
             [](MainWindow* window, bool success) {
               if (success)
-                Toast::ShowToast(window, "State loaded.");
+                Toast::ShowToast(
+                    window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_SUCCEEDED));
               else
-                Toast::ShowToast(window, "State load failed.");
+                Toast::ShowToast(
+                    window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_FAILED));
             },
             this));
     audio_->Start();

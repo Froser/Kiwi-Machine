@@ -15,6 +15,7 @@
 #include <imgui.h>
 
 #include "ui/window_base.h"
+#include "utility/fonts.h"
 
 namespace {
 constexpr int kSpacing = 10;
@@ -39,7 +40,7 @@ Toast::Toast(WindowBase* window_base,
       ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
   set_flags(window_flags);
   set_title(message);
-  set_bounds(SDL_Rect{g_top, 10, 200, kHeight});
+  set_bounds(SDL_Rect{g_top, 20, 200, kHeight});
   g_top += (kHeight + kSpacing);
 }
 
@@ -58,5 +59,6 @@ void Toast::Paint() {
     return;
   }
 
+  ScopedFont font = GetPreferredFont(PreferredFontSize::k2x, message_.c_str());
   ImGui::Text("%s", message_.c_str());
 }
