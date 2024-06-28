@@ -206,7 +206,7 @@ class MainWindow : public WindowBase,
   void OnInGameMenuTrigger();
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
-                                   InGameMenu::SettingsItemContext context);
+                                   InGameMenu::SettingsItemValue value);
   void OnInGameSettingsHandleWindowSize(bool is_left);
   void OnInGameSettingsHandleVolume(bool is_left);
   void OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,

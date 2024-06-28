@@ -20,6 +20,8 @@
 #include <vector>
 #endif
 
+#include <variant>
+
 #include "build/kiwi_defines.h"
 #include "models/nes_runtime.h"
 #include "ui/widgets/loading_widget.h"
@@ -56,23 +58,9 @@ class InGameMenu : public Widget {
   };
 
   using MenuItemCallback = kiwi::base::RepeatingCallback<void(MenuItem, int)>;
-  struct SettingsItemContext {
-    enum class SettingsItemType {
-      kPrompt,
-      kComplex,
-    };
-
-    SettingsItemType type;
-    union {
-      bool go_left;
-      struct {
-        SDL_Rect items_bounds;
-        SDL_Point trigger_position;
-      } bounds;
-    };
-  };
+  using SettingsItemValue = std::variant<bool, float>;
   using SettingsItemCallback =
-      kiwi::base::RepeatingCallback<void(SettingsItem, SettingsItemContext)>;
+      kiwi::base::RepeatingCallback<void(SettingsItem, SettingsItemValue)>;
 
   explicit InGameMenu(MainWindow* main_window,
                       NESRuntimeID runtime_id,
@@ -89,11 +77,17 @@ class InGameMenu : public Widget {
  private:
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
   void HandleMenuItemForCurrentSelection();
-  void HandleSettingsItemForCurrentSelection(SettingsItemContext context);
-  void HandleSettingsItemForCurrentSelectionInternal(
-      SettingsItemContext context);
+  void HandleSettingsPromptsInternal(InGameMenu::SettingsItem item,
+                                     bool go_left);
+  void HandleOtherPromptsInternal(bool go_left);
   void MoveSelection(bool up);
+  void MoveMenuItemTo(MenuItem item);
   void SetFirstSelection();
+  void EnterSettings(MenuItem item);
+  void EnterSettings(SettingsItem item);
+  void HandleSettingsPrompts(SettingsItem item, bool go_left);
+  void HandleOtherPrompts(bool go_left);
+  void HandleVolume(float percentage);
 
  protected:
   // Widget:
@@ -101,14 +95,8 @@ class InGameMenu : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
-  bool OnMousePressed(SDL_MouseButtonEvent* event) override;
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
-
-#if KIWI_MOBILE
-  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
-  bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
-#endif
 
  private:
   // Layout flow
@@ -123,7 +111,7 @@ class InGameMenu : public Widget {
     const int window_center_x = 0;
 
     // Menu items
-    int menu_tops[static_cast<int>(
+    SDL_Rect settings_menu_item_rects[static_cast<int>(
         MenuItem::kMax)];  // A list of each menu item's top position
     int menu_font_size;
     ImVec2 selection_menu_item_position;
@@ -143,11 +131,14 @@ class InGameMenu : public Widget {
     kMenuItemMargin = 10,
   };
 
+  bool IsItemBeingPressed(const SDL_Rect& item_rect,
+                          const LayoutImmediateContext& context);
   LayoutImmediateContext PreLayoutImmediate();
   void DrawBackgroundImmediate(LayoutImmediateContext& context);
   void DrawMenuItemsImmediate(LayoutImmediateContext& context);
-  void DrawMenuItemsImmediate_LayoutMenuItems(LayoutImmediateContext& context);
   void DrawMenuItemsImmediate_DrawMenuItems(LayoutImmediateContext& context);
+  void DrawMenuItemsImmediate_DrawMenuItems_Layout(
+      LayoutImmediateContext& context);
   void DrawMenuItemsImmediate_DrawMenuItems_SaveLoad(
       LayoutImmediateContext& context);
   void DrawMenuItemsImmediate_DrawMenuItems_Options(
@@ -168,27 +159,14 @@ class InGameMenu : public Widget {
 
   void AddRectForSettingsItemPrompt(SettingsItem settings_index,
                                     const SDL_Rect& rect_for_left,
-                                    const SDL_Rect& rect_for_right);
-  void AddRectForSettingsItemPrompt(SettingsItem settings_index,
-                                    const SDL_Rect& complex_item_rect);
-  void AddRectForSettingsItem(SettingsItem settings_index,
-                              const SDL_Rect& rect);
-  void CleanUpSettingsItemRects();
-  // Handle finger's down/move event and mouse pressed events.
-  enum class MouseOrFingerEventType {
-    kMousePressed,
-    kFingerMove,
-    kFingerDown,
-  };
-  bool HandleMouseOrFingerEvents(MouseOrFingerEventType type,
-                                 int x_in_window,
-                                 int y_in_window);
+                                    const SDL_Rect& rect_for_right,
+                                    LayoutImmediateContext& context);
 
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
   bool first_paint_ = true;
-  MenuItem current_selection_ = MenuItem::kContinue;
+  MenuItem current_menu_ = MenuItem::kContinue;
   SettingsItem current_setting_ = SettingsItem::kVolume;
   bool settings_entered_ = false;
   MenuItemCallback menu_callback_;
@@ -197,6 +175,7 @@ class InGameMenu : public Widget {
   int state_timestamp_ = 0;
   int which_autosave_state_slot_ = 0;
   std::set<int> hide_menus_;
+  bool is_rendering_ = false;
 
   // Snapshot
   std::unique_ptr<LoadingWidget> loading_widget_;
@@ -204,13 +183,6 @@ class InGameMenu : public Widget {
   SDL_Texture* snapshot_ = nullptr;
   bool currently_has_snapshot_ = false;
   int current_auto_states_count_ = 0;
-
-  // Menu and settings positions to handle finger touch or mouse events
-  std::unordered_map<MenuItem, SDL_Rect> menu_positions_;
-  std::unordered_map<SettingsItem, SDL_Rect> settings_positions_;
-  std::unordered_map<SettingsItem,
-                     std::vector<std::pair<SDL_Rect, SettingsItemContext>>>
-      settings_prompt_positions_;
 };
 
 #endif  // UI_WIDGETS_IN_GAME_MENU_H_

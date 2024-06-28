@@ -1633,47 +1633,45 @@ void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
 
 void MainWindow::OnInGameSettingsItemTrigger(
     InGameMenu::SettingsItem item,
-    InGameMenu::SettingsItemContext context) {
+    InGameMenu::SettingsItemValue value) {
+  bool* go_left_ptr = std::get_if<bool>(&value);
+  float* value_ptr = std::get_if<float>(&value);
+
   switch (item) {
     case InGameMenu::SettingsItem::kVolume:
       PlayEffect(audio_resources::AudioID::kSelect);
-      if (context.type ==
-          InGameMenu::SettingsItemContext::SettingsItemType::kPrompt)
-        OnInGameSettingsHandleVolume(context.go_left);
+      if (go_left_ptr)
+        OnInGameSettingsHandleVolume(*go_left_ptr);
       else
-        OnInGameSettingsHandleVolume(context.bounds.items_bounds,
-                                     context.bounds.trigger_position);
+        OnSetAudioVolume(*value_ptr);
       break;
     case InGameMenu::SettingsItem::kWindowSize:
-      SDL_assert(context.type ==
-                 InGameMenu::SettingsItemContext::SettingsItemType::kPrompt);
-      OnInGameSettingsHandleWindowSize(context.go_left);
+      SDL_assert(go_left_ptr);
+      OnInGameSettingsHandleWindowSize(*go_left_ptr);
       break;
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
-      SDL_assert(context.type ==
-                 InGameMenu::SettingsItemContext::SettingsItemType::kPrompt);
+      SDL_assert(go_left_ptr);
       std::vector<SDL_GameController*> controllers = GetControllerList();
       int player_index = (item == InGameMenu::SettingsItem::kJoyP1 ? 0 : 1);
       // Find next controller
       auto iter =
           std::find(controllers.begin(), controllers.end(),
                     runtime_data_->joystick_mappings[player_index].which);
-      if (context.go_left && iter != controllers.begin()) {
+      if (*go_left_ptr && iter != controllers.begin()) {
         SDL_GameController* next_controller = *(iter - 1);
         SetControllerMapping(runtime_data_, player_index, next_controller,
                              false);
-      } else if (!context.go_left && (iter != controllers.end() - 1)) {
+      } else if (!*go_left_ptr && (iter != controllers.end() - 1)) {
         SDL_GameController* next_controller = *(iter + 1);
         SetControllerMapping(runtime_data_, player_index, next_controller,
                              false);
       }
     } break;
     case InGameMenu::SettingsItem::kLanguage: {
-      SDL_assert(context.type ==
-                 InGameMenu::SettingsItemContext::SettingsItemType::kPrompt);
+      SDL_assert(go_left_ptr);
       SupportedLanguage language = GetCurrentSupportedLanguage();
-      if (context.go_left) {
+      if (*go_left_ptr) {
         language = static_cast<SupportedLanguage>(
             (static_cast<int>(language) - 1 < 0)
                 ? static_cast<int>(SupportedLanguage::kMax) - 1

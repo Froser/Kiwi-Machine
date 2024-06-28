@@ -152,7 +152,6 @@ if (KIWI_MOBILE)
     list(APPEND Sources
             ui/main_window_mobile.cc
             ui/widgets/flex_items_widget_mobile.cc
-            ui/widgets/in_game_menu_mobile.cc
             ui/widgets/side_menu_mobile.cc
     )
 endif ()
