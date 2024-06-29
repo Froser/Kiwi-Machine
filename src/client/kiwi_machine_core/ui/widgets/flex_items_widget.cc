@@ -660,8 +660,10 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
         }
       } else {
         // Prevents finger up events triggered by other widget.
-        if (gesture_locked_)
+        if (gesture_locked_) {
+          PlayEffect(audio_resources::AudioID::kSelect);
           main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
+        }
       }
       return true;
     }
@@ -698,8 +700,10 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
         }
       } else {
         // Prevents mouse released events triggered by other widget.
-        if (gesture_locked_)
+        if (gesture_locked_) {
+          PlayEffect(audio_resources::AudioID::kSelect);
           main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
+        }
       }
       return true;
     }

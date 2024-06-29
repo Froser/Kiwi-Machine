@@ -40,6 +40,14 @@ int GetItemHighlightedSize() {
 
 namespace in_game_menu {
 
+PreferredFontSize GetPreferredFontSize(float window_scale) {
+#if KIWI_MOBILE
+  return PreferredFontSize::k3x;
+#else
+  return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
+#endif
+}
+
 int GetSnapshotThumbnailWidth(bool is_landscape, float window_scale) {
 #if KIWI_IOS
   return Canvas::kNESFrameDefaultWidth / (is_landscape ? 2 : 3) * window_scale;
@@ -57,7 +65,7 @@ int GetSnapshotThumbnailHeight(bool is_landscape, float window_scale) {
 }
 
 int GetSnapshotPromptHeight(float window_scale) {
-#if KIWI_IOS
+#if KIWI_MOBILE
   return 14 * window_scale;
 #else
   return 7 * window_scale;
@@ -70,20 +78,6 @@ int GetOptionsSpacing() {
 #else
   return 20;
 #endif
-}
-
-FontType GetJoystickFontType(PreferredFontSize fallback_font_size) {
-#if KIWI_ANDROID
-  return GetPreferredFontType(PreferredFontSize::k2x);
-#elif KIWI_IOS
-  return GetPreferredFontType(PreferredFontSize::k1x);
-#else
-  return GetPreferredFontType(fallback_font_size);
-#endif
-}
-
-FontType GetSlotNameFontType(bool is_landscape, const char* str_hint) {
-  return GetPreferredFontType(PreferredFontSize::k1x, str_hint);
 }
 
 }  // namespace in_game_menu
@@ -149,7 +143,7 @@ namespace side_menu {
 
 int GetItemHeight() {
 #if KIWI_ANDROID
-  return 40;
+  return 60;
 #else
   return 20;
 #endif
@@ -159,7 +153,7 @@ int GetMarginBottom() {
 #if KIWI_MOBILE
   // Many mobile screen has a rounded corner, we set margin as a larger value
   // here.
-  return 45;
+  return 60;
 #else
   return 15;
 #endif

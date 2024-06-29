@@ -348,7 +348,6 @@ int MainWindow::Scaled(int i) {
 
 void MainWindow::ChangeFocus(MainFocus focus) {
   SDL_assert(side_menu_);
-  PlayEffect(audio_resources::AudioID::kSelect);
   switch (focus) {
     case MainFocus::kContents:
       side_menu_->set_activate(false);

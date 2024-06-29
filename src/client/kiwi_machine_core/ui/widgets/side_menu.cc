@@ -214,6 +214,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
 
 bool SideMenu::HandleMouseOrFingerDown() {
   if (!activate_) {
+    PlayEffect(audio_resources::AudioID::kSelect);
     main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
     return true;
   }
@@ -239,6 +240,7 @@ bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
       }
     }
   } else if (button == MouseButton::kRightButton) {
+    PlayEffect(audio_resources::AudioID::kSelect);
     main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
   }
   mouse_locked_ = false;

@@ -464,9 +464,8 @@ InGameMenu::LayoutImmediateContext InGameMenu::PreLayoutImmediate() {
   context.window_pos = ImGui::GetWindowPos();
   context.window_size = ImGui::GetWindowSize();
 
-  context.font_size = main_window_->window_scale() > 2.f
-                          ? PreferredFontSize::k2x
-                          : PreferredFontSize::k1x;
+  context.font_size =
+      styles::in_game_menu::GetPreferredFontSize(main_window_->window_scale());
 
   // Calculates the safe area on iPhone or other devices.
   context.window_pos.x += safe_area_insets.x;
@@ -630,6 +629,12 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_SaveLoad(
               thumbnail_pos.y + kThumbnailHeight + context.title_menu_height);
     ImGui::GetWindowDrawList()->AddRect(ImVec2(p0.x, p0.y), ImVec2(p1.x, p1.y),
                                         IM_COL32_WHITE);
+    SDL_Rect thumbnail_rect = {static_cast<int>(p0.x), static_cast<int>(p0.y),
+                               static_cast<int>(p1.x - p0.x),
+                               static_cast<int>(p1.y - p0.y)};
+    if (IsItemBeingPressed(thumbnail_rect, context)) {
+      EnterSettings(current_menu_);
+    }
 
     // Draw triangle, to switch states.
     // Center of the snapshot rect
@@ -692,6 +697,7 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_SaveLoad(
     } else if (currently_has_snapshot_) {
       SDL_assert(snapshot_);
       ImGui::Image(snapshot_, ImVec2(kThumbnailWidth, kThumbnailHeight));
+
     } else {
 #if KIWI_IOS
       std::unique_ptr<ScopedFont> no_state_font;
@@ -726,8 +732,8 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_SaveLoad(
       }
 
       {
-        ScopedFont slot_font(styles::in_game_menu::GetSlotNameFontType(
-            main_window_->IsLandscape(), state_slot_str.c_str()));
+        ScopedFont slot_font =
+            GetPreferredFont(context.font_size, state_slot_str.c_str());
         ImVec2 text_size = ImGui::CalcTextSize(state_slot_str.c_str());
         ImGui::SetCursorPos(ImVec2(p0.x + (p1.x - p0.x - text_size.x) / 2,
                                    p1.y + kSnapshotPromptSpacing));
@@ -1009,8 +1015,7 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_Options_Joysticks(
     const int kJoyDescSpacing = 3 * main_window_->window_scale();
     const char* kStrNone =
         GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NONE).c_str();
-    ScopedFont joy_font(
-        styles::in_game_menu::GetJoystickFontType(context.font_size));
+    ScopedFont joy_font = GetPreferredFont(context.font_size);
     std::string joyname =
         GetLocalizedString(kPlayerStrings[j]) +
         (runtime_data_->joystick_mappings[j].which

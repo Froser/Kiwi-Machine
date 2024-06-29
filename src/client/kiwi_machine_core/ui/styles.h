@@ -28,12 +28,11 @@ int GetItemHighlightedSize();
 
 namespace in_game_menu {
 
+PreferredFontSize GetPreferredFontSize(float window_scale);
 int GetSnapshotThumbnailWidth(bool is_landscape, float window_scale);
 int GetSnapshotThumbnailHeight(bool is_landscape, float window_scale);
 int GetSnapshotPromptHeight(float window_scale);
 int GetOptionsSpacing();
-FontType GetJoystickFontType(PreferredFontSize fallback_font_size);
-FontType GetSlotNameFontType(bool is_landscape, const char* str_hint);
 
 }  // namespace in_game_menu
 
