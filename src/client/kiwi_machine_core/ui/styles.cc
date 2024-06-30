@@ -22,7 +22,7 @@ namespace flex_items_widget {
 
 int GetItemHeightHint() {
 #if KIWI_ANDROID
-  return 320;
+  return 480;
 #else
   return 160;
 #endif
@@ -30,7 +30,7 @@ int GetItemHeightHint() {
 
 int GetItemHighlightedSize() {
 #if KIWI_ANDROID
-  return 40;
+  return 50;
 #else
   return 20;
 #endif
