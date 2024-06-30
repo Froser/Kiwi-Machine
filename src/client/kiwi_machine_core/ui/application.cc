@@ -399,16 +399,6 @@ void Application::InitializeROMs() {
       kiwi::base::FilePath::FromUTF8Unsafe(
           preset_roms::specials::GetPresetRomsPackageName()));
 #endif
-
-  for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::GetPresetRoms()[i];
-    FillRomDataFromZip(rom);
-  }
-
-  for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-    FillRomDataFromZip(rom);
-  }
 }
 
 void Application::AddWindowToEventHandler(WindowBase* window) {

@@ -33,7 +33,9 @@ struct PresetROM {
   mutable std::vector<PresetROM> alternates;
 
   // Whether its data or cover is loaded
-  mutable bool loaded = false;
+  mutable bool title_loaded = false;
+  mutable bool cover_loaded = false;
+  mutable bool content_loaded = false;
 };
 
 #define PRESET_ROM(name) name::ROM_NAME, name::ROM_ZIP, name::ROM_ZIP_SIZE

@@ -44,6 +44,7 @@
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 #include "utility/math.h"
+#include "utility/zip_reader.h"
 
 namespace {
 
@@ -651,7 +652,7 @@ void MainWindow::InitializeUI() {
     SDL_assert(preset_roms::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::GetPresetRoms()[i];
-      SDL_assert(rom.loaded);
+      LoadRomDataFromZip(rom, RomPart::kCover);
       size_t main_item_index = main_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
@@ -659,6 +660,8 @@ void MainWindow::InitializeUI() {
                                     kiwi::base::Unretained(this), rom));
 
       for (const auto& alternative_rom : rom.alternates) {
+        // TODO Alternative's cover is loaded by main ROM.
+        // LoadRomDataFromZip(alternative_rom, RomPart::kCover);
         main_nes_items_widget->AddSubItem(
             main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
             alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
@@ -686,8 +689,7 @@ void MainWindow::InitializeUI() {
     SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-      SDL_assert(rom.loaded);
-
+      LoadRomDataFromZip(rom, RomPart::kCover);
       special_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
@@ -777,62 +779,65 @@ void MainWindow::InitializeUI() {
   AddWidget(std::move(loading_widget));
 
   // Debug widgets
-  std::unique_ptr<PaletteWidget> palette_widget =
-      std::make_unique<PaletteWidget>(this, runtime_data_->debug_port.get());
-  palette_widget_ = palette_widget.get();
-  palette_widget_->set_visible(false);
-  AddWidget(std::move(palette_widget));
+  if (FLAGS_has_menu) {
+    std::unique_ptr<PaletteWidget> palette_widget =
+        std::make_unique<PaletteWidget>(this, runtime_data_->debug_port.get());
+    palette_widget_ = palette_widget.get();
+    palette_widget_->set_visible(false);
+    AddWidget(std::move(palette_widget));
 
-  std::unique_ptr<PatternWidget> pattern_widget =
-      std::make_unique<PatternWidget>(this, runtime_data_->debug_port.get());
-  pattern_widget_ = pattern_widget.get();
-  pattern_widget_->set_visible(false);
-  AddWidget(std::move(pattern_widget));
+    std::unique_ptr<PatternWidget> pattern_widget =
+        std::make_unique<PatternWidget>(this, runtime_data_->debug_port.get());
+    pattern_widget_ = pattern_widget.get();
+    pattern_widget_->set_visible(false);
+    AddWidget(std::move(pattern_widget));
 
-  std::unique_ptr<FrameRateWidget> frame_rate_widget =
-      std::make_unique<FrameRateWidget>(this, canvas_->frame(),
-                                        runtime_data_->debug_port.get());
-  frame_rate_widget_ = frame_rate_widget.get();
-  frame_rate_widget_->set_visible(false);
-  AddWidget(std::move(frame_rate_widget));
+    std::unique_ptr<FrameRateWidget> frame_rate_widget =
+        std::make_unique<FrameRateWidget>(this, canvas_->frame(),
+                                          runtime_data_->debug_port.get());
+    frame_rate_widget_ = frame_rate_widget.get();
+    frame_rate_widget_->set_visible(false);
+    AddWidget(std::move(frame_rate_widget));
 
-  std::unique_ptr<ExportWidget> export_widget =
-      std::make_unique<ExportWidget>(this);
-  export_widget_ = export_widget.get();
-  export_widget_->set_visible(false);
-  AddWidget(std::move(export_widget));
+    std::unique_ptr<ExportWidget> export_widget =
+        std::make_unique<ExportWidget>(this);
+    export_widget_ = export_widget.get();
+    export_widget_->set_visible(false);
+    AddWidget(std::move(export_widget));
 
-  std::unique_ptr<MemoryWidget> memory_widget = std::make_unique<MemoryWidget>(
-      this, runtime_id_,
-      kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
-                                kiwi::base::Unretained(this)),
-      kiwi::base::BindRepeating(&MainWindow::IsPause,
-                                kiwi::base::Unretained(this)));
-  memory_widget_ = memory_widget.get();
-  memory_widget_->set_visible(false);
-  AddWidget(std::move(memory_widget));
+    std::unique_ptr<MemoryWidget> memory_widget =
+        std::make_unique<MemoryWidget>(
+            this, runtime_id_,
+            kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
+                                      kiwi::base::Unretained(this)),
+            kiwi::base::BindRepeating(&MainWindow::IsPause,
+                                      kiwi::base::Unretained(this)));
+    memory_widget_ = memory_widget.get();
+    memory_widget_->set_visible(false);
+    AddWidget(std::move(memory_widget));
 
-  std::unique_ptr<DisassemblyWidget> disassembly_widget =
-      std::make_unique<DisassemblyWidget>(
-          this, runtime_id_,
-          kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
-                                    kiwi::base::Unretained(this)),
-          kiwi::base::BindRepeating(&MainWindow::IsPause,
-                                    kiwi::base::Unretained(this)));
-  disassembly_widget_ = disassembly_widget.get();
-  disassembly_widget_->set_visible(false);
-  AddWidget(std::move(disassembly_widget));
+    std::unique_ptr<DisassemblyWidget> disassembly_widget =
+        std::make_unique<DisassemblyWidget>(
+            this, runtime_id_,
+            kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
+                                      kiwi::base::Unretained(this)),
+            kiwi::base::BindRepeating(&MainWindow::IsPause,
+                                      kiwi::base::Unretained(this)));
+    disassembly_widget_ = disassembly_widget.get();
+    disassembly_widget_->set_visible(false);
+    AddWidget(std::move(disassembly_widget));
 
-  std::unique_ptr<NametableWidget> nametable_widget =
-      std::make_unique<NametableWidget>(this, runtime_id_);
-  nametable_widget_ = nametable_widget.get();
-  nametable_widget_->set_visible(false);
-  AddWidget(std::move(nametable_widget));
+    std::unique_ptr<NametableWidget> nametable_widget =
+        std::make_unique<NametableWidget>(this, runtime_id_);
+    nametable_widget_ = nametable_widget.get();
+    nametable_widget_->set_visible(false);
+    AddWidget(std::move(nametable_widget));
 
-  std::unique_ptr<Widget> demo_widget = std::make_unique<DemoWidget>(this);
-  demo_widget_ = demo_widget.get();
-  demo_widget_->set_visible(false);
-  AddWidget(std::move(demo_widget));
+    std::unique_ptr<Widget> demo_widget = std::make_unique<DemoWidget>(this);
+    demo_widget_ = demo_widget.get();
+    demo_widget_->set_visible(false);
+    AddWidget(std::move(demo_widget));
+  }
 
 #if !KIWI_MOBILE
   OnScaleChanged();
@@ -1423,8 +1428,10 @@ void MainWindow::OnPause() {
   // Cleanup all pressing keys when pausing.
   pressing_keys_.clear();
   runtime_data_->emulator->Pause();
-  memory_widget_->UpdateMemory();
-  disassembly_widget_->UpdateDisassembly();
+  if (memory_widget_)
+    memory_widget_->UpdateMemory();
+  if (disassembly_widget_)
+    disassembly_widget_->UpdateDisassembly();
   SetVirtualButtonsVisible(false);
 }
 
@@ -1438,6 +1445,7 @@ void MainWindow::OnLoadPresetROM(const preset_roms::PresetROM& rom) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
 
+  LoadRomDataFromZip(rom, RomPart::kContent);
   runtime_data_->emulator->LoadAndRun(
       ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
       kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
