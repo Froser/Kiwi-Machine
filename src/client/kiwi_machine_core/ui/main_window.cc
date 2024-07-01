@@ -652,7 +652,7 @@ void MainWindow::InitializeUI() {
     SDL_assert(preset_roms::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::GetPresetRoms()[i];
-      LoadRomDataFromZip(rom, RomPart::kCover);
+      LoadPresetROM(rom, RomPart::kCover);
       size_t main_item_index = main_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
@@ -660,8 +660,7 @@ void MainWindow::InitializeUI() {
                                     kiwi::base::Unretained(this), rom));
 
       for (const auto& alternative_rom : rom.alternates) {
-        // TODO Alternative's cover is loaded by main ROM.
-        // LoadRomDataFromZip(alternative_rom, RomPart::kCover);
+        LoadPresetROM(alternative_rom, RomPart::kCover);
         main_nes_items_widget->AddSubItem(
             main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
             alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
@@ -689,7 +688,7 @@ void MainWindow::InitializeUI() {
     SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
       const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-      LoadRomDataFromZip(rom, RomPart::kCover);
+      LoadPresetROM(rom, RomPart::kCover);
       special_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
@@ -1445,7 +1444,7 @@ void MainWindow::OnLoadPresetROM(const preset_roms::PresetROM& rom) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
 
-  LoadRomDataFromZip(rom, RomPart::kContent);
+  LoadPresetROM(rom, RomPart::kContent);
   runtime_data_->emulator->LoadAndRun(
       ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
       kiwi::base::BindOnce(&MainWindow::OnRomLoaded,

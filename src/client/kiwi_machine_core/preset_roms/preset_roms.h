@@ -36,6 +36,7 @@ struct PresetROM {
   mutable bool title_loaded = false;
   mutable bool cover_loaded = false;
   mutable bool content_loaded = false;
+  mutable bool owned_zip_data = true;
 };
 
 #define PRESET_ROM(name) name::ROM_NAME, name::ROM_ZIP, name::ROM_ZIP_SIZE

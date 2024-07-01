@@ -72,28 +72,6 @@ bool ReadFileFromZip(unzFile file,
   return ReadCurrentFileFromZip(file, data);
 }
 
-void ParseManifest(const kiwi::nes::Bytes& manifest,
-                   preset_roms::PresetROM& out) {
-  nlohmann::json manifest_json = nlohmann::json::parse(manifest);
-  if (manifest_json.contains("title")) {
-    for (const auto& title : manifest_json["title"].items()) {
-      out.i18n_names[title.key()] = title.value();
-    }
-  }
-}
-
-void ReadNESOrCover(unzFile file,
-                    const kiwi::base::FilePath& rom_path,
-                    preset_roms::PresetROM& out) {
-  if (rom_path.FinalExtension() == FILE_PATH_LITERAL(".nes")) {
-    ReadCurrentFileFromZip(file, out.rom_data);
-    out.content_loaded = true;
-  } else if (rom_path.FinalExtension() == FILE_PATH_LITERAL(".jpg")) {
-    ReadCurrentFileFromZip(file, out.rom_cover);
-    out.cover_loaded = true;
-  }
-}
-
 unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
   SDL_RWops* ops = SDL_RWFromMem(const_cast<kiwi::nes::Byte*>(data), size);
 
@@ -112,40 +90,16 @@ unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
 
 }  // namespace
 
-void LoadRomDataFromZip(const preset_roms::PresetROM& rom_data, RomPart part) {
-  if (!((HasAnyPart(part & RomPart::kTitle) && !rom_data.title_loaded) ||
-        (HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) ||
-        (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded)))
-    return;
-
-  unzFile file = unzOpenFromMemory(
-      const_cast<kiwi::nes::Byte*>(rom_data.zip_data), rom_data.zip_size);
-  if (file) {
-    kiwi::nes::Bytes manifest;
-    // Loads cover or ROM contents on demand.
-    RomPart loaded_part = RomPart::kNone;
-
-    if (HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) {
-      if (ReadFileFromZip(file, std::string(rom_data.name) + ".jpg",
-                          rom_data.rom_cover)) {
-        rom_data.cover_loaded = true;
-        loaded_part |= RomPart::kCover;
-      }
-    }
-
-    if (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded) {
-      if (ReadFileFromZip(file, std::string(rom_data.name) + ".nes",
-                          rom_data.rom_data)) {
-        rom_data.content_loaded = true;
-        loaded_part |= RomPart::kContent;
-      }
-    }
-
-    // Loads title or i18 names on demand.
-    std::map<std::string, std::unordered_map<std::string, std::string>>
-        i18n_names;
-    if (HasAnyPart(part & RomPart::kTitle) && !rom_data.title_loaded) {
-      ReadFileFromZip(file, "manifest.json", manifest);
+void InitializePresetROM(const preset_roms::PresetROM& rom_data) {
+  if (!rom_data.title_loaded) {
+    unzFile file = unzOpenFromMemory(
+        const_cast<kiwi::nes::Byte*>(rom_data.zip_data), rom_data.zip_size);
+    if (file) {
+      kiwi::nes::Bytes manifest;
+      // Loads title or i18 names on demand.
+      std::map<std::string, std::unordered_map<std::string, std::string>>
+          i18n_names;
+      bool success = ReadFileFromZip(file, "manifest.json", manifest);
       bool has_manifest = !manifest.empty();
       // Parsing manifest file, to extract i18n information, and so on.
       if (has_manifest) {
@@ -168,75 +122,105 @@ void LoadRomDataFromZip(const preset_roms::PresetROM& rom_data, RomPart part) {
         // Found the default name, which is the primary ROM's name.
         rom_data.i18n_names = default_i18n_names->second;
       }
-      loaded_part |= RomPart::kTitle;
       rom_data.title_loaded = true;
-    }
 
-    if (!HasAnyPart(loaded_part)) {
-      unzClose(file);
-      return;
-    }
+      if (!success) {
+        unzClose(file);
+        return;
+      }
 
-    // Find alternative roms. Alternative roms will load all contents,
-    // regardless of the RomPart for main ROM.
-    int located = unzGoToFirstFile(file);
-    kiwi::base::FilePath alter_rom_path;
-    std::string filename;
-    filename.resize(64);
-    while (located == UNZ_OK) {
-      unz_file_info fi;
-      unzGetCurrentFileInfo(file, &fi, filename.data(), filename.size(),
-                            nullptr, 0, nullptr, 0);
-      alter_rom_path = kiwi::base::FilePath::FromUTF8Unsafe(filename.c_str());
+      // Find alternative roms.
+      int located = unzGoToFirstFile(file);
+      kiwi::base::FilePath alter_rom_path;
+      std::string filename;
+      filename.resize(64);
+      while (located == UNZ_OK) {
+        unz_file_info fi;
+        unzGetCurrentFileInfo(file, &fi, filename.data(), filename.size(),
+                              nullptr, 0, nullptr, 0);
+        alter_rom_path = kiwi::base::FilePath::FromUTF8Unsafe(filename.c_str());
 
-      if (alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe() ==
-          kiwi::base::StringPiece(rom_data.name)) {
+        if (alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe() ==
+            kiwi::base::StringPiece(rom_data.name)) {
+          located = unzGoToNextFile(file);
+          continue;
+        }
+
+        auto alternative_rom_iter = std::find_if(
+            rom_data.alternates.begin(), rom_data.alternates.end(),
+            [&alter_rom_path](const preset_roms::PresetROM& lhs) {
+              return alter_rom_path.RemoveExtension()
+                         .BaseName()
+                         .AsUTF8Unsafe() == kiwi::base::StringPiece(lhs.name);
+            });
+
+        std::string alter_rom_name = alter_rom_path.BaseName().AsUTF8Unsafe();
+        if (alter_rom_name != "manifest.json") {
+          // Finds corresponding i18n names, and store these names.
+          auto alter_i18n_names = i18n_names.find(
+              alter_rom_path.BaseName().RemoveExtension().AsUTF8Unsafe());
+          std::unordered_map<std::string, std::string> names;
+          if (alter_i18n_names != i18n_names.end()) {
+            names = alter_i18n_names->second;
+          }
+
+          if (alternative_rom_iter != rom_data.alternates.end()) {
+            // Use the existing alternative rom struct.
+            alternative_rom_iter->i18n_names = names;
+          } else {
+            preset_roms::PresetROM alternative_rom;
+            alternative_rom.title_loaded = true;
+            alternative_rom.owned_zip_data = false;
+            alternative_rom.zip_data = rom_data.zip_data;
+            alternative_rom.zip_size = rom_data.zip_size;
+            // Leaky name
+            std::string rom_name =
+                alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
+            alternative_rom.name = new char[rom_name.size() + 1];
+            strcpy(const_cast<char*>(alternative_rom.name), rom_name.c_str());
+            alternative_rom.i18n_names = names;
+            rom_data.alternates.push_back(std::move(alternative_rom));
+          }
+        }
+
         located = unzGoToNextFile(file);
-        continue;
       }
+      unzClose(file);
+    } else {
+      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                  "Can't load rom zip data of name %s", rom_data.name);
+    }
+  }
+}
 
-      auto alternative_rom_iter = std::find_if(
-          rom_data.alternates.begin(), rom_data.alternates.end(),
-          [&alter_rom_path](const preset_roms::PresetROM& lhs) {
-            return alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe() ==
-                   kiwi::base::StringPiece(lhs.name);
-          });
+void LoadPresetROM(const preset_roms::PresetROM& rom_data, RomPart part) {
+  if (!((HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) ||
+        (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded)))
+    return;
 
-      std::string alter_rom_name = alter_rom_path.BaseName().AsUTF8Unsafe();
-      if (alter_rom_name != "manifest.json") {
-        // Finds corresponding i18n names, and store these names.
-        auto alter_i18n_names = i18n_names.find(
-            alter_rom_path.BaseName().RemoveExtension().AsUTF8Unsafe());
-        std::unordered_map<std::string, std::string> names;
-        if (alter_i18n_names != i18n_names.end()) {
-          names = alter_i18n_names->second;
-        }
+  // Loads cover or ROM contents on demand.
+  RomPart loaded_part = RomPart::kNone;
 
-        if (alternative_rom_iter != rom_data.alternates.end()) {
-          // Use the existing alternative rom struct.
-          ReadNESOrCover(file, alter_rom_path, *alternative_rom_iter);
-          alternative_rom_iter->i18n_names = names;
-        } else {
-          preset_roms::PresetROM alternative_rom;
-          alternative_rom.title_loaded = true;
-          // Leaky name
-          std::string rom_name =
-              alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
-          alternative_rom.name = new char[rom_name.size() + 1];
-          strcpy(const_cast<char*>(alternative_rom.name), rom_name.c_str());
-          ReadNESOrCover(file, alter_rom_path, alternative_rom);
-          alternative_rom.i18n_names = names;
-          rom_data.alternates.push_back(std::move(alternative_rom));
-        }
+  unzFile file = unzOpenFromMemory(
+      const_cast<kiwi::nes::Byte*>(rom_data.zip_data), rom_data.zip_size);
+  if (file) {
+    if (HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) {
+      if (ReadFileFromZip(file, std::string(rom_data.name) + ".jpg",
+                          rom_data.rom_cover)) {
+        rom_data.cover_loaded = true;
+        loaded_part |= RomPart::kCover;
       }
+    }
 
-      located = unzGoToNextFile(file);
+    if (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded) {
+      if (ReadFileFromZip(file, std::string(rom_data.name) + ".nes",
+                          rom_data.rom_data)) {
+        rom_data.content_loaded = true;
+        loaded_part |= RomPart::kContent;
+      }
     }
 
     unzClose(file);
-  } else {
-    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                "Can't load rom zip data of name %s", rom_data.name);
   }
 }
 
@@ -279,7 +263,8 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
 void CloseRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms) {
   for (auto& rom : roms) {
     delete[] rom.name;
-    delete[] rom.zip_data;
+    if (rom.owned_zip_data)
+      delete[] rom.zip_data;
   }
 }
 
