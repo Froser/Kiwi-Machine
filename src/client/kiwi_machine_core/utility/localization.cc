@@ -100,16 +100,14 @@ void BuildGlyphRanges(SupportedLanguage language,
     ranges_builder.AddText(GetLocalizedString(language, i).c_str());
   }
   for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::GetPresetRoms()[i];
-    InitializePresetROM(rom);
+    auto& rom = preset_roms::GetPresetRoms()[i];
     ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
     for (const auto& alter : rom.alternates) {
       ranges_builder.AddText(GetROMLocalizedTitle(language, alter));
     }
   }
   for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-    InitializePresetROM(rom);
+    auto& rom = preset_roms::specials::GetPresetRoms()[i];
     ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
     for (const auto& alter : rom.alternates) {
       ranges_builder.AddText(GetROMLocalizedTitle(language, alter));

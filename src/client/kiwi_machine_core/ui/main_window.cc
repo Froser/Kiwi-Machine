@@ -118,9 +118,17 @@ std::pair<bool, int> OnExportGameROM(MainWindow* main_window,
   const preset_roms::PresetROM& rom =
       preset_roms::GetPresetRoms()[current_export_rom_index];
   main_window->Exporting(rom.name);
-  return std::make_pair(
-      ExportNES(export_path, rom.name, rom.zip_data, rom.zip_size),
-      current_export_rom_index + 1);
+#if !defined(KIWI_USE_EXTERNAL_PAK)
+  kiwi::nes::Byte* zip_data = const_cast<kiwi::nes::Byte*>(rom.zip_data);
+  size_t zip_size = rom.zip_size;
+#else
+  kiwi::nes::Bytes zip_data_container = rom.zip_data_loader.Run(rom.file_pos);
+  kiwi::nes::Byte* zip_data = zip_data_container.data();
+  size_t zip_size = zip_data_container.size();
+#endif
+
+  return std::make_pair(ExportNES(export_path, rom.name, zip_data, zip_size),
+                        current_export_rom_index + 1);
 }
 
 void OnGameROMExported(MainWindow* main_window,
@@ -651,22 +659,21 @@ void MainWindow::InitializeUI() {
         MainWindow::MainFocus::kSideMenu));
     SDL_assert(preset_roms::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-      const auto& rom = preset_roms::GetPresetRoms()[i];
-      LoadPresetROM(rom, RomPart::kCover);
+      auto& rom = preset_roms::GetPresetRoms()[i];
       size_t main_item_index = main_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                    kiwi::base::Unretained(this), rom));
+                                    kiwi::base::Unretained(this),
+                                    std::ref(rom)));
 
-      for (const auto& alternative_rom : rom.alternates) {
-        LoadPresetROM(alternative_rom, RomPart::kCover);
+      for (auto& alternative_rom : rom.alternates) {
         main_nes_items_widget->AddSubItem(
             main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
             alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
             kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                       kiwi::base::Unretained(this),
-                                      alternative_rom));
+                                      std::ref(alternative_rom)));
       }
     }
 
@@ -687,13 +694,13 @@ void MainWindow::InitializeUI() {
 
     SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-      const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-      LoadPresetROM(rom, RomPart::kCover);
+      auto& rom = preset_roms::specials::GetPresetRoms()[i];
       special_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                    kiwi::base::Unretained(this), rom));
+                                    kiwi::base::Unretained(this),
+                                    std::ref(rom)));
     }
 
     // specials_item_widget->Sort();
@@ -1440,16 +1447,25 @@ void MainWindow::OnResume() {
   StartAutoSave();
 }
 
-void MainWindow::OnLoadPresetROM(const preset_roms::PresetROM& rom) {
+void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
 
-  LoadPresetROM(rom, RomPart::kContent);
-  runtime_data_->emulator->LoadAndRun(
-      ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
-      kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                           kiwi::base::Unretained(this),
-                           GetROMLocalizedTitle(rom)));
+  Application::Get()->GetIOTaskRunner()->PostTaskAndReply(
+      FROM_HERE,
+      kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), RomPart::kContent),
+      kiwi::base::BindOnce(
+          [](MainWindow* this_window,
+             scoped_refptr<kiwi::nes::Emulator> emulator,
+             preset_roms::PresetROM& rom) {
+            emulator->LoadAndRun(
+                ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
+                kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                                     kiwi::base::Unretained(this_window),
+                                     GetROMLocalizedTitle(rom)));
+          },
+          kiwi::base::Unretained(this),
+          kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom)));
 }
 
 void MainWindow::OnLoadDebugROM(kiwi::base::FilePath rom_path) {

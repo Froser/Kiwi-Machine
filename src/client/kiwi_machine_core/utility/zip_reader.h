@@ -51,9 +51,10 @@ void CloseRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms);
 
 // Loads all ROM's title, i18n names, and alternative titles. This function
 // should be called before calling LoadPresetROM().
-void InitializePresetROM(const preset_roms::PresetROM& rom_data);
+void InitializePresetROM(preset_roms::PresetROM& rom_data);
 
-// Loads ROM's cover, content, or both.
-void LoadPresetROM(const preset_roms::PresetROM& rom_data, RomPart part);
+// Loads ROM's cover, content, or both. This function will be called on IO
+// thread.
+void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part);
 
 #endif  // UTILITY_ZIP_READER_H_

@@ -179,7 +179,7 @@ class MainWindow : public WindowBase,
   void OnPause();
   void OnResume();
   bool IsPause();
-  void OnLoadPresetROM(const preset_roms::PresetROM& rom);
+  void OnLoadPresetROM(preset_roms::PresetROM& rom);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
