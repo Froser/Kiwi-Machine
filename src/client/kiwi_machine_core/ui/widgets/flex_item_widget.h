@@ -28,7 +28,6 @@ class FlexItemWidget : public Widget {
     const kiwi::nes::Byte* cover_img = nullptr;
     size_t cover_size = 0u;
     kiwi::base::RepeatingClosure on_trigger_callback;
-    SDL_Surface* cover_surface = nullptr;
     SDL_Texture* cover_texture = nullptr;
     int cover_width = 0;
     int cover_height = 0;

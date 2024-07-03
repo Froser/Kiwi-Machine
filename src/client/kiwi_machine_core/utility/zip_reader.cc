@@ -282,26 +282,32 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
         [](const kiwi::base::FilePath& package, unz_file_pos file_pos) {
           kiwi::nes::Bytes data;
           unzFile f = unzOpen(package.AsUTF8Unsafe().c_str());
-          int found = unzGoToFilePos(f, &file_pos);
-          if (found == UNZ_OK) {
-            std::string filename;
-            filename.resize(64);
-            unz_file_info fi;
-            unzGetCurrentFileInfo(f, &fi, filename.data(), filename.size(),
-                                  nullptr, 0, nullptr, 0);
-            data.resize(fi.uncompressed_size);
-            unzOpenCurrentFile(f);
-            int read = unzReadCurrentFile(f, data.data(), data.size());
-            unzCloseCurrentFile(f);
-            if (read <= 0) {
-              SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                          "Read curren file error: %d", read);
-            }
+          if (f) {
+            int found = unzGoToFilePos(f, &file_pos);
+            if (found == UNZ_OK) {
+              std::string filename;
+              filename.resize(64);
+              unz_file_info fi;
+              unzGetCurrentFileInfo(f, &fi, filename.data(), filename.size(),
+                                    nullptr, 0, nullptr, 0);
+              data.resize(fi.uncompressed_size);
+              unzOpenCurrentFile(f);
+              int read = unzReadCurrentFile(f, data.data(), data.size());
+              unzCloseCurrentFile(f);
+              if (read <= 0) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Read current file error: %d", read);
+              }
 
+            } else {
+              SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                          "Can't goto file pos: %lu, %lu", file_pos.num_of_file,
+                          file_pos.pos_in_zip_directory);
+            }
+            unzClose(f);
           } else {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                        "Can't goto file pos: %lu, %lu", file_pos.num_of_file,
-                        file_pos.pos_in_zip_directory);
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Open file error: %s",
+                        package.AsUTF8Unsafe().c_str());
           }
           return data;
         },

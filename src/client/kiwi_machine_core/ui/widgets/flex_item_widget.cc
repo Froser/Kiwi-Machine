@@ -50,23 +50,20 @@ FlexItemWidget::FlexItemWidget(
 
 FlexItemWidget::~FlexItemWidget() {
   for (std::unique_ptr<Data>& data : sub_data_) {
-    if (data->cover_surface)
-      SDL_FreeSurface(data->cover_surface);
-
     if (data->cover_texture)
       SDL_DestroyTexture(data->cover_texture);
   }
 }
 
 void FlexItemWidget::CreateTextureIfNotExists() {
-  if (!current_data()->cover_surface) {
+  if (!current_data()->cover_texture) {
     SDL_assert(!current_data()->cover_texture);
     SDL_RWops* bg_res =
         SDL_RWFromMem(const_cast<unsigned char*>(current_data()->cover_img),
                       current_data()->cover_size);
-    current_data()->cover_surface = IMG_Load_RW(bg_res, 1);
-    current_data()->cover_texture = SDL_CreateTextureFromSurface(
-        window()->renderer(), current_data()->cover_surface);
+
+    current_data()->cover_texture =
+        IMG_LoadTextureTyped_RW(window()->renderer(), bg_res, 1, nullptr);
     SDL_SetTextureScaleMode(current_data()->cover_texture, SDL_ScaleModeBest);
     SDL_QueryTexture(current_data()->cover_texture, nullptr, nullptr,
                      &current_data()->cover_width,

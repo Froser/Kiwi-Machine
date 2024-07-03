@@ -71,6 +71,8 @@ class Application {
   void InitializeStyles();
   void InitializeRuntimeAndConfigs();
   void InitializeROMs();
+  kiwi::base::FilePath PathForResources(
+      const kiwi::base::FilePath& resource_filename);
 
   // Window management:
   friend class WindowBase;

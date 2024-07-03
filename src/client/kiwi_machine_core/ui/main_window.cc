@@ -1079,18 +1079,18 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
         {"Nametable", kiwi::base::BindRepeating(&MainWindow::OnDebugNametable,
                                                 kiwi::base::Unretained(this))});
 
-#if ENABLE_EXPORT_ROMS
-    debug.menu_items.push_back(
-        {"Export All Games",
-         kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
-                                   kiwi::base::Unretained(this))});
-
-#endif
-
     debug.menu_items.push_back(
         {"UI Demo Widget",
          kiwi::base::BindRepeating(&MainWindow::OnShowUiDemoWidget,
                                    kiwi::base::Unretained(this))});
+
+    #if ENABLE_EXPORT_ROMS
+        debug.menu_items.push_back(
+            {"Export All Games",
+             kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
+                                       kiwi::base::Unretained(this))});
+
+    #endif
 
     result.push_back(std::move(debug));
   }

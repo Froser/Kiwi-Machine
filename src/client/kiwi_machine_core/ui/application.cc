@@ -24,6 +24,10 @@
 #include "utility/localization.h"
 #include "utility/zip_reader.h"
 
+#if BUILDFLAG(IS_MAC)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 namespace {
 constexpr int kInitializeSDLFailed = -1;
 constexpr int kInitializeSDLImageFailed = -2;
@@ -392,12 +396,12 @@ void Application::InitializeRuntimeAndConfigs() {
 void Application::InitializeROMs() {
 #if defined(KIWI_USE_EXTERNAL_PAK)
   OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
-                         kiwi::base::FilePath::FromUTF8Unsafe(
-                             preset_roms::GetPresetRomsPackageName()));
+                         PathForResources(kiwi::base::FilePath::FromUTF8Unsafe(
+                             preset_roms::GetPresetRomsPackageName())));
   OpenRomDataFromPackage(
       preset_roms::specials::GetPresetRoms(),
-      kiwi::base::FilePath::FromUTF8Unsafe(
-          preset_roms::specials::GetPresetRomsPackageName()));
+      PathForResources(kiwi::base::FilePath::FromUTF8Unsafe(
+          preset_roms::specials::GetPresetRomsPackageName())));
 #endif
 
   for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
@@ -413,6 +417,28 @@ void Application::InitializeROMs() {
     InitializePresetROM(rom);
     LoadPresetROM(rom, RomPart::kCover);
   }
+}
+
+kiwi::base::FilePath Application::PathForResources(
+    const kiwi::base::FilePath& resource_filename) {
+#if BUILDFLAG(IS_MAC)
+  CFBundleRef main_bundle = CFBundleGetMainBundle();
+  CFStringRef resource_name = CFStringCreateWithCString(
+      nullptr, resource_filename.AsUTF8Unsafe().c_str(), kCFStringEncodingUTF8);
+  CFURLRef url =
+      CFBundleCopyResourceURL(main_bundle, resource_name, nullptr, nullptr);
+  std::string resource_abs_path;
+  resource_abs_path.resize(PATH_MAX);
+  bool success = CFURLGetFileSystemRepresentation(
+      url, false, reinterpret_cast<UInt8*>(resource_abs_path.data()),
+      resource_abs_path.size());
+  SDL_assert(success);
+  CFRelease(url);
+  CFRelease(resource_name);
+  return kiwi::base::FilePath::FromUTF8Unsafe(resource_abs_path);
+#else
+  return resource_filename;
+#endif
 }
 
 void Application::AddWindowToEventHandler(WindowBase* window) {
