@@ -26,6 +26,12 @@ int GetItemHighlightedSize();
 
 }  // namespace flex_items_widget
 
+namespace flex_item_widget {
+
+int GetBadgeSize();
+
+}  // namespace flex_item_widget
+
 namespace in_game_menu {
 
 PreferredFontSize GetPreferredFontSize(float window_scale);
@@ -40,24 +46,24 @@ namespace main_window {
 
 int GetJoystickSize(float window_scale);
 int GetJoystickMarginX(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets);
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets);
 int GetJoystickMarginY(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets);
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets);
 int GetJoystickButtonMarginX(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets);
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets);
 int GetJoystickButtonMarginY(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets);
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets);
 int GetJoystickSelectStartButtonMarginBottom(float window_scale,
-                                              bool is_landscape,
-                                              const SDL_Rect& safe_area_insets);
+                                             bool is_landscape,
+                                             const SDL_Rect& safe_area_insets);
 int GetJoystickPauseButtonMarginX(float window_scale,
-                                   const SDL_Rect& safe_area_insets);
+                                  const SDL_Rect& safe_area_insets);
 int GetJoystickPauseButtonMarginY(float window_scale,
-                                   const SDL_Rect& safe_area_insets);
+                                  const SDL_Rect& safe_area_insets);
 
 }  // namespace main_window
 

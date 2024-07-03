@@ -38,6 +38,18 @@ int GetItemHighlightedSize() {
 
 }  // namespace flex_items_widget
 
+namespace flex_item_widget {
+
+int GetBadgeSize() {
+#if KIWI_ANDROID
+  return 96;
+#else
+  return 32;
+#endif
+}
+
+}  // namespace flex_item_widget
+
 namespace in_game_menu {
 
 PreferredFontSize GetPreferredFontSize(float window_scale) {

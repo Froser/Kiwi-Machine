@@ -16,12 +16,13 @@
 #include <imgui.h>
 
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "ui/widgets/flex_items_widget.h"
 
 namespace {
 constexpr float kCoverHWRatio = 250.f / 200;
 constexpr float kFadeDurationInMs = 1000;
-constexpr int kBadgeSize = 32;
+const int kBadgeSize = styles::flex_item_widget::GetBadgeSize();
 constexpr int kBadgeMargin = 5;
 }  // namespace
 
@@ -58,9 +59,9 @@ FlexItemWidget::~FlexItemWidget() {
 void FlexItemWidget::CreateTextureIfNotExists() {
   if (!current_data()->cover_texture) {
     SDL_assert(!current_data()->cover_texture);
-    SDL_RWops* bg_res =
-        SDL_RWFromMem(const_cast<unsigned char*>(current_data()->cover_img),
-                      current_data()->cover_size);
+    SDL_RWops* bg_res = SDL_RWFromConstMem(
+        const_cast<unsigned char*>(current_data()->cover_img),
+        current_data()->cover_size);
 
     current_data()->cover_texture =
         IMG_LoadTextureTyped_RW(window()->renderer(), bg_res, 1, nullptr);
