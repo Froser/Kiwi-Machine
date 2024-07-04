@@ -14,6 +14,7 @@
 #define NES_EMULATOR_IMPL_H_
 
 #include <chrono>
+#include <mutex>
 #include <queue>
 #include <set>
 

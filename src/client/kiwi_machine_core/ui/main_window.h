@@ -154,6 +154,8 @@ class MainWindow : public WindowBase,
                                       kiwi::nes::ControllerButton button);
   void CloseInGameMenu();
   void FlexLayout();
+  int CalculateWindowWidth(float window_scale);
+  int CalculateWindowHeight(float window_scale);
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
   SideMenu::MenuCallbacks CreateMenuAboutCallbacks();

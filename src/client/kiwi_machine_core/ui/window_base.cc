@@ -19,19 +19,23 @@
 #include "build/kiwi_defines.h"
 #include "ui/application.h"
 
-WindowBase::WindowBase(const std::string& title) {
+WindowBase::WindowBase(const std::string& title,
+                       int window_width,
+                       int window_height) {
 #if !KIWI_MOBILE
-  window_ =
-      SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
-                       SDL_WINDOWPOS_CENTERED, 1, 1, SDL_WINDOW_ALLOW_HIGHDPI);
+  window_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
+                             SDL_WINDOWPOS_CENTERED, window_width,
+                             window_height, SDL_WINDOW_ALLOW_HIGHDPI);
 #elif KIWI_IOS
   window_ = SDL_CreateWindow(
-      nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1, 1,
+      nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width,
+      window_height,
       SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN |
           SDL_WINDOW_BORDERLESS | SDL_WINDOW_MAXIMIZED);
 #else
   window_ = SDL_CreateWindow(
-      nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1, 1,
+      nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width,
+      window_height,
       SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_SHOWN);
 #endif
   SDL_assert(window_);

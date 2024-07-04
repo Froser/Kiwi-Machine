@@ -26,6 +26,8 @@
 
 #if BUILDFLAG(IS_MAC)
 #include <CoreFoundation/CoreFoundation.h>
+#elif BUILDFLAG(IS_WIN)
+#include <Windows.h>
 #endif
 
 namespace {
@@ -436,6 +438,12 @@ kiwi::base::FilePath Application::PathForResources(
   CFRelease(url);
   CFRelease(resource_name);
   return kiwi::base::FilePath::FromUTF8Unsafe(resource_abs_path);
+#elif BUILDFLAG(IS_WIN)
+  CHAR current_exe_filename[MAX_PATH];
+  DWORD buffer_len = GetModuleFileNameA(NULL, current_exe_filename, MAX_PATH);
+  return kiwi::base::FilePath::FromUTF8Unsafe(current_exe_filename)
+      .DirName()
+      .Append(resource_filename);
 #else
   return resource_filename;
 #endif

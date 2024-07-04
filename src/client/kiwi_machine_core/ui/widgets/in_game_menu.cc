@@ -182,6 +182,16 @@ bool InGameMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
   return HandleInputEvent(event, nullptr);
 }
 
+bool InGameMenu::OnMouseReleased(SDL_MouseButtonEvent* event) {
+  if (event->button == SDL_BUTTON_RIGHT) {
+    PlayEffect(audio_resources::AudioID::kBack);
+    menu_callback_.Run(MenuItem::kToGameSelection, 0);
+    return true;
+  }
+
+  return false;
+}
+
 bool InGameMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
   return HandleInputEvent(nullptr, event);
 }

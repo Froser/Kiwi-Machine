@@ -216,7 +216,11 @@ void MainWindow::Observer::OnVolumeChanged(float new_value) {}
 MainWindow::MainWindow(const std::string& title,
                        NESRuntimeID runtime_id,
                        scoped_refptr<NESConfig> config)
-    : WindowBase(title), config_(config), runtime_id_(runtime_id) {
+    : WindowBase(title,
+                 CalculateWindowWidth(config->data().window_scale),
+                 CalculateWindowHeight(config->data().window_scale)),
+      config_(config),
+      runtime_id_(runtime_id) {
 #if KIWI_WASM
   // Only one main window instance should exist in WASM.
   SDL_assert(!g_main_window_instance);
@@ -311,6 +315,8 @@ void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
     std::unique_ptr<Splash> splash = std::make_unique<Splash>(this);
     splash_ = splash.get();
     splash_->SetZOrder(INT_MAX);
+    SDL_Rect window_bounds = GetWindowBounds();
+    splash_->set_bounds(SDL_Rect{0, 0, window_bounds.w, window_bounds.h});
     PlayEffect(audio_resources::AudioID::kStartup);
     AddWidget(std::move(splash));
   }
@@ -847,18 +853,13 @@ void MainWindow::InitializeUI() {
 
 #if !KIWI_MOBILE
   OnScaleChanged();
+  HandleResizedEvent();
   if (is_fullscreen())
     OnSetFullscreen();
 #else
   OnScaleModeChanged();
 #endif
 
-  if (splash_) {
-    // Splash will be the first element shown on the screen, so it has to
-    // resized immediately.
-    SDL_Rect window_bounds = GetWindowBounds();
-    splash_->set_bounds(SDL_Rect{0, 0, window_bounds.w, window_bounds.h});
-  }
   CloseSplash(kiwi::base::DoNothing());
 }
 
@@ -1084,13 +1085,13 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
          kiwi::base::BindRepeating(&MainWindow::OnShowUiDemoWidget,
                                    kiwi::base::Unretained(this))});
 
-    #if ENABLE_EXPORT_ROMS
-        debug.menu_items.push_back(
-            {"Export All Games",
-             kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
-                                       kiwi::base::Unretained(this))});
+#if ENABLE_EXPORT_ROMS
+    debug.menu_items.push_back(
+        {"Export All Games",
+         kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
+                                   kiwi::base::Unretained(this))});
 
-    #endif
+#endif
 
     result.push_back(std::move(debug));
   }
@@ -1116,20 +1117,8 @@ void MainWindow::ShowMainMenu(bool show) {
 
 void MainWindow::OnScaleChanged() {
   if (!is_fullscreen()) {
-    const int default_menu_height = GetDefaultMenuHeight();
-    if (menu_bar_) {
-      if (menu_bar_->bounds().h > 0) {
-        // Menu bar is painted, we can get exact menu height here.
-        Resize(kDefaultWindowWidth * window_scale(),
-               kDefaultWindowHeight * window_scale() + menu_bar_->bounds().h);
-      } else {
-        Resize(kDefaultWindowWidth * window_scale(),
-               kDefaultWindowHeight * window_scale() + default_menu_height);
-      }
-    } else {
-      Resize(kDefaultWindowWidth * window_scale(),
-             kDefaultWindowHeight * window_scale());
-    }
+    Resize(CalculateWindowWidth(window_scale()),
+           CalculateWindowHeight(window_scale()));
     MoveToCenter();
   }
 
@@ -1228,6 +1217,23 @@ void MainWindow::FlexLayout() {
 
   contents_card_widget_->set_bounds(
       SDL_Rect{left_width, 0, right_width, client_bounds.h});
+}
+
+int MainWindow::CalculateWindowWidth(float window_scale) {
+  return kDefaultWindowWidth * window_scale;
+}
+
+int MainWindow::CalculateWindowHeight(float window_scale) {
+  if (FLAGS_has_menu) {
+    if (menu_bar_ && menu_bar_->bounds().h > 0) {
+      // Menu bar is painted, we can get exact menu height here.
+      return kDefaultWindowHeight * window_scale + menu_bar_->bounds().h;
+    }
+
+    return kDefaultWindowHeight * window_scale + GetDefaultMenuHeight();
+  }
+
+  return kDefaultWindowHeight * window_scale;
 }
 
 SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {

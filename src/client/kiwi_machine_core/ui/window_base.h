@@ -24,7 +24,9 @@
 
 class WindowBase {
  public:
-  explicit WindowBase(const std::string& title);
+  explicit WindowBase(const std::string& title,
+                      int window_width,
+                      int window_height);
   virtual ~WindowBase();
 
  public:
