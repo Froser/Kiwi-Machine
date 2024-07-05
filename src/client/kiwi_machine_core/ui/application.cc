@@ -234,12 +234,14 @@ scoped_refptr<kiwi::base::SequencedTaskRunner> Application::GetIOTaskRunner() {
   return io_thread_->task_runner();
 }
 
-void Application::Initialize(kiwi::base::OnceClosure callback) {
+void Application::Initialize(kiwi::base::OnceClosure other_io_task,
+                             kiwi::base::OnceClosure callback) {
   if (!initialized_) {
     GetIOTaskRunner()->PostTaskAndReply(
         FROM_HERE,
         kiwi::base::BindOnce(&Application::InitializeROMs,
-                             kiwi::base::Unretained(this)),
+                             kiwi::base::Unretained(this))
+            .Then(std::move(other_io_task)),
         kiwi::base::BindOnce(&InitializeFonts)
             .Then(kiwi::base::BindOnce(&Application::FontChanged,
                                        kiwi::base::Unretained(this)))

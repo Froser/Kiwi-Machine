@@ -157,6 +157,25 @@ void OnGameROMExported(MainWindow* main_window,
       kiwi::base::BindOnce(&OnGameROMExported, main_window, export_path));
 }
 
+int CalculateWindowWidth(float window_scale) {
+  return kDefaultWindowWidth * window_scale;
+}
+
+// Calculates window's height. If |menu_bar| is nullptr, use default menu's
+// height if having menu flag.
+int CalculateWindowHeight(float window_scale, Widget* menu_bar = nullptr) {
+  if (FLAGS_has_menu) {
+    if (menu_bar && menu_bar->bounds().h > 0) {
+      // Menu bar is painted, we can get exact menu height here.
+      return kDefaultWindowHeight * window_scale + menu_bar->bounds().h;
+    }
+
+    return kDefaultWindowHeight * window_scale + GetDefaultMenuHeight();
+  }
+
+  return kDefaultWindowHeight * window_scale;
+}
+
 #endif
 
 class StringUpdater : public LocalizedStringUpdater {
@@ -236,6 +255,8 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   InitializeAudio();
   ShowSplash(kiwi::base::DoNothing());
   Application::Get()->Initialize(
+      kiwi::base::BindOnce(&MainWindow::InitializeDebugROMsOnIOThread,
+                           kiwi::base::Unretained(this)),
       kiwi::base::BindOnce(&MainWindow::InitializeUI,
                            kiwi::base::Unretained(this))
           .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
@@ -307,19 +328,16 @@ void MainWindow::Exporting(const std::string& rom_name) {
 void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
 #if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
                // here.
-  // Splash
-  if (!FLAGS_has_menu) {
-    // If we have menu, we don't show splash screen, because we probably want to
-    // do some debug works.
-    SDL_assert(!splash_);
-    std::unique_ptr<Splash> splash = std::make_unique<Splash>(this);
-    splash_ = splash.get();
-    splash_->SetZOrder(INT_MAX);
-    SDL_Rect window_bounds = GetWindowBounds();
-    splash_->set_bounds(SDL_Rect{0, 0, window_bounds.w, window_bounds.h});
-    PlayEffect(audio_resources::AudioID::kStartup);
-    AddWidget(std::move(splash));
-  }
+  // If we have menu, we don't show splash screen, because we probably want to
+  // do some debug works.
+  SDL_assert(!splash_);
+  std::unique_ptr<Splash> splash = std::make_unique<Splash>(this);
+  splash_ = splash.get();
+  splash_->SetZOrder(INT_MAX);
+  SDL_Rect window_bounds = GetWindowBounds();
+  splash_->set_bounds(SDL_Rect{0, 0, window_bounds.w, window_bounds.h});
+  PlayEffect(audio_resources::AudioID::kStartup);
+  AddWidget(std::move(splash));
 #endif
 }
 
@@ -875,6 +893,15 @@ void MainWindow::InitializeIODevices() {
   runtime_data_->emulator->SetIODevices(std::move(io_devices));
 }
 
+void MainWindow::InitializeDebugROMsOnIOThread() {
+#if ENABLE_DEBUG_ROMS
+  if (HasDebugRoms()) {
+    debug_roms_ = CreateDebugRomsMenu(kiwi::base::BindRepeating(
+        &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
+  }
+#endif
+}
+
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
@@ -1038,12 +1065,9 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
     }
 
 #if ENABLE_DEBUG_ROMS
-    if (HasDebugRoms()) {
-      MenuBar::MenuItem debug_roms =
-          CreateDebugRomsMenu(kiwi::base::BindRepeating(
-              &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
-      debug.menu_items.push_back(std::move(debug_roms));
-    }
+    if (!debug_roms_.sub_items.empty())
+      debug.menu_items.push_back(std::move(debug_roms_));
+      // debug_roms_ should no longer use.
 #endif
 
     debug.menu_items.push_back(
@@ -1118,7 +1142,7 @@ void MainWindow::ShowMainMenu(bool show) {
 void MainWindow::OnScaleChanged() {
   if (!is_fullscreen()) {
     Resize(CalculateWindowWidth(window_scale()),
-           CalculateWindowHeight(window_scale()));
+           CalculateWindowHeight(window_scale(), menu_bar_));
     MoveToCenter();
   }
 
@@ -1217,23 +1241,6 @@ void MainWindow::FlexLayout() {
 
   contents_card_widget_->set_bounds(
       SDL_Rect{left_width, 0, right_width, client_bounds.h});
-}
-
-int MainWindow::CalculateWindowWidth(float window_scale) {
-  return kDefaultWindowWidth * window_scale;
-}
-
-int MainWindow::CalculateWindowHeight(float window_scale) {
-  if (FLAGS_has_menu) {
-    if (menu_bar_ && menu_bar_->bounds().h > 0) {
-      // Menu bar is painted, we can get exact menu height here.
-      return kDefaultWindowHeight * window_scale + menu_bar_->bounds().h;
-    }
-
-    return kDefaultWindowHeight * window_scale + GetDefaultMenuHeight();
-  }
-
-  return kDefaultWindowHeight * window_scale;
 }
 
 SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {

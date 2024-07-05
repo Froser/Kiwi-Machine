@@ -132,6 +132,7 @@ class MainWindow : public WindowBase,
   void InitializeAudio();
   void InitializeUI();
   void InitializeIODevices();
+  void InitializeDebugROMsOnIOThread();
 
   void LoadROMByPath(kiwi::base::FilePath rom_path);
   void StartAutoSave();
@@ -154,8 +155,6 @@ class MainWindow : public WindowBase,
                                       kiwi::nes::ControllerButton button);
   void CloseInGameMenu();
   void FlexLayout();
-  int CalculateWindowWidth(float window_scale);
-  int CalculateWindowHeight(float window_scale);
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
   SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
@@ -249,6 +248,9 @@ class MainWindow : public WindowBase,
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;
   std::set<MainWindow::Observer*> observers_;
+#if ENABLE_DEBUG_ROMS
+  MenuBar::MenuItem debug_roms_;
+#endif
 
 #if KIWI_MOBILE
   // Main menu buttons

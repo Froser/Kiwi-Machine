@@ -47,7 +47,8 @@ class Application {
   static Application* Get();
   scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
   // Initialize application's necessary data.
-  void Initialize(kiwi::base::OnceClosure callback);
+  void Initialize(kiwi::base::OnceClosure other_io_task,
+                  kiwi::base::OnceClosure callback);
 
   void Run();
   void AddObserver(ApplicationObserver* observer);
