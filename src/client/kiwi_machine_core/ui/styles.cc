@@ -36,6 +36,14 @@ int GetItemHighlightedSize() {
 #endif
 }
 
+PreferredFontSize GetDetailFontSize() {
+#if KIWI_ANDROID
+  return PreferredFontSize::k3x;
+#else
+  return PreferredFontSize::k1x;
+#endif
+}
+
 }  // namespace flex_items_widget
 
 namespace flex_item_widget {

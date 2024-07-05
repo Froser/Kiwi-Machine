@@ -23,6 +23,7 @@ namespace flex_items_widget {
 
 int GetItemHeightHint();
 int GetItemHighlightedSize();
+PreferredFontSize GetDetailFontSize();
 
 }  // namespace flex_items_widget
 

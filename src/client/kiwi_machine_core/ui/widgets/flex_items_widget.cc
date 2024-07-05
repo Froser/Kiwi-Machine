@@ -567,7 +567,8 @@ void FlexItemsWidget::PaintDetails() {
   std::string hint =
       item->current_data()->title_updater->GetCollateStringHint();
 
-  PreferredFontSize preferred_font_size = PreferredFontSize::k1x;
+  PreferredFontSize preferred_font_size =
+      styles::flex_items_widget::GetDetailFontSize();
   ScopedFont font = GetPreferredFont(preferred_font_size, title.c_str());
   ImVec2 text_size = ImGui::CalcTextSize(title.c_str());
   SDL_Rect text_bounds_top =
