@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -69,7 +69,7 @@ typedef struct SDL_Locale
  * The returned list of locales are in the order of the user's preference. For
  * example, a German citizen that is fluent in US English and knows enough
  * Japanese to navigate around Tokyo might have a list like: { "de", "en_US",
- * "ja", NULL }. Someone from England might prefer British English (where
+ * "jp", NULL }. Someone from England might prefer British English (where
  * "color" is spelled "colour", etc), but will settle for anything like it: {
  * "en_GB", "en", NULL }.
  *
