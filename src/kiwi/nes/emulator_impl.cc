@@ -14,6 +14,8 @@
 
 #include <chrono>
 #include <memory>
+#include <mutex>
+#include <queue>
 
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
@@ -33,10 +35,94 @@ namespace nes {
 constexpr std::chrono::nanoseconds kNanoPerCycle =
     std::chrono::nanoseconds(559);
 
+namespace {
+class EmulatorRenderTaskRunner : public base::SequencedTaskRunner {
+ public:
+  friend class base::RefCountedThreadSafe<EmulatorRenderTaskRunner>;
+  EmulatorRenderTaskRunner() = default;
+
+  bool PostDelayedTask(const base::Location& from_here,
+                       base::OnceClosure task,
+                       base::TimeDelta delay) override;
+
+  bool PostTaskAndReply(const base::Location& from_here,
+                        base::OnceClosure task,
+                        base::OnceClosure reply) override;
+
+  static EmulatorRenderTaskRunner* AsEmulatorRenderTaskRunner(
+      scoped_refptr<base::SequencedTaskRunner> task_runner) {
+    return static_cast<EmulatorRenderTaskRunner*>(task_runner.get());
+  }
+
+ private:
+  ~EmulatorRenderTaskRunner() = default;
+
+ public:
+  void RunAllTasks();
+  base::OnceClosure PopTask();
+  bool HasTask();
+
+ private:
+  std::queue<base::OnceClosure> tasks_while_rendering_unsafe_;
+  std::mutex mutex_for_tasks_while_rendering_;
+};
+
+bool EmulatorRenderTaskRunner::PostDelayedTask(const base::Location& from_here,
+                                               base::OnceClosure task,
+                                               base::TimeDelta delay) {
+  if (delay != base::TimeDelta()) {
+    LOG(ERROR) << "Post with delay is not supported.";
+    return false;
+  }
+
+  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
+  tasks_while_rendering_unsafe_.push(std::move(task));
+
+  return true;
+}
+
+bool EmulatorRenderTaskRunner::PostTaskAndReply(const base::Location& from_here,
+                                                base::OnceClosure task,
+                                                base::OnceClosure reply) {
+  scoped_refptr<base::SingleThreadTaskRunner> reply_task_runner =
+      base::SingleThreadTaskRunner::GetCurrentDefault();
+  base::OnceClosure c = std::move(task).Then(base::BindOnce(
+      [](const base::Location& from_here,
+         scoped_refptr<base::SingleThreadTaskRunner> reply_task_runner,
+         base::OnceClosure reply) {
+        reply_task_runner->PostTask(from_here, std::move(reply));
+      },
+      from_here, base::RetainedRef(reply_task_runner), std::move(reply)));
+  return PostTask(from_here, std::move(c));
+}
+
+void EmulatorRenderTaskRunner::RunAllTasks() {
+  // Checks if any task to be run
+  while (HasTask()) {
+    base::OnceClosure task = PopTask();
+    std::move(task).Run();
+  }
+}
+
+bool EmulatorRenderTaskRunner::HasTask() {
+  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
+  return !tasks_while_rendering_unsafe_.empty();
+}
+
+base::OnceClosure EmulatorRenderTaskRunner::PopTask() {
+  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
+  base::OnceClosure task = std::move(tasks_while_rendering_unsafe_.front());
+  tasks_while_rendering_unsafe_.pop();
+  return task;
+}
+
+}  // namespace
+
 EmulatorImpl::EmulatorImpl(bool emulate_on_working_thread)
     : controller1_(0),
       controller2_(1),
-      emulate_on_working_thread_(emulate_on_working_thread) {}
+      emulate_on_working_thread_(emulate_on_working_thread),
+      render_coroutine_(base::MakeRefCounted<EmulatorRenderTaskRunner>()) {}
 
 EmulatorImpl::~EmulatorImpl() = default;
 
@@ -106,15 +192,19 @@ void EmulatorImpl::PowerOff() {
 
 void EmulatorImpl::LoadFromFile(const base::FilePath& rom_path,
                                 LoadCallback callback) {
-  Pause();
-  cartridge_ = base::MakeRefCounted<Cartridge>(this);
-  cartridge_->Load(rom_path, MakeLoadCallback(std::move(callback)));
+  render_coroutine_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::LoadFromFileOnProperThread,
+                     base::RetainedRef(this), rom_path),
+      base::BindOnce(std::move(callback)));
 }
 
 void EmulatorImpl::LoadFromBinary(const Bytes& data, LoadCallback callback) {
-  Pause();
-  cartridge_ = base::MakeRefCounted<Cartridge>(this);
-  cartridge_->Load(data, MakeLoadCallback(std::move(callback)));
+  render_coroutine_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::LoadFromBinaryOnProperThread,
+                     base::RetainedRef(this), data),
+      base::BindOnce(std::move(callback)));
 }
 
 const RomData* EmulatorImpl::GetRomData() {
@@ -145,7 +235,7 @@ void EmulatorImpl::RunOneFrame() {
   } else {
     working_task_runner_->PostTask(
         FROM_HERE, base::BindOnce(&EmulatorImpl::RunOneFrameOnProperThread,
-                                  base::Unretained(this)));
+                                  base::RetainedRef(this)));
   }
 }
 
@@ -157,61 +247,53 @@ void EmulatorImpl::Pause() {
 
 void EmulatorImpl::LoadAndRun(const base::FilePath& rom_path,
                               base::OnceClosure callback) {
-  base::OnceClosure reply = base::BindPostTask(
-      base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
-
-  base::OnceClosure load_closure = base::BindOnce(
-      &EmulatorImpl::LoadFromFile, base::RetainedRef(this), rom_path,
-      base::IgnoreArgs<bool>(
-          base::BindOnce(&EmulatorImpl::Run, base::RetainedRef(this)))
-          .Then(std::move(reply)));
-
-  Unload(std::move(load_closure));
+  LoadCallback load_callback = base::BindOnce(
+      [](scoped_refptr<EmulatorImpl> emulator, base::OnceClosure callback,
+         bool success) {
+        if (success) {
+          emulator->Run();
+          std::move(callback).Run();
+        } else {
+          LOG(ERROR) << "Error occurs when load ROM via " << __func__;
+        }
+      },
+      base::RetainedRef(this), std::move(callback));
+  LoadFromFile(rom_path, std::move(load_callback));
 }
 
 void EmulatorImpl::LoadAndRun(const Bytes& data, base::OnceClosure callback) {
-  base::OnceClosure reply = base::BindPostTask(
-      base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
-
-  base::OnceClosure load_closure = base::BindOnce(
-      &EmulatorImpl::LoadFromBinary, base::Unretained(this), std::move(data),
-      base::IgnoreArgs<bool>(
-          base::BindOnce(&EmulatorImpl::Run, base::RetainedRef(this)))
-          .Then(std::move(reply)));
-
-  if (working_task_runner_->RunsTasksInCurrentSequence()) {
-    Unload(std::move(load_closure));
-  } else {
-    working_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&EmulatorImpl::Unload, base::Unretained(this),
-                                  std::move(load_closure)));
-  }
+  LoadCallback load_callback = base::BindOnce(
+      [](scoped_refptr<EmulatorImpl> emulator, base::OnceClosure callback,
+         bool success) {
+        if (success) {
+          emulator->Run();
+          std::move(callback).Run();
+        } else {
+          LOG(ERROR) << "Error occurs when load ROM via " << __func__;
+        }
+      },
+      base::RetainedRef(this), std::move(callback));
+  LoadFromBinary(data, std::move(load_callback));
 }
 
 void EmulatorImpl::Unload(UnloadCallback callback) {
   CHECK(is_power_on()) << "Make sure Emulator is power on.";
   running_state_ = RunningState::kStopped;
-  // Post One more task, to make sure working task runner dealing with kPaused
-  // running state.
   Reset(std::move(callback));
 }
 
 void EmulatorImpl::Reset(ResetCallback reset_callback) {
   RunningState last_state = running_state_;
   Pause();
-  // Push a reset task to working thread, make sure it runs in the last
-  // sequence.
-  if (working_task_runner_->RunsTasksInCurrentSequence()) {
-    ResetOnProperThread();
-    AfterResetReply(last_state, std::move(reset_callback));
-  } else {
-    working_task_runner_->PostTaskAndReply(
-        FROM_HERE,
-        base::BindOnce(&EmulatorImpl::ResetOnProperThread,
-                       base::RetainedRef(this)),
-        base::BindOnce(&EmulatorImpl::AfterResetReply, base::RetainedRef(this),
-                       last_state, std::move(reset_callback)));
-  }
+  render_coroutine_->PostTaskAndReply(
+      FROM_HERE,
+      base::BindOnce(
+          [](EmulatorImpl* emulator, RunningState last_state) {
+            emulator->ResetOnProperThread();
+            emulator->PostReset(last_state);
+          },
+          base::RetainedRef(this), last_state),
+      std::move(reset_callback));
 }
 
 void EmulatorImpl::DMA(Byte page) {
@@ -232,7 +314,8 @@ void EmulatorImpl::Strobe(Byte strobe) {
 void EmulatorImpl::RunOneFrameOnProperThread() {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (running_state_ != RunningState::kRunning) {
-    RunAllTasks();
+    EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
+        ->RunAllTasks();
     return;
   }
 
@@ -252,7 +335,8 @@ void EmulatorImpl::RunOneFrameOnProperThread() {
     StepInternal();
     cpu_cycle_elapsed_ -= kNanoPerCycle;
 
-    RunAllTasks();
+    EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
+        ->RunAllTasks();
   }
 }
 
@@ -305,8 +389,14 @@ void EmulatorImpl::ResetOnProperThread() {
   }
 }
 
-void EmulatorImpl::AfterResetReply(RunningState last_state,
-                                   ResetCallback callback) {
+void EmulatorImpl::UnloadOnProperThread() {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  CHECK(is_power_on()) << "Make sure Emulator is power on.";
+  running_state_ = RunningState::kStopped;
+  ResetOnProperThread();
+}
+
+void EmulatorImpl::PostReset(RunningState last_state) {
   if (debug_port_) {
     debug_port_->OnCPUReset(GetCPUContext());
     debug_port_->OnPPUReset(GetPPUContext());
@@ -314,37 +404,11 @@ void EmulatorImpl::AfterResetReply(RunningState last_state,
   if (last_state == RunningState::kRunning) {
     Run();
   }
-  std::move(callback).Run();
 }
 
 void EmulatorImpl::OnIRQFromAPU() {
   // TODO Handle APU IRQ
   LOG(INFO) << "OnIRQFromAPU() is unhandled yet.";
-}
-
-void EmulatorImpl::PushTask(base::OnceClosure task) {
-  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
-  tasks_while_rendering_unsafe_.push(std::move(task));
-}
-
-void EmulatorImpl::RunAllTasks() {
-  // Checks if any task to be run
-  while (HasTask()) {
-    base::OnceClosure task = PopTask();
-    std::move(task).Run();
-  }
-}
-
-bool EmulatorImpl::HasTask() {
-  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
-  return !tasks_while_rendering_unsafe_.empty();
-}
-
-base::OnceClosure EmulatorImpl::PopTask() {
-  std::lock_guard<std::mutex> guard(mutex_for_tasks_while_rendering_);
-  base::OnceClosure task = std::move(tasks_while_rendering_unsafe_.front());
-  tasks_while_rendering_unsafe_.pop();
-  return task;
 }
 
 void EmulatorImpl::OnPPUStepped() {
@@ -358,39 +422,47 @@ void EmulatorImpl::Step() {
       << "Step() should be called when emulator is paused.";
   StepInternal();
 }
+bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  UnloadOnProperThread();
+  scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
+  return HandleLoadedResult(cartridge->Load(rom_path), cartridge);
+}
 
-Cartridge::LoadCallback EmulatorImpl::MakeLoadCallback(
-    LoadCallback raw_callback) {
-  Cartridge::LoadCallback load_callback_with_debug_port = base::BindOnce(
-      [](scoped_refptr<EmulatorImpl> this_impl, LoadCallback origin_callback,
-         Cartridge::LoadResult load_result) {
-        if (this_impl->debug_port_) {
-          this_impl->debug_port_->OnRomLoaded(
-              load_result.success, load_result.success
-                                       ? this_impl->cartridge_->GetRomData()
-                                       : nullptr);
-        }
+bool EmulatorImpl::LoadFromBinaryOnProperThread(const Bytes& data) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  UnloadOnProperThread();
+  scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
+  return HandleLoadedResult(cartridge->Load(data), cartridge);
+}
 
-        // Set patch config for PPU
-        this_impl->ppu_->SetPatch(this_impl->cartridge_->crc32());
+bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
+                                      scoped_refptr<Cartridge> cartridge) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  if (!load_result.success)
+    return false;
 
-        // Set mapper for buses.
-        this_impl->cpu_bus_->SetMapper(this_impl->cartridge_->mapper());
-        this_impl->ppu_bus_->SetMapper(this_impl->cartridge_->mapper());
-        this_impl->cartridge_->mapper()->set_mirroring_changed_callback(
-            base::BindRepeating(&PPUBus::UpdateMirroring,
-                                base::Unretained(this_impl->ppu_bus_.get())));
-        this_impl->cartridge_->mapper()->set_scanline_irq_callback(
-            base::BindRepeating(&CPU::Interrupt,
-                                base::Unretained(this_impl->cpu_.get()),
-                                CPU::InterruptType::IRQ));
+  cartridge_ = cartridge;
+  if (debug_port_) {
+    debug_port_->OnRomLoaded(load_result.success, load_result.success
+                                                      ? cartridge->GetRomData()
+                                                      : nullptr);
+  }
 
-        // Reset CPU and PPU.
-        this_impl->Reset(
-            base::BindOnce(std::move(origin_callback), load_result.success));
-      },
-      base::RetainedRef(this), std::move(raw_callback));
-  return load_callback_with_debug_port;
+  // Set patch config for PPU
+  ppu_->SetPatch(cartridge->crc32());
+
+  // Set mapper for buses.
+  cpu_bus_->SetMapper(cartridge->mapper());
+  ppu_bus_->SetMapper(cartridge->mapper());
+  cartridge->mapper()->set_mirroring_changed_callback(base::BindRepeating(
+      &PPUBus::UpdateMirroring, base::Unretained(ppu_bus_.get())));
+  cartridge->mapper()->set_scanline_irq_callback(base::BindRepeating(
+      &CPU::Interrupt, base::Unretained(cpu_.get()), CPU::InterruptType::IRQ));
+
+  // Reset CPU and PPU.
+  ResetOnProperThread();
+  return true;
 }
 
 void EmulatorImpl::StepInternal() {
@@ -426,27 +498,25 @@ IODevices* EmulatorImpl::GetIODevices() {
 }
 
 void EmulatorImpl::SaveState(SaveStateCallback callback) {
-  SaveStateCallback bound_callback = base::BindPostTask(
-      base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
-
-  PushTask(base::BindOnce(
-      [](EmulatorImpl* emulator, SaveStateCallback callback) {
-        Bytes data = emulator->SaveStateOnProperThread();
-        std::move(callback).Run(std::move(data));
-      },
-      base::Unretained(this), std::move(bound_callback)));
+  render_coroutine_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(
+          [](EmulatorImpl* emulator) {
+            return emulator->SaveStateOnProperThread();
+          },
+          base::RetainedRef(this)),
+      std::move(callback));
 }
 
 void EmulatorImpl::LoadState(const Bytes& data, LoadCallback callback) {
-  LoadCallback bound_callback = base::BindPostTask(
-      base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
-
-  PushTask(base::BindOnce(
-      [](EmulatorImpl* emulator, const Bytes& data, LoadCallback callback) {
-        bool result = emulator->LoadStateOnProperThread(data);
-        std::move(callback).Run(result);
-      },
-      base::Unretained(this), data, std::move(bound_callback)));
+  render_coroutine_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(
+          [](EmulatorImpl* emulator, const Bytes& data) {
+            return emulator->LoadStateOnProperThread(data);
+          },
+          base::RetainedRef(this), data),
+      std::move(callback));
 }
 
 void EmulatorImpl::SetVolume(float volume) {

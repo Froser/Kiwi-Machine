@@ -29,38 +29,28 @@ namespace nes {
 Cartridge::Cartridge(EmulatorImpl* emulator) : emulator_(emulator) {}
 Cartridge::~Cartridge() = default;
 
-void Cartridge::Load(const base::FilePath& rom_path, LoadCallback callback) {
+Cartridge::LoadResult Cartridge::Load(const base::FilePath& rom_path) {
+  // This method must be called on IO thread, by emulator.
   if (emulator_->is_power_on()) {
     is_loaded_ = false;
-    LoadCallback bound_callback = base::BindPostTask(
-        base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
-    emulator_->PushTask(base::BindOnce(
-        [](scoped_refptr<Cartridge> cartridge, const base::FilePath& rom_path,
-           LoadCallback callback) {
-          std::move(callback).Run(cartridge->LoadFromFileOnIOThread(rom_path));
-        },
-        base::RetainedRef(this), rom_path, std::move(bound_callback)));
+    return LoadFromFileOnIOThread(rom_path);
   } else {
     LOG(ERROR) << "The emulator is power off yet. You should call "
                   "Emulator::PowerOn() first.";
+    return Cartridge::LoadResult::failed();
   }
 }
 
-void Cartridge::Load(const Bytes& data, LoadCallback callback) {
+Cartridge::LoadResult Cartridge::Load(const Bytes& data) {
   if (emulator_->is_power_on()) {
     is_loaded_ = false;
-
-    LoadCallback bound_callback = base::BindPostTask(
-        base::SequencedTaskRunner::GetCurrentDefault(), std::move(callback));
-    emulator_->PushTask(base::BindOnce(
-        [](scoped_refptr<Cartridge> cartridge, const Bytes& data,
-           LoadCallback callback) {
-          std::move(callback).Run(cartridge->LoadFromDataOnIOThread(data));
-        },
-        base::RetainedRef(this), data, std::move(bound_callback)));
+    return LoadFromDataOnIOThread(data);
   } else {
     LOG(ERROR) << "The emulator is power off yet. You should call "
                   "Emulator::PowerOn() first.";
+    Cartridge::LoadResult result;
+    result.success = false;
+    return result;
   }
 }
 

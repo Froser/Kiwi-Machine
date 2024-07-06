@@ -14,8 +14,6 @@
 #define NES_EMULATOR_IMPL_H_
 
 #include <chrono>
-#include <mutex>
-#include <queue>
 #include <set>
 
 #include "base/files/file_path.h"
@@ -106,27 +104,22 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   // Controllers
   void Strobe(Byte strobe);
 
-  // If any task need to be run on working task runner, use PushTask and
-  // PopTask.
-  void PushTask(base::OnceClosure task);
-
- private:
-  void RunAllTasks();
-  base::OnceClosure PopTask();
-  bool HasTask();
-
  public:
   bool is_power_on() { return is_power_on_; }
 
  private:
-  Cartridge::LoadCallback MakeLoadCallback(LoadCallback raw_callback);
+  bool LoadFromFileOnProperThread(const base::FilePath& rom_path);
+  bool LoadFromBinaryOnProperThread(const Bytes& data);
+  bool HandleLoadedResult(Cartridge::LoadResult load_result,
+                          scoped_refptr<Cartridge> cartridge);
   void StepInternal();
   void RunOneFrameOnProperThread();
   void PowerOffOnProperThread();
   Bytes SaveStateOnProperThread();
   bool LoadStateOnProperThread(const Bytes& data);
   void ResetOnProperThread();
-  void AfterResetReply(RunningState last_state, ResetCallback callback);
+  void UnloadOnProperThread();
+  void PostReset(RunningState last_state);
   void OnIRQFromAPU();
   // EmulatorStates will dump states from emulator, it can access all members.
   friend class EmulatorStates;
@@ -152,9 +145,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   DebugPort* debug_port_ = nullptr;
   scoped_refptr<base::SequencedTaskRunner> emulator_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> working_task_runner_;
-
-  std::queue<base::OnceClosure> tasks_while_rendering_unsafe_;
-  std::mutex mutex_for_tasks_while_rendering_;
+  scoped_refptr<base::SequencedTaskRunner> render_coroutine_;
 };
 
 }  // namespace nes
