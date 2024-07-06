@@ -246,7 +246,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         if (libraries.length > 0) {
             library = "lib" + libraries[libraries.length - 1] + ".so";
         } else {
-            library = "libmain.so";
+            library = "kiwimachine.so";
         }
         return getContext().getApplicationInfo().nativeLibraryDir + "/" + library;
     }
@@ -269,12 +269,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
      */
     protected String[] getLibraries() {
         return new String[] {
-            "SDL2",
-            // "SDL2_image",
-            // "SDL2_mixer",
-            // "SDL2_net",
-            // "SDL2_ttf",
-            "main"
+            "kiwimachine"
         };
     }
 
@@ -363,7 +358,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                   + System.getProperty("line.separator")
                   + System.getProperty("line.separator")
                   + "Error: " + errorMsgBrokenLib);
-            dlgAlert.setTitle("SDL Error");
+            dlgAlert.setTitle("Error");
             dlgAlert.setPositiveButton("Exit",
                 new DialogInterface.OnClickListener() {
                     @Override

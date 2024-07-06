@@ -183,7 +183,7 @@ void EmulatorImpl::PowerOff() {
       working_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(&EmulatorImpl::RunOneFrameOnProperThread,
-                         base::Unretained(this))
+                         base::RetainedRef(this))
               .Then(base::BindOnce(&EmulatorImpl::PowerOffOnProperThread,
                                    base::RetainedRef(this))));
     }
@@ -422,6 +422,7 @@ void EmulatorImpl::Step() {
       << "Step() should be called when emulator is paused.";
   StepInternal();
 }
+
 bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path) {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   UnloadOnProperThread();
@@ -500,22 +501,16 @@ IODevices* EmulatorImpl::GetIODevices() {
 void EmulatorImpl::SaveState(SaveStateCallback callback) {
   render_coroutine_->PostTaskAndReplyWithResult(
       FROM_HERE,
-      base::BindOnce(
-          [](EmulatorImpl* emulator) {
-            return emulator->SaveStateOnProperThread();
-          },
-          base::RetainedRef(this)),
+      base::BindOnce(&EmulatorImpl::SaveStateOnProperThread,
+                     base::RetainedRef(this)),
       std::move(callback));
 }
 
 void EmulatorImpl::LoadState(const Bytes& data, LoadCallback callback) {
   render_coroutine_->PostTaskAndReplyWithResult(
       FROM_HERE,
-      base::BindOnce(
-          [](EmulatorImpl* emulator, const Bytes& data) {
-            return emulator->LoadStateOnProperThread(data);
-          },
-          base::RetainedRef(this), data),
+      base::BindOnce(&EmulatorImpl::LoadStateOnProperThread,
+                     base::RetainedRef(this), data),
       std::move(callback));
 }
 
@@ -528,6 +523,7 @@ float EmulatorImpl::GetVolume() {
 }
 
 Byte EmulatorImpl::Read(Address address) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   switch (static_cast<IORegister>(address)) {
     case IORegister::OAMDMA:
       return address & 0xff;
@@ -550,6 +546,7 @@ Byte EmulatorImpl::Read(Address address) {
 }
 
 void EmulatorImpl::Write(Address address, Byte value) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   switch (static_cast<IORegister>(address)) {
     case IORegister::OAMDMA:
       return DMA(value);
@@ -572,36 +569,42 @@ void EmulatorImpl::Write(Address address, Byte value) {
 }
 
 void EmulatorImpl::OnPPUADDR(Address address) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnPPUADDR(address);
   }
 }
 
 void EmulatorImpl::OnPPUScanlineStart(int scanline) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnScanlineStart(scanline);
   }
 }
 
 void EmulatorImpl::OnPPUScanlineEnd(int scanline) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnScanlineEnd(scanline);
   }
 }
 
 void EmulatorImpl::OnPPUFrameStart() {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnFrameStart();
   }
 }
 
 void EmulatorImpl::OnPPUFrameEnd() {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnFrameEnd();
   }
 }
 
 void EmulatorImpl::OnRenderReady(const Colors& swapbuffer) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   // Render is ready, update APU state here.
   apu_->StepFrame();
 
@@ -628,16 +631,19 @@ void EmulatorImpl::OnRenderReady(const Colors& swapbuffer) {
 }
 
 void EmulatorImpl::OnCPUNMI() {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_)
     debug_port_->OnCPUNMI();
 }
 
 void EmulatorImpl::OnCPUBeforeStep(CPUDebugState& state) {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_)
     debug_port_->OnCPUBeforeStep(state);
 }
 
 void EmulatorImpl::OnCPUStepped() {
+  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_)
     debug_port_->OnCPUStepped(GetCPUContext());
 }
