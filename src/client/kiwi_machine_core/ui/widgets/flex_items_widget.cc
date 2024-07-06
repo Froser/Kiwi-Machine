@@ -317,9 +317,12 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   if (!activate_)
     return false;
 
-  if (k && k->keysym.mod) {
-    // If any modifier is pressed, we won't treat this key event as handled,
-    // because many shortcut such as 'Command+W' will close the application.
+  constexpr Uint16 kCtrlAltShiftGuiMod =
+      KMOD_CTRL | KMOD_ALT | KMOD_SHIFT | KMOD_GUI;
+  if (k && (k->keysym.mod & kCtrlAltShiftGuiMod)) {
+    // If any modifier (CTRL, ATL, SHIFT, GUI(Command, etc)) is pressed, we
+    // won't treat this key event as handled, because many shortcut such as
+    // 'Command+W' will close the application. See SDL_Keymod for more details.
     return true;
   }
 
