@@ -14,13 +14,14 @@
 
 #include <imgui.h>
 
+#include "ui/styles.h"
 #include "ui/window_base.h"
 #include "utility/fonts.h"
 
 namespace {
 constexpr int kSpacing = 10;
 constexpr int kHeight = 100;
-static int g_top = 10;
+static int g_top = styles::toast::GetTopLeft().x;
 }  // namespace
 
 void Toast::ShowToast(WindowBase* window_base,
@@ -40,7 +41,7 @@ Toast::Toast(WindowBase* window_base,
       ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
   set_flags(window_flags);
   set_title(message);
-  set_bounds(SDL_Rect{g_top, 20, 200, kHeight});
+  set_bounds(SDL_Rect{g_top, styles::toast::GetTopLeft().y, 200, kHeight});
   g_top += (kHeight + kSpacing);
 }
 
@@ -59,6 +60,7 @@ void Toast::Paint() {
     return;
   }
 
-  ScopedFont font = GetPreferredFont(PreferredFontSize::k2x, message_.c_str());
+  ScopedFont font =
+      GetPreferredFont(styles::toast::GetFontSize(), message_.c_str());
   ImGui::Text("%s", message_.c_str());
 }

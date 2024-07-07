@@ -22,12 +22,17 @@
 class MainWindow;
 class FlexItemsWidget;
 class FlexItemWidget : public Widget {
+ public:
+  // The parameter 'bool' means whether is trigger action is invoked by finger
+  // gesture.
+  using TriggerCallback = kiwi::base::RepeatingCallback<void(bool)>;
+
  private:
   struct Data {
     std::unique_ptr<LocalizedStringUpdater> title_updater;
     const kiwi::nes::Byte* cover_img = nullptr;
     size_t cover_size = 0u;
-    kiwi::base::RepeatingClosure on_trigger_callback;
+    TriggerCallback on_trigger_callback;
     SDL_Texture* cover_texture = nullptr;
     int cover_width = 0;
     int cover_height = 0;
@@ -37,7 +42,7 @@ class FlexItemWidget : public Widget {
   explicit FlexItemWidget(MainWindow* main_window,
                           FlexItemsWidget* parent,
                           std::unique_ptr<LocalizedStringUpdater> title_updater,
-                          kiwi::base::RepeatingClosure on_trigger);
+                          TriggerCallback on_trigger);
   ~FlexItemWidget() override;
 
   // Sets the cover image data, perhaps jpeg raw data or PNG raw data.
@@ -56,12 +61,12 @@ class FlexItemWidget : public Widget {
 
   SDL_Rect GetSuggestedSize(int item_height);
 
-  void Trigger();
+  void Trigger(bool triggered_by_finger);
 
   void AddSubItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
                   const kiwi::nes::Byte* cover_img_ref,
                   size_t cover_size,
-                  kiwi::base::RepeatingClosure on_trigger);
+                  TriggerCallback on_trigger);
   bool has_sub_items() { return sub_data_.size() > 1; }
   bool RestoreToDefaultItem();
   bool SwapToNextSubItem();

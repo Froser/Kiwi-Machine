@@ -16,11 +16,11 @@
 #include <kiwi_nes.h>
 
 #include "models/nes_runtime.h"
+#include "ui/widgets/flex_item_widget.h"
 #include "ui/widgets/widget.h"
 #include "utility/localization.h"
 
 class MainWindow;
-class FlexItemWidget;
 class FlexItemsWidget : public Widget {
  public:
   enum class LayoutOption {
@@ -34,12 +34,12 @@ class FlexItemsWidget : public Widget {
   size_t AddItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
                  const kiwi::nes::Byte* cover_img_ref,
                  size_t cover_size,
-                 kiwi::base::RepeatingClosure on_trigger);
+                 FlexItemWidget::TriggerCallback on_trigger);
   void AddSubItem(size_t item_index,
                   std::unique_ptr<LocalizedStringUpdater> title_updater,
                   const kiwi::nes::Byte* cover_img_ref,
                   size_t cover_size,
-                  kiwi::base::RepeatingClosure on_trigger);
+                  FlexItemWidget::TriggerCallback on_trigger);
 
   void SetIndex(size_t index);
   bool IsItemSelected(FlexItemWidget* item);
@@ -70,7 +70,7 @@ class FlexItemsWidget : public Widget {
   void AdjustBottomRowItemsIfNeeded(LayoutOption option);
 
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
-  void TriggerCurrentItem();
+  void TriggerCurrentItem(bool triggered_by_finger);
   void ApplyScrolling(int scrolling);
 
   enum Direction { kUp, kDown, kLeft, kRight };
@@ -102,6 +102,9 @@ class FlexItemsWidget : public Widget {
                                  MouseButton button,
                                  int x_in_window,
                                  int y_in_window);
+  void HandleTriggerItemByLeftMouseButtonDownOrFingerUp(int x_in_window,
+                                                        int y_in_window,
+                                                        bool is_finger_gesture);
 
  protected:
   void Paint() override;

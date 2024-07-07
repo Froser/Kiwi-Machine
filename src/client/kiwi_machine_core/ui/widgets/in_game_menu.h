@@ -96,6 +96,7 @@ class InGameMenu : public Widget {
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   void OnWindowPreRender() override;
   void OnWindowPostRender() override;
 

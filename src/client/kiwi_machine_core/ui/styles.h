@@ -79,8 +79,17 @@ PreferredFontSize GetPreferredFontSize();
 namespace about_widget {
 
 int GetMarginX(float window_scale);
+PreferredFontSize PreferredTitleFontSize(float window_scale);
+PreferredFontSize PreferredContentFontSize();
 
 }
+
+namespace toast {
+
+SDL_Point GetTopLeft();
+PreferredFontSize GetFontSize();
+
+}  // namespace toast
 
 }  // namespace styles
 

@@ -200,6 +200,12 @@ bool InGameMenu::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
   return HandleInputEvent(nullptr, nullptr);
 }
 
+bool InGameMenu::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  // InGameMenu will stop propagation, preventing touch event passing to the
+  // widget below it, such as FullscreenMask widget in MainWindow.
+  return true;
+}
+
 void InGameMenu::OnWindowPreRender() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);

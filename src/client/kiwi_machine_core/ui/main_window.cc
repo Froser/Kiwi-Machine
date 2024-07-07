@@ -224,8 +224,32 @@ std::string ROMTitleUpdater::GetLocalizedString() {
 std::string ROMTitleUpdater::GetCollateStringHint() {
   return GetROMLocalizedCollateStringHint(preset_rom_);
 }
-
 }  // namespace
+
+// A mask widget to handle finger events.
+class FullscreenMask : public Widget {
+ public:
+  FullscreenMask(MainWindow* main_window);
+  ~FullscreenMask() override = default;
+
+ protected:
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+  bool IsWindowless() override;
+
+ private:
+  MainWindow* main_window_ = nullptr;
+};
+
+FullscreenMask::FullscreenMask(MainWindow* main_window)
+    : Widget(main_window), main_window_(main_window) {}
+
+bool FullscreenMask::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  return main_window_->HandleWindowFingerDown();
+}
+
+bool FullscreenMask::IsWindowless() {
+  return true;
+}
 
 // Observer
 MainWindow::Observer::Observer() = default;
@@ -412,17 +436,20 @@ void MainWindow::RemoveObserver(Observer* observer) {
 
 bool MainWindow::IsKeyDown(int controller_id,
                            kiwi::nes::ControllerButton button) {
-  bool matched =
-      pressing_keys_.find(runtime_data_->keyboard_mappings[controller_id]
-                              .mapping[static_cast<int>(button)]) !=
-      pressing_keys_.cend();
-
+  // Matching virtual joysticks.
+  bool matched = IsVirtualJoystickButtonPressed(controller_id, button);
   if (matched)
     return true;
 
-  matched = IsVirtualJoystickButtonPressed(controller_id, button);
-  if (matched)
+  // Matching keyboard
+  matched = pressing_keys_.find(runtime_data_->keyboard_mappings[controller_id]
+                                    .mapping[static_cast<int>(button)]) !=
+            pressing_keys_.cend();
+
+  if (matched) {
+    OnKeyboardMatched();
     return true;
+  }
 
   // Key doesn't match. Try joysticks.
   NESRuntime::Data::JoystickMapping joystick_mapping =
@@ -442,38 +469,41 @@ bool MainWindow::IsKeyDown(int controller_id,
                              runtime_data_->joystick_mappings[controller_id]
                                  .mapping.mapping[static_cast<int>(button)]));
 
-    if (matched)
-      return true;
+    if (!matched) {
+      // Not matched, try axis motion.
+      constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
+      switch (button) {
+        case kiwi::nes::ControllerButton::kLeft: {
+          Sint16 x = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTX);
+          if (SDL_JOYSTICK_AXIS_MIN <= x && x <= -kDeadZoom)
+            matched = true;
+        } break;
+        case kiwi::nes::ControllerButton::kRight: {
+          Sint16 x = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTX);
+          if (kDeadZoom <= x && x <= SDL_JOYSTICK_AXIS_MAX)
+            matched = true;
+        } break;
+        case kiwi::nes::ControllerButton::kUp: {
+          Sint16 y = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTY);
+          if (SDL_JOYSTICK_AXIS_MIN <= y && y <= -kDeadZoom)
+            matched = true;
+        } break;
+        case kiwi::nes::ControllerButton::kDown: {
+          Sint16 y = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTY);
+          if (kDeadZoom <= y && y <= SDL_JOYSTICK_AXIS_MAX)
+            matched = true;
+        } break;
+        default:
+          break;
+      }
+    }
 
-    // Not matched, try axis motion.
-    constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
-    switch (button) {
-      case kiwi::nes::ControllerButton::kLeft: {
-        Sint16 x = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTX);
-        if (SDL_JOYSTICK_AXIS_MIN <= x && x <= -kDeadZoom)
-          matched = true;
-      } break;
-      case kiwi::nes::ControllerButton::kRight: {
-        Sint16 x = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTX);
-        if (kDeadZoom <= x && x <= SDL_JOYSTICK_AXIS_MAX)
-          matched = true;
-      } break;
-      case kiwi::nes::ControllerButton::kUp: {
-        Sint16 y = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTY);
-        if (SDL_JOYSTICK_AXIS_MIN <= y && y <= -kDeadZoom)
-          matched = true;
-      } break;
-      case kiwi::nes::ControllerButton::kDown: {
-        Sint16 y = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTY);
-        if (kDeadZoom <= y && y <= SDL_JOYSTICK_AXIS_MAX)
-          matched = true;
-      } break;
-      default:
-        break;
+    if (matched) {
+      OnJoystickButtonsMatched();
     }
   }
 
@@ -528,6 +558,10 @@ void MainWindow::HandleResizedEvent() {
 
   if (splash_) {
     FillLayout(this, splash_);
+  }
+
+  if (fullscreen_mask_) {
+    FillLayout(this, fullscreen_mask_);
   }
 
   LayoutVirtualTouchButtons();
@@ -795,6 +829,13 @@ void MainWindow::InitializeUI() {
                                 kiwi::base::Unretained(this)),
       kiwi::base::BindRepeating(&MainWindow::OnInGameSettingsItemTrigger,
                                 kiwi::base::Unretained(this)));
+
+  std::unique_ptr<Widget> fullscreen_mask =
+      std::make_unique<FullscreenMask>(this);
+  fullscreen_mask_ = fullscreen_mask.get();
+  fullscreen_mask_->set_visible(false);
+  AddWidget(std::move(fullscreen_mask));
+
   if (is_headless_)
     in_game_menu->HideMenu(6);  // Hides 'Quit Game' when headless
   in_game_menu_ = in_game_menu.get();
@@ -907,9 +948,9 @@ void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
   SetLoading(true);
 
   runtime_data_->emulator->LoadAndRun(
-      rom_path, kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                                     kiwi::base::Unretained(this),
-                                     rom_path.BaseName().AsUTF8Unsafe()));
+      rom_path, kiwi::base::BindOnce(
+                    &MainWindow::OnRomLoaded, kiwi::base::Unretained(this),
+                    rom_path.BaseName().AsUTF8Unsafe(), false));
 }
 
 void MainWindow::StartAutoSave() {
@@ -1130,12 +1171,20 @@ void MainWindow::SetLoading(bool is_loading) {
   loading_widget_->set_visible(is_loading);
 }
 
-void MainWindow::ShowMainMenu(bool show) {
+void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
   SDL_assert(bg_widget_);
   SDL_assert(canvas_);
   canvas_->set_visible(!show);
+  fullscreen_mask_->set_visible(!show);
   bg_widget_->set_visible(show);
-  SetVirtualButtonsVisible(!show);
+
+  if (!load_from_finger_gesture) {
+    // If the ROM is not loaded by finger events (Finger Up), it means we have
+    // mouse, joysticks or keyboard, so we do not show virtual buttons here.
+    SetVirtualButtonsVisible(false);
+  } else {
+    SetVirtualButtonsVisible(!show);
+  }
   SetLoading(false);
 }
 
@@ -1187,6 +1236,18 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
 void MainWindow::LayoutVirtualTouchButtons() {}
 
 void MainWindow::OnVirtualJoystickChanged(int state) {}
+
+void MainWindow::OnKeyboardMatched() {}
+
+void MainWindow::OnJoystickButtonsMatched() {}
+
+bool MainWindow::HandleWindowFingerDown() {
+  return false;
+}
+
+void MainWindow::StashVirtualButtonsVisible() {}
+
+void MainWindow::PopVirtualButtonsVisible() {}
 
 #endif
 
@@ -1309,9 +1370,10 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
   return callbacks;
 }
 
-void MainWindow::OnRomLoaded(const std::string& name) {
+void MainWindow::OnRomLoaded(const std::string& name,
+                             bool load_from_finger_gesture) {
   SetLoading(false);
-  ShowMainMenu(false);
+  ShowMainMenu(false, load_from_finger_gesture);
   SetTitle(name);
   StartAutoSave();
 }
@@ -1337,7 +1399,7 @@ void MainWindow::OnBackToMainMenu() {
   SDL_assert(runtime_data_->emulator);
   runtime_data_->emulator->Unload(
       kiwi::base::BindRepeating(&MainWindow::ShowMainMenu,
-                                kiwi::base::Unretained(this), true)
+                                kiwi::base::Unretained(this), true, false)
           .Then(kiwi::base::BindRepeating(
               &LoadingWidget::set_visible,
               kiwi::base::Unretained(loading_widget_), false))
@@ -1451,16 +1513,18 @@ void MainWindow::OnPause() {
     memory_widget_->UpdateMemory();
   if (disassembly_widget_)
     disassembly_widget_->UpdateDisassembly();
+  StashVirtualButtonsVisible();
   SetVirtualButtonsVisible(false);
 }
 
 void MainWindow::OnResume() {
   runtime_data_->emulator->Run();
-  SetVirtualButtonsVisible(true);
+  PopVirtualButtonsVisible();
   StartAutoSave();
 }
 
-void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom) {
+void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
+                                 bool load_from_finger_gesture) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
 
@@ -1470,15 +1534,17 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom) {
       kiwi::base::BindOnce(
           [](MainWindow* this_window,
              scoped_refptr<kiwi::nes::Emulator> emulator,
-             preset_roms::PresetROM& rom) {
+             preset_roms::PresetROM& rom, bool load_from_finger_gesture) {
             emulator->LoadAndRun(
                 ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
                 kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
                                      kiwi::base::Unretained(this_window),
-                                     GetROMLocalizedTitle(rom)));
+                                     GetROMLocalizedTitle(rom),
+                                     load_from_finger_gesture));
           },
           kiwi::base::Unretained(this),
-          kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom)));
+          kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom),
+          load_from_finger_gesture));
 }
 
 void MainWindow::OnLoadDebugROM(kiwi::base::FilePath rom_path) {

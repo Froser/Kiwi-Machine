@@ -403,3 +403,35 @@ void MainWindow::OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
   // Shouldn't be here, because in mobile app, there's no volume bar.
   SDL_assert(false);
 }
+
+void MainWindow::OnKeyboardMatched() {
+  // Matching keyboard, invisible all virtual joystick buttons.
+  SetVirtualButtonsVisible(false);
+}
+
+void MainWindow::OnJoystickButtonsMatched() {
+  // Matching joystick buttons, invisible all virtual joystick buttons.
+  SetVirtualButtonsVisible(false);
+}
+
+// The window is touched and canvas is appeared, restore all virtual joystick
+// buttons.
+bool MainWindow::HandleWindowFingerDown() {
+  // Tests one joystick's visibility, to know whether all virtual buttons are
+  // visible or not.
+  if (canvas_->visible() && !vtb_joystick_->visible()) {
+    SetVirtualButtonsVisible(true);
+    return true;
+  }
+
+  return false;
+}
+
+void MainWindow::StashVirtualButtonsVisible() {
+  stashed_virtual_joysticks_visible_state_ =
+      vtb_joystick_ && vtb_joystick_->visible();
+}
+
+void MainWindow::PopVirtualButtonsVisible() {
+  SetVirtualButtonsVisible(stashed_virtual_joysticks_visible_state_);
+}

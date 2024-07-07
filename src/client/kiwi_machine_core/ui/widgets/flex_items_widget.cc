@@ -17,7 +17,6 @@
 
 #include "ui/main_window.h"
 #include "ui/styles.h"
-#include "ui/widgets/flex_item_widget.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/math.h"
@@ -65,7 +64,7 @@ size_t FlexItemsWidget::AddItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     const kiwi::nes::Byte* cover_img_ref,
     size_t cover_size,
-    kiwi::base::RepeatingClosure on_trigger) {
+    FlexItemWidget::TriggerCallback on_trigger) {
   std::unique_ptr<FlexItemWidget> item = std::make_unique<FlexItemWidget>(
       main_window_, this, std::move(title_updater), on_trigger);
 
@@ -82,7 +81,7 @@ void FlexItemsWidget::AddSubItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     const kiwi::nes::Byte* cover_img_ref,
     size_t cover_size,
-    kiwi::base::RepeatingClosure on_trigger) {
+    FlexItemWidget::TriggerCallback on_trigger) {
   SDL_assert(item_index < items_.size());
   items_[item_index]->AddSubItem(std::move(title_updater), cover_img_ref,
                                  cover_size, on_trigger);
@@ -385,7 +384,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_A) {
     PlayEffect(audio_resources::AudioID::kStart);
-    TriggerCurrentItem();
+    TriggerCurrentItem(false);
     return true;
   }
 
@@ -402,8 +401,8 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   return false;
 }
 
-void FlexItemsWidget::TriggerCurrentItem() {
-  items_[current_index_]->Trigger();
+void FlexItemsWidget::TriggerCurrentItem(bool triggered_by_finger) {
+  items_[current_index_]->Trigger(triggered_by_finger);
   RestoreCurrentItemToDefault();
 }
 
@@ -650,9 +649,9 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
             size_t index = 0;
             if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
               if (current_index_ == index) {
-                return HandleMouseOrFingerEvents(
-                    MouseOrFingerEventType::kMouseReleased,
-                    MouseButton::kLeftButton, x_in_window, y_in_window);
+                HandleTriggerItemByLeftMouseButtonDownOrFingerUp(
+                    x_in_window, y_in_window, true);
+                return true;
               }
 
               size_t select_index = 0;
@@ -687,17 +686,8 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
       if (activate_) {
         if (gesture_locked_) {
           if (button == MouseButton::kLeftButton) {
-            size_t index_before_released = current_index_;
-            size_t index = 0;
-            if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
-              // If the highlight item doesn't change, trigger it.
-              if (index_before_released == index) {
-                PlayEffect(audio_resources::AudioID::kStart);
-                TriggerCurrentItem();
-              } else {
-                SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
-              }
-            }
+            HandleTriggerItemByLeftMouseButtonDownOrFingerUp(
+                x_in_window, y_in_window, false);
           } else if (button == MouseButton::kRightButton) {
             back_callback_.Run();
           }
@@ -713,6 +703,23 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
     }
     default:
       return false;
+  }
+}
+
+void FlexItemsWidget::HandleTriggerItemByLeftMouseButtonDownOrFingerUp(
+    int x_in_window,
+    int y_in_window,
+    bool is_finger_gesture) {
+  size_t index_before_released = current_index_;
+  size_t index = 0;
+  if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
+    // If the highlight item doesn't change, trigger it.
+    if (index_before_released == index) {
+      PlayEffect(audio_resources::AudioID::kStart);
+      TriggerCurrentItem(is_finger_gesture);
+    } else {
+      SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+    }
   }
 }
 

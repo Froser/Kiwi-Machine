@@ -43,6 +43,7 @@ namespace preset_roms {
 struct PresetROM;
 }
 
+class FullscreenMask;
 class MainWindow : public WindowBase,
                    public kiwi::nes::IODevices::InputDevice,
                    public CanvasObserver {
@@ -140,12 +141,14 @@ class MainWindow : public WindowBase,
   void ResetAudio();
   std::vector<MenuBar::Menu> GetMenuModel();
   void SetLoading(bool is_loading);
-  void ShowMainMenu(bool show);
+  void ShowMainMenu(bool show, bool load_from_finger_gesture);
   void OnScaleChanged();
   void UpdateGameControllerMapping();
   void CreateVirtualTouchButtons();
   void LayoutVirtualTouchButtons();
   void SetVirtualButtonsVisible(bool visible);
+  void StashVirtualButtonsVisible();
+  void PopVirtualButtonsVisible();
   void SaveConfig();
   void SetVirtualTouchButtonVisible(VirtualTouchButton button, bool visible);
   void SetVirtualJoystickButton(int which,
@@ -166,7 +169,7 @@ class MainWindow : public WindowBase,
   void CloseSplash(kiwi::base::OnceClosure callback);
 
   // Menu callbacks:
-  void OnRomLoaded(const std::string& name);
+  void OnRomLoaded(const std::string& name, bool load_from_finger_gesture);
   void OnQuit();
   void OnResetROM();
   void OnBackToMainMenu();
@@ -180,7 +183,8 @@ class MainWindow : public WindowBase,
   void OnPause();
   void OnResume();
   bool IsPause();
-  void OnLoadPresetROM(preset_roms::PresetROM& rom);
+  void OnLoadPresetROM(preset_roms::PresetROM& rom,
+                       bool load_from_finger_gesture);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
@@ -213,6 +217,12 @@ class MainWindow : public WindowBase,
   void OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
                                     const SDL_Point& trigger_point);
   void OnVirtualJoystickChanged(int state);
+  void OnKeyboardMatched();
+  void OnJoystickButtonsMatched();
+
+  // FullscreenMask will call HandleWindowFingerDown()
+  friend class FullscreenMask;
+  bool HandleWindowFingerDown();
 
 #if KIWI_MOBILE
   void OnScaleModeChanged();
@@ -227,6 +237,7 @@ class MainWindow : public WindowBase,
   Splash* splash_ = nullptr;
   // Canvas is owned by this window.
   Canvas* canvas_ = nullptr;
+  Widget* fullscreen_mask_ = nullptr;
   InGameMenu* in_game_menu_ = nullptr;
   Widget* menu_bar_ = nullptr;
   Widget* palette_widget_ = nullptr;
@@ -261,6 +272,7 @@ class MainWindow : public WindowBase,
   Widget* vtb_start_ = nullptr;
   Widget* vtb_select_ = nullptr;
   Widget* vtb_pause_ = nullptr;
+  bool stashed_virtual_joysticks_visible_state_ = false;
 #endif
 
   NESRuntimeID runtime_id_ = NESRuntimeID();

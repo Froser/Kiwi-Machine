@@ -30,7 +30,7 @@ FlexItemWidget::FlexItemWidget(
     MainWindow* main_window,
     FlexItemsWidget* parent,
     std::unique_ptr<LocalizedStringUpdater> title_updater,
-    kiwi::base::RepeatingClosure on_trigger)
+    TriggerCallback on_trigger)
     : Widget(main_window), main_window_(main_window), parent_(parent) {
   SDL_assert(parent_);
 
@@ -80,16 +80,16 @@ SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height) {
   return bs;
 }
 
-void FlexItemWidget::Trigger() {
+void FlexItemWidget::Trigger(bool triggered_by_finger) {
   if (current_data()->on_trigger_callback)
-    current_data()->on_trigger_callback.Run();
+    current_data()->on_trigger_callback.Run(triggered_by_finger);
 }
 
 void FlexItemWidget::AddSubItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     const kiwi::nes::Byte* cover_img_ref,
     size_t cover_size,
-    kiwi::base::RepeatingClosure on_trigger) {
+    TriggerCallback on_trigger) {
   std::unique_ptr<Data> data = std::make_unique<Data>();
   data->title_updater = std::move(title_updater);
   data->cover_img = cover_img_ref;

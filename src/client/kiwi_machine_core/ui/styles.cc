@@ -163,7 +163,7 @@ namespace side_menu {
 
 int GetItemHeight() {
 #if KIWI_ANDROID
-  return 60;
+  return 80;
 #else
   return 20;
 #endif
@@ -173,7 +173,7 @@ int GetMarginBottom() {
 #if KIWI_MOBILE
   // Many mobile screen has a rounded corner, we set margin as a larger value
   // here.
-  return 60;
+  return 80;
 #else
   return 15;
 #endif
@@ -193,7 +193,7 @@ namespace about_widget {
 
 int GetMarginX(float window_scale) {
 #if KIWI_MOBILE
-  return 80;
+  return 120;
 #else
   if (window_scale > 2.f)
     return 40;
@@ -201,6 +201,43 @@ int GetMarginX(float window_scale) {
 #endif
 }
 
+PreferredFontSize PreferredTitleFontSize(float window_scale) {
+#if KIWI_MOBILE
+  return PreferredFontSize::k3x;
+#else
+  return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
+#endif
+}
+
+PreferredFontSize PreferredContentFontSize() {
+#if KIWI_MOBILE
+  return PreferredFontSize::k2x;
+#else
+  return PreferredFontSize::k1x;
+#endif
+}
+
 }  // namespace about_widget
+
+namespace toast {
+
+SDL_Point GetTopLeft() {
+#if KIWI_MOBILE
+  static SDL_Point kPoint = {30, 60};
+#else
+  static SDL_Point kPoint = {10, 20};
+#endif
+  return kPoint;
+}
+
+PreferredFontSize GetFontSize() {
+#if KIWI_MOBILE
+  return PreferredFontSize::k3x;
+#else
+  return PreferredFontSize::k2x;
+#endif
+}
+
+}  // namespace toast
 
 }  // namespace styles

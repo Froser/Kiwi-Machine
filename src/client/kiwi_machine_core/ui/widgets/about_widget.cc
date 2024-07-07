@@ -113,11 +113,6 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   return false;
 }
 
-PreferredFontSize AboutWidget::PreferredTitleFontSize() {
-  return main_window_->window_scale() > 2.f ? PreferredFontSize::k2x
-                                            : PreferredFontSize::k1x;
-}
-
 void AboutWidget::ResetCursorX() {
   ImGui::SetCursorPosX(
       styles::about_widget::GetMarginX(main_window_->window_scale()));
@@ -152,19 +147,23 @@ void AboutWidget::DrawTitle() {
   ImGui::BeginGroup();
   {
     const char* title = GetLocalizedString(IDR_ABOUT_KIWI_MACHINE).c_str();
-    ScopedFont font_title = GetPreferredFont(PreferredFontSize::k3x, title);
+    ScopedFont font_title =
+        GetPreferredFont(styles::about_widget::PreferredTitleFontSize(
+                             main_window_->window_scale()),
+                         title);
     ImGui::TextUnformatted(title);
   }
   {
     ScopedFont font_title =
-        GetPreferredFont(PreferredFontSize::k1x,
+        GetPreferredFont(styles::about_widget::PreferredContentFontSize(),
                          GetLocalizedString(IDR_ABOUT_INSTRUCTIONS).c_str());
     ImGui::TextUnformatted(
         GetLocalizedString(string_resources::IDR_ABOUT_INSTRUCTIONS).c_str());
   }
   {
     ScopedFont font_title =
-        GetPreferredFont(PreferredFontSize::k1x, FontType::kSystemDefault);
+        GetPreferredFont(styles::about_widget::PreferredContentFontSize(),
+                         FontType::kSystemDefault);
     ImGui::Text("V2.0.0");
   }
   ImGui::EndGroup();
@@ -175,7 +174,8 @@ void AboutWidget::DrawController() {
   {
     ResetCursorX();
     ScopedFont font_title = GetPreferredFont(
-        PreferredTitleFontSize(),
+        styles::about_widget::PreferredTitleFontSize(
+            main_window_->window_scale()),
         GetLocalizedString(string_resources::IDR_ABOUT_CONTROLLER).c_str());
     ImGui::TextUnformatted(
         GetLocalizedString(string_resources::IDR_ABOUT_CONTROLLER).c_str());
@@ -248,8 +248,7 @@ void AboutWidget::DrawController() {
       "X",
       "Y         ",
       GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_MENU).c_str(),
-      "LB + RB"
-  };
+      "LB + RB"};
   static_assert(
       ArrayCount(kKeyboardHeaderStrings) == ArrayCount(kKeyboardStringsP1) &&
       ArrayCount(kKeyboardHeaderStrings) == ArrayCount(kKeyboardStringsP2));
@@ -260,7 +259,7 @@ void AboutWidget::DrawController() {
   ImGui::BeginGroup();
   {
     ScopedFont font = GetPreferredFont(
-        PreferredFontSize::k1x,
+        styles::about_widget::PreferredContentFontSize(),
         GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD).c_str());
     ImGui::TextUnformatted(
         GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD).c_str());
@@ -274,7 +273,8 @@ void AboutWidget::DrawController() {
                                                : ImGui::TableNextRow();
       for (int column = 0; column < ArrayCount(kKeyboardHeaderStrings);
            ++column) {
-        ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
+        ScopedFont font =
+            GetPreferredFont(styles::about_widget::PreferredContentFontSize());
         ImGui::TableSetColumnIndex(column);
         (kRowContent == kKeyboardRowContents[0])
             ? ImGui::TextColored(ImVec4(0, 0, 0, 1), "%s", kRowContent[column])
@@ -286,7 +286,7 @@ void AboutWidget::DrawController() {
 
   {
     ScopedFont font = GetPreferredFont(
-        PreferredFontSize::k1x,
+        styles::about_widget::PreferredContentFontSize(),
         GetLocalizedString(IDR_ABOUT_CONTROLLER_GAMEPAD).c_str());
     ImGui::TextUnformatted(
         GetLocalizedString(IDR_ABOUT_CONTROLLER_GAMEPAD).c_str());
@@ -301,7 +301,8 @@ void AboutWidget::DrawController() {
                                               : ImGui::TableNextRow();
       for (int column = 0; column < ArrayCount(kGamepadHeaderStrings);
            ++column) {
-        ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
+        ScopedFont font =
+            GetPreferredFont(styles::about_widget::PreferredContentFontSize());
         ImGui::TableSetColumnIndex(column);
         (kRowContent == kGamepadRowContents[0])
             ? ImGui::TextColored(ImVec4(0, 0, 0, 1), "%s", kRowContent[column])
@@ -320,14 +321,17 @@ void AboutWidget::DrawGameSelection() {
   {
     ResetCursorX();
     const char* title = GetLocalizedString(IDR_ABOUT_GAME_SELECTION).c_str();
-    ScopedFont font = GetPreferredFont(PreferredTitleFontSize(), title);
+    ScopedFont font =
+        GetPreferredFont(styles::about_widget::PreferredTitleFontSize(
+                             main_window_->window_scale()),
+                         title);
     ImGui::TextUnformatted(title);
   }
   {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 4));
     ResetCursorX();
     ScopedFont font = GetPreferredFont(
-        PreferredFontSize::k1x,
+        styles::about_widget::PreferredContentFontSize(),
         GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0).c_str());
     ImGui::TextUnformatted(
         GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0).c_str());
@@ -350,11 +354,15 @@ void AboutWidget::DrawAbout() {
   {
     ResetCursorX();
     const char* title = GetLocalizedString(IDR_ABOUT_ABOUT).c_str();
-    ScopedFont font = GetPreferredFont(PreferredTitleFontSize(), title);
+    ScopedFont font =
+        GetPreferredFont(styles::about_widget::PreferredTitleFontSize(
+                             main_window_->window_scale()),
+                         title);
     ImGui::TextUnformatted(title);
   }
   {
-    ScopedFont font = GetPreferredFont(PreferredFontSize::k1x);
+    ScopedFont font =
+        GetPreferredFont(styles::about_widget::PreferredContentFontSize());
     ResetCursorX();
     ImGui::TextUnformatted(GetLocalizedString(IDR_ABOUT_ABOUT_GITHUB).c_str());
     ResetCursorX();
