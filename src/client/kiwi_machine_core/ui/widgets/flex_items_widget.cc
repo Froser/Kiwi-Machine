@@ -758,6 +758,13 @@ void FlexItemsWidget::Paint() {
     HandleMouseOrFingerEvents(MouseOrFingerEventType::kHover,
                               gesture_locked_button_, 0, 0);
   }
+
+  SDL_Rect rect_in_window = MapToWindow(GetLocalBounds());
+  ImGui::GetWindowDrawList()->AddRectFilled(
+      ImVec2(rect_in_window.x, rect_in_window.y),
+      ImVec2(rect_in_window.x + rect_in_window.w,
+             rect_in_window.y + rect_in_window.h),
+      ImColor(48, 48, 48));
 }
 
 void FlexItemsWidget::PostPaint() {

@@ -166,7 +166,7 @@ class MainWindow : public WindowBase,
 
   // Splash screen
   void ShowSplash(kiwi::base::OnceClosure callback);
-  void CloseSplash(kiwi::base::OnceClosure callback);
+  void CloseSplash();
 
   // Menu callbacks:
   void OnRomLoaded(const std::string& name, bool load_from_finger_gesture);

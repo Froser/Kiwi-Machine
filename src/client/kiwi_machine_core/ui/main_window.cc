@@ -365,24 +365,21 @@ void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
 #endif
 }
 
-void MainWindow::CloseSplash(kiwi::base::OnceClosure callback) {
+void MainWindow::CloseSplash() {
   if (splash_) {
     int ms = splash_->GetElapsedMs();
     if (ms > kSplashTimeoutMs) {
       main_stack_widget_->set_visible(true);
       RemoveWidgetLater(splash_);
-      std::move(callback).Run();
     } else {
       kiwi::base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
           FROM_HERE,
           kiwi::base::BindOnce(&MainWindow::CloseSplash,
-                               kiwi::base::Unretained(this),
-                               std::move(callback)),
+                               kiwi::base::Unretained(this)),
           kiwi::base::Milliseconds(kSplashTimeoutMs - ms));
     }
   } else {
     main_stack_widget_->set_visible(true);
-    std::move(callback).Run();
   }
 }
 
@@ -919,7 +916,7 @@ void MainWindow::InitializeUI() {
   OnScaleModeChanged();
 #endif
 
-  CloseSplash(kiwi::base::DoNothing());
+  CloseSplash();
 }
 
 void MainWindow::InitializeIODevices() {
@@ -1192,7 +1189,6 @@ void MainWindow::OnScaleChanged() {
   if (!is_fullscreen()) {
     Resize(CalculateWindowWidth(window_scale()),
            CalculateWindowHeight(window_scale(), menu_bar_));
-    MoveToCenter();
   }
 
   if (canvas_)
