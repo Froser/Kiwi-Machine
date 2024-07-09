@@ -35,7 +35,6 @@ class Canvas : public Widget, public NESFrameObserver {
 
   void set_frame_scale(float scale) {
     frame_scale_ = scale;
-    UpdateBounds();
   }
 
   void set_in_menu_trigger_callback(kiwi::base::RepeatingClosure callback) {
@@ -60,8 +59,6 @@ class Canvas : public Widget, public NESFrameObserver {
   void OnShouldRender(int since_last_frame_ms) override;
 
  private:
-  // Update bounds with frame scale.
-  void UpdateBounds();
   void InvokeInGameMenu();
 
  private:

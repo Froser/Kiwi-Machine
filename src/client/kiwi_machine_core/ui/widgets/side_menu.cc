@@ -109,7 +109,7 @@ void SideMenu::Paint() {
                    global_selection_rect.y + global_selection_rect.h),
             ImColor(255, 255, 255));
       }
-    } else {
+    } else if (activate_) {
       SDL_Rect global_item_rect = MapToWindow(items_bounds_map_[i]);
       // Calculates text area
       ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
@@ -192,6 +192,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (activate_) {
+      Restore();
       EnterIndex(current_index_);
     }
     return true;
@@ -269,6 +270,10 @@ void SideMenu::Layout() {
   }
 }
 
+void SideMenu::Restore() {
+  SetIndex(triggered_index_);
+}
+
 void SideMenu::SetIndex(int index) {
   PlayEffect(audio_resources::AudioID::kSelect);
   current_index_ = index;
@@ -276,12 +281,6 @@ void SideMenu::SetIndex(int index) {
 }
 
 void SideMenu::EnterIndex(int index) {
-  // If the menu to be entered is not triggered yet, do not enter, and switch
-  // back to triggered item.
-  if (index != triggered_index_) {
-    index = triggered_index_;
-    SetIndex(triggered_index_);
-  }
   menu_items_[index].callbacks.enter_callback.Run();
 }
 

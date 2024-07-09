@@ -97,14 +97,6 @@ void Canvas::OnShouldRender(int since_last_frame_ms) {
   nes_frame_is_ready_ = true;
 }
 
-void Canvas::UpdateBounds() {
-  SDL_Rect r = GetLocalBounds();
-  set_bounds(
-      SDL_Rect{bounds().x, bounds().y,
-               static_cast<int>(kNESFrameDefaultWidth * frame_scale()),
-               static_cast<int>(kNESFrameDefaultHeight * frame_scale())});
-}
-
 void Canvas::InvokeInGameMenu() {
   if (on_menu_trigger_)
     on_menu_trigger_.Run();

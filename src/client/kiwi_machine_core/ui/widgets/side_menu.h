@@ -46,6 +46,7 @@ class SideMenu : public Widget {
   int GetSuggestedCollapsedWidth();
   int GetMinExtendedWidth();
   void Layout();
+  void Restore();
 
  private:
   void Paint() override;

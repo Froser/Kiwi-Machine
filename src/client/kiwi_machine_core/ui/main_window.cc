@@ -405,6 +405,7 @@ void MainWindow::ChangeFocus(MainFocus focus) {
   switch (focus) {
     case MainFocus::kContents:
       side_menu_->set_activate(false);
+      side_menu_->Restore();
       if (main_nes_items_widget_)
         main_nes_items_widget_->SetActivate(true);
       if (special_nes_items_widget_)
@@ -616,18 +617,36 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
   // Always adjusts the canvas to the middle of the render area (excludes menu
   // bar).
   SDL_Rect render_bounds = GetClientBounds();
-  SDL_Rect src_rect = {0, 0, frame->width(), frame->height()};
 
-  SDL_Rect dest_rect = {
-      static_cast<int>((render_bounds.w - src_rect.w * canvas->frame_scale()) /
-                       2) +
-          render_bounds.x,
-      static_cast<int>((render_bounds.h - src_rect.h * canvas->frame_scale()) /
-                       2) +
-          render_bounds.y,
-      static_cast<int>(frame->width() * canvas->frame_scale()),
-      static_cast<int>(frame->height() * canvas->frame_scale())};
-  canvas->set_bounds(dest_rect);
+  if (!is_fullscreen()) {
+    SDL_Rect src_rect = {0, 0, frame->width(), frame->height()};
+    SDL_Rect dest_rect = {
+        static_cast<int>((render_bounds.w - src_rect.w * canvas->frame_scale()) / 2) +
+            render_bounds.x,
+        static_cast<int>((render_bounds.h - src_rect.h * canvas->frame_scale()) / 2) +
+            render_bounds.y,
+        static_cast<int>(frame->width() * canvas->frame_scale()),
+        static_cast<int>(frame->height() * canvas->frame_scale())};
+    canvas->set_bounds(dest_rect);
+  } else {
+    bool horizontal_screen = render_bounds.w > render_bounds.h;
+    int dest_width, dest_height;
+    if (horizontal_screen) {
+      dest_height = render_bounds.h;
+      dest_width = static_cast<float>(Canvas::kNESFrameDefaultWidth) /
+                   Canvas::kNESFrameDefaultHeight * dest_height;
+    } else {
+      dest_width = render_bounds.w;
+      dest_height = static_cast<float>(Canvas::kNESFrameDefaultHeight) /
+                    Canvas::kNESFrameDefaultWidth * dest_width;
+    }
+
+    SDL_Rect dest_rect = {
+        static_cast<int>((render_bounds.w - dest_width) / 2) + render_bounds.x,
+        static_cast<int>((render_bounds.h - dest_height) / 2) + render_bounds.y,
+        dest_width, dest_height};
+    canvas->set_bounds(dest_rect);
+  }
 }
 #endif
 
@@ -1598,14 +1617,8 @@ void MainWindow::OnSetFullscreen() {
   config_->data().window_scale = InGameMenu::kMaxScaling;
   config_->SaveConfig();
 
-  // Windows system use a fake fullscreen to avoid changing resolution.
-  // While macOS can use the real fullscreen to avoid fullscreen's
-  // window animation.
-#if defined(WIN32)
   SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN_DESKTOP);
-#else
-  SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN);
-#endif
+  OnScaleChanged();
 }
 
 void MainWindow::OnUnsetFullscreen(float scale) {
