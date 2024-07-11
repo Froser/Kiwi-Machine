@@ -146,7 +146,7 @@ void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
   // When the first widget is added, trigger its selected callback, because it
   // is selected by default.
   if (menu_items_.size() == 1)
-    menu_items_[0].callbacks.trigger_callback.Run();
+    menu_items_[0].callbacks.trigger_callback.Run(0);
 }
 
 int SideMenu::GetSuggestedCollapsedWidth() {
@@ -192,7 +192,6 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (activate_) {
-      Restore();
       EnterIndex(current_index_);
     }
     return true;
@@ -270,10 +269,6 @@ void SideMenu::Layout() {
   }
 }
 
-void SideMenu::Restore() {
-  SetIndex(triggered_index_);
-}
-
 void SideMenu::SetIndex(int index) {
   PlayEffect(audio_resources::AudioID::kSelect);
   current_index_ = index;
@@ -281,12 +276,13 @@ void SideMenu::SetIndex(int index) {
 }
 
 void SideMenu::EnterIndex(int index) {
+  SetIndex(triggered_index_);
   menu_items_[index].callbacks.enter_callback.Run();
 }
 
 void SideMenu::TriggerCurrentItem() {
   triggered_index_ = current_index_;
-  menu_items_[current_index_].callbacks.trigger_callback.Run();
+  menu_items_[current_index_].callbacks.trigger_callback.Run(triggered_index_);
   menu_items_[current_index_].callbacks.enter_callback.Run();
 }
 

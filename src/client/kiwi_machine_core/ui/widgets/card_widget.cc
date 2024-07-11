@@ -36,6 +36,14 @@ bool CardWidget::SetCurrentWidget(Widget* child_widget) {
   return true;
 }
 
+Widget* CardWidget::GetCurrentWidget() {
+  for (auto& child : children()) {
+    if (child->visible())
+      return child.get();
+  }
+  return nullptr;
+}
+
 void CardWidget::OnWindowResized() {
   if (children().size() > 0) {
     for (auto& child : children()) {

@@ -26,7 +26,8 @@ class SideMenu : public Widget {
  public:
   struct MenuCallbacks {
     // Triggers when joystick key 'A' pressed
-    kiwi::base::RepeatingClosure trigger_callback = kiwi::base::DoNothing();
+    kiwi::base::RepeatingCallback<void(int)> trigger_callback =
+        kiwi::base::DoNothing();
 
     // Triggers when joystick 'right' pressed
     kiwi::base::RepeatingClosure enter_callback = kiwi::base::DoNothing();
@@ -46,7 +47,7 @@ class SideMenu : public Widget {
   int GetSuggestedCollapsedWidth();
   int GetMinExtendedWidth();
   void Layout();
-  void Restore();
+  void SetIndex(int index);
 
  private:
   void Paint() override;
@@ -72,7 +73,6 @@ class SideMenu : public Widget {
   bool HandleMouseOrFingerUp(MouseButton button,
                              int x_in_window,
                              int y_in_window);
-  void SetIndex(int index);
   void EnterIndex(int index);
   void TriggerCurrentItem();
   bool FindItemIndexByMousePosition(int x_in_window,

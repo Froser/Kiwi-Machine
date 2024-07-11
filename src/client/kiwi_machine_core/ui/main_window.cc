@@ -405,7 +405,7 @@ void MainWindow::ChangeFocus(MainFocus focus) {
   switch (focus) {
     case MainFocus::kContents:
       side_menu_->set_activate(false);
-      side_menu_->Restore();
+      SwitchToSideMenuByCurrentFlexItemWidget();
       if (main_nes_items_widget_)
         main_nes_items_widget_->SetActivate(true);
       if (special_nes_items_widget_)
@@ -621,9 +621,11 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
   if (!is_fullscreen()) {
     SDL_Rect src_rect = {0, 0, frame->width(), frame->height()};
     SDL_Rect dest_rect = {
-        static_cast<int>((render_bounds.w - src_rect.w * canvas->frame_scale()) / 2) +
+        static_cast<int>(
+            (render_bounds.w - src_rect.w * canvas->frame_scale()) / 2) +
             render_bounds.x,
-        static_cast<int>((render_bounds.h - src_rect.h * canvas->frame_scale()) / 2) +
+        static_cast<int>(
+            (render_bounds.h - src_rect.h * canvas->frame_scale()) / 2) +
             render_bounds.y,
         static_cast<int>(frame->width() * canvas->frame_scale()),
         static_cast<int>(frame->height() * canvas->frame_scale())};
@@ -812,7 +814,8 @@ void MainWindow::InitializeUI() {
     // Mobile apps needn't quit the application manually.
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
-        &MainWindow::OnQuit, kiwi::base::Unretained(this));
+        [](MainWindow* this_window, int) { this_window->OnQuit(); },
+        kiwi::base::Unretained(this));
     side_menu->AddMenu(
         std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
         image_resources::ImageID::kMenuQuit,
@@ -1322,7 +1325,7 @@ void MainWindow::FlexLayout() {
 SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* window, NESRuntimeID runtime_id) {
+      [](MainWindow* window, NESRuntimeID runtime_id, int) {
         std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
             window, runtime_id,
             kiwi::base::BindRepeating(
@@ -1354,7 +1357,7 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
 SideMenu::MenuCallbacks MainWindow::CreateMenuAboutCallbacks() {
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* window, NESRuntimeID runtime_id) {
+      [](MainWindow* window, NESRuntimeID runtime_id, int) {
         std::unique_ptr<AboutWidget> about_widget =
             std::make_unique<AboutWidget>(window, window->main_stack_widget_,
                                           runtime_id);
@@ -1372,17 +1375,43 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
   SDL_assert(items_widget);
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* this_window, FlexItemsWidget* items_widget) {
-        SDL_assert(this_window->contents_card_widget_);
-        bool succeeded =
-            this_window->contents_card_widget_->SetCurrentWidget(items_widget);
-        SDL_assert(succeeded);
+      [](MainWindow* this_window, FlexItemsWidget* items_widget,
+         int menu_index) {
+        this_window->flex_items_map_[menu_index] = items_widget;
+        this_window->SwitchToWidgetForSideMenu(menu_index);
       },
       kiwi::base::Unretained(this), kiwi::base::Unretained(items_widget));
   callbacks.enter_callback = kiwi::base::BindRepeating(
       &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
       MainFocus::kContents);
+
   return callbacks;
+}
+
+void MainWindow::SwitchToWidgetForSideMenu(int menu_index) {
+  SDL_assert(contents_card_widget_);
+  SDL_assert(flex_items_map_[menu_index]);
+  bool succeeded =
+      contents_card_widget_->SetCurrentWidget(flex_items_map_[menu_index]);
+  SDL_assert(succeeded);
+}
+
+void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
+  SDL_assert(contents_card_widget_);
+  Widget* current_widget = contents_card_widget_->GetCurrentWidget();
+  SDL_assert(current_widget);
+  int target_index = -1;
+  for (auto [side_menu_index, widget] : flex_items_map_) {
+    if (widget == current_widget) {
+      target_index = side_menu_index;
+      break;
+    }
+  }
+  if (target_index == -1) {
+    SDL_assert(false); // Shouldn't be here
+    target_index = 0;
+  }
+  side_menu_->SetIndex(target_index);
 }
 
 void MainWindow::OnRomLoaded(const std::string& name,

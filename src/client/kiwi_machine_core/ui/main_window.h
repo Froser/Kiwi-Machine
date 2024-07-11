@@ -163,6 +163,8 @@ class MainWindow : public WindowBase,
   SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
   SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
       FlexItemsWidget* items_widget);
+  void SwitchToWidgetForSideMenu(int menu_index);
+  void SwitchToSideMenuByCurrentFlexItemWidget();
 
   // Splash screen
   void ShowSplash(kiwi::base::OnceClosure callback);
@@ -251,6 +253,9 @@ class MainWindow : public WindowBase,
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
   SideMenu* side_menu_ = nullptr;
+  // Side menu index to item widgets' map
+  std::map<int, FlexItemsWidget*> flex_items_map_;
+
   Timer side_menu_timer_;
   int side_menu_target_width_ = 0;
   int side_menu_original_width_ = 0;

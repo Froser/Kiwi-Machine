@@ -24,6 +24,7 @@ class CardWidget : public Widget {
 
  public:
   bool SetCurrentWidget(Widget* child_widget);
+  Widget* GetCurrentWidget();
 
  protected:
   bool IsWindowless() override;
