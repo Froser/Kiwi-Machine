@@ -29,6 +29,7 @@ namespace nes {
 class DebugPort;
 class Configuration;
 
+// The main interface for an emulator. All public methods are thread safe.
 class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
                             public Device {
  public:

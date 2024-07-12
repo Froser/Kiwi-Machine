@@ -16,11 +16,19 @@
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <imgui.h>
 
+#include "preset_roms/preset_roms.h"
 #include "ui/application.h"
 #include "utility/audio_effects.h"
 #include "utility/fonts.h"
 #include "utility/images.h"
 #include "utility/localization.h"
+#include "utility/zip_reader.h"
+
+#if BUILDFLAG(IS_MAC)
+#include <CoreFoundation/CoreFoundation.h>
+#elif BUILDFLAG(IS_WIN)
+#include <Windows.h>
+#endif
 
 namespace {
 constexpr int kInitializeSDLFailed = -1;
@@ -32,7 +40,12 @@ DEFINE_string(lang, "", "Set application's language.");
 
 ApplicationObserver::ApplicationObserver() = default;
 
-ApplicationObserver::~ApplicationObserver() = default;
+ApplicationObserver::~ApplicationObserver() {
+#if defined(KIWI_USE_EXTERNAL_PAK)
+  CloseRomDataFromPackage(preset_roms::GetPresetRoms());
+  CloseRomDataFromPackage(preset_roms::specials::GetPresetRoms());
+#endif
+}
 
 void ApplicationObserver::OnPreRender(int since_last_frame_ms) {}
 
@@ -88,28 +101,28 @@ void Application::HandleEvent(SDL_Event* event) {
     case SDL_KEYUP: {
       WindowBase* target = FindWindowFromID(event->key.windowID);
       if (target)
-        target->HandleKeyEvents(&event->key);
+        target->HandleKeyEvent(&event->key);
     } break;
     case SDL_CONTROLLERAXISMOTION: {
       for (const auto& w : windows_) {
-        w.second->HandleJoystickAxisMotionEvents(&event->caxis);
+        w.second->HandleJoystickAxisMotionEvent(&event->caxis);
       }
     } break;
     case SDL_CONTROLLERBUTTONDOWN:
     case SDL_CONTROLLERBUTTONUP: {
       for (const auto& w : windows_) {
-        w.second->HandleJoystickButtonEvents(&event->cbutton);
+        w.second->HandleJoystickButtonEvent(&event->cbutton);
       }
     } break;
     case SDL_CONTROLLERDEVICEADDED: {
       AddGameController(event->cdevice.which);
       for (const auto& w : windows_) {
-        w.second->HandleJoystickDeviceEvents(&event->cdevice);
+        w.second->HandleJoystickDeviceEvent(&event->cdevice);
       }
     } break;
     case SDL_CONTROLLERDEVICEREMOVED: {
       for (const auto& w : windows_) {
-        w.second->HandleJoystickDeviceEvents(&event->cdevice);
+        w.second->HandleJoystickDeviceEvent(&event->cdevice);
       }
       RemoveGameController(event->cdevice.which);
     } break;
@@ -132,7 +145,29 @@ void Application::HandleEvent(SDL_Event* event) {
       WindowBase* target = FindWindowFromID(event->tfinger.windowID);
       if (target)
         target->HandleTouchFingerEvent(&event->tfinger);
-    }
+    } break;
+#if !KIWI_MOBILE
+    case SDL_MOUSEMOTION: {
+      WindowBase* target = FindWindowFromID(event->motion.windowID);
+      if (target)
+        target->HandleMouseMoveEvent(&event->motion);
+    } break;
+    case SDL_MOUSEWHEEL: {
+      WindowBase* target = FindWindowFromID(event->wheel.windowID);
+      if (target)
+        target->HandleMouseWheelEvent(&event->wheel);
+    } break;
+    case SDL_MOUSEBUTTONDOWN: {
+      WindowBase* target = FindWindowFromID(event->button.windowID);
+      if (target)
+        target->HandleMousePressedEvent(&event->button);
+    } break;
+    case SDL_MOUSEBUTTONUP: {
+      WindowBase* target = FindWindowFromID(event->button.windowID);
+      if (target)
+        target->HandleMouseReleasedEvent(&event->button);
+    } break;
+#endif
     default:
       break;
   }
@@ -178,6 +213,12 @@ void Application::LocaleChanged() {
   }
 }
 
+void Application::FontChanged() {
+  for (const auto& w : windows_) {
+    w.second->HandleFontChanged();
+  }
+}
+
 void Application::HandlePostEvent() {
   for (const auto& w : windows_) {
     w.second->HandlePostEvent();
@@ -191,6 +232,24 @@ Application* Application::Get() {
 
 scoped_refptr<kiwi::base::SequencedTaskRunner> Application::GetIOTaskRunner() {
   return io_thread_->task_runner();
+}
+
+void Application::Initialize(kiwi::base::OnceClosure other_io_task,
+                             kiwi::base::OnceClosure callback) {
+  if (!initialized_) {
+    GetIOTaskRunner()->PostTaskAndReply(
+        FROM_HERE,
+        kiwi::base::BindOnce(&Application::InitializeROMs,
+                             kiwi::base::Unretained(this))
+            .Then(std::move(other_io_task)),
+        kiwi::base::BindOnce(&InitializeFonts)
+            .Then(kiwi::base::BindOnce(&Application::FontChanged,
+                                       kiwi::base::Unretained(this)))
+            .Then(std::move(callback)));
+    initialized_ = true;
+  } else {
+    std::move(callback).Run();
+  }
 }
 
 void Application::Run() {
@@ -297,14 +356,12 @@ void Application::InitializeImGui() {
       [](SDL_Event* event) { ImGui_ImplSDL2_ProcessEvent(event); }));
 
   InitializeStyles();
-  InitializeFonts();
+  InitializeSystemFonts();
 }
 
 void Application::UninitializeImGui() {
   kiwi::base::SetPreEventHandlerForSDL2(kiwi::base::DoNothing());
   kiwi::base::SetRenderHandlerForSDL2(kiwi::base::DoNothing());
-  ImGui_ImplSDLRenderer2_Shutdown();
-  ImGui_ImplSDL2_Shutdown();
   ImGui::DestroyContext();
 }
 
@@ -338,6 +395,60 @@ void Application::InitializeRuntimeAndConfigs() {
   runtime_data->emulator->PowerOn();
   config->LoadConfigAndWait();
   config_ = config;
+}
+
+void Application::InitializeROMs() {
+#if defined(KIWI_USE_EXTERNAL_PAK)
+  OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
+                         PathForResources(kiwi::base::FilePath::FromUTF8Unsafe(
+                             preset_roms::GetPresetRomsPackageName())));
+  OpenRomDataFromPackage(
+      preset_roms::specials::GetPresetRoms(),
+      PathForResources(kiwi::base::FilePath::FromUTF8Unsafe(
+          preset_roms::specials::GetPresetRomsPackageName())));
+#endif
+
+  for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
+    auto& rom = preset_roms::GetPresetRoms()[i];
+    InitializePresetROM(rom);
+    LoadPresetROM(rom, RomPart::kCover);
+    for (auto& alternative_rom : rom.alternates) {
+      LoadPresetROM(alternative_rom, RomPart::kCover);
+    }
+  }
+  for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
+    auto& rom = preset_roms::specials::GetPresetRoms()[i];
+    InitializePresetROM(rom);
+    LoadPresetROM(rom, RomPart::kCover);
+  }
+}
+
+kiwi::base::FilePath Application::PathForResources(
+    const kiwi::base::FilePath& resource_filename) {
+#if BUILDFLAG(IS_MAC)
+  CFBundleRef main_bundle = CFBundleGetMainBundle();
+  CFStringRef resource_name = CFStringCreateWithCString(
+      nullptr, resource_filename.AsUTF8Unsafe().c_str(), kCFStringEncodingUTF8);
+  CFURLRef url =
+      CFBundleCopyResourceURL(main_bundle, resource_name, nullptr, nullptr);
+  std::string resource_abs_path;
+  resource_abs_path.resize(PATH_MAX);
+  bool success = CFURLGetFileSystemRepresentation(
+      url, false, reinterpret_cast<UInt8*>(resource_abs_path.data()),
+      resource_abs_path.size());
+  SDL_assert(success);
+  CFRelease(url);
+  CFRelease(resource_name);
+  return kiwi::base::FilePath::FromUTF8Unsafe(resource_abs_path);
+#elif BUILDFLAG(IS_WIN)
+  CHAR current_exe_filename[MAX_PATH];
+  DWORD buffer_len = GetModuleFileNameA(NULL, current_exe_filename, MAX_PATH);
+  return kiwi::base::FilePath::FromUTF8Unsafe(current_exe_filename)
+      .DirName()
+      .Append(resource_filename);
+#else
+  return resource_filename;
+#endif
 }
 
 void Application::AddWindowToEventHandler(WindowBase* window) {

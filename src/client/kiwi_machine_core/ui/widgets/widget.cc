@@ -16,6 +16,7 @@
 #include <algorithm>
 
 #include "ui/window_base.h"
+#include "utility/math.h"
 
 Widget::Widget(WindowBase* window) : window_(window) {}
 
@@ -25,13 +26,32 @@ SDL_Rect Widget::GetLocalBounds() {
   return SDL_Rect{0, 0, bounds().w, bounds().h};
 }
 
+void Widget::SetZOrder(int zorder) {
+  zorder_ = zorder;
+  if (parent())
+    parent()->ChildZOrderChanged(this);
+}
+
 void Widget::AddWidget(std::unique_ptr<Widget> widget) {
   widget->set_parent(this);
-  widgets_.push_back(std::move(widget));
+  widgets_.insert(std::move(widget));
 }
 
 void Widget::RemoveWidget(Widget* widget) {
   pending_remove_.push_back(widget);
+}
+
+void Widget::ChildZOrderChanged(Widget* child) {
+  auto target = std::find_if(
+      children().begin(), children().end(),
+      [child](const std::unique_ptr<Widget>& c) { return c.get() == child; });
+
+  Widget* isolate_child =
+      const_cast<std::unique_ptr<Widget>&>(*target).release();
+  children().erase(target);
+
+  std::unique_ptr<Widget> temp(isolate_child);
+  AddWidget(std::move(temp));
 }
 
 void Widget::Render() {
@@ -49,7 +69,7 @@ void Widget::Render() {
       if (bounds_changed_) {
         // If user changed the bounds by set_bounds(), use it as the default
         // bounds when rendering.
-        SDL_Rect bounds_to_parent = MapToParent(bounds_);
+        SDL_Rect bounds_to_parent = MapToWindow(bounds_);
         ImGui::SetNextWindowPos(ImVec2(bounds_to_parent.x, bounds_to_parent.y),
                                 ImGuiCond_Once);
         if (bounds_to_parent.w > 0 && bounds_to_parent.h > 0) {
@@ -59,8 +79,10 @@ void Widget::Render() {
         bounds_changed_ = false;
       }
 
+      OnWindowPreRender();
       if (!ImGui::Begin(title().c_str(), &visible_, flags_)) {
         ImGui::End();
+        OnWindowPostRender();
         return;
       }
 
@@ -71,10 +93,13 @@ void Widget::Render() {
     }
 
     Paint();
+
     for (const auto& widget : widgets_) {
       if (widget->visible())
         widget->Render();
     }
+
+    PostPaint();
 
     RemovePendingWidgets();
 
@@ -93,11 +118,12 @@ void Widget::Render() {
 
     if (has_window) {
       ImGui::End();
+      OnWindowPostRender();
     }
   }
 }
 
-SDL_Rect Widget::MapToParent(const SDL_Rect& bounds) {
+SDL_Rect Widget::MapToWindow(const SDL_Rect& bounds) {
   SDL_Rect bounds_to_parent;
 
   // There's no parent, accumulates it with client bounds
@@ -109,7 +135,7 @@ SDL_Rect Widget::MapToParent(const SDL_Rect& bounds) {
     bounds_to_parent = {parent()->bounds().x + bounds.x,
                         parent()->bounds().y + bounds.y, bounds.w, bounds.h};
 
-    bounds_to_parent = parent()->MapToParent(bounds_to_parent);
+    bounds_to_parent = parent()->MapToWindow(bounds_to_parent);
   }
 
   return bounds_to_parent;
@@ -117,11 +143,17 @@ SDL_Rect Widget::MapToParent(const SDL_Rect& bounds) {
 
 void Widget::Paint() {}
 
+void Widget::PostPaint() {}
+
 bool Widget::IsWindowless() {
   return false;
 }
 
-bool Widget::HandleKeyEvents(SDL_KeyboardEvent* event) {
+int Widget::GetHitTestPolicy() {
+  return kAcceptHitTest | kChildrenAcceptHitTest;
+}
+
+bool Widget::HandleKeyEvent(SDL_KeyboardEvent* event) {
   bool handled = false;
   switch (event->type) {
     case SDL_KEYDOWN: {
@@ -129,7 +161,7 @@ bool Widget::HandleKeyEvents(SDL_KeyboardEvent* event) {
         handled = OnKeyPressed(event);
         if (!handled) {
           for (auto& widget : widgets_) {
-            handled = widget->HandleKeyEvents(event);
+            handled = widget->HandleKeyEvent(event);
             if (handled)
               break;
           }
@@ -142,7 +174,7 @@ bool Widget::HandleKeyEvents(SDL_KeyboardEvent* event) {
         handled = OnKeyReleased(event);
         if (!handled) {
           for (auto& widget : widgets_) {
-            handled = widget->HandleKeyEvents(event);
+            handled = widget->HandleKeyEvent(event);
             if (handled)
               break;
           }
@@ -157,13 +189,13 @@ bool Widget::HandleKeyEvents(SDL_KeyboardEvent* event) {
   return handled;
 }
 
-bool Widget::HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event) {
+bool Widget::HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event) {
   bool handled = false;
   if (visible() && enabled()) {
-    handled = OnControllerAxisMotionEvents(event);
+    handled = OnControllerAxisMotionEvent(event);
     if (!handled) {
       for (auto& widget : widgets_) {
-        handled = widget->HandleJoystickAxisMotionEvents(event);
+        handled = widget->HandleJoystickAxisMotionEvent(event);
         if (handled)
           break;
       }
@@ -172,15 +204,51 @@ bool Widget::HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event) {
   return handled;
 }
 
-bool Widget::HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event) {
+bool Widget::HandleMouseMoveEvent(SDL_MouseMotionEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->x, event->y);
+    if (target)
+      return target->OnMouseMove(event);
+  }
+  return false;
+}
+
+bool Widget::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->mouseX, event->mouseY);
+    if (target)
+      return target->OnMouseWheel(event);
+  }
+  return false;
+}
+
+bool Widget::HandleMousePressedEvent(SDL_MouseButtonEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->x, event->y);
+    if (target)
+      return target->OnMousePressed(event);
+  }
+  return false;
+}
+
+bool Widget::HandleMouseReleasedEvent(SDL_MouseButtonEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->x, event->y);
+    if (target)
+      return target->OnMouseReleased(event);
+  }
+  return false;
+}
+
+bool Widget::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
   bool handled = false;
   switch (event->type) {
     case SDL_CONTROLLERBUTTONDOWN: {
       if (visible() && enabled()) {
         handled = OnControllerButtonPressed(event);
         for (auto& widget : widgets_) {
-          if (widget->HandleJoystickButtonEvents(event))
-            break;
+          if (widget->HandleJoystickButtonEvent(event))
+            return true;
         }
       }
       break;
@@ -189,8 +257,8 @@ bool Widget::HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event) {
       if (visible() && enabled()) {
         handled = OnControllerButtonReleased(event);
         for (auto& widget : widgets_) {
-          if (widget->HandleJoystickButtonEvents(event))
-            break;
+          if (widget->HandleJoystickButtonEvent(event))
+            return true;
         }
       }
       break;
@@ -219,27 +287,22 @@ void Widget::HandleDisplayEvent() {
 }
 
 bool Widget::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
-  bool handled = false;
   if (enabled() && visible()) {
-    if (event->type == SDL_FINGERUP)
-      handled = OnTouchFingerUp(event);
-    else if (event->type == SDL_FINGERDOWN)
-      handled = OnTouchFingerDown(event);
-    else if (event->type == SDL_FINGERMOTION)
-      handled = OnTouchFingerMove(event);
-    else
+    SDL_Rect window_rect = window()->GetWindowBounds();
+    Widget* target =
+        HitTest(event->x * window_rect.w, event->y * window_rect.h);
+    if (target) {
+      if (event->type == SDL_FINGERUP)
+        return target->OnTouchFingerUp(event);
+      if (event->type == SDL_FINGERDOWN)
+        return target->OnTouchFingerDown(event);
+      if (event->type == SDL_FINGERMOTION)
+        return target->OnTouchFingerMove(event);
       SDL_assert(false);
-
-    if (!handled) {
-      for (auto& widget : widgets_) {
-        handled = widget->HandleTouchFingerEvent(event);
-        if (handled)
-          break;
-      }
     }
   }
 
-  return handled;
+  return false;
 }
 
 void Widget::HandleLocaleChanged() {
@@ -269,6 +332,34 @@ void Widget::RemovePendingWidgets() {
   }
 }
 
+Widget* Widget::HitTest(int x_in_window, int y_in_window) {
+  if (!enabled() || !visible())
+    return nullptr;
+
+  SDL_Rect this_widget_bounds_to_window = MapToWindow(bounds());
+  if ((Contains(this_widget_bounds_to_window, x_in_window, y_in_window) &&
+       GetHitTestPolicy() & kAcceptHitTest) ||
+      (GetHitTestPolicy() & kAlwaysHitTest)) {
+    if (GetHitTestPolicy() & kChildrenAcceptHitTest) {
+      for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+        Widget* candidate = iter->get();
+        if (!(candidate->GetHitTestPolicy() & kAcceptHitTest))
+          continue;
+
+        SDL_Rect candidate_bounds_to_window =
+            candidate->MapToWindow(candidate->bounds());
+        if (Contains(candidate_bounds_to_window, x_in_window, y_in_window)) {
+          Widget* found = candidate->HitTest(x_in_window, y_in_window);
+          if (found)
+            return found;
+        }
+      }
+    }
+    return this;
+  }
+  return nullptr;
+}
+
 bool Widget::OnKeyPressed(SDL_KeyboardEvent* event) {
   return false;
 }
@@ -285,8 +376,24 @@ bool Widget::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
   return false;
 }
 
-bool Widget::OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event) {
+bool Widget::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
   return false;
+}
+
+bool Widget::OnMouseMove(SDL_MouseMotionEvent* event) {
+  return true;
+}
+
+bool Widget::OnMouseWheel(SDL_MouseWheelEvent* event) {
+  return true;
+}
+
+bool Widget::OnMousePressed(SDL_MouseButtonEvent* event) {
+  return true;
+}
+
+bool Widget::OnMouseReleased(SDL_MouseButtonEvent* event) {
+  return true;
 }
 
 void Widget::OnWindowResized() {}
@@ -296,6 +403,10 @@ void Widget::OnWidgetsRemoved() {}
 void Widget::OnDisplayChanged() {}
 
 void Widget::OnLocaleChanged() {}
+
+void Widget::OnWindowPreRender() {}
+
+void Widget::OnWindowPostRender() {}
 
 bool Widget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   return false;

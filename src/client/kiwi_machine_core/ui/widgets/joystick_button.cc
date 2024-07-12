@@ -32,7 +32,7 @@ bool JoystickButton::OnTouchFingerUp(SDL_TouchFingerEvent* event) {
   if (triggered_fingers_.erase(event->fingerId)) {
     SDL_Rect bounds = window()->GetClientBounds();
     ImVec2 touch_pt(event->x * bounds.w, event->y * bounds.h);
-    if (Contains(MapToParent(this->bounds()), touch_pt.x, touch_pt.y) &&
+    if (Contains(MapToWindow(this->bounds()), touch_pt.x, touch_pt.y) &&
         trigger_callback_) {
       button_state_ = ButtonState::kNormal;
       trigger_callback_.Run();
@@ -49,7 +49,7 @@ bool JoystickButton::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
 bool JoystickButton::HandleTouchFingerMoveOrDown(SDL_TouchFingerEvent* event) {
   SDL_Rect bounds = window()->GetClientBounds();
   ImVec2 touch_pt(event->x * bounds.w, event->y * bounds.h);
-  if (Contains(MapToParent(this->bounds()), touch_pt.x, touch_pt.y)) {
+  if (Contains(MapToWindow(this->bounds()), touch_pt.x, touch_pt.y)) {
     auto finger_iter = triggered_fingers_.find(event->fingerId);
     if (finger_iter == triggered_fingers_.end()) {
       triggered_fingers_.insert(std::make_pair(

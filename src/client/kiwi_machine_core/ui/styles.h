@@ -19,57 +19,77 @@
 
 namespace styles {
 
-namespace kiwi_item_widget {
+namespace flex_items_widget {
 
-int GetSpacingBetweenTitleAndCover();
-PreferredFontSize GetGameTitlePreferredFontSize();
-int GetItemMetrics(float window_scale, int metrics);
+int GetItemHeightHint();
+int GetItemHighlightedSize();
+PreferredFontSize GetDetailFontSize();
 
-}  // namespace kiwi_item_widget
+}  // namespace flex_items_widget
 
-namespace kiwi_bg_widget {
+namespace flex_item_widget {
 
-int GetKiwiPositionX(const SDL_Rect& safe_area_insets);
-int GetKiwiPositionY(const SDL_Rect& safe_area_insets);
-float GetKiwiScale(float window_scale);
+int GetBadgeSize();
 
-}  // namespace kiwi_bg_widget
+}  // namespace flex_item_widget
 
 namespace in_game_menu {
 
+PreferredFontSize GetPreferredFontSize(float window_scale);
 int GetSnapshotThumbnailWidth(bool is_landscape, float window_scale);
 int GetSnapshotThumbnailHeight(bool is_landscape, float window_scale);
 int GetSnapshotPromptHeight(float window_scale);
 int GetOptionsSpacing();
-FontType GetJoystickFontType(bool is_fullscreen, const char* str_hint);
-FontType GetSlotNameFontType(bool is_landscape, const char* str_hint);
 
 }  // namespace in_game_menu
 
 namespace main_window {
 
 int GetJoystickSize(float window_scale);
-int GetJoystickPaddingX(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets);
-int GetJoystickPaddingY(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets);
-int GetJoystickButtonPaddingX(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets);
-int GetJoystickButtonPaddingY(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets);
-int GetJoystickSelectStartButtonPaddingBottom(float window_scale,
-                                              bool is_landscape,
-                                              const SDL_Rect& safe_area_insets);
-int GetJoystickPauseButtonPaddingX(float window_scale,
-                                   const SDL_Rect& safe_area_insets);
-int GetJoystickPauseButtonPaddingY(float window_scale,
-                                   const SDL_Rect& safe_area_insets);
+int GetJoystickMarginX(float window_scale,
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets);
+int GetJoystickMarginY(float window_scale,
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets);
+int GetJoystickButtonMarginX(float window_scale,
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets);
+int GetJoystickButtonMarginY(float window_scale,
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets);
+int GetJoystickSelectStartButtonMarginBottom(float window_scale,
+                                             bool is_landscape,
+                                             const SDL_Rect& safe_area_insets);
+int GetJoystickPauseButtonMarginX(float window_scale,
+                                  const SDL_Rect& safe_area_insets);
+int GetJoystickPauseButtonMarginY(float window_scale,
+                                  const SDL_Rect& safe_area_insets);
 
 }  // namespace main_window
+
+namespace side_menu {
+
+int GetItemHeight();
+int GetMarginBottom();
+PreferredFontSize GetPreferredFontSize();
+
+}  // namespace side_menu
+
+namespace about_widget {
+
+int GetMarginX(float window_scale);
+PreferredFontSize PreferredTitleFontSize(float window_scale);
+PreferredFontSize PreferredContentFontSize();
+
+}
+
+namespace toast {
+
+SDL_Point GetTopLeft();
+PreferredFontSize GetFontSize();
+
+}  // namespace toast
 
 }  // namespace styles
 

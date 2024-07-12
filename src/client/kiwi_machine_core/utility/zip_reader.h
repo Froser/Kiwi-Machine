@@ -19,13 +19,42 @@ namespace preset_roms {
 struct PresetROM;
 }
 
-void FillRomDataFromZip(const preset_roms::PresetROM& rom_data);
+enum class RomPart {
+  kNone,
+  kCover = 1,
+  kContent = 2,
+  kAll = kCover | kContent,
+};
+inline RomPart operator&(RomPart lhs, RomPart rhs) {
+  return static_cast<RomPart>(static_cast<int>(lhs) & static_cast<int>(rhs));
+}
+inline RomPart operator|(RomPart lhs, RomPart rhs) {
+  return static_cast<RomPart>(static_cast<int>(lhs) | static_cast<int>(rhs));
+}
+inline RomPart& operator|=(RomPart& lhs, RomPart rhs) {
+  lhs = static_cast<RomPart>(static_cast<int>(lhs) | static_cast<int>(rhs));
+  return lhs;
+}
+inline bool HasAnyPart(RomPart part) {
+  return !!static_cast<int>(part);
+}
 
 #if defined(KIWI_USE_EXTERNAL_PAK)
+// Loads ROM's data from an external package. This function should be called
+// before InitializePresetROM().
 void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             const kiwi::base::FilePath& package);
 
 void CloseRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms);
+
 #endif
+
+// Loads all ROM's title, i18n names, and alternative titles. This function
+// should be called before calling LoadPresetROM().
+void InitializePresetROM(preset_roms::PresetROM& rom_data);
+
+// Loads ROM's cover, content, or both. This function will be called on IO
+// thread.
+void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part);
 
 #endif  // UTILITY_ZIP_READER_H_

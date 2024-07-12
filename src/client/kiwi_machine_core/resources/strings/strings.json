@@ -1,84 +1,4 @@
 {
-  "IDR_HOW_TO_PLAY": {
-    "default": "How To Play\n",
-    "zh": "使用指南\n",
-    "ja": "使用案内\n"
-  },
-  "IDR_CONTROLLER_INSTRUCTIONS": {
-    "default": "Controller instructions\n",
-    "zh": "如何操作\n",
-    "ja": "操作方法\n"
-  },
-  "IDR_CONTROLLER_INSTRUCTIONS_CONTENTS": {
-    "default": "\nPress L+R to call menu when playing games.\n\n",
-    "zh": "\n在游戏中，同时按下手柄的L+R唤起菜单。\n\n",
-    "ja": "\nゲーム中には、ゲームパッドのL+Rを同時に押すとメニューが呼び出せます。\n\n"
-  },
-  "IDR_MENU_INSTRUCTIONS_CONTENTS": {
-    "default": "\nYou can press UP, DOWN to change groups.\nSystem menu is at the end of the groups.\n\n",
-    "zh": "\n您可以在出菜单通过红白机的上、下键来切换分组。\n系统菜单位于分组的末尾。\n\n",
-    "ja": "\nゲームパッドの上、下を押すと、メニューグループが切り替えることができます。\nシステムメニューが最後のグループにあります。\n\n"
-  },
-  "IDR_MENU_CONTINUE": {
-    "default": "\nPress A or START to continue.",
-    "zh": "按下红白机A键继续",
-    "ja": "ゲームパッドのAを押して続こう"
-  },
-  "IDR_MENU_CONTINUE_MOBILE": {
-    "default": "\nTouch screen to continue.",
-    "zh": "点击屏幕继续",
-    "ja": "スクリーンをタッチして続こう"
-  },
-  "IDR_INTRODUCTIONS": {
-    "default": "Introduction\n",
-    "zh": "游戏介绍\n",
-    "ja": "ゲーム紹介\n"
-  },
-  "IDR_RETRO_COLLECTIONS": {
-    "default": "\nRetro Game Collections\n",
-    "zh": "\n游戏集合\n",
-    "ja": "\nゲームコレクション"
-  },
-  "IDR_RETRO_COLLECTIONS_CONTENTS": {
-    "default": "\nKiwi machine collects many retro NES games,\nand some of them has different versions and\ndifferent names and languages, such as\nDragon Quest and Dragon Warrior.\n\nYou may press SELECT to choose the version\nyou want to play.\n\n",
-    "zh": "\nKiwi Machine收集了许多红白机游戏，其中许多游戏有不同的版本、名字和语言，\n例如中文勇者斗恶龙，在日版和美版中分别叫做Dragon Quest和Dragon Warrior。\n\n您可以通过按下红白机SELECT对应的按键来切换它的版本。\n\n",
-    "ja": "\nKiwi MachineはFAMICOMゲームをたくさん集めていましたが、\n同じゲームであるとしても幾つのバージョンがあります。\n例えば中国語の「勇者闘悪竜」というゲームは、\n日本版とアメリカ版ではそれぞれ「ドラゴンクエスト」「ドラゴンウォリアー」と呼ばれています。\n\nFAMICOMのSELECTに対応するキーを押すとバージョンを切り替えることができます。\n\n"
-  },
-  "IDR_RETRO_COLLECTIONS_CONTENTS_MOBILE": {
-    "default": "\nKiwi machine collects many retro NES games,\nand some of them has different versions and\ndifferent names and languages, such as\nDragon Quest and Dragon Warrior.\n\nYou may touch the version square to choose\nthe version you want to play.\n\n",
-    "zh": "\nKiwi Machine收集了许多红白机游戏，其中许多游戏有不同的版本、名字和语言，\n例如中文勇者斗恶龙，在日版和美版中分别叫做Dragon Quest和Dragon Warrior。\n\n您可以点击封面上的蓝色方框切换游戏版本。\n\n",
-    "ja": "\nKiwi MachineはFAMICOMゲームをたくさん集めていましたが、\n同じゲームであるとしても幾つのバージョンがあります。\n例えば中国語の「勇者斗恶龙」というゲームは、\n日本版とアメリカ版ではそれぞれ「ドラゴンクエスト」「ドラゴンウォリアー」と呼ばれています。\n\nカバーの上の青いボックスをタッチすると、ゲームのバージョンを切り替えることができます。\n\n"
-  },
-  "IDR_SPECIAL_COLLECTIONS": {
-    "default": "\nSpecial Collections\n",
-    "zh": "\n特殊游戏集合\n",
-    "ja": "\nスペシャルゲームコレクション\n"
-  },
-  "IDR_SPECIAL_COLLECTIONS_CONTENTS": {
-    "default": "\nKiwi Machine also collected many special ROMs,\nsuch as hacked but popular SMB ROMs, Tank 1990,\netc.\n\nYou may switch the group to see these ROMs.\n\n",
-    "zh": "\nKiwi Machine也收集了许多特殊的游戏，例如非常受欢迎的魔改版的超级马里奥、坦克大战1990等。\n\n你可以通过切换分组来查看它们。\n\n",
-    "ja": "\nKiwi Machineもまたいくつのスペシャルゲームを集めました。\n例えば人気のあるハックされたスーパーマリオとか、バトルシティー1990とか、\nいろいろあります。\n\nグループを切り替えることでそれらを見ることができます。\n\n"
-  },
-  "IDR_ABOUT_TITLE": {
-    "default": "About Kiwi Machine",
-    "zh": "关于Kiwi Machine",
-    "ja": "Kiwi Machineについて"
-  },
-  "IDR_ABOUT_CONTENTS": {
-    "default": "\nKiwi machine is an open sources NES\nemulator with lots of preset games.\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nCore Version: Kiwi 1.1.0\nUI Version: 1.1.0\nProgrammed by Yu Yisi\n\n",
-    "zh": "\nKiwi machine是一个开源的红白机器模拟器，并内置许多游戏。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\n内核版本: Kiwi 1.1.0\nUI版本: 1.1.0\n程序：于益偲\n\n",
-    "ja": "\nKiwi machineとはオープンソースのFAMICOMシミュレーターで，たくさんのゲームが集めてあります。\nGithub: https://github.com/Froser/Kiwi-Machine/\n\nコアバージョン: Kiwi 1.1.0\nUIバージョン: 1.1.0\nプログラム：于益偲（エキ）\n\n"
-  },
-  "IDR_ABOUT_GO_BACK": {
-    "default": "Press joystick button 'B' to go back.",
-    "zh": "按手柄B键返回",
-    "ja": "ゲームパッドのBを押して戻る"
-  },
-  "IDR_ABOUT_GO_BACK_MOBILE": {
-    "default": "Touch screen to go back",
-    "zh": "触摸屏幕返回",
-    "ja": "スクリーンをタッチして戻る"
-  },
   "IDR_IN_GAME_MENU_CONTINUE": {
     "default": "Continue",
     "zh": "继续",
@@ -138,6 +58,16 @@
     "default": "Joysticks",
     "zh": "游戏手柄",
     "ja": "ゲームパッド"
+  },
+  "IDR_IN_GAME_MENU_P1": {
+    "default": "P1:",
+    "zh": "P1:",
+    "ja": "P1:"
+  },
+  "IDR_IN_GAME_MENU_P2": {
+    "default": "P2:",
+    "zh": "P2:",
+    "ja": "P2:"
   },
   "IDR_IN_GAME_MENU_SMALL": {
     "default": "Small",
@@ -209,15 +139,40 @@
     "zh": "设置",
     "ja": "設定"
   },
-  "IDR_MAIN_WINDOW_ABOUT": {
-    "default": "About Kiwi Machine",
-    "zh": "关于Kiwi Machine",
-    "ja": "Kiwi Machineについて"
-  },
   "IDR_MAIN_WINDOW_QUIT": {
     "default": "Quit",
     "zh": "退出",
     "ja": "終了"
+  },
+  "IDR_MAIN_WINDOW_LOAD_SUCCEEDED": {
+    "default": "State loaded successfully",
+    "zh": "读取成功",
+    "ja": "ロード成功"
+  },
+  "IDR_MAIN_WINDOW_LOAD_FAILED": {
+    "default": "State loading failed",
+    "zh": "读取失败",
+    "ja": "ロード失敗"
+  },
+  "IDR_MAIN_WINDOW_SAVE_SUCCEEDED": {
+    "default": "State saved successfully",
+    "zh": "保存成功",
+    "ja": "セーブ成功"
+  },
+  "IDR_MAIN_WINDOW_SAVE_FAILED": {
+    "default": "State saving failed",
+    "zh": "保存失败",
+    "ja": "セーブ失敗"
+  },
+  "IDR_MAIN_WINDOW_CONNECTED": {
+    "default": " is connected",
+    "zh": "已连接",
+    "ja": "が接続した"
+  },
+  "IDR_MAIN_WINDOW_DISCONNECTED": {
+    "default": " is disconnected",
+    "zh": "已断开连接",
+    "ja": "が切れた"
   },
   "IDR_ITEM_WIDGET": {
     "default": "(Press select to switch game version)",
@@ -228,5 +183,174 @@
     "default": "(Touch version box to switch game version)",
     "zh": "(触摸版本方框键切换游戏版本)",
     "ja": "(バージョンボックスをタッチしてバージョンを切り替える)"
+  },
+  "IDR_SIDE_MENU_GAME": {
+    "default": "Games",
+    "zh": "游戏",
+    "ja": "ゲーム"
+  },
+  "IDR_SIDE_MENU_SPECIAL": {
+    "default": "Special",
+    "zh": "特别版",
+    "ja": "スペシャル"
+  },
+  "IDR_SIDE_MENU_ABOUT": {
+    "default": "About",
+    "zh": "关于",
+    "ja": "ヘルプ"
+  },
+  "IDR_SIDE_MENU_SETTINGS": {
+    "default": "Settings",
+    "zh": "设置",
+    "ja": "設置"
+  },
+  "IDR_SIDE_MENU_QUIT": {
+    "default": "Quit",
+    "zh": "退出",
+    "ja": "終了"
+  },
+  "IDR_ABOUT_KIWI_MACHINE": {
+    "default": "Kiwi-Machine"
+  },
+  "IDR_ABOUT_INSTRUCTIONS": {
+    "default": "An open sources NES emulator",
+    "zh": "一个开源的红白机器模拟器",
+    "ja": "とはオープンソースのFAMICOMシミュレーターだ"
+  },
+  "IDR_ABOUT_CONTROLLER": {
+    "default": "Controller Manual",
+    "zh": "操作方法",
+    "ja": "操作方法"
+  },
+  "IDR_ABOUT_CONTROLLER_KEYBOARD": {
+    "default": "Keyboard",
+    "zh": "键盘",
+    "ja": "キーボード"
+  },
+  "IDR_ABOUT_CONTROLLER_GAMEPAD": {
+    "default": "Gamepad",
+    "zh": "手柄",
+    "ja": "ゲームパッド"
+  },
+  "IDR_ABOUT_CONTROLLER_INPUT": {
+    "default": "Input",
+    "zh": "设备",
+    "ja": "入力"
+  },
+  "IDR_ABOUT_CONTROLLER_KEYBOARD_1": {
+    "default": "Player 1",
+    "zh": "玩家1",
+    "ja": "プレイヤー1"
+  },
+  "IDR_ABOUT_CONTROLLER_KEYBOARD_2": {
+    "default": "Player 2",
+    "zh": "玩家2",
+    "ja": "プレイヤー2"
+  },
+  "IDR_ABOUT_CONTROLLER_XBOX": {
+    "default": "X-Box",
+    "zh": "X-Box",
+    "ja": "X-Box"
+  },
+  "IDR_ABOUT_CONTROLLER_DIRECTION": {
+    "default": "Direction",
+    "zh": "方向",
+    "ja": "方向"
+  },
+  "IDR_ABOUT_CONTROLLER_UP": {
+    "default": "Up",
+    "zh": "上",
+    "ja": "上"
+  },
+  "IDR_ABOUT_CONTROLLER_DOWN": {
+    "default": "Down",
+    "zh": "下",
+    "ja": "下"
+  },
+  "IDR_ABOUT_CONTROLLER_LEFT": {
+    "default": "Left",
+    "zh": "左",
+    "ja": "左"
+  },
+  "IDR_ABOUT_CONTROLLER_RIGHT": {
+    "default": "Right",
+    "zh": "右",
+    "ja": "右"
+  },
+  "IDR_ABOUT_CONTROLLER_A": {
+    "default": "A"
+  },
+  "IDR_ABOUT_CONTROLLER_B": {
+    "default": "B"
+  },
+  "IDR_ABOUT_CONTROLLER_SELECT": {
+    "default": "SELECT"
+  },
+  "IDR_ABOUT_CONTROLLER_START": {
+    "default": "START"
+  },
+  "IDR_ABOUT_CONTROLLER_INVOKE_MENU": {
+    "default": "Menu",
+    "zh": "菜单",
+    "ja": "メニュー"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_UP": {
+    "default": "↑",
+    "en": "Up"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_DOWN": {
+    "default": "↓",
+    "en": "Down"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_LEFT": {
+    "default": "←",
+    "en": "Left"
+  },
+  "IDR_ABOUT_CONTROLLER_KEY_RIGHT": {
+    "default": "→",
+    "en": "Right"
+  },
+  "IDR_ABOUT_CONTROLLER_XBOX_DIRECTION": {
+    "default": "Stick Or D-Pad",
+    "zh": "控制杆或方向键",
+    "ja": "スティック又は方向パッド"
+  },
+  "IDR_ABOUT_CONTROLLER_XBOX_MENU": {
+    "default": "Menu button",
+    "zh": "菜单按钮",
+    "ja": "メニューボタン"
+  },
+  "IDR_ABOUT_GAME_SELECTION": {
+    "default": "Game Selection",
+    "zh": "游戏选择",
+    "ja": "ゲームの選択"
+  },
+  "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0": {
+    "default": "If a game has a ",
+    "zh": "如果一个游戏封面上有一个",
+    "ja": "ゲームのカバーに"
+  },
+  "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_1": {
+    "default": ", it has alternative versions.",
+    "zh": "标记，则说明它拥有多个版本。",
+    "ja": "がある場合は、複数のバージョンがあります"
+  },
+  "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_2": {
+    "default": "By pressing SELECT, or long press on the selected game, you may change its version.",
+    "zh": "您可以通过按下SELECT，或在它被选中时长按它来更换它的版本。",
+    "ja": "SELECTを押す又は選択されている間にゲームを長押すると、バージョンを変更できる。"
+  },
+  "IDR_ABOUT_ABOUT": {
+    "default": "About this app",
+    "zh": "关于此程序",
+    "ja": "このアプリについて"
+  },
+  "IDR_ABOUT_ABOUT_GITHUB": {
+    "default": "https://github.com/Froser/Kiwi-Machine"
+  },
+  "IDR_ABOUT_ABOUT_AUTHOR": {
+    "default": "Author: Yu Yisi",
+    "zh": "作者：于益偲",
+    "ja": "プログラム：Yu Yisi（エキ）"
   }
 }

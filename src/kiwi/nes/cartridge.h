@@ -49,10 +49,10 @@ class Cartridge : public base::RefCountedThreadSafe<Cartridge>,
   };
   using LoadCallback = base::OnceCallback<void(LoadResult)>;
 
-  // Load ROM from |rom_path|. The result will be return by |callback|.
-  // Only this method will be called on UI thread.
-  void Load(const base::FilePath& rom_path, LoadCallback callback);
-  void Load(const Bytes& data, LoadCallback callback);
+  // These 2 methods must be called on IO thread. It will only will be called by
+  // emulator instance.
+  Cartridge::LoadResult Load(const base::FilePath& rom_path);
+  Cartridge::LoadResult Load(const Bytes& data);
 
   bool is_loaded() { return is_loaded_; }
   uint32_t crc32() { return crc_; }

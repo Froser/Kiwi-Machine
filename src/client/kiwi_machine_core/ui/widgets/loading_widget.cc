@@ -29,7 +29,7 @@ LoadingWidget::LoadingWidget(MainWindow* main_window)
 LoadingWidget::~LoadingWidget() = default;
 
 SDL_Rect LoadingWidget::CalculateCircleAABB(int* indicator_radius_out) {
-  SDL_Rect aabb = MapToParent(spinning_bounds_);
+  SDL_Rect aabb = MapToWindow(spinning_bounds_);
   // Scaling the spinning bounds.
   aabb.w *= main_window_->window_scale();
   aabb.h *= main_window_->window_scale();

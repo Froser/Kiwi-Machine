@@ -107,20 +107,19 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
  public:
   bool is_power_on() { return is_power_on_; }
 
-  scoped_refptr<base::SequencedTaskRunner> io_task_runner() {
-    return io_task_runner_;
-  }
-
  private:
-  Cartridge::LoadCallback MakeLoadCallback(LoadCallback raw_callback);
+  bool LoadFromFileOnProperThread(const base::FilePath& rom_path);
+  bool LoadFromBinaryOnProperThread(const Bytes& data);
+  bool HandleLoadedResult(Cartridge::LoadResult load_result,
+                          scoped_refptr<Cartridge> cartridge);
   void StepInternal();
   void RunOneFrameOnProperThread();
-  void DoNextRunOnProperThread();
   void PowerOffOnProperThread();
   Bytes SaveStateOnProperThread();
   bool LoadStateOnProperThread(const Bytes& data);
   void ResetOnProperThread();
-  void AfterResetReply(RunningState last_state, ResetCallback callback);
+  void UnloadOnProperThread();
+  void PostReset(RunningState last_state);
   void OnIRQFromAPU();
   // EmulatorStates will dump states from emulator, it can access all members.
   friend class EmulatorStates;
@@ -145,8 +144,8 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
 
   DebugPort* debug_port_ = nullptr;
   scoped_refptr<base::SequencedTaskRunner> emulator_task_runner_;
-  scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> working_task_runner_;
+  scoped_refptr<base::SequencedTaskRunner> render_coroutine_;
 };
 
 }  // namespace nes

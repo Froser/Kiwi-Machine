@@ -14,8 +14,6 @@ project(kiwi_machine CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
-OPTION(KIWI_EMBEDDED_ROMS "Embed roms data in code" ON)
-
 include_directories(
         .
         ../kiwi_machine_core
@@ -76,6 +74,31 @@ if (APPLE)
                 ALL
                 COMMAND hdiutil create ./KiwiMachine.dmg -volname "Kiwi Machine" -ov -srcfolder ./kiwi_machine.app
                 WORKING_DIRECTORY "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/.."
+        )
+    endif ()
+endif ()
+
+# Copy package file for non-embedded mode.
+if (NOT ${KIWI_EMBEDDED_ROMS})
+    if (WIN32)
+        add_custom_command(
+                TARGET ${PROJECT_NAME}
+                POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/main.pak" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/main.pak"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/specials.pak" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/specials.pak"
+                VERBATIM
+        )
+    elseif (APPLE)
+        add_custom_command(
+                TARGET ${PROJECT_NAME}
+                POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/main.pak" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources/main.pak"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/specials.pak" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources/specials.pak"
+                VERBATIM
         )
     endif ()
 endif ()

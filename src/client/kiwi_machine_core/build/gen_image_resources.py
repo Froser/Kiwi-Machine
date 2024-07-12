@@ -74,7 +74,7 @@ namespace image_resources {
     all_data = ''
     all_switches = ''
     for f in sorted(Path('./resources/images').iterdir()):
-        if f.suffix == '.png' or f.suffix == '.jpg':
+        if f.suffix == '.png' or f.suffix == '.jpg' or f.suffix == '.svg':
             if not f.name in wasm_ignores:
                 data, token = GenCPP(f)
                 token_size = token + 'Size'

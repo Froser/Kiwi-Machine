@@ -47,6 +47,7 @@ class ScopedFont {
   FontType type_;
 };
 
+void InitializeSystemFonts();
 void InitializeFonts();
 
 enum PreferredFontSize {
@@ -58,6 +59,10 @@ enum PreferredFontSize {
   k6x,
 };
 
+FontType GetPreferredFontType(PreferredFontSize size,
+                              FontType default_type = FontType::kDefault);
+ScopedFont GetPreferredFont(PreferredFontSize size,
+                            FontType default_type = FontType::kDefault);
 FontType GetPreferredFontType(PreferredFontSize size,
                               const char* text_hint,
                               FontType default_type = FontType::kDefault);

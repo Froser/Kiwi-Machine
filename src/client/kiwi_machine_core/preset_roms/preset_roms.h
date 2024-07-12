@@ -16,24 +16,38 @@
 #include <kiwi_nes.h>
 #include <unordered_map>
 
+#if defined(KIWI_USE_EXTERNAL_PAK)
+#include "third_party/zlib-1.3/contrib/minizip/unzip.h"
+#endif
+
 namespace preset_roms {
 struct PresetROM {
   const char* name;
+
+#if !defined(KIWI_USE_EXTERNAL_PAK)
   const kiwi::nes::Byte* zip_data;
   size_t zip_size;
+#else
+  unz_file_pos file_pos;
+  kiwi::base::RepeatingCallback<kiwi::nes::Bytes(unz_file_pos)> zip_data_loader;
+#endif
 
+  // Following data will be written when loaded. Do not modify them:
   // Uncompressed data. Filled by FillRomDataFromZip().
-  mutable kiwi::nes::Bytes rom_data;
-  mutable kiwi::nes::Bytes rom_cover;
+  kiwi::nes::Bytes rom_data;
+  kiwi::nes::Bytes rom_cover;
 
   // i18 names
-  mutable std::unordered_map<std::string, std::string> i18n_names;
+  std::unordered_map<std::string, std::string> i18n_names;
 
   // Switch ROM version.
-  mutable std::vector<PresetROM> alternates;
+  std::vector<PresetROM> alternates;
 
   // Whether its data or cover is loaded
-  mutable bool loaded = false;
+  bool title_loaded = false;
+  bool cover_loaded = false;
+  bool content_loaded = false;
+  bool owned_zip_data = true;
 };
 
 #define PRESET_ROM(name) name::ROM_NAME, name::ROM_ZIP, name::ROM_ZIP_SIZE
@@ -46,7 +60,7 @@ struct PresetROM {
   }
 
 #if !defined(KIWI_USE_EXTERNAL_PAK)
-const PresetROM* GetPresetRoms();
+PresetROM* GetPresetRoms();
 #else
 std::vector<PresetROM>& GetPresetRoms();
 const char* GetPresetRomsPackageName();
@@ -55,7 +69,7 @@ size_t GetPresetRomsCount();
 
 namespace specials {
 #if !defined(KIWI_USE_EXTERNAL_PAK)
-const PresetROM* GetPresetRoms();
+PresetROM* GetPresetRoms();
 #else
 std::vector<PresetROM>& GetPresetRoms();
 const char* GetPresetRomsPackageName();

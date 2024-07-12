@@ -18,55 +18,55 @@
 
 namespace styles {
 
-namespace kiwi_item_widget {
+namespace flex_items_widget {
 
-int GetSpacingBetweenTitleAndCover() {
+int GetItemHeightHint() {
 #if KIWI_ANDROID
-  return 48;
+  return 480;
 #else
-  return 16;
+  return 160;
 #endif
 }
 
-PreferredFontSize GetGameTitlePreferredFontSize() {
+int GetItemHighlightedSize() {
 #if KIWI_ANDROID
-  return PreferredFontSize::k2x;
+  return 50;
+#else
+  return 20;
+#endif
+}
+
+PreferredFontSize GetDetailFontSize() {
+#if KIWI_ANDROID
+  return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k1x;
 #endif
 }
 
-int GetItemMetrics(float window_scale, int metrics) {
-#if !KIWI_IOS
-  return static_cast<int>(metrics) * window_scale;
+}  // namespace flex_items_widget
+
+namespace flex_item_widget {
+
+int GetBadgeSize() {
+#if KIWI_ANDROID
+  return 96;
 #else
-  return static_cast<int>(metrics) * 2;
+  return 32;
 #endif
 }
 
-}  // namespace kiwi_item_widget
-
-namespace kiwi_bg_widget {
-
-int GetKiwiPositionX(const SDL_Rect& safe_area_insets) {
-  return 30 + safe_area_insets.x;
-}
-
-int GetKiwiPositionY(const SDL_Rect& safe_area_insets) {
-  return 30 + safe_area_insets.y;
-}
-
-float GetKiwiScale(float window_scale) {
-#if !KIWI_IOS
-  return 0.08f * window_scale;
-#else
-  return 0.16f;
-#endif
-}
-
-}  // namespace kiwi_bg_widget
+}  // namespace flex_item_widget
 
 namespace in_game_menu {
+
+PreferredFontSize GetPreferredFontSize(float window_scale) {
+#if KIWI_MOBILE
+  return PreferredFontSize::k3x;
+#else
+  return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
+#endif
+}
 
 int GetSnapshotThumbnailWidth(bool is_landscape, float window_scale) {
 #if KIWI_IOS
@@ -85,7 +85,7 @@ int GetSnapshotThumbnailHeight(bool is_landscape, float window_scale) {
 }
 
 int GetSnapshotPromptHeight(float window_scale) {
-#if KIWI_IOS
+#if KIWI_MOBILE
   return 14 * window_scale;
 #else
   return 7 * window_scale;
@@ -100,26 +100,6 @@ int GetOptionsSpacing() {
 #endif
 }
 
-FontType GetJoystickFontType(bool is_fullscreen, const char* str_hint) {
-#if KIWI_ANDROID
-  return FontType::kDefault2x;
-#elif KIWI_IOS
-  return FontType::kDefault;
-#else
-  PreferredFontSize font_size =
-      is_fullscreen ? PreferredFontSize::k2x : PreferredFontSize::k1x;
-  return GetPreferredFontType(font_size, str_hint);
-#endif
-}
-
-FontType GetSlotNameFontType(bool is_landscape, const char* str_hint) {
-#if KIWI_IOS
-  return is_landscape ? FontType::kDefault : FontType::kSystemDefault;
-#else
-  return GetPreferredFontType(PreferredFontSize::k1x, str_hint);
-#endif
-}
-
 }  // namespace in_game_menu
 
 namespace main_window {
@@ -128,60 +108,136 @@ int GetJoystickSize(float window_scale) {
   return 135 * window_scale;
 }
 
-int GetJoystickPaddingX(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets) {
-#if KIWI_ANDROID
-  int result = is_landscape ? 18 * window_scale : 10 * window_scale;
-#else
+int GetJoystickMarginX(float window_scale,
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 26 * window_scale : 10 * window_scale;
-#endif
   return result + safe_area_insets.x;
 }
 
-int GetJoystickPaddingY(float window_scale,
-                        bool is_landscape,
-                        const SDL_Rect& safe_area_insets) {
+int GetJoystickMarginY(float window_scale,
+                       bool is_landscape,
+                       const SDL_Rect& safe_area_insets) {
 #if KIWI_ANDROID
-  int result = is_landscape ? 10 * window_scale : 40 * window_scale;
+  int result = is_landscape ? 20 * window_scale : 40 * window_scale;
 #else
   int result = is_landscape ? 26 * window_scale : 10 * window_scale;
 #endif
   return result + safe_area_insets.h;
 }
 
-int GetJoystickButtonPaddingX(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets) {
+int GetJoystickButtonMarginX(float window_scale,
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 40 * window_scale : 30 * window_scale;
   return result + safe_area_insets.x;
 }
 
-int GetJoystickButtonPaddingY(float window_scale,
-                              bool is_landscape,
-                              const SDL_Rect& safe_area_insets) {
+int GetJoystickButtonMarginY(float window_scale,
+                             bool is_landscape,
+                             const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 40 * window_scale : 60 * window_scale;
   return result + safe_area_insets.h;
 }
 
-int GetJoystickSelectStartButtonPaddingBottom(
-    float window_scale,
-    bool is_landscape,
-    const SDL_Rect& safe_area_insets) {
+int GetJoystickSelectStartButtonMarginBottom(float window_scale,
+                                             bool is_landscape,
+                                             const SDL_Rect& safe_area_insets) {
   int result = is_landscape ? 30 * window_scale : 10 * window_scale;
   return result + safe_area_insets.h;
 }
 
-int GetJoystickPauseButtonPaddingX(float window_scale,
-                                   const SDL_Rect& safe_area_insets) {
+int GetJoystickPauseButtonMarginX(float window_scale,
+                                  const SDL_Rect& safe_area_insets) {
   return 33 * window_scale + safe_area_insets.x;
 }
 
-int GetJoystickPauseButtonPaddingY(float window_scale,
-                                   const SDL_Rect& safe_area_insets) {
+int GetJoystickPauseButtonMarginY(float window_scale,
+                                  const SDL_Rect& safe_area_insets) {
   return 33 * window_scale + safe_area_insets.y;
 }
 
 }  // namespace main_window
+
+namespace side_menu {
+
+int GetItemHeight() {
+#if KIWI_ANDROID
+  return 80;
+#else
+  return 20;
+#endif
+}
+
+int GetMarginBottom() {
+#if KIWI_MOBILE
+  // Many mobile screen has a rounded corner, we set margin as a larger value
+  // here.
+  return 80;
+#else
+  return 15;
+#endif
+}
+
+PreferredFontSize GetPreferredFontSize() {
+#if KIWI_ANDROID
+  return PreferredFontSize::k2x;
+#else
+  return PreferredFontSize::k1x;
+#endif
+}
+
+}  // namespace side_menu
+
+namespace about_widget {
+
+int GetMarginX(float window_scale) {
+#if KIWI_MOBILE
+  return 120;
+#else
+  if (window_scale > 2.f)
+    return 40;
+  return 20;
+#endif
+}
+
+PreferredFontSize PreferredTitleFontSize(float window_scale) {
+#if KIWI_MOBILE
+  return PreferredFontSize::k3x;
+#else
+  return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
+#endif
+}
+
+PreferredFontSize PreferredContentFontSize() {
+#if KIWI_MOBILE
+  return PreferredFontSize::k2x;
+#else
+  return PreferredFontSize::k1x;
+#endif
+}
+
+}  // namespace about_widget
+
+namespace toast {
+
+SDL_Point GetTopLeft() {
+#if KIWI_MOBILE
+  static SDL_Point kPoint = {30, 60};
+#else
+  static SDL_Point kPoint = {10, 20};
+#endif
+  return kPoint;
+}
+
+PreferredFontSize GetFontSize() {
+#if KIWI_MOBILE
+  return PreferredFontSize::k3x;
+#else
+  return PreferredFontSize::k2x;
+#endif
+}
+
+}  // namespace toast
 
 }  // namespace styles

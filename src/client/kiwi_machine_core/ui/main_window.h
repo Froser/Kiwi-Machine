@@ -22,7 +22,9 @@
 #include "ui/widgets/canvas_observer.h"
 #include "ui/widgets/in_game_menu.h"
 #include "ui/widgets/menu_bar.h"
+#include "ui/widgets/side_menu.h"
 #include "ui/window_base.h"
+#include "utility/timer.h"
 
 class Canvas;
 class InGameMenu;
@@ -33,12 +35,15 @@ class StackWidget;
 class MemoryWidget;
 class DisassemblyWidget;
 class GroupWidget;
-class KiwiItemsWidget;
+class FlexItemsWidget;
+class CardWidget;
+class Splash;
 
 namespace preset_roms {
 struct PresetROM;
 }
 
+class FullscreenMask;
 class MainWindow : public WindowBase,
                    public kiwi::nes::IODevices::InputDevice,
                    public CanvasObserver {
@@ -53,6 +58,11 @@ class MainWindow : public WindowBase,
     kPause,
   };
 
+  enum class MainFocus {
+    kSideMenu,
+    kContents,
+  };
+
   class Observer {
    public:
     Observer();
@@ -65,9 +75,11 @@ class MainWindow : public WindowBase,
  public:
   explicit MainWindow(const std::string& title,
                       NESRuntimeID runtime_id,
-                      scoped_refptr<NESConfig> config,
-                      bool has_demo_widget);
+                      scoped_refptr<NESConfig> config);
   ~MainWindow() override;
+
+  // InitializeAsync() must be called before rendering.
+  void InitializeAsync(kiwi::base::OnceClosure callback);
 
 #if KIWI_WASM
   // WASM environment uses this instance to load roms.
@@ -86,6 +98,7 @@ class MainWindow : public WindowBase,
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
+  void ChangeFocus(MainFocus focus);
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -103,37 +116,39 @@ class MainWindow : public WindowBase,
 
   // WindowBase:
   SDL_Rect GetClientBounds() override;
-  void HandleKeyEvents(SDL_KeyboardEvent* event) override;
+  void HandleKeyEvent(SDL_KeyboardEvent* event) override;
   void OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) override;
   void OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) override;
   void HandleResizedEvent() override;
   void HandlePostEvent() override;
   void HandleDisplayEvent(SDL_DisplayEvent* event) override;
+  void Render() override;
 
   // CanvasObserver:
   void OnAboutToRenderFrame(Canvas* canvas,
                             scoped_refptr<NESFrame> frame) override;
 
  private:
-  void Initialize(NESRuntimeID runtime_id);
+  void InitializeRuntimeData();
   void InitializeAudio();
   void InitializeUI();
   void InitializeIODevices();
-  // |callback| will be run once all initializations are ready.
-  void AddAfterSplashCallback(kiwi::base::OnceClosure callback);
-  void RunAllAfterSplashCallbacks();
+  void InitializeDebugROMsOnIOThread();
+
   void LoadROMByPath(kiwi::base::FilePath rom_path);
   void StartAutoSave();
   void StopAutoSave();
   void ResetAudio();
   std::vector<MenuBar::Menu> GetMenuModel();
   void SetLoading(bool is_loading);
-  void ShowMainMenu(bool show);
+  void ShowMainMenu(bool show, bool load_from_finger_gesture);
   void OnScaleChanged();
   void UpdateGameControllerMapping();
   void CreateVirtualTouchButtons();
   void LayoutVirtualTouchButtons();
   void SetVirtualButtonsVisible(bool visible);
+  void StashVirtualButtonsVisible();
+  void PopVirtualButtonsVisible();
   void SaveConfig();
   void SetVirtualTouchButtonVisible(VirtualTouchButton button, bool visible);
   void SetVirtualJoystickButton(int which,
@@ -142,9 +157,21 @@ class MainWindow : public WindowBase,
   bool IsVirtualJoystickButtonPressed(int which,
                                       kiwi::nes::ControllerButton button);
   void CloseInGameMenu();
+  void FlexLayout();
+
+  SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
+  SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
+  SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
+      FlexItemsWidget* items_widget);
+  void SwitchToWidgetForSideMenu(int menu_index);
+  void SwitchToSideMenuByCurrentFlexItemWidget();
+
+  // Splash screen
+  void ShowSplash(kiwi::base::OnceClosure callback);
+  void CloseSplash();
 
   // Menu callbacks:
-  void OnRomLoaded(const std::string& name);
+  void OnRomLoaded(const std::string& name, bool load_from_finger_gesture);
   void OnQuit();
   void OnResetROM();
   void OnBackToMainMenu();
@@ -158,7 +185,8 @@ class MainWindow : public WindowBase,
   void OnPause();
   void OnResume();
   bool IsPause();
-  void OnLoadPresetROM(const preset_roms::PresetROM& rom);
+  void OnLoadPresetROM(preset_roms::PresetROM& rom,
+                       bool load_from_finger_gesture);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
@@ -181,12 +209,22 @@ class MainWindow : public WindowBase,
   void OnDebugMemory();
   void OnDebugDisassembly();
   void OnDebugNametable();
+  void OnShowUiDemoWidget();
   void OnInGameMenuTrigger();
   void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
-  void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item, bool is_left);
+  void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
+                                   InGameMenu::SettingsItemValue value);
   void OnInGameSettingsHandleWindowSize(bool is_left);
   void OnInGameSettingsHandleVolume(bool is_left);
+  void OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
+                                    const SDL_Point& trigger_point);
   void OnVirtualJoystickChanged(int state);
+  void OnKeyboardMatched();
+  void OnJoystickButtonsMatched();
+
+  // FullscreenMask will call HandleWindowFingerDown()
+  friend class FullscreenMask;
+  bool HandleWindowFingerDown();
 
 #if KIWI_MOBILE
   void OnScaleModeChanged();
@@ -198,26 +236,37 @@ class MainWindow : public WindowBase,
   // shouldn't load all ROMs in a row, but has to load the ROM dynamically.
   bool is_headless_ = false;
   std::set<int> pressing_keys_;
-  bool has_demo_widget_ = false;
-  bool splash_done_ = false;
-  std::vector<kiwi::base::OnceClosure> post_splash_callbacks_;
+  Splash* splash_ = nullptr;
   // Canvas is owned by this window.
   Canvas* canvas_ = nullptr;
+  Widget* fullscreen_mask_ = nullptr;
   InGameMenu* in_game_menu_ = nullptr;
   Widget* menu_bar_ = nullptr;
   Widget* palette_widget_ = nullptr;
   Widget* pattern_widget_ = nullptr;
   Widget* frame_rate_widget_ = nullptr;
+  Widget* demo_widget_ = nullptr;
+  StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
-  GroupWidget* main_group_widget_ = nullptr;
-  KiwiItemsWidget* main_items_widget_ = nullptr;
+  FlexItemsWidget* main_nes_items_widget_ = nullptr;
+  FlexItemsWidget* special_nes_items_widget_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
   ExportWidget* export_widget_ = nullptr;
-  StackWidget* stack_widget_ = nullptr;
+  SideMenu* side_menu_ = nullptr;
+  // Side menu index to item widgets' map
+  std::map<int, FlexItemsWidget*> flex_items_map_;
+
+  Timer side_menu_timer_;
+  int side_menu_target_width_ = 0;
+  int side_menu_original_width_ = 0;
+  CardWidget* contents_card_widget_ = nullptr;
   MemoryWidget* memory_widget_ = nullptr;
   DisassemblyWidget* disassembly_widget_ = nullptr;
   Widget* nametable_widget_ = nullptr;
   std::set<MainWindow::Observer*> observers_;
+#if ENABLE_DEBUG_ROMS
+  MenuBar::MenuItem debug_roms_;
+#endif
 
 #if KIWI_MOBILE
   // Main menu buttons
@@ -228,6 +277,7 @@ class MainWindow : public WindowBase,
   Widget* vtb_start_ = nullptr;
   Widget* vtb_select_ = nullptr;
   Widget* vtb_pause_ = nullptr;
+  bool stashed_virtual_joysticks_visible_state_ = false;
 #endif
 
   NESRuntimeID runtime_id_ = NESRuntimeID();

@@ -17,6 +17,7 @@
 #include "base/check.h"
 #include "base/files/file.h"
 #include "base/logging.h"
+#include "base/task/bind_post_task.h"
 #include "nes/emulator_impl.h"
 #include "nes/mapper.h"
 #include "nes/rom_data.h"
@@ -28,31 +29,28 @@ namespace nes {
 Cartridge::Cartridge(EmulatorImpl* emulator) : emulator_(emulator) {}
 Cartridge::~Cartridge() = default;
 
-void Cartridge::Load(const base::FilePath& rom_path, LoadCallback callback) {
+Cartridge::LoadResult Cartridge::Load(const base::FilePath& rom_path) {
+  // This method must be called on IO thread, by emulator.
   if (emulator_->is_power_on()) {
     is_loaded_ = false;
-    emulator_->io_task_runner()->PostTaskAndReplyWithResult(
-        FROM_HERE,
-        base::BindOnce(&Cartridge::LoadFromFileOnIOThread,
-                       base::RetainedRef(this), rom_path),
-        base::BindOnce(std::move(callback)));
+    return LoadFromFileOnIOThread(rom_path);
   } else {
     LOG(ERROR) << "The emulator is power off yet. You should call "
                   "Emulator::PowerOn() first.";
+    return Cartridge::LoadResult::failed();
   }
 }
 
-void Cartridge::Load(const Bytes& data, LoadCallback callback) {
+Cartridge::LoadResult Cartridge::Load(const Bytes& data) {
   if (emulator_->is_power_on()) {
     is_loaded_ = false;
-    emulator_->io_task_runner()->PostTaskAndReplyWithResult(
-        FROM_HERE,
-        base::BindOnce(&Cartridge::LoadFromDataOnIOThread,
-                       base::RetainedRef(this), data),
-        base::BindOnce(std::move(callback)));
+    return LoadFromDataOnIOThread(data);
   } else {
     LOG(ERROR) << "The emulator is power off yet. You should call "
                   "Emulator::PowerOn() first.";
+    Cartridge::LoadResult result;
+    result.success = false;
+    return result;
   }
 }
 
@@ -83,7 +81,6 @@ bool Cartridge::Deserialize(const EmulatorStates::Header& header,
 Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
     const base::FilePath& rom_path) {
   DCHECK(emulator_->is_power_on());
-  DCHECK(emulator_->io_task_runner()->RunsTasksInCurrentSequence());
 
   DCHECK(!rom_data_);
   rom_data_ = std::make_unique<RomData>();
@@ -152,8 +149,7 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
 }
 
 Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
-  DCHECK(emulator_->is_power_on() &&
-         emulator_->io_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK(emulator_->is_power_on());
 
   DCHECK(!rom_data_);
   rom_data_ = std::make_unique<RomData>();

@@ -118,7 +118,7 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
               Kiwi Machine是一个跨平台的红白机模拟器，其中内置了上百个当年风靡全球的游戏，支持键盘、鼠标操作，也支持Windows、MacOS、
               Linux、iOS、Android、Web等多个平台，支持英语、简体中文和日文三种语言，提供自动存档、读档等功能。
             </p>
-            <p>当前Kiwi Machine内核版本：1.1.0</p>
+            <p>当前Kiwi Machine内核版本：2.0.0</p>
             <h1>不同平台差异说明</h1>
             <p>Web Kiwi Machine使用的是WebAssembly + React技术，在使用行为上与客户端版有些差异：</p>
             <ul>

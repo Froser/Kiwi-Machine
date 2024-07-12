@@ -21,20 +21,7 @@
 #include "resources/image_resources.h"
 
 namespace {
-std::map<SDL_Renderer*, std::vector<std::pair<SDL_Texture*, SDL_Surface*>>>
-    g_image_resources;
-
-SDL_Texture* CreateLogoTexture(SDL_Renderer* renderer,
-                               image_resources::ImageID id,
-                               const unsigned char* data,
-                               size_t size) {
-  SDL_RWops* bg_res = SDL_RWFromMem(const_cast<unsigned char*>(data), size);
-  SDL_Surface* surface = IMG_Load_RW(bg_res, 1);
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-  SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
-  return texture;
-}
-
+std::map<SDL_Renderer*, std::vector<SDL_Texture*>> g_image_resources;
 }  // namespace
 
 bool InitializeImageResources() {
@@ -48,8 +35,7 @@ bool InitializeImageResources() {
 void UninitializeImageResources() {
   for (const auto& res : g_image_resources) {
     for (const auto& tex_surf_pair : res.second) {
-      SDL_DestroyTexture(tex_surf_pair.first);
-      SDL_FreeSurface(tex_surf_pair.second);
+      SDL_DestroyTexture(tex_surf_pair);
     }
   }
 
@@ -64,18 +50,16 @@ SDL_Texture* GetImage(SDL_Renderer* renderer, image_resources::ImageID id) {
         static_cast<int>(image_resources::ImageID::kLast));
 
   // If texture hasn't been created for |renderer| and |id|:
-  if (!g_image_resources[renderer][static_cast<int>(id)].first) {
+  if (!g_image_resources[renderer][static_cast<int>(id)]) {
     size_t size;
     const unsigned char* data = image_resources::GetData(id, &size);
     SDL_RWops* bg_res = SDL_RWFromMem(const_cast<unsigned char*>(data), size);
-    SDL_Surface* surface = IMG_Load_RW(bg_res, 1);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_Texture* texture =
+        IMG_LoadTextureTyped_RW(renderer, bg_res, 1, nullptr);
     SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
-    g_image_resources[renderer][static_cast<int>(id)] =
-        std::pair(texture, surface);
+    g_image_resources[renderer][static_cast<int>(id)] = texture;
   }
 
-  SDL_assert(g_image_resources[renderer][static_cast<int>(id)].first &&
-             g_image_resources[renderer][static_cast<int>(id)].second);
-  return g_image_resources[renderer][static_cast<int>(id)].first;
+  SDL_assert(g_image_resources[renderer][static_cast<int>(id)]);
+  return g_image_resources[renderer][static_cast<int>(id)];
 }

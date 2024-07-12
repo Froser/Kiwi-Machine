@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -120,8 +120,12 @@ SDL_SYS_WaitThread(SDL_Thread *thread)
 
     try {
         std::thread *cpp_thread = (std::thread *)thread->handle;
-        if (cpp_thread->joinable()) {
-            cpp_thread->join();
+        if (cpp_thread) {
+            if (cpp_thread->joinable()) {
+                cpp_thread->join();
+            }
+            delete cpp_thread;
+            thread->handle = nullptr;
         }
     } catch (std::system_error &) {
         // An error occurred when joining the thread.  SDL_WaitThread does not,
@@ -139,8 +143,12 @@ SDL_SYS_DetachThread(SDL_Thread *thread)
 
     try {
         std::thread *cpp_thread = (std::thread *)thread->handle;
-        if (cpp_thread->joinable()) {
-            cpp_thread->detach();
+        if (cpp_thread) {
+            if (cpp_thread->joinable()) {
+                cpp_thread->detach();
+            }
+            delete cpp_thread;
+            thread->handle = nullptr;
         }
     } catch (std::system_error &) {
         // An error occurred when detaching the thread.  SDL_DetachThread does not,

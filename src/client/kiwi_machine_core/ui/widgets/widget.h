@@ -16,12 +16,22 @@
 #include <SDL.h>
 #include <imgui.h>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
 class WindowBase;
 class Widget {
+ private:
+  struct ZOrderComparer {
+    bool operator()(const std::unique_ptr<Widget>& lhs,
+                    const std::unique_ptr<Widget>& rhs) const {
+      return lhs->zorder() < rhs->zorder();
+    }
+  };
+
  public:
+  using Widgets = std::multiset<std::unique_ptr<Widget>, ZOrderComparer>;
   explicit Widget(WindowBase* window_base);
   virtual ~Widget();
 
@@ -45,6 +55,9 @@ class Widget {
   void set_enabled(bool enabled) { enabled_ = enabled; }
   bool enabled() { return enabled_; }
 
+  void SetZOrder(int zorder);
+  int zorder() { return zorder_; }
+
   const std::string& title() { return title_; }
 
  public:
@@ -56,10 +69,15 @@ class Widget {
   // When all pending widgets are really removed, OnWidgetsRemoved() will be
   // called.
   void RemoveWidget(Widget* widget);
+  void ChildZOrderChanged(Widget* child);
   void Render();
-  bool HandleKeyEvents(SDL_KeyboardEvent* event);
-  bool HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event);
-  bool HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event);
+  bool HandleKeyEvent(SDL_KeyboardEvent* event);
+  bool HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event);
+  bool HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event);
+  bool HandleMouseMoveEvent(SDL_MouseMotionEvent* event);
+  bool HandleMouseWheelEvent(SDL_MouseWheelEvent* event);
+  bool HandleMousePressedEvent(SDL_MouseButtonEvent* event);
+  bool HandleMouseReleasedEvent(SDL_MouseButtonEvent* event);
   void HandleResizedEvent();
   void HandleDisplayEvent();
   bool HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
@@ -68,25 +86,41 @@ class Widget {
  protected:
   WindowBase* window() { return window_; }
   Widget* parent() { return parent_; }
-  SDL_Rect MapToParent(const SDL_Rect& bounds);
-  std::vector<std::unique_ptr<Widget>>& children() { return widgets_; }
+  SDL_Rect MapToWindow(const SDL_Rect& bounds);
+  Widgets& children() { return widgets_; }
   void RemovePendingWidgets();
 
  private:
   void set_parent(Widget* parent) { parent_ = parent; }
+  Widget* HitTest(int x_in_window, int y_in_window);
 
  protected:
   virtual void Paint();
+  virtual void PostPaint();
   virtual bool IsWindowless();
+  // Returns the combination of HitTestPolicy.
+  enum HitTestPolicy : int {
+    kNoHitTest = 0,
+    kAcceptHitTest = 1,
+    kAlwaysHitTest = 2,
+    kChildrenAcceptHitTest = 4,
+  };
+  virtual int GetHitTestPolicy();
   virtual bool OnKeyPressed(SDL_KeyboardEvent* event);
   virtual bool OnKeyReleased(SDL_KeyboardEvent* event);
   virtual bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event);
   virtual bool OnControllerButtonReleased(SDL_ControllerButtonEvent* event);
-  virtual bool OnControllerAxisMotionEvents(SDL_ControllerAxisEvent* event);
+  virtual bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event);
+  virtual bool OnMouseMove(SDL_MouseMotionEvent* event);
+  virtual bool OnMouseWheel(SDL_MouseWheelEvent* event);
+  virtual bool OnMousePressed(SDL_MouseButtonEvent* event);
+  virtual bool OnMouseReleased(SDL_MouseButtonEvent* event);
   virtual void OnWindowResized();
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();
   virtual void OnLocaleChanged();
+  virtual void OnWindowPreRender();
+  virtual void OnWindowPostRender();
 
   // Finger events are global events. No matter the finger is on the widget or
   // not, it will be triggered.
@@ -101,9 +135,10 @@ class Widget {
   bool visible_ = true;
   SDL_Rect bounds_ = {0, 0, 0, 0};
   std::string title_;
-  std::vector<std::unique_ptr<Widget>> widgets_;
+  Widgets widgets_;
   std::vector<Widget*> pending_remove_;
   Widget* parent_ = nullptr;
+  int zorder_ = 0;
 
   // For internal layout use:
   bool bounds_changed_ = false;

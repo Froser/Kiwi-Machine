@@ -22,6 +22,11 @@
 #include "utility/zip_reader.h"
 
 namespace {
+constexpr char kVisibleChars[] =
+    "!\"#$%&'()*+,-./"
+    "0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
+    "abcdefghijklmnopqrstuvwxyz{|}~";
+static_assert(sizeof(kVisibleChars) == 95);
 std::string g_global_language;
 
 using GlyphRangePtr = std::unique_ptr<ImVector<ImWchar>>;
@@ -90,20 +95,19 @@ const std::string& GetLocalizedString(SupportedLanguage language, int id) {
 void BuildGlyphRanges(SupportedLanguage language,
                       ImVector<ImWchar>& out_ranges) {
   ImFontGlyphRangesBuilder ranges_builder;
+  ranges_builder.AddText(kVisibleChars);
   for (int i = 0; i < string_resources::END_OF_STRINGS; ++i) {
     ranges_builder.AddText(GetLocalizedString(language, i).c_str());
   }
   for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::GetPresetRoms()[i];
-    FillRomDataFromZip(rom);
+    auto& rom = preset_roms::GetPresetRoms()[i];
     ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
     for (const auto& alter : rom.alternates) {
       ranges_builder.AddText(GetROMLocalizedTitle(language, alter));
     }
   }
   for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-    const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-    FillRomDataFromZip(rom);
+    auto& rom = preset_roms::specials::GetPresetRoms()[i];
     ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
     for (const auto& alter : rom.alternates) {
       ranges_builder.AddText(GetROMLocalizedTitle(language, alter));

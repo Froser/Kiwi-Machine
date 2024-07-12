@@ -121,7 +121,7 @@ def main():
             o.write(all_namespaces)
             o.write('};\n')
             o.write('size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
-            o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
+            o.write('PresetROM* GetPresetRoms() { return const_cast<PresetROM*>(kPresetRoms); }\n')
 
             # Writes all other ROMs
             for dir_ns in other_roms:
@@ -132,7 +132,7 @@ def main():
                 o.write(other_roms[dir_ns]['all_namespaces'])
                 o.write('};\n')
                 o.write('size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
-                o.write('const PresetROM* GetPresetRoms() { return kPresetRoms; }\n')
+                o.write('PresetROM* GetPresetRoms() { return const_cast<PresetROM*>(kPresetRoms); }\n')
                 o.write('} // namespace ' + dir_ns + '\n')
         else:
             o.write('extern std::vector<PresetROM> kPresetRoms;\n')

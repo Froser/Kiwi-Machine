@@ -24,24 +24,26 @@
 #include "ui/application.h"
 #include "ui/widgets/about_widget.h"
 #include "ui/widgets/canvas.h"
+#include "ui/widgets/card_widget.h"
 #include "ui/widgets/demo_widget.h"
 #include "ui/widgets/disassembly_widget.h"
 #include "ui/widgets/export_widget.h"
+#include "ui/widgets/flex_items_widget.h"
 #include "ui/widgets/frame_rate_widget.h"
-#include "ui/widgets/group_widget.h"
 #include "ui/widgets/kiwi_bg_widget.h"
-#include "ui/widgets/kiwi_items_widget.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/memory_widget.h"
 #include "ui/widgets/nametable_widget.h"
 #include "ui/widgets/palette_widget.h"
 #include "ui/widgets/pattern_widget.h"
+#include "ui/widgets/side_menu.h"
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
+#include "utility/math.h"
 #include "utility/zip_reader.h"
 
 namespace {
@@ -58,9 +60,13 @@ kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
   return bytes;
 }
 
-constexpr int kDefaultWindowWidth = Canvas::kNESFrameDefaultWidth;
+constexpr int kWindowPadding = 50;
+constexpr int kDefaultWindowWidth =
+    Canvas::kNESFrameDefaultWidth + kWindowPadding * 2;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
+constexpr int kSideMenuAnimationMs = 50;
+constexpr int kSplashTimeoutMs = 2000;
 
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
@@ -77,10 +83,13 @@ void FillLayout(WindowBase* window, Widget* widget) {
 void ToastGameControllersAddedOrRemoved(WindowBase* window,
                                         bool is_added,
                                         int which) {
+  using namespace string_resources;
   if (SDL_IsGameController(which)) {
     std::string name = SDL_GameControllerNameForIndex(which);
     Toast::ShowToast(
-        window, name + (is_added ? " is connected." : " is disconnected."));
+        window,
+        name + (is_added ? GetLocalizedString(IDR_MAIN_WINDOW_CONNECTED)
+                         : GetLocalizedString(IDR_MAIN_WINDOW_DISCONNECTED)));
   }
 }
 
@@ -109,9 +118,17 @@ std::pair<bool, int> OnExportGameROM(MainWindow* main_window,
   const preset_roms::PresetROM& rom =
       preset_roms::GetPresetRoms()[current_export_rom_index];
   main_window->Exporting(rom.name);
-  return std::make_pair(
-      ExportNES(export_path, rom.name, rom.zip_data, rom.zip_size),
-      current_export_rom_index + 1);
+#if !defined(KIWI_USE_EXTERNAL_PAK)
+  kiwi::nes::Byte* zip_data = const_cast<kiwi::nes::Byte*>(rom.zip_data);
+  size_t zip_size = rom.zip_size;
+#else
+  kiwi::nes::Bytes zip_data_container = rom.zip_data_loader.Run(rom.file_pos);
+  kiwi::nes::Byte* zip_data = zip_data_container.data();
+  size_t zip_size = zip_data_container.size();
+#endif
+
+  return std::make_pair(ExportNES(export_path, rom.name, zip_data, zip_size),
+                        current_export_rom_index + 1);
 }
 
 void OnGameROMExported(MainWindow* main_window,
@@ -138,6 +155,25 @@ void OnGameROMExported(MainWindow* main_window,
       kiwi::base::BindOnce(&OnExportGameROM, main_window, export_path,
                            result.second),
       kiwi::base::BindOnce(&OnGameROMExported, main_window, export_path));
+}
+
+int CalculateWindowWidth(float window_scale) {
+  return kDefaultWindowWidth * window_scale;
+}
+
+// Calculates window's height. If |menu_bar| is nullptr, use default menu's
+// height if having menu flag.
+int CalculateWindowHeight(float window_scale, Widget* menu_bar = nullptr) {
+  if (FLAGS_has_menu) {
+    if (menu_bar && menu_bar->bounds().h > 0) {
+      // Menu bar is painted, we can get exact menu height here.
+      return kDefaultWindowHeight * window_scale + menu_bar->bounds().h;
+    }
+
+    return kDefaultWindowHeight * window_scale + GetDefaultMenuHeight();
+  }
+
+  return kDefaultWindowHeight * window_scale;
 }
 
 #endif
@@ -188,8 +224,32 @@ std::string ROMTitleUpdater::GetLocalizedString() {
 std::string ROMTitleUpdater::GetCollateStringHint() {
   return GetROMLocalizedCollateStringHint(preset_rom_);
 }
-
 }  // namespace
+
+// A mask widget to handle finger events.
+class FullscreenMask : public Widget {
+ public:
+  FullscreenMask(MainWindow* main_window);
+  ~FullscreenMask() override = default;
+
+ protected:
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+  bool IsWindowless() override;
+
+ private:
+  MainWindow* main_window_ = nullptr;
+};
+
+FullscreenMask::FullscreenMask(MainWindow* main_window)
+    : Widget(main_window), main_window_(main_window) {}
+
+bool FullscreenMask::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
+  return main_window_->HandleWindowFingerDown();
+}
+
+bool FullscreenMask::IsWindowless() {
+  return true;
+}
 
 // Observer
 MainWindow::Observer::Observer() = default;
@@ -198,19 +258,34 @@ void MainWindow::Observer::OnVolumeChanged(float new_value) {}
 
 MainWindow::MainWindow(const std::string& title,
                        NESRuntimeID runtime_id,
-                       scoped_refptr<NESConfig> config,
-                       bool has_demo_widget)
-    : WindowBase(title), config_(config), has_demo_widget_(has_demo_widget) {
+                       scoped_refptr<NESConfig> config)
+    : WindowBase(title,
+                 CalculateWindowWidth(config->data().window_scale),
+                 CalculateWindowHeight(config->data().window_scale)),
+      config_(config),
+      runtime_id_(runtime_id) {
 #if KIWI_WASM
   // Only one main window instance should exist in WASM.
   SDL_assert(!g_main_window_instance);
   g_main_window_instance = this;
 #endif
+}
 
-  Initialize(runtime_id);
+// Initialization flow:
+// UI: InitializeRuntimeData -> Audio -> UI -> IODevices
+// IO: ROMs data ------------------------^
+void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
+  InitializeRuntimeData();
   InitializeAudio();
-  InitializeUI();
-  InitializeIODevices();
+  ShowSplash(kiwi::base::DoNothing());
+  Application::Get()->Initialize(
+      kiwi::base::BindOnce(&MainWindow::InitializeDebugROMsOnIOThread,
+                           kiwi::base::Unretained(this)),
+      kiwi::base::BindOnce(&MainWindow::InitializeUI,
+                           kiwi::base::Unretained(this))
+          .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
+                                     kiwi::base::Unretained(this)))
+          .Then(std::move(callback)));
 }
 
 MainWindow::~MainWindow() {
@@ -220,11 +295,6 @@ MainWindow::~MainWindow() {
   runtime_data_->emulator->PowerOff();
   canvas_->RemoveObserver(this);
   SaveConfig();
-
-#if defined(KIWI_USE_EXTERNAL_PAK)
-  CloseRomDataFromPackage(preset_roms::GetPresetRoms());
-  CloseRomDataFromPackage(preset_roms::specials::GetPresetRoms());
-#endif
 
 #if KIWI_WASM
   g_main_window_instance = nullptr;
@@ -240,8 +310,7 @@ MainWindow* MainWindow::GetInstance() {
 }
 
 void MainWindow::LoadROM_WASM(kiwi::base::FilePath rom_path) {
-  AddAfterSplashCallback(kiwi::base::BindOnce(
-      &MainWindow::LoadROMByPath, kiwi::base::Unretained(this), rom_path));
+  LoadROMByPath(rom_path);
 }
 
 void MainWindow::SetVolume_WASM(float volume) {
@@ -280,6 +349,40 @@ void MainWindow::Exporting(const std::string& rom_name) {
   export_widget_->SetCurrent(kiwi::base::FilePath::FromUTF8Unsafe(rom_name));
 }
 
+void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
+#if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
+               // here.
+  // If we have menu, we don't show splash screen, because we probably want to
+  // do some debug works.
+  SDL_assert(!splash_);
+  std::unique_ptr<Splash> splash = std::make_unique<Splash>(this);
+  splash_ = splash.get();
+  splash_->SetZOrder(INT_MAX);
+  SDL_Rect window_bounds = GetWindowBounds();
+  splash_->set_bounds(SDL_Rect{0, 0, window_bounds.w, window_bounds.h});
+  PlayEffect(audio_resources::AudioID::kStartup);
+  AddWidget(std::move(splash));
+#endif
+}
+
+void MainWindow::CloseSplash() {
+  if (splash_) {
+    int ms = splash_->GetElapsedMs();
+    if (ms > kSplashTimeoutMs) {
+      main_stack_widget_->set_visible(true);
+      RemoveWidgetLater(splash_);
+    } else {
+      kiwi::base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+          FROM_HERE,
+          kiwi::base::BindOnce(&MainWindow::CloseSplash,
+                               kiwi::base::Unretained(this)),
+          kiwi::base::Milliseconds(kSplashTimeoutMs - ms));
+    }
+  } else {
+    main_stack_widget_->set_visible(true);
+  }
+}
+
 SDL_Rect MainWindow::Scaled(const SDL_Rect& rect) {
   return SDL_Rect{
       static_cast<int>(rect.x * window_scale()),
@@ -297,6 +400,30 @@ int MainWindow::Scaled(int i) {
   return i * window_scale();
 }
 
+void MainWindow::ChangeFocus(MainFocus focus) {
+  SDL_assert(side_menu_);
+  switch (focus) {
+    case MainFocus::kContents:
+      side_menu_->set_activate(false);
+      SwitchToSideMenuByCurrentFlexItemWidget();
+      if (main_nes_items_widget_)
+        main_nes_items_widget_->SetActivate(true);
+      if (special_nes_items_widget_)
+        special_nes_items_widget_->SetActivate(true);
+      break;
+    case MainFocus::kSideMenu:
+      side_menu_->set_activate(true);
+      if (main_nes_items_widget_)
+        main_nes_items_widget_->SetActivate(false);
+      if (special_nes_items_widget_)
+        special_nes_items_widget_->SetActivate(false);
+      break;
+    default:
+      SDL_assert(false);  // Bad focus. Shouldn't be here.
+  }
+  FlexLayout();
+}
+
 void MainWindow::AddObserver(Observer* observer) {
   observers_.insert(observer);
 }
@@ -307,17 +434,20 @@ void MainWindow::RemoveObserver(Observer* observer) {
 
 bool MainWindow::IsKeyDown(int controller_id,
                            kiwi::nes::ControllerButton button) {
-  bool matched =
-      pressing_keys_.find(runtime_data_->keyboard_mappings[controller_id]
-                              .mapping[static_cast<int>(button)]) !=
-      pressing_keys_.cend();
-
+  // Matching virtual joysticks.
+  bool matched = IsVirtualJoystickButtonPressed(controller_id, button);
   if (matched)
     return true;
 
-  matched = IsVirtualJoystickButtonPressed(controller_id, button);
-  if (matched)
+  // Matching keyboard
+  matched = pressing_keys_.find(runtime_data_->keyboard_mappings[controller_id]
+                                    .mapping[static_cast<int>(button)]) !=
+            pressing_keys_.cend();
+
+  if (matched) {
+    OnKeyboardMatched();
     return true;
+  }
 
   // Key doesn't match. Try joysticks.
   NESRuntime::Data::JoystickMapping joystick_mapping =
@@ -337,38 +467,41 @@ bool MainWindow::IsKeyDown(int controller_id,
                              runtime_data_->joystick_mappings[controller_id]
                                  .mapping.mapping[static_cast<int>(button)]));
 
-    if (matched)
-      return true;
+    if (!matched) {
+      // Not matched, try axis motion.
+      constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
+      switch (button) {
+        case kiwi::nes::ControllerButton::kLeft: {
+          Sint16 x = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTX);
+          if (SDL_JOYSTICK_AXIS_MIN <= x && x <= -kDeadZoom)
+            matched = true;
+        } break;
+        case kiwi::nes::ControllerButton::kRight: {
+          Sint16 x = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTX);
+          if (kDeadZoom <= x && x <= SDL_JOYSTICK_AXIS_MAX)
+            matched = true;
+        } break;
+        case kiwi::nes::ControllerButton::kUp: {
+          Sint16 y = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTY);
+          if (SDL_JOYSTICK_AXIS_MIN <= y && y <= -kDeadZoom)
+            matched = true;
+        } break;
+        case kiwi::nes::ControllerButton::kDown: {
+          Sint16 y = SDL_GameControllerGetAxis(game_controller,
+                                               SDL_CONTROLLER_AXIS_LEFTY);
+          if (kDeadZoom <= y && y <= SDL_JOYSTICK_AXIS_MAX)
+            matched = true;
+        } break;
+        default:
+          break;
+      }
+    }
 
-    // Not matched, try axis motion.
-    constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
-    switch (button) {
-      case kiwi::nes::ControllerButton::kLeft: {
-        Sint16 x = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTX);
-        if (SDL_JOYSTICK_AXIS_MIN <= x && x <= -kDeadZoom)
-          matched = true;
-      } break;
-      case kiwi::nes::ControllerButton::kRight: {
-        Sint16 x = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTX);
-        if (kDeadZoom <= x && x <= SDL_JOYSTICK_AXIS_MAX)
-          matched = true;
-      } break;
-      case kiwi::nes::ControllerButton::kUp: {
-        Sint16 y = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTY);
-        if (SDL_JOYSTICK_AXIS_MIN <= y && y <= -kDeadZoom)
-          matched = true;
-      } break;
-      case kiwi::nes::ControllerButton::kDown: {
-        Sint16 y = SDL_GameControllerGetAxis(game_controller,
-                                             SDL_CONTROLLER_AXIS_LEFTY);
-        if (kDeadZoom <= y && y <= SDL_JOYSTICK_AXIS_MAX)
-          matched = true;
-      } break;
-      default:
-        break;
+    if (matched) {
+      OnJoystickButtonsMatched();
     }
   }
 
@@ -379,19 +512,13 @@ SDL_Rect MainWindow::GetClientBounds() {
   // Excludes menu bar's height;
   SDL_Rect render_bounds = WindowBase::GetClientBounds();
   if (menu_bar_) {
-    if (menu_bar_->bounds().h > 0) {
-      render_bounds.y += menu_bar_->bounds().h;
-      render_bounds.h -= menu_bar_->bounds().h;
-    } else {
-      // Menu bar doesn't render yet. Use default value.
-      render_bounds.y += GetDefaultMenuHeight();
-      render_bounds.h -= GetDefaultMenuHeight();
-    }
+    render_bounds.y += menu_bar_->bounds().h;
+    render_bounds.h -= menu_bar_->bounds().h;
   }
   return render_bounds;
 }
 
-void MainWindow::HandleKeyEvents(SDL_KeyboardEvent* event) {
+void MainWindow::HandleKeyEvent(SDL_KeyboardEvent* event) {
   if (!IsPause()) {
     // Do not handle emulator's key event when paused.
     if (event->type == SDL_KEYDOWN)
@@ -400,7 +527,7 @@ void MainWindow::HandleKeyEvents(SDL_KeyboardEvent* event) {
       pressing_keys_.erase(event->keysym.sym);
   }
 
-  WindowBase::HandleKeyEvents(event);
+  WindowBase::HandleKeyEvent(event);
 }
 
 void MainWindow::OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) {
@@ -414,20 +541,25 @@ void MainWindow::OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) {
 }
 
 void MainWindow::HandleResizedEvent() {
-  if (bg_widget_) {
+  if (main_stack_widget_) {
+    FillLayout(this, main_stack_widget_);
+  }
+
+  if (side_menu_) {
     SDL_Rect client_bounds = GetClientBounds();
-    FillLayout(this, bg_widget_);
-    if (!is_headless_) {
-      // In headless mode, |main_group_widget_| won't be created. The game will
-      // start as soon as canvas created.
-      SDL_assert(main_group_widget_);
-      FillLayout(this, main_group_widget_);
-    }
-    FillLayout(this, stack_widget_);
+    FlexLayout();
   }
 
   if (in_game_menu_) {
     FillLayout(this, in_game_menu_);
+  }
+
+  if (splash_) {
+    FillLayout(this, splash_);
+  }
+
+  if (fullscreen_mask_) {
+    FillLayout(this, fullscreen_mask_);
   }
 
   LayoutVirtualTouchButtons();
@@ -443,15 +575,12 @@ void MainWindow::HandleResizedEvent() {
     }
   }
 
-  if (main_group_widget_)
-    main_group_widget_->RecalculateBounds();
-
   WindowBase::HandleResizedEvent();
 }
 
 void MainWindow::HandlePostEvent() {
-  SDL_assert(runtime_data_);
-  runtime_data_->emulator->RunOneFrame();
+  if (runtime_data_)
+    runtime_data_->emulator->RunOneFrame();
 }
 
 void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
@@ -460,42 +589,72 @@ void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
     HandleResizedEvent();
 }
 
+void MainWindow::Render() {
+  WindowBase::Render();
+
+  // Handles animations here
+  if (side_menu_) {
+    float percentage = side_menu_timer_.ElapsedInMilliseconds() /
+                       static_cast<float>(kSideMenuAnimationMs);
+    if (percentage >= 1.f)
+      percentage = 1.f;
+
+    int side_menu_width =
+        Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
+    SDL_Rect side_menu_target_bounds =
+        SDL_Rect{0, 0, side_menu_width, GetClientBounds().h};
+    SDL_Rect side_menu_current_bounds = side_menu_->bounds();
+    if (!SDL_RectEquals(&side_menu_target_bounds, &side_menu_current_bounds)) {
+      side_menu_->set_bounds(side_menu_target_bounds);
+      side_menu_->invalidate();
+    }
+  }
+}
+
 #if !KIWI_MOBILE
 void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
                                       scoped_refptr<NESFrame> frame) {
   // Always adjusts the canvas to the middle of the render area (excludes menu
   // bar).
   SDL_Rect render_bounds = GetClientBounds();
-  SDL_Rect src_rect = {0, 0, frame->width(), frame->height()};
 
-  SDL_Rect dest_rect = {
-      static_cast<int>((render_bounds.w - src_rect.w * canvas->frame_scale()) /
-                       2) +
-          render_bounds.x,
-      static_cast<int>((render_bounds.h - src_rect.h * canvas->frame_scale()) /
-                       2) +
-          render_bounds.y,
-      static_cast<int>(frame->width() * canvas->frame_scale()),
-      static_cast<int>(frame->height() * canvas->frame_scale())};
-  canvas->set_bounds(dest_rect);
-
-  // Updates window size, to fit the frame.
-  if (menu_bar_) {
-    SDL_Rect menu_rect = menu_bar_->bounds();
-    int desired_window_width = dest_rect.w;
-    int desired_window_height = menu_rect.h + dest_rect.h;
-    Resize(desired_window_width, desired_window_height);
+  if (!is_fullscreen()) {
+    SDL_Rect src_rect = {0, 0, frame->width(), frame->height()};
+    SDL_Rect dest_rect = {
+        static_cast<int>(
+            (render_bounds.w - src_rect.w * canvas->frame_scale()) / 2) +
+            render_bounds.x,
+        static_cast<int>(
+            (render_bounds.h - src_rect.h * canvas->frame_scale()) / 2) +
+            render_bounds.y,
+        static_cast<int>(frame->width() * canvas->frame_scale()),
+        static_cast<int>(frame->height() * canvas->frame_scale())};
+    canvas->set_bounds(dest_rect);
   } else {
-    Resize(dest_rect.w, dest_rect.h);
+    bool horizontal_screen = render_bounds.w > render_bounds.h;
+    int dest_width, dest_height;
+    if (horizontal_screen) {
+      dest_height = render_bounds.h;
+      dest_width = static_cast<float>(Canvas::kNESFrameDefaultWidth) /
+                   Canvas::kNESFrameDefaultHeight * dest_height;
+    } else {
+      dest_width = render_bounds.w;
+      dest_height = static_cast<float>(Canvas::kNESFrameDefaultHeight) /
+                    Canvas::kNESFrameDefaultWidth * dest_width;
+    }
+
+    SDL_Rect dest_rect = {
+        static_cast<int>((render_bounds.w - dest_width) / 2) + render_bounds.x,
+        static_cast<int>((render_bounds.h - dest_height) / 2) + render_bounds.y,
+        dest_width, dest_height};
+    canvas->set_bounds(dest_rect);
   }
 }
 #endif
 
-void MainWindow::Initialize(NESRuntimeID runtime_id) {
-  SDL_assert(runtime_id >= 0);
-  is_headless_ = preset_roms::GetPresetRomsCount() == 0;
-  runtime_id_ = runtime_id;
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
+void MainWindow::InitializeRuntimeData() {
+  SDL_assert(runtime_id_ >= 0);
+  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id_);
 
   if (FLAGS_has_menu) {
     // If menu is visible, debug will be enabled as well. Otherwise, there's no
@@ -529,6 +688,8 @@ void MainWindow::InitializeAudio() {
 }
 
 void MainWindow::InitializeUI() {
+  is_headless_ = preset_roms::GetPresetRomsCount() == 0;
+
   if (FLAGS_has_menu) {
     // Menu bar
     std::unique_ptr<MenuBar> menu_bar = std::make_unique<MenuBar>(this);
@@ -542,162 +703,135 @@ void MainWindow::InitializeUI() {
     AddWidget(std::move(menu_bar));
   }
 
+  // Main stack widget, has background widget and settings widget.
+  std::unique_ptr<StackWidget> main_stack_widget =
+      std::make_unique<StackWidget>(this);
+  main_stack_widget_ = main_stack_widget.get();
+  main_stack_widget_->set_visible(false);
+  FillLayout(this, main_stack_widget_);
+  AddWidget(std::move(main_stack_widget));
+
   // Background
   SDL_Rect client_bounds = GetClientBounds();
   std::unique_ptr<KiwiBgWidget> bg_widget =
-      std::make_unique<KiwiBgWidget>(this);
+      std::make_unique<KiwiBgWidget>(this, runtime_id_);
   bg_widget_ = bg_widget.get();
-  FillLayout(this, bg_widget_);
-  AddWidget(std::move(bg_widget));
-
-  // Stack widget
-  std::unique_ptr<StackWidget> stack_widget =
-      std::make_unique<StackWidget>(this);
-  stack_widget_ = stack_widget.get();
-  stack_widget_->set_bounds(client_bounds);
-  bg_widget_->AddWidget(std::move(stack_widget));
-
-  // Create virtual touch buttons, which will invoke main items_widget's
-  // methods.
-  CreateVirtualTouchButtons();
+  main_stack_widget_->PushWidget(std::move(bg_widget));
 
   if (!is_headless_) {
-    // Main menu groups
-    std::unique_ptr<GroupWidget> group_widget =
-        std::make_unique<GroupWidget>(this, runtime_id_);
-    main_group_widget_ = group_widget.get();
-    FillLayout(this, main_group_widget_);
-    stack_widget_->PushWidget(std::move(group_widget));
+    // Contents stack widget
+    std::unique_ptr<CardWidget> contents_card_widget =
+        std::make_unique<CardWidget>(this);
+    contents_card_widget_ = contents_card_widget.get();
+    contents_card_widget_->set_bounds(client_bounds);
+    bg_widget_->AddWidget(std::move(contents_card_widget));
 
-    // Game items
-    std::unique_ptr<KiwiItemsWidget> items_widget =
-        std::make_unique<KiwiItemsWidget>(this, runtime_id_);
-    main_items_widget_ = items_widget.get();
-
-#if defined(KIWI_USE_EXTERNAL_PAK)
-    OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
-                           kiwi::base::FilePath::FromUTF8Unsafe(
-                               preset_roms::GetPresetRomsPackageName()));
-    OpenRomDataFromPackage(
-        preset_roms::specials::GetPresetRoms(),
-        kiwi::base::FilePath::FromUTF8Unsafe(
-            preset_roms::specials::GetPresetRomsPackageName()));
-#endif
-
+    // Main game items
+    std::unique_ptr<FlexItemsWidget> main_nes_items_widget =
+        std::make_unique<FlexItemsWidget>(this, runtime_id_);
+    main_nes_items_widget_ = main_nes_items_widget.get();
+    main_nes_items_widget_->set_back_callback(kiwi::base::BindRepeating(
+        &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
+        MainWindow::MainFocus::kSideMenu));
     SDL_assert(preset_roms::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-      const auto& rom = preset_roms::GetPresetRoms()[i];
-      FillRomDataFromZip(rom);
-      int main_item_index = items_widget->AddItem(
+      auto& rom = preset_roms::GetPresetRoms()[i];
+      size_t main_item_index = main_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                    kiwi::base::Unretained(this), rom));
+                                    kiwi::base::Unretained(this),
+                                    std::ref(rom)));
 
-      for (const auto& alternative_rom : rom.alternates) {
-        items_widget->AddSubItem(
+      for (auto& alternative_rom : rom.alternates) {
+        main_nes_items_widget->AddSubItem(
             main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
             alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
             kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                       kiwi::base::Unretained(this),
-                                      alternative_rom));
+                                      std::ref(alternative_rom)));
       }
     }
-    items_widget->Sort();
 
-    int main_items_index = std::clamp(config_->data().last_index, 0,
-                                      items_widget->GetItemCount() - 1);
-    items_widget->SetIndex(main_items_index);
+    int main_items_index =
+        std::clamp(config_->data().last_index, 0,
+                   static_cast<int>(main_nes_items_widget_->size() - 1));
+    main_nes_items_widget_->SetIndex(main_items_index);
 
-    main_group_widget_->AddWidget(std::move(items_widget));
+    contents_card_widget_->AddWidget(std::move(main_nes_items_widget));
 
     // Game items (special)
-    std::unique_ptr<KiwiItemsWidget> specials_item_widget =
-        std::make_unique<KiwiItemsWidget>(this, runtime_id_);
+    std::unique_ptr<FlexItemsWidget> special_nes_items_widget =
+        std::make_unique<FlexItemsWidget>(this, runtime_id_);
+    special_nes_items_widget_ = special_nes_items_widget.get();
+    special_nes_items_widget_->set_back_callback(kiwi::base::BindRepeating(
+        &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
+        MainWindow::MainFocus::kSideMenu));
 
     SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
     for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-      const auto& rom = preset_roms::specials::GetPresetRoms()[i];
-      FillRomDataFromZip(rom);
-
-      specials_item_widget->AddItem(
+      auto& rom = preset_roms::specials::GetPresetRoms()[i];
+      special_nes_items_widget->AddItem(
           std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
           rom.rom_cover.size(),
           kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                    kiwi::base::Unretained(this), rom));
+                                    kiwi::base::Unretained(this),
+                                    std::ref(rom)));
     }
-    specials_item_widget->Sort();
 
-    if (!specials_item_widget->IsEmpty())
-      main_group_widget_->AddWidget(std::move(specials_item_widget));
+    // specials_item_widget->Sort();
+    if (!special_nes_items_widget->empty())
+      contents_card_widget_->AddWidget(std::move(special_nes_items_widget));
 
-    // About
-    std::unique_ptr<KiwiItemsWidget> settings_widget =
-        std::make_unique<KiwiItemsWidget>(this, runtime_id_);
+    // Side menu
+    std::unique_ptr<SideMenu> side_menu =
+        std::make_unique<SideMenu>(this, runtime_id_);
+    side_menu->set_activate(true);
 
-    // Settings items
-    std::unique_ptr<KiwiItemsWidget> controller_widget =
-        std::make_unique<KiwiItemsWidget>(this, runtime_id_);
-
-    settings_widget->set_can_sort(false);
-    settings_widget->AddItem(
+    side_menu->AddMenu(
+        std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_GAME),
+        image_resources::ImageID::kMenuNes,
+        image_resources::ImageID::kMenuNesHighlight,
+        CreateMenuChangeFocusToGameItemsCallbacks(main_nes_items_widget_));
+    side_menu->AddMenu(
         std::make_unique<StringUpdater>(
-            string_resources::IDR_MAIN_WINDOW_SETTINGS),
-        image_resources::kSettingsLogo, image_resources::kSettingsLogoSize,
-        kiwi::base::BindRepeating(
-            [](MainWindow* window, StackWidget* stack_widget,
-               NESRuntimeID runtime_id) {
-              std::unique_ptr<InGameMenu> in_game_menu =
-                  std::make_unique<InGameMenu>(
-                      window, runtime_id,
-                      kiwi::base::BindRepeating(
-                          [](StackWidget* stack_widget,
-                             InGameMenu::MenuItem item, int param) {
-                            // Mapping button 'B' will trigger kContinue.
-                            if (item ==
-                                    InGameMenu::MenuItem::kToGameSelection ||
-                                item == InGameMenu::MenuItem::kContinue) {
-                              stack_widget->PopWidget();
-                            }
-                          },
-                          stack_widget),
-                      kiwi::base::BindRepeating(
-                          &MainWindow::OnInGameSettingsItemTrigger,
-                          kiwi::base::Unretained(window)));
-              in_game_menu->HideMenu(0);  // Hides 'Continue'
-              in_game_menu->HideMenu(1);  // Hides 'Load Auto Save'
-              in_game_menu->HideMenu(2);  // Hides 'Load State'
-              in_game_menu->HideMenu(3);  // Hides 'Save State'
-              in_game_menu->HideMenu(5);  // Hides 'Reset Game'
-              FillLayout(window, in_game_menu.get());
-              stack_widget->PushWidget(std::move(in_game_menu));
-            },
-            this, stack_widget_, runtime_id_));
+            string_resources::IDR_SIDE_MENU_SPECIAL),
+        image_resources::ImageID::kMenuSpecialNes,
+        image_resources::ImageID::kMenuSpecialNesHighlight,
+        CreateMenuChangeFocusToGameItemsCallbacks(special_nes_items_widget_));
+    side_menu->AddMenu(std::make_unique<StringUpdater>(
+                           string_resources::IDR_SIDE_MENU_SETTINGS),
+                       image_resources::ImageID::kMenuSettings,
+                       image_resources::ImageID::kMenuSettingsHighlight,
+                       CreateMenuSettingsCallbacks());
+    side_menu->AddMenu(
+        std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_ABOUT),
+        image_resources::ImageID::kMenuAbout,
+        image_resources::ImageID::kMenuAboutHighlight,
+        CreateMenuAboutCallbacks());
 
-    settings_widget->AddItem(
-        std::make_unique<StringUpdater>(
-            string_resources::IDR_MAIN_WINDOW_ABOUT),
-        image_resources::kBackgroundLogo, image_resources::kBackgroundLogoSize,
-        kiwi::base::BindRepeating(
-            [](MainWindow* window, StackWidget* stack_widget,
-               NESRuntimeID runtime_id) {
-              stack_widget->PushWidget(std::make_unique<AboutWidget>(
-                  window, stack_widget, runtime_id));
-            },
-            this, stack_widget_, runtime_id_));
-
-#if !KIWI_IOS
-    // iOS needn't quit the application manually.
-    settings_widget->AddItem(
-        std::make_unique<StringUpdater>(string_resources::IDR_MAIN_WINDOW_QUIT),
-        image_resources::kExitLogo, image_resources::kExitLogoSize,
-        kiwi::base::BindRepeating(&MainWindow::OnQuit,
-                                  kiwi::base::Unretained(this)));
+#if !KIWI_MOBILE
+    // Mobile apps needn't quit the application manually.
+    SideMenu::MenuCallbacks quit_callbacks;
+    quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
+        [](MainWindow* this_window, int) { this_window->OnQuit(); },
+        kiwi::base::Unretained(this));
+    side_menu->AddMenu(
+        std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
+        image_resources::ImageID::kMenuQuit,
+        image_resources::ImageID::kMenuQuitHighlight, quit_callbacks);
 #endif
 
-    // End of settings items
-    main_group_widget_->AddWidget(std::move(settings_widget));
+    side_menu->Layout();
+    side_menu_ = side_menu.get();
+    bg_widget_->AddWidget(std::move(side_menu));
+    ChangeFocus(MainFocus::kContents);
   }
+
+  // Create virtual touch buttons, which will invoke main items_widget's
+  // methods.
+  CreateVirtualTouchButtons();
+  LayoutVirtualTouchButtons();
 
   std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(this, runtime_id_);
   canvas_ = canvas.get();
@@ -714,6 +848,13 @@ void MainWindow::InitializeUI() {
                                 kiwi::base::Unretained(this)),
       kiwi::base::BindRepeating(&MainWindow::OnInGameSettingsItemTrigger,
                                 kiwi::base::Unretained(this)));
+
+  std::unique_ptr<Widget> fullscreen_mask =
+      std::make_unique<FullscreenMask>(this);
+  fullscreen_mask_ = fullscreen_mask.get();
+  fullscreen_mask_->set_visible(false);
+  AddWidget(std::move(fullscreen_mask));
+
   if (is_headless_)
     in_game_menu->HideMenu(6);  // Hides 'Quit Game' when headless
   in_game_menu_ = in_game_menu.get();
@@ -728,91 +869,76 @@ void MainWindow::InitializeUI() {
   AddWidget(std::move(loading_widget));
 
   // Debug widgets
-  std::unique_ptr<PaletteWidget> palette_widget =
-      std::make_unique<PaletteWidget>(this, runtime_data_->debug_port.get());
-  palette_widget_ = palette_widget.get();
-  palette_widget_->set_visible(false);
-  AddWidget(std::move(palette_widget));
+  if (FLAGS_has_menu) {
+    std::unique_ptr<PaletteWidget> palette_widget =
+        std::make_unique<PaletteWidget>(this, runtime_data_->debug_port.get());
+    palette_widget_ = palette_widget.get();
+    palette_widget_->set_visible(false);
+    AddWidget(std::move(palette_widget));
 
-  std::unique_ptr<PatternWidget> pattern_widget =
-      std::make_unique<PatternWidget>(this, runtime_data_->debug_port.get());
-  pattern_widget_ = pattern_widget.get();
-  pattern_widget_->set_visible(false);
-  AddWidget(std::move(pattern_widget));
+    std::unique_ptr<PatternWidget> pattern_widget =
+        std::make_unique<PatternWidget>(this, runtime_data_->debug_port.get());
+    pattern_widget_ = pattern_widget.get();
+    pattern_widget_->set_visible(false);
+    AddWidget(std::move(pattern_widget));
 
-  std::unique_ptr<FrameRateWidget> frame_rate_widget =
-      std::make_unique<FrameRateWidget>(this, canvas_->frame(),
-                                        runtime_data_->debug_port.get());
-  frame_rate_widget_ = frame_rate_widget.get();
-  frame_rate_widget_->set_visible(false);
-  AddWidget(std::move(frame_rate_widget));
+    std::unique_ptr<FrameRateWidget> frame_rate_widget =
+        std::make_unique<FrameRateWidget>(this, canvas_->frame(),
+                                          runtime_data_->debug_port.get());
+    frame_rate_widget_ = frame_rate_widget.get();
+    frame_rate_widget_->set_visible(false);
+    AddWidget(std::move(frame_rate_widget));
 
-  std::unique_ptr<ExportWidget> export_widget =
-      std::make_unique<ExportWidget>(this);
-  export_widget_ = export_widget.get();
-  export_widget_->set_visible(false);
-  AddWidget(std::move(export_widget));
+    std::unique_ptr<ExportWidget> export_widget =
+        std::make_unique<ExportWidget>(this);
+    export_widget_ = export_widget.get();
+    export_widget_->set_visible(false);
+    AddWidget(std::move(export_widget));
 
-  std::unique_ptr<MemoryWidget> memory_widget = std::make_unique<MemoryWidget>(
-      this, runtime_id_,
-      kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
-                                kiwi::base::Unretained(this)),
-      kiwi::base::BindRepeating(&MainWindow::IsPause,
-                                kiwi::base::Unretained(this)));
-  memory_widget_ = memory_widget.get();
-  memory_widget_->set_visible(false);
-  AddWidget(std::move(memory_widget));
+    std::unique_ptr<MemoryWidget> memory_widget =
+        std::make_unique<MemoryWidget>(
+            this, runtime_id_,
+            kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
+                                      kiwi::base::Unretained(this)),
+            kiwi::base::BindRepeating(&MainWindow::IsPause,
+                                      kiwi::base::Unretained(this)));
+    memory_widget_ = memory_widget.get();
+    memory_widget_->set_visible(false);
+    AddWidget(std::move(memory_widget));
 
-  std::unique_ptr<DisassemblyWidget> disassembly_widget =
-      std::make_unique<DisassemblyWidget>(
-          this, runtime_id_,
-          kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
-                                    kiwi::base::Unretained(this)),
-          kiwi::base::BindRepeating(&MainWindow::IsPause,
-                                    kiwi::base::Unretained(this)));
-  disassembly_widget_ = disassembly_widget.get();
-  disassembly_widget_->set_visible(false);
-  AddWidget(std::move(disassembly_widget));
+    std::unique_ptr<DisassemblyWidget> disassembly_widget =
+        std::make_unique<DisassemblyWidget>(
+            this, runtime_id_,
+            kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
+                                      kiwi::base::Unretained(this)),
+            kiwi::base::BindRepeating(&MainWindow::IsPause,
+                                      kiwi::base::Unretained(this)));
+    disassembly_widget_ = disassembly_widget.get();
+    disassembly_widget_->set_visible(false);
+    AddWidget(std::move(disassembly_widget));
 
-  std::unique_ptr<NametableWidget> nametable_widget =
-      std::make_unique<NametableWidget>(this, runtime_id_);
-  nametable_widget_ = nametable_widget.get();
-  nametable_widget_->set_visible(false);
-  AddWidget(std::move(nametable_widget));
+    std::unique_ptr<NametableWidget> nametable_widget =
+        std::make_unique<NametableWidget>(this, runtime_id_);
+    nametable_widget_ = nametable_widget.get();
+    nametable_widget_->set_visible(false);
+    AddWidget(std::move(nametable_widget));
 
-  if (has_demo_widget_)
-    AddWidget(std::make_unique<DemoWidget>(this));
-
-  bool has_splash = false;
-#if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
-               // here.
-  // Splash
-  if (!FLAGS_has_menu) {
-    // If we have menu, we don't show splash screen, because we probably want to
-    // do some debug works.
-    std::unique_ptr<Splash> splash =
-        std::make_unique<Splash>(this, stack_widget_, runtime_id_);
-    splash->Play();
-    splash->SetClosedCallback(kiwi::base::BindRepeating(
-        &MainWindow::RunAllAfterSplashCallbacks, kiwi::base::Unretained(this)));
-    stack_widget_->PushWidget(std::move(splash));
-    has_splash = true;
+    std::unique_ptr<Widget> demo_widget = std::make_unique<DemoWidget>(this);
+    demo_widget_ = demo_widget.get();
+    demo_widget_->set_visible(false);
+    AddWidget(std::move(demo_widget));
   }
-#endif
 
 #if !KIWI_MOBILE
   OnScaleChanged();
+  HandleResizedEvent();
   if (is_fullscreen())
     OnSetFullscreen();
 #else
   OnScaleModeChanged();
 #endif
-  LayoutVirtualTouchButtons();
 
-  // If there's no splash, run callbacks at once.
-  if (!has_splash) {
-    RunAllAfterSplashCallbacks();
-  }
+  CloseSplash();
 }
 
 void MainWindow::InitializeIODevices() {
@@ -827,19 +953,13 @@ void MainWindow::InitializeIODevices() {
   runtime_data_->emulator->SetIODevices(std::move(io_devices));
 }
 
-void MainWindow::AddAfterSplashCallback(kiwi::base::OnceClosure callback) {
-  if (splash_done_)
-    std::move(callback).Run();
-  else
-    post_splash_callbacks_.push_back(std::move(callback));
-}
-
-void MainWindow::RunAllAfterSplashCallbacks() {
-  splash_done_ = true;
-  for (auto&& callback : post_splash_callbacks_) {
-    std::move(callback).Run();
+void MainWindow::InitializeDebugROMsOnIOThread() {
+#if ENABLE_DEBUG_ROMS
+  if (HasDebugRoms()) {
+    debug_roms_ = CreateDebugRomsMenu(kiwi::base::BindRepeating(
+        &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
   }
-  post_splash_callbacks_.clear();
+#endif
 }
 
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
@@ -847,9 +967,9 @@ void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
   SetLoading(true);
 
   runtime_data_->emulator->LoadAndRun(
-      rom_path, kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                                     kiwi::base::Unretained(this),
-                                     rom_path.BaseName().AsUTF8Unsafe()));
+      rom_path, kiwi::base::BindOnce(
+                    &MainWindow::OnRomLoaded, kiwi::base::Unretained(this),
+                    rom_path.BaseName().AsUTF8Unsafe(), false));
 }
 
 void MainWindow::StartAutoSave() {
@@ -1005,12 +1125,9 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
     }
 
 #if ENABLE_DEBUG_ROMS
-    if (HasDebugRoms()) {
-      MenuBar::MenuItem debug_roms =
-          CreateDebugRomsMenu(kiwi::base::BindRepeating(
-              &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
-      debug.menu_items.push_back(std::move(debug_roms));
-    }
+    if (!debug_roms_.sub_items.empty())
+      debug.menu_items.push_back(std::move(debug_roms_));
+      // debug_roms_ should no longer use.
 #endif
 
     debug.menu_items.push_back(
@@ -1047,14 +1164,20 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
         {"Nametable", kiwi::base::BindRepeating(&MainWindow::OnDebugNametable,
                                                 kiwi::base::Unretained(this))});
 
+    debug.menu_items.push_back(
+        {"UI Demo Widget",
+         kiwi::base::BindRepeating(&MainWindow::OnShowUiDemoWidget,
+                                   kiwi::base::Unretained(this))});
+
 #if ENABLE_EXPORT_ROMS
     debug.menu_items.push_back(
         {"Export All Games",
          kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
                                    kiwi::base::Unretained(this))});
 
-    result.push_back(std::move(debug));
 #endif
+
+    result.push_back(std::move(debug));
   }
 
   return result;
@@ -1067,32 +1190,27 @@ void MainWindow::SetLoading(bool is_loading) {
   loading_widget_->set_visible(is_loading);
 }
 
-void MainWindow::ShowMainMenu(bool show) {
+void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
   SDL_assert(bg_widget_);
   SDL_assert(canvas_);
   canvas_->set_visible(!show);
+  fullscreen_mask_->set_visible(!show);
   bg_widget_->set_visible(show);
-  SetVirtualButtonsVisible(!show);
+
+  if (!load_from_finger_gesture) {
+    // If the ROM is not loaded by finger events (Finger Up), it means we have
+    // mouse, joysticks or keyboard, so we do not show virtual buttons here.
+    SetVirtualButtonsVisible(false);
+  } else {
+    SetVirtualButtonsVisible(!show);
+  }
   SetLoading(false);
 }
 
 void MainWindow::OnScaleChanged() {
   if (!is_fullscreen()) {
-    const int default_menu_height = GetDefaultMenuHeight();
-    if (menu_bar_) {
-      if (menu_bar_->bounds().h > 0) {
-        // Menu bar is painted, we can get exact menu height here.
-        Resize(kDefaultWindowWidth * window_scale(),
-               kDefaultWindowHeight * window_scale() + menu_bar_->bounds().h);
-      } else {
-        Resize(kDefaultWindowWidth * window_scale(),
-               kDefaultWindowHeight * window_scale() + default_menu_height);
-      }
-    } else {
-      Resize(kDefaultWindowWidth * window_scale(),
-             kDefaultWindowHeight * window_scale());
-    }
-    MoveToCenter();
+    Resize(CalculateWindowWidth(window_scale()),
+           CalculateWindowHeight(window_scale(), menu_bar_));
   }
 
   if (canvas_)
@@ -1137,6 +1255,18 @@ void MainWindow::LayoutVirtualTouchButtons() {}
 
 void MainWindow::OnVirtualJoystickChanged(int state) {}
 
+void MainWindow::OnKeyboardMatched() {}
+
+void MainWindow::OnJoystickButtonsMatched() {}
+
+bool MainWindow::HandleWindowFingerDown() {
+  return false;
+}
+
+void MainWindow::StashVirtualButtonsVisible() {}
+
+void MainWindow::PopVirtualButtonsVisible() {}
+
 #endif
 
 void MainWindow::SetVirtualButtonsVisible(bool visible) {
@@ -1168,9 +1298,126 @@ void MainWindow::CloseInGameMenu() {
   in_game_menu_->Close();
 }
 
-void MainWindow::OnRomLoaded(const std::string& name) {
+void MainWindow::FlexLayout() {
+  SDL_Rect client_bounds = GetClientBounds();
+  side_menu_timer_.Reset();
+  int left_width = side_menu_->GetSuggestedCollapsedWidth();
+  int right_width = client_bounds.w - left_width;
+
+  // An activated side menu needs more space.
+  int extended_width =
+      client_bounds.w * .15f < side_menu_->GetMinExtendedWidth()
+          ? side_menu_->GetMinExtendedWidth()
+          : client_bounds.w * .15f;
+
+  if (side_menu_->activate()) {
+    side_menu_original_width_ = left_width;
+    side_menu_target_width_ = extended_width;
+  } else {
+    side_menu_original_width_ = extended_width;
+    side_menu_target_width_ = left_width;
+  }
+
+  contents_card_widget_->set_bounds(
+      SDL_Rect{left_width, 0, right_width, client_bounds.h});
+}
+
+SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
+  SideMenu::MenuCallbacks callbacks;
+  callbacks.trigger_callback = kiwi::base::BindRepeating(
+      [](MainWindow* window, NESRuntimeID runtime_id, int) {
+        std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
+            window, runtime_id,
+            kiwi::base::BindRepeating(
+                [](StackWidget* stack_widget, InGameMenu::MenuItem item,
+                   int param) {
+                  // Mapping button 'B' will trigger kContinue.
+                  if (item == InGameMenu::MenuItem::kToGameSelection ||
+                      item == InGameMenu::MenuItem::kContinue) {
+                    stack_widget->PopWidget();
+                  }
+                },
+                window->main_stack_widget_),
+            kiwi::base::BindRepeating(&MainWindow::OnInGameSettingsItemTrigger,
+                                      kiwi::base::Unretained(window)));
+        in_game_menu->HideMenu(0);  // Hides 'Continue'
+        in_game_menu->HideMenu(1);  // Hides 'Load Auto Save'
+        in_game_menu->HideMenu(2);  // Hides 'Load State'
+        in_game_menu->HideMenu(3);  // Hides 'Save State'
+        in_game_menu->HideMenu(5);  // Hides 'Reset Game'
+        in_game_menu->set_bounds(
+            SDL_Rect{0, 0, window->main_stack_widget_->bounds().w,
+                     window->main_stack_widget_->bounds().h});
+        window->main_stack_widget_->PushWidget(std::move(in_game_menu));
+      },
+      this, runtime_id_);
+  return callbacks;
+}
+
+SideMenu::MenuCallbacks MainWindow::CreateMenuAboutCallbacks() {
+  SideMenu::MenuCallbacks callbacks;
+  callbacks.trigger_callback = kiwi::base::BindRepeating(
+      [](MainWindow* window, NESRuntimeID runtime_id, int) {
+        std::unique_ptr<AboutWidget> about_widget =
+            std::make_unique<AboutWidget>(window, window->main_stack_widget_,
+                                          runtime_id);
+        about_widget->set_bounds(
+            SDL_Rect{0, 0, window->main_stack_widget_->bounds().w,
+                     window->main_stack_widget_->bounds().h});
+        window->main_stack_widget_->PushWidget(std::move(about_widget));
+      },
+      this, runtime_id_);
+  return callbacks;
+}
+
+SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
+    FlexItemsWidget* items_widget) {
+  SDL_assert(items_widget);
+  SideMenu::MenuCallbacks callbacks;
+  callbacks.trigger_callback = kiwi::base::BindRepeating(
+      [](MainWindow* this_window, FlexItemsWidget* items_widget,
+         int menu_index) {
+        this_window->flex_items_map_[menu_index] = items_widget;
+        this_window->SwitchToWidgetForSideMenu(menu_index);
+      },
+      kiwi::base::Unretained(this), kiwi::base::Unretained(items_widget));
+  callbacks.enter_callback = kiwi::base::BindRepeating(
+      &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
+      MainFocus::kContents);
+
+  return callbacks;
+}
+
+void MainWindow::SwitchToWidgetForSideMenu(int menu_index) {
+  SDL_assert(contents_card_widget_);
+  SDL_assert(flex_items_map_[menu_index]);
+  bool succeeded =
+      contents_card_widget_->SetCurrentWidget(flex_items_map_[menu_index]);
+  SDL_assert(succeeded);
+}
+
+void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
+  SDL_assert(contents_card_widget_);
+  Widget* current_widget = contents_card_widget_->GetCurrentWidget();
+  SDL_assert(current_widget);
+  int target_index = -1;
+  for (auto [side_menu_index, widget] : flex_items_map_) {
+    if (widget == current_widget) {
+      target_index = side_menu_index;
+      break;
+    }
+  }
+  if (target_index == -1) {
+    SDL_assert(false); // Shouldn't be here
+    target_index = 0;
+  }
+  side_menu_->SetIndex(target_index);
+}
+
+void MainWindow::OnRomLoaded(const std::string& name,
+                             bool load_from_finger_gesture) {
   SetLoading(false);
-  ShowMainMenu(false);
+  ShowMainMenu(false, load_from_finger_gesture);
   SetTitle(name);
   StartAutoSave();
 }
@@ -1196,7 +1443,7 @@ void MainWindow::OnBackToMainMenu() {
   SDL_assert(runtime_data_->emulator);
   runtime_data_->emulator->Unload(
       kiwi::base::BindRepeating(&MainWindow::ShowMainMenu,
-                                kiwi::base::Unretained(this), true)
+                                kiwi::base::Unretained(this), true, false)
           .Then(kiwi::base::BindRepeating(
               &LoadingWidget::set_visible,
               kiwi::base::Unretained(loading_widget_), false))
@@ -1253,17 +1500,21 @@ void MainWindow::OnLoadAutoSavedState(int timestamp) {
 }
 
 void MainWindow::OnStateSaved(bool succeed) {
+  using namespace string_resources;
+
   if (succeed) {
     SDL_assert(in_game_menu_);
     in_game_menu_->RequestCurrentThumbnail();
-    Toast::ShowToast(this, "State saved.");
+    Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_SUCCEEDED));
   } else {
-    Toast::ShowToast(this, "State save failed.");
+    Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_FAILED));
   }
 }
 
 void MainWindow::OnStateLoaded(
     const NESRuntime::Data::StateResult& state_result) {
+  using namespace string_resources;
+
   if (state_result.success && !state_result.state_data.empty()) {
     audio_->Reset();
     runtime_data_->emulator->LoadState(
@@ -1271,9 +1522,11 @@ void MainWindow::OnStateLoaded(
         kiwi::base::BindOnce(
             [](MainWindow* window, bool success) {
               if (success)
-                Toast::ShowToast(window, "State loaded.");
+                Toast::ShowToast(
+                    window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_SUCCEEDED));
               else
-                Toast::ShowToast(window, "State load failed.");
+                Toast::ShowToast(
+                    window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_FAILED));
             },
             this));
     audio_->Start();
@@ -1296,28 +1549,46 @@ void MainWindow::OnTogglePause() {
 }
 
 void MainWindow::OnPause() {
+  StopAutoSave();
   // Cleanup all pressing keys when pausing.
   pressing_keys_.clear();
   runtime_data_->emulator->Pause();
-  memory_widget_->UpdateMemory();
-  disassembly_widget_->UpdateDisassembly();
+  if (memory_widget_)
+    memory_widget_->UpdateMemory();
+  if (disassembly_widget_)
+    disassembly_widget_->UpdateDisassembly();
+  StashVirtualButtonsVisible();
   SetVirtualButtonsVisible(false);
 }
 
 void MainWindow::OnResume() {
   runtime_data_->emulator->Run();
-  SetVirtualButtonsVisible(true);
+  PopVirtualButtonsVisible();
+  StartAutoSave();
 }
 
-void MainWindow::OnLoadPresetROM(const preset_roms::PresetROM& rom) {
+void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
+                                 bool load_from_finger_gesture) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
 
-  runtime_data_->emulator->LoadAndRun(
-      ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
-      kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                           kiwi::base::Unretained(this),
-                           GetROMLocalizedTitle(rom)));
+  Application::Get()->GetIOTaskRunner()->PostTaskAndReply(
+      FROM_HERE,
+      kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), RomPart::kContent),
+      kiwi::base::BindOnce(
+          [](MainWindow* this_window,
+             scoped_refptr<kiwi::nes::Emulator> emulator,
+             preset_roms::PresetROM& rom, bool load_from_finger_gesture) {
+            emulator->LoadAndRun(
+                ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
+                kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                                     kiwi::base::Unretained(this_window),
+                                     GetROMLocalizedTitle(rom),
+                                     load_from_finger_gesture));
+          },
+          kiwi::base::Unretained(this),
+          kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom),
+          load_from_finger_gesture));
 }
 
 void MainWindow::OnLoadDebugROM(kiwi::base::FilePath rom_path) {
@@ -1375,14 +1646,8 @@ void MainWindow::OnSetFullscreen() {
   config_->data().window_scale = InGameMenu::kMaxScaling;
   config_->SaveConfig();
 
-  // Windows system use a fake fullscreen to avoid changing resolution.
-  // While macOS can use the real fullscreen to avoid fullscreen's
-  // window animation.
-#if defined(WIN32)
   SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN_DESKTOP);
-#else
-  SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN);
-#endif
+  OnScaleChanged();
 }
 
 void MainWindow::OnUnsetFullscreen(float scale) {
@@ -1465,6 +1730,10 @@ void MainWindow::OnDebugNametable() {
   nametable_widget_->set_visible(true);
 }
 
+void MainWindow::OnShowUiDemoWidget() {
+  demo_widget_->set_visible(true);
+}
+
 void MainWindow::OnInGameMenuTrigger() {
   in_game_menu_->Show();
   OnPause();
@@ -1493,44 +1762,55 @@ void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
       CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kToGameSelection: {
-      CloseInGameMenu();
+      in_game_menu_->Close();
+      OnBackToMainMenu();
     } break;
     default:
       break;
   }
 }
 
-void MainWindow::OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
-                                             bool is_left) {
+void MainWindow::OnInGameSettingsItemTrigger(
+    InGameMenu::SettingsItem item,
+    InGameMenu::SettingsItemValue value) {
+  bool* go_left_ptr = std::get_if<bool>(&value);
+  float* value_ptr = std::get_if<float>(&value);
+
   switch (item) {
     case InGameMenu::SettingsItem::kVolume:
       PlayEffect(audio_resources::AudioID::kSelect);
-      OnInGameSettingsHandleVolume(is_left);
+      if (go_left_ptr)
+        OnInGameSettingsHandleVolume(*go_left_ptr);
+      else
+        OnSetAudioVolume(*value_ptr);
       break;
     case InGameMenu::SettingsItem::kWindowSize:
-      OnInGameSettingsHandleWindowSize(is_left);
+      SDL_assert(go_left_ptr);
+      OnInGameSettingsHandleWindowSize(*go_left_ptr);
       break;
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
+      SDL_assert(go_left_ptr);
       std::vector<SDL_GameController*> controllers = GetControllerList();
       int player_index = (item == InGameMenu::SettingsItem::kJoyP1 ? 0 : 1);
       // Find next controller
       auto iter =
           std::find(controllers.begin(), controllers.end(),
                     runtime_data_->joystick_mappings[player_index].which);
-      if (is_left && iter != controllers.begin()) {
+      if (*go_left_ptr && iter != controllers.begin()) {
         SDL_GameController* next_controller = *(iter - 1);
         SetControllerMapping(runtime_data_, player_index, next_controller,
                              false);
-      } else if (!is_left && (iter != controllers.end() - 1)) {
+      } else if (!*go_left_ptr && (iter != controllers.end() - 1)) {
         SDL_GameController* next_controller = *(iter + 1);
         SetControllerMapping(runtime_data_, player_index, next_controller,
                              false);
       }
     } break;
     case InGameMenu::SettingsItem::kLanguage: {
+      SDL_assert(go_left_ptr);
       SupportedLanguage language = GetCurrentSupportedLanguage();
-      if (is_left) {
+      if (*go_left_ptr) {
         language = static_cast<SupportedLanguage>(
             (static_cast<int>(language) - 1 < 0)
                 ? static_cast<int>(SupportedLanguage::kMax) - 1
@@ -1582,14 +1862,28 @@ void MainWindow::OnInGameSettingsHandleVolume(bool is_left) {
   volume = (is_left ? volume - .1f : volume + .1f);
   OnSetAudioVolume(volume);
 }
+
+void MainWindow::OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
+                                              const SDL_Point& trigger_point) {
+  // Divide volume bar to `kSeparatedCount` segments
+  constexpr int kSeparatedCount = 10;
+  if (SDL_PointInRect(&trigger_point, &volume_bounds)) {
+    float percentage = (trigger_point.x - volume_bounds.x) /
+                       static_cast<float>(volume_bounds.w);
+    OnSetAudioVolume(percentage);
+  } else {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "%s: point is not in bounds, which is unexpected.", __func__);
+  }
+}
 #endif
 
 void MainWindow::SaveConfig() {
   // Before main window destruct, save current game index.
   // This happens when MainWindow is about to destroy, and has IO operation.
   if (!is_headless_) {
-    SDL_assert(main_items_widget_);
-    config_->data().last_index = main_items_widget_->current_index();
+    SDL_assert(main_nes_items_widget_);
+    config_->data().last_index = main_nes_items_widget_->current_index();
     config_->SaveConfig();
   }
 }

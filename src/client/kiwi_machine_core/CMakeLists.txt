@@ -70,26 +70,26 @@ set(Sources
         ui/widgets/canvas.h
         ui/widgets/canvas_observer.cc
         ui/widgets/canvas_observer.h
+        ui/widgets/card_widget.cc
+        ui/widgets/card_widget.h
         ui/widgets/disassembly_widget.cc
         ui/widgets/disassembly_widget.h
         ui/widgets/demo_widget.cc
         ui/widgets/demo_widget.h
         ui/widgets/export_widget.cc
         ui/widgets/export_widget.h
+        ui/widgets/flex_item_widget.cc
+        ui/widgets/flex_item_widget.h
+        ui/widgets/flex_items_widget.cc
+        ui/widgets/flex_items_widget.h
         ui/widgets/frame_rate_widget.cc
         ui/widgets/frame_rate_widget.h
         ui/widgets/in_game_menu.cc
         ui/widgets/in_game_menu.h
         ui/widgets/joystick_button.cc
         ui/widgets/joystick_button.h
-        ui/widgets/group_widget.cc
-        ui/widgets/group_widget.h
         ui/widgets/kiwi_bg_widget.cc
         ui/widgets/kiwi_bg_widget.h
-        ui/widgets/kiwi_item_widget.cc
-        ui/widgets/kiwi_item_widget.h
-        ui/widgets/kiwi_items_widget.cc
-        ui/widgets/kiwi_items_widget.h
         ui/widgets/loading_widget.cc
         ui/widgets/loading_widget.h
         ui/widgets/memory_widget.cc
@@ -102,6 +102,8 @@ set(Sources
         ui/widgets/palette_widget.h
         ui/widgets/pattern_widget.cc
         ui/widgets/pattern_widget.h
+        ui/widgets/side_menu.cc
+        ui/widgets/side_menu.h
         ui/widgets/splash.cc
         ui/widgets/splash.h
         ui/widgets/stack_widget.cc
@@ -134,8 +136,6 @@ set(Sources
         utility/localization.h
         utility/math.cc
         utility/math.h
-        utility/richtext_content.cc
-        utility/richtext_content.h
         utility/timer.cc
         utility/timer.h
         utility/zip_reader.cc
@@ -151,7 +151,8 @@ endif ()
 if (KIWI_MOBILE)
     list(APPEND Sources
             ui/main_window_mobile.cc
-            ui/widgets/in_game_menu_mobile.cc
+            ui/widgets/flex_items_widget_mobile.cc
+            ui/widgets/side_menu_mobile.cc
     )
 endif ()
 

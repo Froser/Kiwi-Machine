@@ -37,25 +37,28 @@ class AboutWidget : public Widget {
   void OnWindowResized() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
-
+  void OnWindowPreRender() override;
+  void OnWindowPostRender() override;
+  bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
 #if KIWI_MOBILE
-  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
 #endif
 
+
  private:
-  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  void ResetCursorX();
+  void Separator();
+  void DrawBackground();
+  void DrawTitle();
+  void DrawController();
+  void DrawGameSelection();
+  void DrawAbout();
 
  private:
   NESRuntime::Data* runtime_data_ = nullptr;
   StackWidget* parent_ = nullptr;
   MainWindow* main_window_ = nullptr;
-
-  std::string str_title_;
-  FontType font_title_;
-  std::string str_contents_;
-  FontType font_contents_;
-  std::string str_go_back_;
-  FontType font_go_back_;
 };
 
 #endif  // UI_WIDGETS_ABOUT_WIDGET_H_

@@ -24,7 +24,9 @@
 
 class WindowBase {
  public:
-  explicit WindowBase(const std::string& title);
+  explicit WindowBase(const std::string& title,
+                      int window_width,
+                      int window_height);
   virtual ~WindowBase();
 
  public:
@@ -38,6 +40,7 @@ class WindowBase {
 
   uint32_t GetWindowID();
   void Resize(int width, int height);
+  SDL_Rect GetWindowBounds();
   SDL_Renderer* renderer() { return renderer_; }
   SDL_Window* native_window() { return window_; }
 
@@ -48,15 +51,20 @@ class WindowBase {
   SDL_Rect GetSafeAreaClientBounds();
 
   // Events pipeline
-  virtual void HandleKeyEvents(SDL_KeyboardEvent* event);
-  virtual void HandleJoystickButtonEvents(SDL_ControllerButtonEvent* event);
-  virtual void HandleJoystickDeviceEvents(SDL_ControllerDeviceEvent* event);
-  virtual void HandleJoystickAxisMotionEvents(SDL_ControllerAxisEvent* event);
+  virtual void HandleKeyEvent(SDL_KeyboardEvent* event);
+  virtual void HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event);
+  virtual void HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event);
+  virtual void HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event);
+  virtual void HandleMouseMoveEvent(SDL_MouseMotionEvent* event);
+  virtual void HandleMouseWheelEvent(SDL_MouseWheelEvent* event);
+  virtual void HandleMousePressedEvent(SDL_MouseButtonEvent* event);
+  virtual void HandleMouseReleasedEvent(SDL_MouseButtonEvent* event);
   virtual void HandleResizedEvent();
   virtual void HandleDisplayEvent(SDL_DisplayEvent* event);
   virtual void HandlePostEvent();
   virtual void HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
   virtual void HandleLocaleChanged();
+  virtual void HandleFontChanged();
   virtual SDL_Rect GetClientBounds();
   virtual void Render();
 
@@ -71,7 +79,7 @@ class WindowBase {
   SDL_Window* window_ = nullptr;
   SDL_Renderer* renderer_ = nullptr;
   bool is_rendering_ = false;
-  std::vector<std::unique_ptr<Widget>> widgets_;
+  Widget::Widgets widgets_;
   std::set<Widget*> widgets_to_be_removed_;
   std::string title_;
 };

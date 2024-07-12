@@ -46,6 +46,9 @@ class Application {
  public:
   static Application* Get();
   scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
+  // Initialize application's necessary data.
+  void Initialize(kiwi::base::OnceClosure other_io_task,
+                  kiwi::base::OnceClosure callback);
 
   void Run();
   void AddObserver(ApplicationObserver* observer);
@@ -68,6 +71,9 @@ class Application {
   void UninitializeImGui();
   void InitializeStyles();
   void InitializeRuntimeAndConfigs();
+  void InitializeROMs();
+  kiwi::base::FilePath PathForResources(
+      const kiwi::base::FilePath& resource_filename);
 
   // Window management:
   friend class WindowBase;
@@ -83,8 +89,11 @@ class Application {
 
   // If application's language has been changed, this method should be called.
   void LocaleChanged();
+  // If application's font has been changed, this method should be called.
+  void FontChanged();
 
  private:
+  bool initialized_ = false;
   NESRuntimeID runtime_id_ = 0;
   scoped_refptr<NESConfig> config_;
   std::unique_ptr<kiwi::base::Thread> io_thread_;

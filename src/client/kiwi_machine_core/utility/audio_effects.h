@@ -21,8 +21,8 @@ void UninitializeAudioEffects();
 void SetEffectVolume(float volume);
 
 #if DISABLE_SOUND_EFFECTS
-// If sound effects is disabled, PlayEffect() function will an empty macro.
-#define PlayEffect(type) ;
+// If sound effects is disabled, PlayEffect() function will do nothing.
+#define PlayEffect(type) []{}()
 #else
 void PlayEffect(audio_resources::AudioID type);
 #endif

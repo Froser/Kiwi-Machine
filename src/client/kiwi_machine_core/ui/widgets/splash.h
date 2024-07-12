@@ -15,80 +15,29 @@
 
 #include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
-#include "utility/fonts.h"
 #include "utility/timer.h"
 
 class MainWindow;
 class StackWidget;
 class Splash : public Widget {
  public:
-  explicit Splash(MainWindow* main_window,
-                  StackWidget* stack_widget,
-                  NESRuntimeID runtime_id);
+  explicit Splash(MainWindow* main_window);
   ~Splash() override;
 
  public:
-  void Play();
-  void SetClosedCallback(kiwi::base::RepeatingClosure callback);
+  int GetElapsedMs();
 
  protected:
   void Paint() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
-  bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
-  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
-
- private:
-  void InitializeStrings();
-  bool HandleInputEvents(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
+  bool OnKeyReleased(SDL_KeyboardEvent* event) override;
+  void OnWindowPreRender() override;
+  void OnWindowPostRender() override;
 
  private:
   MainWindow* main_window_ = nullptr;
-  StackWidget* stack_widget_ = nullptr;
-  NESRuntime::Data* runtime_data_ = nullptr;
-  Timer fade_timer_;
-  Timer splash_timer_;
-  kiwi::base::RepeatingClosure closed_callback_;
-
-  enum class SplashState {
-    kLogo,
-#if !KIWI_WASM
-#if !KIWI_MOBILE
-    kHowToPlayKeyboard,
-    kClosingHowToPlayKeyboard,
-    kHowToPlayJoystick,
-    kClosingHowToPlayJoystick,
-#endif
-    kIntroduction,
-#endif
-    kClosing,
-  };
-  SplashState state_ = SplashState::kLogo;
-
-#if !KIWI_WASM
-  // String lists
-  std::string str_how_to_play_;
-  FontType font_how_to_play_;
-#if !KIWI_MOBILE
-  std::string str_controller_instructions_;
-  FontType font_controller_instructions_;
-  std::string str_controller_instructions_contents_;
-  FontType font_controller_instructions_contents_;
-  std::string str_menu_instructions_contents_;
-  FontType font_menu_instructions_contents_;
-#endif
-  std::string str_continue_;
-  FontType font_continue_;
-  std::string str_introductions_;
-  FontType font_introductions_;
-  std::string str_retro_collections_;
-  FontType font_retro_collections_;
-  std::string str_retro_collections_contents_;
-  FontType font_retro_collections_contents_;
-  std::string str_special_collections_;
-  FontType font_special_collections_;
-  std::string str_special_collections_contents_;
-  FontType font_special_collections_contents_;
-#endif
+  bool first_paint_ = true;
+  Timer timer_;
 };
 
 #endif  // UI_WIDGETS_SPLASH_H_

@@ -17,7 +17,6 @@
 #include "ui/styles.h"
 #include "ui/widgets/canvas.h"
 #include "ui/widgets/joystick_button.h"
-#include "ui/widgets/kiwi_items_widget.h"
 #include "ui/widgets/touch_button.h"
 #include "ui/widgets/virtual_joystick.h"
 
@@ -203,9 +202,9 @@ void MainWindow::LayoutVirtualTouchButtons() {
 
   {
     const int kSize = styles::main_window::GetJoystickSize(window_scale());
-    const int kPaddingX = styles::main_window::GetJoystickPaddingX(
+    const int kPaddingX = styles::main_window::GetJoystickMarginX(
         window_scale(), is_landscape, GetSafeAreaInsets());
-    const int kPaddingY = styles::main_window::GetJoystickPaddingY(
+    const int kPaddingY = styles::main_window::GetJoystickMarginY(
         window_scale(), is_landscape, GetSafeAreaInsets());
 
     if (vtb_joystick_) {
@@ -218,10 +217,10 @@ void MainWindow::LayoutVirtualTouchButtons() {
   }
 
   {
-    const int kSize = 40 * window_scale();
-    const int kPaddingX = styles::main_window::GetJoystickButtonPaddingX(
+    const int kSize = 55 * window_scale();
+    const int kPaddingX = styles::main_window::GetJoystickButtonMarginX(
         window_scale(), is_landscape, GetSafeAreaInsets());
-    const int kPaddingY = styles::main_window::GetJoystickButtonPaddingY(
+    const int kPaddingY = styles::main_window::GetJoystickButtonMarginY(
         window_scale(), is_landscape, GetSafeAreaInsets());
     const int kSpacing = 15 * window_scale();
     if (vtb_a_) {
@@ -252,7 +251,7 @@ void MainWindow::LayoutVirtualTouchButtons() {
   {
     const int kMiddleSpacing = 4 * window_scale();
     const int kPaddingBottom =
-        styles::main_window::GetJoystickSelectStartButtonPaddingBottom(
+        styles::main_window::GetJoystickSelectStartButtonMarginBottom(
             window_scale(), is_landscape, GetSafeAreaInsets());
     if (vtb_select_) {
       SDL_Rect bounds = vtb_select_->bounds();
@@ -270,9 +269,9 @@ void MainWindow::LayoutVirtualTouchButtons() {
   }
 
   if (vtb_pause_) {
-    const int kPaddingX = styles::main_window::GetJoystickPauseButtonPaddingX(
+    const int kPaddingX = styles::main_window::GetJoystickPauseButtonMarginX(
         window_scale(), GetSafeAreaInsets());
-    const int kPaddingY = styles::main_window::GetJoystickPauseButtonPaddingY(
+    const int kPaddingY = styles::main_window::GetJoystickPauseButtonMarginY(
         window_scale(), GetSafeAreaInsets());
     const int kSize = 33 * window_scale();
     SDL_Rect bounds;
@@ -397,4 +396,42 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
 
 void MainWindow::OnInGameSettingsHandleVolume(bool is_left) {
   OnSetAudioVolume(is_left ? 0.f : 1.f);
+}
+
+void MainWindow::OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
+                                              const SDL_Point& trigger_point) {
+  // Shouldn't be here, because in mobile app, there's no volume bar.
+  SDL_assert(false);
+}
+
+void MainWindow::OnKeyboardMatched() {
+  // Matching keyboard, invisible all virtual joystick buttons.
+  SetVirtualButtonsVisible(false);
+}
+
+void MainWindow::OnJoystickButtonsMatched() {
+  // Matching joystick buttons, invisible all virtual joystick buttons.
+  SetVirtualButtonsVisible(false);
+}
+
+// The window is touched and canvas is appeared, restore all virtual joystick
+// buttons.
+bool MainWindow::HandleWindowFingerDown() {
+  // Tests one joystick's visibility, to know whether all virtual buttons are
+  // visible or not.
+  if (canvas_->visible() && !vtb_joystick_->visible()) {
+    SetVirtualButtonsVisible(true);
+    return true;
+  }
+
+  return false;
+}
+
+void MainWindow::StashVirtualButtonsVisible() {
+  stashed_virtual_joysticks_visible_state_ =
+      vtb_joystick_ && vtb_joystick_->visible();
+}
+
+void MainWindow::PopVirtualButtonsVisible() {
+  SetVirtualButtonsVisible(stashed_virtual_joysticks_visible_state_);
 }
