@@ -99,18 +99,17 @@ void BuildGlyphRanges(SupportedLanguage language,
   for (int i = 0; i < string_resources::END_OF_STRINGS; ++i) {
     ranges_builder.AddText(GetLocalizedString(language, i).c_str());
   }
-  for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-    auto& rom = preset_roms::GetPresetRoms()[i];
-    ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
-    for (const auto& alter : rom.alternates) {
-      ranges_builder.AddText(GetROMLocalizedTitle(language, alter));
-    }
-  }
-  for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-    auto& rom = preset_roms::specials::GetPresetRoms()[i];
-    ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
-    for (const auto& alter : rom.alternates) {
-      ranges_builder.AddText(GetROMLocalizedTitle(language, alter));
+
+  const auto& packages = preset_roms::GetPresetRomsPackages();
+  for (const auto& package : packages) {
+    for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+      auto& rom = package->GetRomsByIndex(i);
+      std::string title = package->GetTitleForLanguage(language);
+      ranges_builder.AddText(title.c_str());
+      ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
+      for (const auto& alter : rom.alternates) {
+        ranges_builder.AddText(GetROMLocalizedTitle(language, alter));
+      }
     }
   }
   ranges_builder.BuildRanges(&out_ranges);
@@ -120,6 +119,24 @@ void BuildGlyphRanges(SupportedLanguage language,
 
 LocalizedStringUpdater::LocalizedStringUpdater() = default;
 LocalizedStringUpdater::~LocalizedStringUpdater() = default;
+
+const char* LanguageToString(SupportedLanguage language) {
+  switch (language) {
+    case SupportedLanguage::kEnglish:
+      return "en";
+#if !DISABLE_CHINESE_FONT
+    case SupportedLanguage::kSimplifiedChinese:
+      return "zh";
+#endif
+#if !DISABLE_JAPANESE_FONT
+    case SupportedLanguage::kJapanese:
+      return "ja";
+#endif
+    default:
+      SDL_assert(false);
+      return "en";
+  }
+}
 
 void SetLanguage(const char* language) {
   if (language)
@@ -198,3 +215,5 @@ const ImVector<ImWchar>& GetGlyphRanges(SupportedLanguage language) {
   SDL_assert(g_glyph_ranges[language]);
   return *g_glyph_ranges[language];
 }
+
+kiwi::nes::Bytes r{};

@@ -41,6 +41,12 @@ class SideMenu : public Widget {
                image_resources::ImageID icon,
                image_resources::ImageID highlight_icon,
                MenuCallbacks callbacks);
+
+  void AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
+               const kiwi::nes::Bytes& icon_data,
+               const kiwi::nes::Bytes& highlight_icon_data,
+               MenuCallbacks callbacks);
+
   void set_activate(bool activate) { activate_ = activate; }
   bool activate() { return activate_; }
   void invalidate() { bounds_valid_ = false; }
@@ -87,6 +93,10 @@ class SideMenu : public Widget {
              image_resources::ImageID icon,
              image_resources::ImageID highlight_icon,
              MenuCallbacks callbacks);
+    ~MenuItem();
+
+    MenuItem(MenuItem&& rhs);
+    MenuItem& operator=(MenuItem&& rhs);
 
     std::unique_ptr<LocalizedStringUpdater> string_updater;
     image_resources::ImageID icon;

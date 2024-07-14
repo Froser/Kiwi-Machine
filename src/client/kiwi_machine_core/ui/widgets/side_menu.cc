@@ -149,6 +149,14 @@ void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
     menu_items_[0].callbacks.trigger_callback.Run(0);
 }
 
+void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
+                       const kiwi::nes::Bytes& icon_data,
+                       const kiwi::nes::Bytes& highlight_icon_data,
+                       MenuCallbacks callbacks) {
+  AddMenu(std::move(string_updater), ImageRegister(icon_data),
+          ImageRegister(highlight_icon_data), std::move(callbacks));
+}
+
 int SideMenu::GetSuggestedCollapsedWidth() {
   if (items_bounds_map_.empty())
     return 0;
@@ -344,4 +352,26 @@ SideMenu::MenuItem::MenuItem(
   this->icon = icon;
   this->highlight_icon = highlight_icon;
   this->callbacks = callbacks;
+}
+
+SideMenu::MenuItem::MenuItem(MenuItem&& rhs) {
+  *this = std::move(rhs);
+}
+
+SideMenu::MenuItem& SideMenu::MenuItem::operator=(SideMenu::MenuItem&& rhs) {
+  string_updater = std::move(rhs.string_updater);
+  icon = rhs.icon;
+  rhs.icon = image_resources::ImageID::kLast;
+  highlight_icon = rhs.highlight_icon;
+  rhs.highlight_icon = image_resources::ImageID::kLast;
+  callbacks = rhs.callbacks;
+  rhs.callbacks = SideMenu::MenuCallbacks{};
+  return *this;
+}
+
+SideMenu::MenuItem::~MenuItem() {
+  if (icon > image_resources::ImageID::kLast)
+    ImageUnregister(icon);
+  if (highlight_icon > image_resources::ImageID::kLast)
+    ImageUnregister(highlight_icon);
 }

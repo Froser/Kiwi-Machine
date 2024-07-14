@@ -13,6 +13,7 @@
 #ifndef UTILITY_IMAGES_H_
 #define UTILITY_IMAGES_H_
 
+#include "kiwi_nes.h"
 #include "resources/image_resources.h"
 
 struct SDL_Texture;
@@ -20,5 +21,7 @@ struct SDL_Renderer;
 bool InitializeImageResources();
 void UninitializeImageResources();
 SDL_Texture* GetImage(SDL_Renderer* renderer, image_resources::ImageID id);
+image_resources::ImageID ImageRegister(const kiwi::nes::Bytes& data);
+void ImageUnregister(image_resources::ImageID image_id);
 
 #endif  // UTILITY_IMAGES_H_

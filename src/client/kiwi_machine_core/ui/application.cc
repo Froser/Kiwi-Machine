@@ -408,18 +408,15 @@ void Application::InitializeROMs() {
           preset_roms::specials::GetPresetRomsPackageName())));
 #endif
 
-  for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-    auto& rom = preset_roms::GetPresetRoms()[i];
-    InitializePresetROM(rom);
-    LoadPresetROM(rom, RomPart::kCover);
-    for (auto& alternative_rom : rom.alternates) {
-      LoadPresetROM(alternative_rom, RomPart::kCover);
+  for (auto* package : preset_roms::GetPresetRomsPackages()) {
+    for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+      auto& rom = package->GetRomsByIndex(i);
+      InitializePresetROM(rom);
+      LoadPresetROM(rom, RomPart::kCover);
+      for (auto& alternative_rom : rom.alternates) {
+        LoadPresetROM(alternative_rom, RomPart::kCover);
+      }
     }
-  }
-  for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-    auto& rom = preset_roms::specials::GetPresetRoms()[i];
-    InitializePresetROM(rom);
-    LoadPresetROM(rom, RomPart::kCover);
   }
 }
 

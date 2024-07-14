@@ -76,8 +76,6 @@ set(Sources
         ui/widgets/disassembly_widget.h
         ui/widgets/demo_widget.cc
         ui/widgets/demo_widget.h
-        ui/widgets/export_widget.cc
-        ui/widgets/export_widget.h
         ui/widgets/flex_item_widget.cc
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc

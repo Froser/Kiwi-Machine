@@ -15,13 +15,16 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <map>
-#include <tuple>
 #include <vector>
 
 #include "resources/image_resources.h"
 
 namespace {
-std::map<SDL_Renderer*, std::vector<SDL_Texture*>> g_image_resources;
+std::map<SDL_Renderer*, std::map<image_resources::ImageID, SDL_Texture*>>
+    g_image_resources;
+std::map<image_resources::ImageID, kiwi::nes::Bytes> g_extern_image_data_map;
+static size_t g_extern_map_data_id =
+    static_cast<size_t>(image_resources::ImageID::kLast) + 1;
 }  // namespace
 
 bool InitializeImageResources() {
@@ -35,7 +38,7 @@ bool InitializeImageResources() {
 void UninitializeImageResources() {
   for (const auto& res : g_image_resources) {
     for (const auto& tex_surf_pair : res.second) {
-      SDL_DestroyTexture(tex_surf_pair);
+      SDL_DestroyTexture(tex_surf_pair.second);
     }
   }
 
@@ -43,23 +46,38 @@ void UninitializeImageResources() {
 }
 
 SDL_Texture* GetImage(SDL_Renderer* renderer, image_resources::ImageID id) {
-  bool is_renderer_registered =
-      g_image_resources.find(renderer) != g_image_resources.end();
-  if (!is_renderer_registered)
-    g_image_resources[renderer].resize(
-        static_cast<int>(image_resources::ImageID::kLast));
-
   // If texture hasn't been created for |renderer| and |id|:
-  if (!g_image_resources[renderer][static_cast<int>(id)]) {
-    size_t size;
-    const unsigned char* data = image_resources::GetData(id, &size);
+  if (!g_image_resources[renderer][id]) {
+    size_t size = 0;
+    const unsigned char* data = nullptr;
+    if (id < image_resources::ImageID::kLast) {
+      data = image_resources::GetData(id, &size);
+    } else {
+      const kiwi::nes::Bytes& image_data = g_extern_image_data_map[id];
+      data = image_data.data();
+      size = image_data.size();
+    }
+    SDL_assert(size > 0 && data);
     SDL_RWops* bg_res = SDL_RWFromMem(const_cast<unsigned char*>(data), size);
     SDL_Texture* texture =
         IMG_LoadTextureTyped_RW(renderer, bg_res, 1, nullptr);
     SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
-    g_image_resources[renderer][static_cast<int>(id)] = texture;
+    g_image_resources[renderer][id] = texture;
   }
 
-  SDL_assert(g_image_resources[renderer][static_cast<int>(id)]);
-  return g_image_resources[renderer][static_cast<int>(id)];
+  SDL_assert(g_image_resources[renderer][id]);
+  return g_image_resources[renderer][id];
+}
+
+image_resources::ImageID ImageRegister(const kiwi::nes::Bytes& data) {
+  image_resources::ImageID id =
+      static_cast<image_resources::ImageID>(g_extern_map_data_id++);
+  g_extern_image_data_map[id] = data;
+  return id;
+}
+
+void ImageUnregister(image_resources::ImageID image_id) {
+  kiwi::nes::Bytes dummy;
+  g_extern_image_data_map[image_id].swap(dummy);
+  g_extern_image_data_map.erase(image_id);
 }

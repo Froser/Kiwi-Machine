@@ -27,7 +27,6 @@
 #include "ui/widgets/card_widget.h"
 #include "ui/widgets/demo_widget.h"
 #include "ui/widgets/disassembly_widget.h"
-#include "ui/widgets/export_widget.h"
 #include "ui/widgets/flex_items_widget.h"
 #include "ui/widgets/frame_rate_widget.h"
 #include "ui/widgets/kiwi_bg_widget.h"
@@ -93,68 +92,30 @@ void ToastGameControllersAddedOrRemoved(WindowBase* window,
   }
 }
 
-#if ENABLE_EXPORT_ROMS
-bool ExportNES(const kiwi::base::FilePath& output_path,
-               const std::string& title,
-               const kiwi::nes::Byte* zip_data,
-               size_t zip_size) {
-  if (!kiwi::base::PathExists(output_path)) {
-    kiwi::base::CreateDirectory(output_path);
-  }
+class SideMenuTitleStringUpdater : public LocalizedStringUpdater {
+ public:
+  explicit SideMenuTitleStringUpdater(preset_roms::Package* package);
+  ~SideMenuTitleStringUpdater() override = default;
 
-  kiwi::base::File output_zip_file(
-      output_path.Append(kiwi::base::FilePath::FromUTF8Unsafe(title + ".zip")),
-      kiwi::base::File::FLAG_CREATE_ALWAYS | kiwi::base::File::FLAG_WRITE);
-  if (zip_size != output_zip_file.Write(
-                      0, reinterpret_cast<const char*>(zip_data), zip_size))
-    return false;
+ protected:
+  std::string GetLocalizedString() override;
+  std::string GetCollateStringHint() override;
 
-  return true;
+ private:
+  preset_roms::Package* package_;
+};
+
+SideMenuTitleStringUpdater::SideMenuTitleStringUpdater(
+    preset_roms::Package* package)
+    : package_(package) {}
+
+std::string SideMenuTitleStringUpdater::GetLocalizedString() {
+  SDL_assert(package_);
+  return package_->GetTitleForLanguage(GetCurrentSupportedLanguage());
 }
 
-std::pair<bool, int> OnExportGameROM(MainWindow* main_window,
-                                     const kiwi::base::FilePath& export_path,
-                                     int current_export_rom_index) {
-  const preset_roms::PresetROM& rom =
-      preset_roms::GetPresetRoms()[current_export_rom_index];
-  main_window->Exporting(rom.name);
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-  kiwi::nes::Byte* zip_data = const_cast<kiwi::nes::Byte*>(rom.zip_data);
-  size_t zip_size = rom.zip_size;
-#else
-  kiwi::nes::Bytes zip_data_container = rom.zip_data_loader.Run(rom.file_pos);
-  kiwi::nes::Byte* zip_data = zip_data_container.data();
-  size_t zip_size = zip_data_container.size();
-#endif
-
-  return std::make_pair(ExportNES(export_path, rom.name, zip_data, zip_size),
-                        current_export_rom_index + 1);
-}
-
-void OnGameROMExported(MainWindow* main_window,
-                       const kiwi::base::FilePath& export_path,
-                       const std::pair<bool, int>& result) {
-  if (result.second >= preset_roms::GetPresetRomsCount()) {
-    // No more roms to be exported.
-    main_window->ExportDone();
-    return;
-  }
-
-  const std::string& next_rom_name =
-      preset_roms::GetPresetRoms()[result.second].name;
-  if (result.first) {
-    main_window->ExportSucceeded(next_rom_name);
-  } else {
-    main_window->ExportFailed(next_rom_name);
-  }
-
-  scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
-      Application::Get()->GetIOTaskRunner();
-  io_task_runner->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      kiwi::base::BindOnce(&OnExportGameROM, main_window, export_path,
-                           result.second),
-      kiwi::base::BindOnce(&OnGameROMExported, main_window, export_path));
+std::string SideMenuTitleStringUpdater::GetCollateStringHint() {
+  return GetLocalizedString();
 }
 
 int CalculateWindowWidth(float window_scale) {
@@ -175,8 +136,6 @@ int CalculateWindowHeight(float window_scale, Widget* menu_bar = nullptr) {
 
   return kDefaultWindowHeight * window_scale;
 }
-
-#endif
 
 class StringUpdater : public LocalizedStringUpdater {
  public:
@@ -332,23 +291,6 @@ bool MainWindow::IsLandscape() {
 }
 #endif
 
-void MainWindow::ExportDone() {
-  SDL_assert(export_widget_);
-  export_widget_->Done();
-}
-
-void MainWindow::ExportSucceeded(const std::string& rom_name) {
-  export_widget_->Succeeded(kiwi::base::FilePath::FromUTF8Unsafe(rom_name));
-}
-
-void MainWindow::ExportFailed(const std::string& rom_name) {
-  export_widget_->Failed(kiwi::base::FilePath::FromUTF8Unsafe(rom_name));
-}
-
-void MainWindow::Exporting(const std::string& rom_name) {
-  export_widget_->SetCurrent(kiwi::base::FilePath::FromUTF8Unsafe(rom_name));
-}
-
 void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
 #if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
                // here.
@@ -406,17 +348,15 @@ void MainWindow::ChangeFocus(MainFocus focus) {
     case MainFocus::kContents:
       side_menu_->set_activate(false);
       SwitchToSideMenuByCurrentFlexItemWidget();
-      if (main_nes_items_widget_)
-        main_nes_items_widget_->SetActivate(true);
-      if (special_nes_items_widget_)
-        special_nes_items_widget_->SetActivate(true);
+      for (auto* items_widget : items_widgets_) {
+        items_widget->SetActivate(true);
+      }
       break;
     case MainFocus::kSideMenu:
       side_menu_->set_activate(true);
-      if (main_nes_items_widget_)
-        main_nes_items_widget_->SetActivate(false);
-      if (special_nes_items_widget_)
-        special_nes_items_widget_->SetActivate(false);
+      for (auto* items_widget : items_widgets_) {
+        items_widget->SetActivate(false);
+      }
       break;
     default:
       SDL_assert(false);  // Bad focus. Shouldn't be here.
@@ -688,7 +628,7 @@ void MainWindow::InitializeAudio() {
 }
 
 void MainWindow::InitializeUI() {
-  is_headless_ = preset_roms::GetPresetRomsCount() == 0;
+  is_headless_ = preset_roms::GetPresetRomsPackages().empty();
 
   if (FLAGS_has_menu) {
     // Menu bar
@@ -727,78 +667,62 @@ void MainWindow::InitializeUI() {
     bg_widget_->AddWidget(std::move(contents_card_widget));
 
     // Main game items
-    std::unique_ptr<FlexItemsWidget> main_nes_items_widget =
-        std::make_unique<FlexItemsWidget>(this, runtime_id_);
-    main_nes_items_widget_ = main_nes_items_widget.get();
-    main_nes_items_widget_->set_back_callback(kiwi::base::BindRepeating(
-        &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
-        MainWindow::MainFocus::kSideMenu));
-    SDL_assert(preset_roms::GetPresetRomsCount() > 0);
-    for (size_t i = 0; i < preset_roms::GetPresetRomsCount(); ++i) {
-      auto& rom = preset_roms::GetPresetRoms()[i];
-      size_t main_item_index = main_nes_items_widget->AddItem(
-          std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
-          rom.rom_cover.size(),
-          kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                    kiwi::base::Unretained(this),
-                                    std::ref(rom)));
-
-      for (auto& alternative_rom : rom.alternates) {
-        main_nes_items_widget->AddSubItem(
-            main_item_index, std::make_unique<ROMTitleUpdater>(alternative_rom),
-            alternative_rom.rom_cover.data(), alternative_rom.rom_cover.size(),
+    const auto& packages = preset_roms::GetPresetRomsPackages();
+    for (const auto& package : packages) {
+      std::unique_ptr<FlexItemsWidget> items_widget =
+          std::make_unique<FlexItemsWidget>(this, runtime_id_);
+      items_widgets_.push_back(items_widget.get());
+      items_widget->set_back_callback(kiwi::base::BindRepeating(
+          &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
+          MainWindow::MainFocus::kSideMenu));
+      SDL_assert(package->GetRomsCount() > 0);
+      for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+        auto& rom = package->GetRomsByIndex(i);
+        size_t main_item_index = items_widget->AddItem(
+            std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
+            rom.rom_cover.size(),
             kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                       kiwi::base::Unretained(this),
-                                      std::ref(alternative_rom)));
+                                      std::ref(rom)));
+
+        for (auto& alternative_rom : rom.alternates) {
+          items_widget->AddSubItem(
+              main_item_index,
+              std::make_unique<ROMTitleUpdater>(alternative_rom),
+              alternative_rom.rom_cover.data(),
+              alternative_rom.rom_cover.size(),
+              kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+                                        kiwi::base::Unretained(this),
+                                        std::ref(alternative_rom)));
+        }
       }
+
+      contents_card_widget_->AddWidget(std::move(items_widget));
     }
 
-    int main_items_index =
-        std::clamp(config_->data().last_index, 0,
-                   static_cast<int>(main_nes_items_widget_->size() - 1));
-    main_nes_items_widget_->SetIndex(main_items_index);
-
-    contents_card_widget_->AddWidget(std::move(main_nes_items_widget));
-
-    // Game items (special)
-    std::unique_ptr<FlexItemsWidget> special_nes_items_widget =
-        std::make_unique<FlexItemsWidget>(this, runtime_id_);
-    special_nes_items_widget_ = special_nes_items_widget.get();
-    special_nes_items_widget_->set_back_callback(kiwi::base::BindRepeating(
-        &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
-        MainWindow::MainFocus::kSideMenu));
-
-    SDL_assert(preset_roms::specials::GetPresetRomsCount() > 0);
-    for (size_t i = 0; i < preset_roms::specials::GetPresetRomsCount(); ++i) {
-      auto& rom = preset_roms::specials::GetPresetRoms()[i];
-      special_nes_items_widget->AddItem(
-          std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
-          rom.rom_cover.size(),
-          kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                    kiwi::base::Unretained(this),
-                                    std::ref(rom)));
+    if (FlexItemsWidget* main_items_widget = GetMainItemsWidget();
+        main_items_widget) {
+      int main_items_index =
+          std::clamp(config_->data().last_index, 0,
+                     static_cast<int>(main_items_widget->size() - 1));
+      main_items_widget->SetIndex(main_items_index);
     }
-
-    // specials_item_widget->Sort();
-    if (!special_nes_items_widget->empty())
-      contents_card_widget_->AddWidget(std::move(special_nes_items_widget));
 
     // Side menu
     std::unique_ptr<SideMenu> side_menu =
         std::make_unique<SideMenu>(this, runtime_id_);
     side_menu->set_activate(true);
 
-    side_menu->AddMenu(
-        std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_GAME),
-        image_resources::ImageID::kMenuNes,
-        image_resources::ImageID::kMenuNesHighlight,
-        CreateMenuChangeFocusToGameItemsCallbacks(main_nes_items_widget_));
-    side_menu->AddMenu(
-        std::make_unique<StringUpdater>(
-            string_resources::IDR_SIDE_MENU_SPECIAL),
-        image_resources::ImageID::kMenuSpecialNes,
-        image_resources::ImageID::kMenuSpecialNesHighlight,
-        CreateMenuChangeFocusToGameItemsCallbacks(special_nes_items_widget_));
+    size_t package_index = 0;
+    for (auto* items_widget : items_widgets_) {
+      preset_roms::Package* package =
+          preset_roms::GetPresetRomsPackages()[package_index];
+      side_menu->AddMenu(
+          std::make_unique<SideMenuTitleStringUpdater>(package),
+          package->GetSideMenuImage(), package->GetSideMenuHighlightImage(),
+          CreateMenuChangeFocusToGameItemsCallbacks(items_widget));
+      package_index++;
+    }
     side_menu->AddMenu(std::make_unique<StringUpdater>(
                            string_resources::IDR_SIDE_MENU_SETTINGS),
                        image_resources::ImageID::kMenuSettings,
@@ -888,12 +812,6 @@ void MainWindow::InitializeUI() {
     frame_rate_widget_ = frame_rate_widget.get();
     frame_rate_widget_->set_visible(false);
     AddWidget(std::move(frame_rate_widget));
-
-    std::unique_ptr<ExportWidget> export_widget =
-        std::make_unique<ExportWidget>(this);
-    export_widget_ = export_widget.get();
-    export_widget_->set_visible(false);
-    AddWidget(std::move(export_widget));
 
     std::unique_ptr<MemoryWidget> memory_widget =
         std::make_unique<MemoryWidget>(
@@ -1169,14 +1087,6 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
          kiwi::base::BindRepeating(&MainWindow::OnShowUiDemoWidget,
                                    kiwi::base::Unretained(this))});
 
-#if ENABLE_EXPORT_ROMS
-    debug.menu_items.push_back(
-        {"Export All Games",
-         kiwi::base::BindRepeating(&MainWindow::OnExportGameROMs,
-                                   kiwi::base::Unretained(this))});
-
-#endif
-
     result.push_back(std::move(debug));
   }
 
@@ -1322,6 +1232,13 @@ void MainWindow::FlexLayout() {
       SDL_Rect{left_width, 0, right_width, client_bounds.h});
 }
 
+FlexItemsWidget* MainWindow::GetMainItemsWidget() {
+  if (!items_widgets_.empty())
+    return items_widgets_[0];
+
+  return nullptr;
+}
+
 SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
@@ -1408,7 +1325,7 @@ void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
     }
   }
   if (target_index == -1) {
-    SDL_assert(false); // Shouldn't be here
+    SDL_assert(false);  // Shouldn't be here
     target_index = 0;
   }
   side_menu_->SetIndex(target_index);
@@ -1694,28 +1611,6 @@ bool MainWindow::IsFrameRateWidgetShown() {
   return frame_rate_widget_->visible();
 }
 
-#if ENABLE_EXPORT_ROMS
-
-void MainWindow::OnExportGameROMs() {
-  char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
-  kiwi::base::FilePath export_path =
-      kiwi::base::FilePath::FromUTF8Unsafe(pref_path).Append(
-          FILE_PATH_LITERAL("nes"));
-  SDL_free(pref_path);
-  scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
-      Application::Get()->GetIOTaskRunner();
-
-  export_widget_->Start(preset_roms::GetPresetRomsCount(), export_path);
-  export_widget_->SetCurrent(kiwi::base::FilePath::FromUTF8Unsafe(
-      preset_roms::GetPresetRoms()[0].name));
-
-  io_task_runner->PostTaskAndReplyWithResult(
-      FROM_HERE, kiwi::base::BindOnce(&OnExportGameROM, this, export_path, 0),
-      kiwi::base::BindOnce(&OnGameROMExported, this, export_path));
-}
-
-#endif
-
 void MainWindow::OnDebugMemory() {
   memory_widget_->set_visible(true);
   memory_widget_->UpdateMemory();
@@ -1882,9 +1777,11 @@ void MainWindow::SaveConfig() {
   // Before main window destruct, save current game index.
   // This happens when MainWindow is about to destroy, and has IO operation.
   if (!is_headless_) {
-    SDL_assert(main_nes_items_widget_);
-    config_->data().last_index = main_nes_items_widget_->current_index();
-    config_->SaveConfig();
+    FlexItemsWidget* main_items_widget = GetMainItemsWidget();
+    if (main_items_widget) {
+      config_->data().last_index = main_items_widget->current_index();
+      config_->SaveConfig();
+    }
   }
 }
 

@@ -14,7 +14,11 @@
 #define PRESET_ROMS_PRESET_ROMS_H
 
 #include <kiwi_nes.h>
+#include <map>
 #include <unordered_map>
+#include <vector>
+
+#include "utility/localization.h"
 
 #if defined(KIWI_USE_EXTERNAL_PAK)
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
@@ -59,23 +63,17 @@ struct PresetROM {
   extern size_t ROM_ZIP_SIZE;             \
   }
 
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-PresetROM* GetPresetRoms();
-#else
-std::vector<PresetROM>& GetPresetRoms();
-const char* GetPresetRomsPackageName();
-#endif
-size_t GetPresetRomsCount();
+struct Package {
+  Package() = default;
+  virtual ~Package() = default;
+  virtual size_t GetRomsCount() = 0;
+  virtual PresetROM& GetRomsByIndex(size_t index) = 0;
+  virtual kiwi::nes::Bytes GetSideMenuImage() = 0;
+  virtual kiwi::nes::Bytes GetSideMenuHighlightImage() = 0;
+  virtual std::string GetTitleForLanguage(SupportedLanguage language) = 0;
+};
 
-namespace specials {
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-PresetROM* GetPresetRoms();
-#else
-std::vector<PresetROM>& GetPresetRoms();
-const char* GetPresetRomsPackageName();
-#endif
-size_t GetPresetRomsCount();
-}  // namespace specials
+std::vector<Package*> GetPresetRomsPackages();
 
 }  // namespace preset_roms
 

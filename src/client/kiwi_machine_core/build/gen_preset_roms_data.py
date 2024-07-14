@@ -3,9 +3,11 @@ import sys
 from pathlib import Path
 import os
 import zipfile
+import json
 
 output_dir = sys.argv[1]
 gen_embed_roms = sys.argv[2] != "OFF"
+
 
 def GenNamespace(filename):
     result = '_'
@@ -58,6 +60,29 @@ def GenCPP(output_dir, dir, filename, zip):
     return output_filename, namespace
 
 
+def GenPackageManifest(dir):
+    manifest_filename = './nes' + dir + '/manifest.json'
+    with open(manifest_filename, 'r') as json_file:
+        return json.load(json_file)
+
+
+def WritePackage(o, package_manifest):
+    o.write('struct PackageImpl : public Package { \n')
+    o.write('  size_t GetRomsCount() override { return GetPresetRomsCount(); }\n')
+    o.write('  PresetROM& GetRomsByIndex(size_t index) override { return GetPresetRoms()[index]; }\n')
+    o.write('  kiwi::nes::Bytes GetSideMenuImage() override { static std::string g = R"(' + package_manifest["icons"]["normal"] + ')"; static kiwi::nes::Bytes b = kiwi::nes::Bytes(g.begin(), g.end()); return b; }\n')
+    o.write('  kiwi::nes::Bytes GetSideMenuHighlightImage() override { static std::string g = R"(' + package_manifest["icons"]["highlight"] + ')"; static kiwi::nes::Bytes b =  kiwi::nes::Bytes(g.begin(), g.end()); return b; }\n')
+    o.write('  std::string GetTitleForLanguage(SupportedLanguage language) override {\n')
+    o.write('    return titles_[LanguageToString(language)];\n')
+    o.write('  }\n')
+    o.write('private:\n')
+    o.write('  std::map<std::string, std::string> titles_ = {\n')
+    for k, v in package_manifest['titles'].items():
+        o.write('    { std::string("' + k + '"), std::string("' + v + '")},\n')
+    o.write('  };\n')
+    o.write('} package;\n')
+
+
 def main():
     print("Preset roms output dir is", output_dir)
     print("Generate embed_roms:", gen_embed_roms)
@@ -71,12 +96,11 @@ def main():
     all_includes = ''
     all_externs = ''
     all_namespaces = ''
-    default_index = 0
+    package_manifest = {}
 
     # Sub directories of NES
     other_roms = {}
 
-    last_title = ''
     main_package_name = 'main.pak'
     with zipfile.ZipFile(output_dir + '/' + main_package_name, 'w', zipfile.ZIP_DEFLATED) as main_zip:
         for f in sorted(Path('./nes').iterdir()):
@@ -85,6 +109,8 @@ def main():
                 all_includes += '#include "' + output_filename + '"\n'
                 all_externs += 'EXTERN_ROM(' + namespace + ')\n'
                 all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
+
+            package_manifest = GenPackageManifest('')
 
             # Create special ROMs (generally hacks):
             if f.is_dir():
@@ -100,10 +126,12 @@ def main():
                             sub_all_externs += 'EXTERN_ROM(' + namespace + ')\n'
                             sub_all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
                 print(output_dir + '/' + dir_name + '.pak', "generated.")
+
                 other_roms[dir_name] = {
                     'all_includes': sub_all_includes,
                     'all_externs': sub_all_externs,
-                    'all_namespaces': sub_all_namespaces
+                    'all_namespaces': sub_all_namespaces,
+                    'package_manifest': GenPackageManifest('/' + f.name)
                 }
     print(output_dir + '/' + main_package_name, "generated.")
 
@@ -122,6 +150,7 @@ def main():
             o.write('};\n')
             o.write('size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
             o.write('PresetROM* GetPresetRoms() { return const_cast<PresetROM*>(kPresetRoms); }\n')
+            WritePackage(o, package_manifest)
 
             # Writes all other ROMs
             for dir_ns in other_roms:
@@ -133,7 +162,15 @@ def main():
                 o.write('};\n')
                 o.write('size_t GetPresetRomsCount() { return sizeof(kPresetRoms) / sizeof(PresetROM); }\n')
                 o.write('PresetROM* GetPresetRoms() { return const_cast<PresetROM*>(kPresetRoms); }\n')
+                WritePackage(o, other_roms[dir_ns]["package_manifest"])
                 o.write('} // namespace ' + dir_ns + '\n')
+
+            # Write packages end.
+            o.write('std::vector<Package*> g_packages = { &package, \n')
+            for dir_ns in other_roms:
+                o.write('  &' + dir_ns + '::package,\n')
+            o.write('}; \n')
+            o.write('std::vector<Package*> GetPresetRomsPackages() { return g_packages; }\n')
         else:
             o.write('extern std::vector<PresetROM> kPresetRoms;\n')
             o.write('extern const char kPackageName[];\n')

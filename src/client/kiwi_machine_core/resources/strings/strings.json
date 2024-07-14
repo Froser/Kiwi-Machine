@@ -184,16 +184,6 @@
     "zh": "(触摸版本方框键切换游戏版本)",
     "ja": "(バージョンボックスをタッチしてバージョンを切り替える)"
   },
-  "IDR_SIDE_MENU_GAME": {
-    "default": "Games",
-    "zh": "游戏",
-    "ja": "ゲーム"
-  },
-  "IDR_SIDE_MENU_SPECIAL": {
-    "default": "Special",
-    "zh": "特别版",
-    "ja": "スペシャル"
-  },
   "IDR_SIDE_MENU_ABOUT": {
     "default": "About",
     "zh": "关于",

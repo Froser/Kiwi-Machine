@@ -41,7 +41,6 @@
 
 #if KIWI_WASM
 #define ENABLE_DEBUG_ROMS 0
-#define ENABLE_EXPORT_ROMS 0
 #define DISABLE_CHINESE_FONT 1   // To save space, Wasm removes Chinese font
 #define DISABLE_JAPANESE_FONT 1  // To save space, Wasm removes Japanese font
 // To save space, Wasm removes all basic sound effects, see
@@ -50,7 +49,6 @@
 
 #else
 #define ENABLE_DEBUG_ROMS 1
-#define ENABLE_EXPORT_ROMS 1
 #define DISABLE_CHINESE_FONT 0
 #define DISABLE_JAPANESE_FONT 0
 #define DISABLE_SOUND_EFFECTS 0

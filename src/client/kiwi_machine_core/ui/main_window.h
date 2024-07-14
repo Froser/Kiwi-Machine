@@ -30,11 +30,9 @@ class Canvas;
 class InGameMenu;
 class KiwiBgWidget;
 class LoadingWidget;
-class ExportWidget;
 class StackWidget;
 class MemoryWidget;
 class DisassemblyWidget;
-class GroupWidget;
 class FlexItemsWidget;
 class CardWidget;
 class Splash;
@@ -103,12 +101,6 @@ class MainWindow : public WindowBase,
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
-  // Export ROMs
-  void ExportDone();
-  void ExportSucceeded(const std::string& rom_name);
-  void ExportFailed(const std::string& rom_name);
-  void Exporting(const std::string& rom_name);
-
  protected:
   // InputDevice:
   bool IsKeyDown(int controller_id,
@@ -158,6 +150,7 @@ class MainWindow : public WindowBase,
                                       kiwi::nes::ControllerButton button);
   void CloseInGameMenu();
   void FlexLayout();
+  FlexItemsWidget* GetMainItemsWidget();
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
   SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
@@ -203,9 +196,6 @@ class MainWindow : public WindowBase,
   bool IsPatternWidgetShown();
   void OnFrameRateWidget();
   bool IsFrameRateWidgetShown();
-#if ENABLE_EXPORT_ROMS
-  void OnExportGameROMs();
-#endif
   void OnDebugMemory();
   void OnDebugDisassembly();
   void OnDebugNametable();
@@ -248,10 +238,8 @@ class MainWindow : public WindowBase,
   Widget* demo_widget_ = nullptr;
   StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
-  FlexItemsWidget* main_nes_items_widget_ = nullptr;
-  FlexItemsWidget* special_nes_items_widget_ = nullptr;
+  std::vector<FlexItemsWidget*> items_widgets_;
   LoadingWidget* loading_widget_ = nullptr;
-  ExportWidget* export_widget_ = nullptr;
   SideMenu* side_menu_ = nullptr;
   // Side menu index to item widgets' map
   std::map<int, FlexItemsWidget*> flex_items_map_;
