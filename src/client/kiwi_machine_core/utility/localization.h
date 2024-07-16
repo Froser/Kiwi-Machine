@@ -47,7 +47,7 @@ class LocalizedStringUpdater {
   virtual std::string GetCollateStringHint() = 0;
 };
 
-const char* LanguageToString(SupportedLanguage language);
+const char* ToLanguageCode(SupportedLanguage language);
 
 void SetLanguage(const char* language);
 

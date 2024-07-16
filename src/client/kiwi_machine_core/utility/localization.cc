@@ -32,24 +32,6 @@ std::string g_global_language;
 using GlyphRangePtr = std::unique_ptr<ImVector<ImWchar>>;
 std::map<SupportedLanguage, GlyphRangePtr> g_glyph_ranges;
 
-const char* ToLanguageCode(SupportedLanguage language) {
-  switch (language) {
-    case SupportedLanguage::kEnglish:
-      return "en";
-#if !KIWI_WASM
-    case SupportedLanguage::kSimplifiedChinese:
-      return "zh";
-    case SupportedLanguage::kJapanese:
-      return "ja";
-#endif
-    default:
-      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Wrong language type %d",
-                  static_cast<int>(language));
-      SDL_assert(false);
-      return "en";
-  }
-}
-
 const char* GetROMLocalizedTitle(SupportedLanguage language,
                                  const preset_roms::PresetROM& rom) {
   auto local_name_iter = rom.i18n_names.find(ToLanguageCode(language));
@@ -120,19 +102,19 @@ void BuildGlyphRanges(SupportedLanguage language,
 LocalizedStringUpdater::LocalizedStringUpdater() = default;
 LocalizedStringUpdater::~LocalizedStringUpdater() = default;
 
-const char* LanguageToString(SupportedLanguage language) {
+const char* ToLanguageCode(SupportedLanguage language) {
   switch (language) {
     case SupportedLanguage::kEnglish:
       return "en";
-#if !DISABLE_CHINESE_FONT
+#if !KIWI_WASM
     case SupportedLanguage::kSimplifiedChinese:
       return "zh";
-#endif
-#if !DISABLE_JAPANESE_FONT
     case SupportedLanguage::kJapanese:
       return "ja";
 #endif
     default:
+      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Wrong language type %d",
+                  static_cast<int>(language));
       SDL_assert(false);
       return "en";
   }

@@ -42,8 +42,7 @@ ApplicationObserver::ApplicationObserver() = default;
 
 ApplicationObserver::~ApplicationObserver() {
 #if defined(KIWI_USE_EXTERNAL_PAK)
-  CloseRomDataFromPackage(preset_roms::GetPresetRoms());
-  CloseRomDataFromPackage(preset_roms::specials::GetPresetRoms());
+  ClosePackages();
 #endif
 }
 
@@ -399,13 +398,11 @@ void Application::InitializeRuntimeAndConfigs() {
 
 void Application::InitializeROMs() {
 #if defined(KIWI_USE_EXTERNAL_PAK)
-  OpenRomDataFromPackage(preset_roms::GetPresetRoms(),
-                         PathForResources(kiwi::base::FilePath::FromUTF8Unsafe(
-                             preset_roms::GetPresetRomsPackageName())));
-  OpenRomDataFromPackage(
-      preset_roms::specials::GetPresetRoms(),
-      PathForResources(kiwi::base::FilePath::FromUTF8Unsafe(
-          preset_roms::specials::GetPresetRomsPackageName())));
+  // Iterates all pak file for loading package.
+  std::vector<kiwi::base::FilePath> file_paths = GetPackagePathList();
+  for (kiwi::base::FilePath file_path : file_paths) {
+    OpenPackageFromFile(file_path);
+  }
 #endif
 
   for (auto* package : preset_roms::GetPresetRomsPackages()) {
@@ -420,31 +417,48 @@ void Application::InitializeROMs() {
   }
 }
 
-kiwi::base::FilePath Application::PathForResources(
-    const kiwi::base::FilePath& resource_filename) {
+std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
 #if BUILDFLAG(IS_MAC)
+  std::vector<kiwi::base::FilePath> list;
   CFBundleRef main_bundle = CFBundleGetMainBundle();
-  CFStringRef resource_name = CFStringCreateWithCString(
-      nullptr, resource_filename.AsUTF8Unsafe().c_str(), kCFStringEncodingUTF8);
-  CFURLRef url =
-      CFBundleCopyResourceURL(main_bundle, resource_name, nullptr, nullptr);
-  std::string resource_abs_path;
-  resource_abs_path.resize(PATH_MAX);
-  bool success = CFURLGetFileSystemRepresentation(
-      url, false, reinterpret_cast<UInt8*>(resource_abs_path.data()),
-      resource_abs_path.size());
-  SDL_assert(success);
-  CFRelease(url);
-  CFRelease(resource_name);
-  return kiwi::base::FilePath::FromUTF8Unsafe(resource_abs_path);
+  CFArrayRef pak_list =
+      CFBundleCopyResourceURLsOfType(main_bundle, CFSTR("pak"), nullptr);
+  CFIndex count = CFArrayGetCount(pak_list);
+  for (CFIndex i = 0; i < count; ++i) {
+    CFURLRef relative_url =
+        reinterpret_cast<CFURLRef>(CFArrayGetValueAtIndex(pak_list, i));
+    CFURLRef url = CFBundleCopyResourceURL(
+        main_bundle, CFURLGetString(relative_url), nullptr, nullptr);
+    std::string resource_abs_path;
+    resource_abs_path.resize(PATH_MAX);
+    bool success = CFURLGetFileSystemRepresentation(
+        url, false, reinterpret_cast<UInt8*>(resource_abs_path.data()),
+        resource_abs_path.size());
+    SDL_assert(success);
+    CFRelease(url);
+    list.push_back(
+        std::move(kiwi::base::FilePath::FromUTF8Unsafe(resource_abs_path)));
+  }
+  CFRelease(pak_list);
+  return list;
 #elif BUILDFLAG(IS_WIN)
+  std::vector<kiwi::base::FilePath> list;
   CHAR current_exe_filename[MAX_PATH];
   DWORD buffer_len = GetModuleFileNameA(NULL, current_exe_filename, MAX_PATH);
-  return kiwi::base::FilePath::FromUTF8Unsafe(current_exe_filename)
-      .DirName()
-      .Append(resource_filename);
+  kiwi::base::FilePath resource_path =
+      kiwi::base::FilePath::FromUTF8Unsafe(current_exe_filename).DirName();
+  kiwi::base::FileEnumerator package_enumator(resource_path, false,
+                                              kiwi::base::FileEnumerator::FILES,
+                                              FILE_PATH_LITERAL("*.pak"));
+  kiwi::base::FilePath file_path = package_enumator.Next();
+  while (!file_path.empty()) {
+    list.push_back(file_path);
+    file_path = package_enumator.Next();
+  }
+  return list;
 #else
-  return resource_filename;
+  return std::vector<kiwi::base::FilePath>{
+      kiwi::base::FilePath(kiwi::base::FilePath::kCurrentDirectory)};
 #endif
 }
 

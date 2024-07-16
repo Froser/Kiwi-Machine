@@ -65,15 +65,22 @@ def GenPackageManifest(dir):
     with open(manifest_filename, 'r') as json_file:
         return json.load(json_file)
 
+def WritePackageManifest(dir, zip):
+    manifest_filename = './nes' + dir + '/manifest.json'
+    zip.write(manifest_filename, 'manifest.json')
+
 
 def WritePackage(o, package_manifest):
     o.write('struct PackageImpl : public Package { \n')
     o.write('  size_t GetRomsCount() override { return GetPresetRomsCount(); }\n')
     o.write('  PresetROM& GetRomsByIndex(size_t index) override { return GetPresetRoms()[index]; }\n')
-    o.write('  kiwi::nes::Bytes GetSideMenuImage() override { static std::string g = R"(' + package_manifest["icons"]["normal"] + ')"; static kiwi::nes::Bytes b = kiwi::nes::Bytes(g.begin(), g.end()); return b; }\n')
-    o.write('  kiwi::nes::Bytes GetSideMenuHighlightImage() override { static std::string g = R"(' + package_manifest["icons"]["highlight"] + ')"; static kiwi::nes::Bytes b =  kiwi::nes::Bytes(g.begin(), g.end()); return b; }\n')
+    o.write('  kiwi::nes::Bytes GetSideMenuImage() override { static std::string g = R"(' + package_manifest["icons"][
+        "normal"] + ')"; static kiwi::nes::Bytes b = kiwi::nes::Bytes(g.begin(), g.end()); return b; }\n')
+    o.write('  kiwi::nes::Bytes GetSideMenuHighlightImage() override { static std::string g = R"(' +
+            package_manifest["icons"][
+                "highlight"] + ')"; static kiwi::nes::Bytes b =  kiwi::nes::Bytes(g.begin(), g.end()); return b; }\n')
     o.write('  std::string GetTitleForLanguage(SupportedLanguage language) override {\n')
-    o.write('    return titles_[LanguageToString(language)];\n')
+    o.write('    return titles_[ToLanguageCode(language)];\n')
     o.write('  }\n')
     o.write('private:\n')
     o.write('  std::map<std::string, std::string> titles_ = {\n')
@@ -103,6 +110,8 @@ def main():
 
     main_package_name = 'main.pak'
     with zipfile.ZipFile(output_dir + '/' + main_package_name, 'w', zipfile.ZIP_DEFLATED) as main_zip:
+        if not gen_embed_roms:
+            WritePackageManifest('', main_zip)
         for f in sorted(Path('./nes').iterdir()):
             if f.suffix == '.zip':
                 output_filename, namespace = GenCPP(output_dir, '', f.stem, main_zip)
@@ -110,6 +119,7 @@ def main():
                 all_externs += 'EXTERN_ROM(' + namespace + ')\n'
                 all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
 
+            # Generates manifest data
             package_manifest = GenPackageManifest('')
 
             # Create special ROMs (generally hacks):
@@ -119,14 +129,16 @@ def main():
                 sub_all_externs = ''
                 sub_all_namespaces = ''
                 with zipfile.ZipFile(output_dir + '/' + dir_name + '.pak', 'w', zipfile.ZIP_DEFLATED) as z:
+                    if not gen_embed_roms:
+                        WritePackageManifest('/' + f.name, z)
                     for s in sorted(Path('./nes/' + dir_name).iterdir()):
                         if s.suffix == '.zip':
                             output_filename, namespace = GenCPP(output_dir, '/' + dir_name, s.stem, z)
                             sub_all_includes += '#include "' + output_filename + '"\n'
                             sub_all_externs += 'EXTERN_ROM(' + namespace + ')\n'
                             sub_all_namespaces += '  {PRESET_ROM(' + namespace + ')},\n'
-                print(output_dir + '/' + dir_name + '.pak', "generated.")
 
+                print(output_dir + '/' + dir_name + '.pak', "generated.")
                 other_roms[dir_name] = {
                     'all_includes': sub_all_includes,
                     'all_externs': sub_all_externs,

@@ -18,6 +18,7 @@
 #include "third_party/nlohmann_json/json.hpp"
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
 #include "ui/application.h"
+#include "utility/localization.h"
 
 namespace {
 voidpf OpenFileImpl(voidpf opaque, const char* ops, int mode) {
@@ -88,6 +89,62 @@ unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
   unzFile file = unzOpen2(reinterpret_cast<const char*>(ops), &func);
   return file;
 }
+
+#if defined(KIWI_USE_EXTERNAL_PAK)
+
+std::vector<preset_roms::Package*> g_packages;
+
+class PackageImpl : public preset_roms::Package {
+ public:
+  PackageImpl(std::vector<preset_roms::PresetROM>&& roms,
+              std::map<std::string, std::string>&& titles,
+              kiwi::nes::Bytes&& icon,
+              kiwi::nes::Bytes&& icon_highlight);
+  ~PackageImpl() override = default;
+
+  size_t GetRomsCount() override;
+  preset_roms::PresetROM& GetRomsByIndex(size_t index) override;
+  kiwi::nes::Bytes GetSideMenuImage() override;
+  kiwi::nes::Bytes GetSideMenuHighlightImage() override;
+  std::string GetTitleForLanguage(SupportedLanguage language) override;
+
+ private:
+  std::vector<preset_roms::PresetROM> roms_;
+  std::map<std::string, std::string> titles_;
+  kiwi::nes::Bytes icon_;
+  kiwi::nes::Bytes icon_highlight_;
+};
+
+PackageImpl::PackageImpl(std::vector<preset_roms::PresetROM>&& roms,
+                         std::map<std::string, std::string>&& titles,
+                         kiwi::nes::Bytes&& icon,
+                         kiwi::nes::Bytes&& icon_highlight)
+    : roms_(std::move(roms)),
+      titles_(std::move(titles)),
+      icon_(std::move(icon)),
+      icon_highlight_(std::move(icon_highlight)) {}
+
+size_t PackageImpl::GetRomsCount() {
+  return roms_.size();
+}
+
+preset_roms::PresetROM& PackageImpl::GetRomsByIndex(size_t index) {
+  return roms_.at(index);
+}
+
+kiwi::nes::Bytes PackageImpl::GetSideMenuImage() {
+  return icon_;
+}
+
+kiwi::nes::Bytes PackageImpl::GetSideMenuHighlightImage() {
+  return icon_highlight_;
+}
+
+std::string PackageImpl::GetTitleForLanguage(SupportedLanguage language) {
+  return titles_[ToLanguageCode(language)];
+}
+
+#endif
 
 }  // namespace
 
@@ -257,6 +314,9 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
 
 // Reads all roms' data from package file.
 void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
+                            std::map<std::string, std::string>& titles,
+                            kiwi::nes::Bytes& icon,
+                            kiwi::nes::Bytes& icon_highlight,
                             const kiwi::base::FilePath& package) {
   unzFile pak = unzOpen(package.AsUTF8Unsafe().c_str());
   SDL_assert(pak);
@@ -268,6 +328,32 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
     unz_file_info fi;
     unzGetCurrentFileInfo(pak, &fi, filename.data(), filename.size(), nullptr,
                           0, nullptr, 0);
+
+    if (strcmp(filename.data(), "manifest.json") == 0) {
+      kiwi::nes::Bytes manifest_data;
+      manifest_data.resize(fi.uncompressed_size);
+      unzOpenCurrentFile(pak);
+      unzReadCurrentFile(pak, manifest_data.data(), manifest_data.size());
+      manifest_data.push_back(0); // String terminator
+      manifest_data.push_back(0); // String terminator
+      unzCloseCurrentFile(pak);
+
+      nlohmann::json manifest_json =
+          nlohmann::json::parse(manifest_data.data());
+      const auto& menu_titles = manifest_json.at("titles");
+      for (const auto& menu_title : menu_titles.items()) {
+        titles.insert({menu_title.key(), menu_title.value()});
+      }
+
+      const auto& icon_data = manifest_json.at("icons");
+      std::string normal = to_string(icon_data.at("normal"));
+      std::string highlight = to_string(icon_data.at("highlight"));
+      icon = kiwi::nes::Bytes(normal.begin(), normal.end());
+      icon_highlight = kiwi::nes::Bytes(highlight.begin(), highlight.end());
+      unzGoToNextFile(pak);
+      continue;
+    }
+
     unzOpenCurrentFile(pak);
 
     preset_roms::PresetROM rom;
@@ -323,10 +409,36 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
   unzClose(pak);
 }
 
-void CloseRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms) {
-  for (auto& rom : roms) {
-    delete[] rom.name;
-  }
+void CloseRomDataFromPackage(preset_roms::PresetROM& rom) {
+  delete[] rom.name;
 }
+
+void OpenPackageFromFile(const kiwi::base::FilePath& package_path) {
+  std::vector<preset_roms::PresetROM> roms;
+  std::map<std::string, std::string> titles;
+  kiwi::nes::Bytes icon, icon_highlight;
+  OpenRomDataFromPackage(roms, titles, icon, icon_highlight, package_path);
+  preset_roms::Package* package =
+      new PackageImpl(std::move(roms), std::move(titles), std::move(icon),
+                      std::move(icon_highlight));
+  g_packages.push_back(package);
+}
+
+void ClosePackages() {
+  for (preset_roms::Package* package : g_packages) {
+    for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+      CloseRomDataFromPackage(package->GetRomsByIndex(i));
+    }
+    delete package;
+  }
+  g_packages.clear();
+}
+
+namespace preset_roms {
+// Implements preset_roms.h
+std::vector<preset_roms::Package*> GetPresetRomsPackages() {
+  return g_packages;
+}
+}  // namespace preset_roms
 
 #endif

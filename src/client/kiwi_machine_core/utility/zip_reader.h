@@ -42,10 +42,9 @@ inline bool HasAnyPart(RomPart part) {
 #if defined(KIWI_USE_EXTERNAL_PAK)
 // Loads ROM's data from an external package. This function should be called
 // before InitializePresetROM().
-void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
-                            const kiwi::base::FilePath& package);
 
-void CloseRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms);
+void OpenPackageFromFile(const kiwi::base::FilePath& package_path);
+void ClosePackages();
 
 #endif
 
