@@ -62,7 +62,7 @@ def GenCPP(output_dir, dir, filename, zip):
 
 def GenPackageManifest(dir):
     manifest_filename = './nes' + dir + '/manifest.json'
-    with open(manifest_filename, 'r') as json_file:
+    with open(manifest_filename, 'r', encoding='utf-8') as json_file:
         return json.load(json_file)
 
 def WritePackageManifest(dir, zip):
