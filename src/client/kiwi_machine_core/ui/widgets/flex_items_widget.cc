@@ -138,6 +138,13 @@ void FlexItemsWidget::ScrollWith(int scrolling_delta,
         bounds().h - last_item_absolute_bounds.h - last_item_absolute_bounds.y;
   }
 
+  FlexItemWidget* first_item = items_[0];
+  SDL_Rect first_item_absolute_bounds =
+      bounds_map_without_scrolling_[first_item];
+  if (first_item_absolute_bounds.y + target_view_scrolling_ > 0) {
+    target_view_scrolling_ = first_item_absolute_bounds.y;
+  }
+
   updating_view_scrolling_ = true;
 
   // Highlight
