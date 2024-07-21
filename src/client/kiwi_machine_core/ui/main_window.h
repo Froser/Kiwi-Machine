@@ -114,6 +114,7 @@ class MainWindow : public WindowBase,
   void HandleResizedEvent() override;
   void HandlePostEvent() override;
   void HandleDisplayEvent(SDL_DisplayEvent* event) override;
+  void HandleDropFileEvent(SDL_DropEvent* event) override;
   void Render() override;
 
   // CanvasObserver:
@@ -164,7 +165,9 @@ class MainWindow : public WindowBase,
   void CloseSplash();
 
   // Menu callbacks:
-  void OnRomLoaded(const std::string& name, bool load_from_finger_gesture);
+  void OnRomLoaded(const std::string& name,
+                   bool load_from_finger_gesture,
+                   bool success);
   void OnQuit();
   void OnResetROM();
   void OnBackToMainMenu();

@@ -89,9 +89,9 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
 
   // An utility method to call Load() and Run() in proper thread.
   virtual void LoadAndRun(const base::FilePath& rom_path,
-                          base::OnceClosure callback = base::DoNothing()) = 0;
+                          LoadCallback = base::DoNothing()) = 0;
   virtual void LoadAndRun(const Bytes& data,
-                          base::OnceClosure callback = base::DoNothing()) = 0;
+                          LoadCallback = base::DoNothing()) = 0;
 
   // Steps one CPU cycle. Because Run() will start a working task runner to run
   // cycles, Step() should be called only when the emulator is not running.
@@ -129,9 +129,9 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual int GetAudioChannelMasks() = 0;
 };
 
-// Creates an emulator. If |emulate_on_working_thread| is true, emulation will be
-// run on a dedicate thread. If |emulate_on_working_thread| is false, emulation
-// will be run on UI thread.
+// Creates an emulator. If |emulate_on_working_thread| is true, emulation will
+// be run on a dedicate thread. If |emulate_on_working_thread| is false,
+// emulation will be run on UI thread.
 NES_EXPORT scoped_refptr<Emulator> CreateEmulator(
     bool emulate_on_working_thread = true);
 

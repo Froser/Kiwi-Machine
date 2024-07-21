@@ -140,12 +140,11 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
   rom_data_->crc = crc;
 
   rom_path_ = rom_path;
-  is_loaded_ = true;
 
+  is_loaded_ = true;
   // Mapper::Create() may access |rom_data_|, and we have already filled
   // |rom_data_|, so set |is_loaded_| to true.
-  ProcessMapper();
-  return LoadResult{crc_, true};
+  return LoadResult{crc_, ProcessMapper()};
 }
 
 Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
@@ -191,8 +190,7 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
   is_loaded_ = true;
   // Mapper::Create() may access |rom_data_|, and we have already fill
   // |rom_data_|, so set |is_loaded_| to true.
-  ProcessMapper();
-  return LoadResult{crc_, true};
+  return LoadResult{crc_, ProcessMapper()};
 }
 
 bool Cartridge::ProcessHeaders(const Byte* headers) {
@@ -284,8 +282,9 @@ bool Cartridge::ProcessHeaders(const Byte* headers) {
   }
 }
 
-void Cartridge::ProcessMapper() {
+bool Cartridge::ProcessMapper() {
   mapper_ = Mapper::Create(this, rom_data_->mapper);
+  return !!mapper_;
 }
 
 }  // namespace nes

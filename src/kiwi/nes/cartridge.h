@@ -82,7 +82,7 @@ class Cartridge : public base::RefCountedThreadSafe<Cartridge>,
   LoadResult LoadFromDataOnIOThread(const Bytes& data);
 
   bool ProcessHeaders(const Byte* headers);
-  void ProcessMapper();
+  bool ProcessMapper();
 
  private:
   EmulatorImpl* emulator_ = nullptr;

@@ -134,6 +134,11 @@
     "zh": "日语",
     "ja": "日本語"
   },
+  "IDR_MAIN_WINDOW_ROM_NOT_SUPPORTED": {
+    "default": "The ROM is not supported.",
+    "zh": "这个ROM暂时不被支持打开。",
+    "ja": "このROMはサポートされていません。"
+  },
   "IDR_MAIN_WINDOW_SETTINGS": {
     "default": "Settings",
     "zh": "设置",

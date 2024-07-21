@@ -276,6 +276,8 @@ void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
   }
 }
 
+void WindowBase::HandleDropFileEvent(SDL_DropEvent* event) {}
+
 void WindowBase::HandleLocaleChanged() {
   for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
     Widget* widget = iter->get();

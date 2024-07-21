@@ -529,6 +529,14 @@ void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
     HandleResizedEvent();
 }
 
+void MainWindow::HandleDropFileEvent(SDL_DropEvent* event) {
+  if (FLAGS_has_menu) {
+    SDL_assert(event->file);
+    LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(event->file));
+  }
+  SDL_free(event->file);
+}
+
 void MainWindow::Render() {
   WindowBase::Render();
 
@@ -1332,11 +1340,18 @@ void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
 }
 
 void MainWindow::OnRomLoaded(const std::string& name,
-                             bool load_from_finger_gesture) {
+                             bool load_from_finger_gesture,
+                             bool success) {
   SetLoading(false);
   ShowMainMenu(false, load_from_finger_gesture);
   SetTitle(name);
   StartAutoSave();
+
+  if (!success) {
+    Toast::ShowToast(this,
+                     GetLocalizedString(
+                         string_resources::IDR_MAIN_WINDOW_ROM_NOT_SUPPORTED));
+  }
 }
 
 void MainWindow::OnQuit() {

@@ -145,6 +145,12 @@ void Application::HandleEvent(SDL_Event* event) {
       if (target)
         target->HandleTouchFingerEvent(&event->tfinger);
     } break;
+    case SDL_DROPFILE: {
+      WindowBase* target = FindWindowFromID(event->drop.windowID);
+      if (target)
+        target->HandleDropFileEvent(&event->drop);
+      break;
+    }
 #if !KIWI_MOBILE
     case SDL_MOUSEMOTION: {
       WindowBase* target = FindWindowFromID(event->motion.windowID);

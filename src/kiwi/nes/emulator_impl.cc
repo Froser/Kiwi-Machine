@@ -246,31 +246,31 @@ void EmulatorImpl::Pause() {
 }
 
 void EmulatorImpl::LoadAndRun(const base::FilePath& rom_path,
-                              base::OnceClosure callback) {
+                              LoadCallback callback) {
   LoadCallback load_callback = base::BindOnce(
-      [](scoped_refptr<EmulatorImpl> emulator, base::OnceClosure callback,
+      [](scoped_refptr<EmulatorImpl> emulator, LoadCallback callback,
          bool success) {
         if (success) {
           emulator->Run();
-          std::move(callback).Run();
         } else {
           LOG(ERROR) << "Error occurs when load ROM via " << __func__;
         }
+        std::move(callback).Run(success);
       },
       base::RetainedRef(this), std::move(callback));
   LoadFromFile(rom_path, std::move(load_callback));
 }
 
-void EmulatorImpl::LoadAndRun(const Bytes& data, base::OnceClosure callback) {
+void EmulatorImpl::LoadAndRun(const Bytes& data, LoadCallback callback) {
   LoadCallback load_callback = base::BindOnce(
-      [](scoped_refptr<EmulatorImpl> emulator, base::OnceClosure callback,
+      [](scoped_refptr<EmulatorImpl> emulator, LoadCallback callback,
          bool success) {
         if (success) {
           emulator->Run();
-          std::move(callback).Run();
         } else {
           LOG(ERROR) << "Error occurs when load ROM via " << __func__;
         }
+        std::move(callback).Run(success);
       },
       base::RetainedRef(this), std::move(callback));
   LoadFromBinary(data, std::move(load_callback));
@@ -425,14 +425,12 @@ void EmulatorImpl::Step() {
 
 bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path) {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
-  UnloadOnProperThread();
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
   return HandleLoadedResult(cartridge->Load(rom_path), cartridge);
 }
 
 bool EmulatorImpl::LoadFromBinaryOnProperThread(const Bytes& data) {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
-  UnloadOnProperThread();
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
   return HandleLoadedResult(cartridge->Load(data), cartridge);
 }
@@ -443,6 +441,7 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
   if (!load_result.success)
     return false;
 
+  UnloadOnProperThread();
   cartridge_ = cartridge;
   if (debug_port_) {
     debug_port_->OnRomLoaded(load_result.success, load_result.success
