@@ -22,7 +22,7 @@ namespace {
 
 #if !KIWI_MOBILE && !KIWI_WASM
 Mix_Music* g_all_effects[static_cast<int>(audio_resources::AudioID::kLast)];
-bool g_is_mute = false;
+bool g_effect_disabled = false;
 
 void LoadAudioEffectFromMemory(audio_resources::AudioID type,
                                const unsigned char* data,
@@ -91,10 +91,18 @@ void SetEffectVolume(float volume) {
 #endif
 }
 
+ScopedDisableEffect::ScopedDisableEffect() {
+  SetEffectEnabled(false);
+}
+
+ScopedDisableEffect::~ScopedDisableEffect() {
+  SetEffectEnabled(true);
+}
+
 #if !DISABLE_SOUND_EFFECTS
 void PlayEffect(audio_resources::AudioID aid) {
 #if !KIWI_MOBILE && !KIWI_WASM
-  if (!g_is_mute) {
+  if (!g_effect_disabled) {
     int index = static_cast<int>(aid);
     if (g_all_effects[index]) {
       Mix_PausedMusic();
@@ -105,5 +113,9 @@ void PlayEffect(audio_resources::AudioID aid) {
     }
   }
 #endif
+}
+
+void SetEffectEnabled(bool enabled) {
+  g_effect_disabled = !enabled;
 }
 #endif

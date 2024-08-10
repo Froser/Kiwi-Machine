@@ -636,6 +636,7 @@ void MainWindow::InitializeAudio() {
 }
 
 void MainWindow::InitializeUI() {
+  ScopedDisableEffect scoped_disable_effect;
   is_headless_ = preset_roms::GetPresetRomsPackages().empty();
 
   if (FLAGS_has_menu) {

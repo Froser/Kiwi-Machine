@@ -19,12 +19,18 @@
 void InitializeAudioEffects();
 void UninitializeAudioEffects();
 void SetEffectVolume(float volume);
+struct ScopedDisableEffect final {
+  ScopedDisableEffect();
+  ~ScopedDisableEffect();
+};
 
 #if DISABLE_SOUND_EFFECTS
 // If sound effects is disabled, PlayEffect() function will do nothing.
 #define PlayEffect(type) []{}()
+#define SetEffectEnabled(enabled) []{}()
 #else
 void PlayEffect(audio_resources::AudioID type);
+void SetEffectEnabled(bool enabled);
 #endif
 
 #endif  // UTILITY_AUDIO_EFFECTS_H_
