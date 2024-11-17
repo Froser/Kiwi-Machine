@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Yisi Yu
+# Copyright (C) 2024 Yisi Yu
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -10,6 +10,5 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-add_subdirectory(kiwi_machine_core)
-add_subdirectory(kiwi_machine)
-add_subdirectory(tools)
+add_subdirectory(package_manager)
+set_target_properties(package_manager PROPERTIES FOLDER "tools/package_manager")
