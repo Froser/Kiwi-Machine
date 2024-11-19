@@ -14,6 +14,12 @@ project(package_manager CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+list(APPEND
+        CMAKE_MODULE_PATH
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/cmake"
+)
+find_package(Kiwi REQUIRED)
+
 include_directories(
         .
 
@@ -31,6 +37,10 @@ list(APPEND
 
 set(Sources
         main.cc
+        rom_window.cc
+        rom_window.h
+        util.cc
+        util.h
 )
 
 
@@ -42,12 +52,16 @@ endif ()
 
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
+        Kiwi::kiwi_static
         imgui
-        gflags_nothreads_static
+        SDL2-static
         SDL2_image
         minizip
 )
+
+target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
+
 target_include_directories(${PROJECT_NAME}
         PRIVATE
-        "../../third_party/imgui"
+        "../../../third_party/imgui"
 )
