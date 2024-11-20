@@ -11,10 +11,9 @@
 // GNU General Public License for more details.
 
 #include "util.h"
+#include "../third_party/nlohmann_json/json.hpp"
 #include "base/strings/string_util.h"
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
-
-#include "../third_party/nlohmann_json/json.hpp"
 
 namespace {
 
@@ -57,7 +56,7 @@ ROMS ReadPackageFromFile(const kiwi::base::FilePath& path) {
     if (manifest_json.contains("titles")) {
       const auto& titles = manifest_json.at("titles");
       for (const auto& rom_version : titles.items()) {
-        ROM rom{0};
+        ROM rom;
         strncpy(rom.name, rom_version.key().c_str(), rom.MAX);
         for (const auto& title : rom_version.value().items()) {
           if (title.key() == "zh") {
@@ -74,6 +73,29 @@ ROMS ReadPackageFromFile(const kiwi::base::FilePath& path) {
             strncpy(rom.ja_hint, jp_hint.c_str(), ROM::MAX);
           }
         }
+
+        // Gets the cover jpg
+        std::string cover_path;
+        if (kiwi::base::EqualsCaseInsensitiveASCII(rom.name, "default") == 0) {
+          cover_path =
+              path.RemoveExtension().BaseName().AsUTF8Unsafe() + ".jpg";
+        } else {
+          cover_path = rom.name + std::string(".jpg");
+        }
+
+        err = unzLocateFile(file, cover_path.c_str(), false);
+        if (err != UNZ_OK) {
+          // Bad cover
+          unzClose(file);
+          return g_no_result;
+        }
+
+        if (!ReadCurrentFileFromZip(file, rom.cover_data)) {
+          unzClose(file);
+          return g_no_result;
+        }
+
+
         result.push_back(rom);
       }
     } else {

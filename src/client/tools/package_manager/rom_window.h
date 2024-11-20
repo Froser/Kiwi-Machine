@@ -16,11 +16,16 @@
 #include "base/files/file_path.h"
 #include "util.h"
 
+struct SDL_Renderer;
 struct ROM;
 class ROMWindow {
  public:
-  ROMWindow(ROMS roms, kiwi::base::FilePath file);
+  ROMWindow(SDL_Renderer* renderer, ROMS roms, kiwi::base::FilePath file);
   ~ROMWindow();
+
+  ROMWindow(const ROMWindow&) = delete;
+  ROMWindow(ROMWindow&&) = default;
+  ROMWindow& operator=(ROMWindow&&) = default;
 
   void Paint();
   void Painted();
@@ -34,8 +39,7 @@ class ROMWindow {
  private:
   int window_id_ = 0;
   kiwi::base::FilePath file_;
-  std::vector<ROM> current_manifest_;
-  std::vector<ROM*> to_be_deleted_;
+  int to_be_deleted_ = -1;
   ROMS roms_;
   bool check_close_ = false;
   bool closed_ = false;

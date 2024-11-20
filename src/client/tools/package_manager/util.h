@@ -13,6 +13,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <SDL.h>
 #include <string>
 #include <vector>
 
@@ -20,16 +21,25 @@
 
 bool IsPackageExtension(const std::string& filename);
 
+class ROMWindow;
 struct ROM {
+  friend class ROMWindow;
+
   static constexpr size_t MAX = 128;
 
-  char name[MAX];
+  char name[MAX]{0};
 
   // Title
-  char zh[MAX];
-  char zh_hint[MAX];
-  char ja[MAX];
-  char ja_hint[MAX];
+  char zh[MAX]{0};
+  char zh_hint[MAX]{0};
+  char ja[MAX]{0};
+  char ja_hint[MAX]{0};
+
+  // Cover
+  std::vector<uint8_t> cover_data;
+
+ private:
+  SDL_Texture* cover_texture_ = nullptr;
 };
 
 using ROMS = std::vector<ROM>;

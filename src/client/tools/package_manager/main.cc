@@ -23,8 +23,8 @@ SDL_Renderer* g_renderer;
 std::vector<ROMWindow> g_rom_windows;
 
 void CreateROMWindow(ROMS roms, kiwi::base::FilePath file) {
-  ROMWindow window(roms, file);
-  g_rom_windows.push_back(window);
+  ROMWindow window(g_renderer, roms, file);
+  g_rom_windows.push_back(std::move(window));
 }
 
 SDL_Window* CreateWindow() {
@@ -35,12 +35,12 @@ SDL_Window* CreateWindow() {
 }
 
 void RemoveClosedWindows() {
-  std::vector<ROMWindow> t;
-  for (const auto& window : g_rom_windows) {
-    if (!window.closed())
-      t.push_back(window);
+  for (auto iter = g_rom_windows.begin(); iter != g_rom_windows.end();){
+    if (iter->closed())
+      iter = g_rom_windows.erase(iter);
+    else
+      ++iter;
   }
-  g_rom_windows = t;
 }
 
 bool InitSDL() {
