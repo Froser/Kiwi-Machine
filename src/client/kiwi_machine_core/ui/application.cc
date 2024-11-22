@@ -411,7 +411,7 @@ void Application::InitializeROMs() {
   }
 #endif
 
-  for (auto* package : preset_roms::GetPresetRomsPackages()) {
+  for (auto* package : preset_roms::GetPresetOrTestRomsPackages()) {
     for (size_t i = 0; i < package->GetRomsCount(); ++i) {
       auto& rom = package->GetRomsByIndex(i);
       InitializePresetROM(rom);

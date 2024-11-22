@@ -29,9 +29,9 @@ struct ROM {
 
   static constexpr size_t MAX = 128;
 
-  char name[MAX]{0};
 
   // Title
+  std::string key;
   char zh[MAX]{0};
   char zh_hint[MAX]{0};
   char ja[MAX]{0};
@@ -58,7 +58,9 @@ bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
                        std::string& mapper_name);
 
 kiwi::base::FilePath GetDefaultSavePath();
-void ShellOpen(const kiwi::base::FilePath file);
-void ShellOpenDirectory(const kiwi::base::FilePath file);
+void ShellOpen(const kiwi::base::FilePath& file);
+void ShellOpenDirectory(const kiwi::base::FilePath& file);
+void RunExecutable(const kiwi::base::FilePath& bundle,
+                   const std::vector<std::string>& args);
 
 #endif  // UTIL_H_

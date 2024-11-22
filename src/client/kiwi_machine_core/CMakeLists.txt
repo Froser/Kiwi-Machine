@@ -54,8 +54,9 @@ set(Sources
         models/nes_frame.h
         models/nes_runtime.cc
         models/nes_runtime.h
-        preset_roms/preset_roms.h
         preset_roms/preset_roms.cc
+        preset_roms/preset_roms.h
+        preset_roms/preset_roms_impl.cc
         resources/audio_resources.cc
         resources/audio_resources.h
         resources/font_resources.cc

@@ -16,6 +16,7 @@
 #include <imgui.h>
 
 #include "base/files/file_util.h"
+#include "base/strings/string_util.h"
 
 static int g_window_id = 0;
 
@@ -76,17 +77,13 @@ void ROMWindow::Paint() {
     int id = 0;
     for (auto& rom : roms_) {
       ImGui::BeginGroup();
-      if (rom.name == std::string("default")) {
-        ImGui::TextUnformatted(rom.name);
-      } else {
-        ImGui::InputText(GetUniqueName("", id).c_str(), rom.name, rom.MAX);
-      }
+      ImGui::TextUnformatted(rom.key.c_str());
 
-      ImGui::InputText(GetUniqueName("zh", id).c_str(), rom.zh, rom.MAX);
-      ImGui::InputText(GetUniqueName("zh_hint", id).c_str(), rom.zh_hint,
+      ImGui::InputText(GetUniqueName("中文标题", id).c_str(), rom.zh, rom.MAX);
+      ImGui::InputText(GetUniqueName("中文提示", id).c_str(), rom.zh_hint,
                        rom.MAX);
-      ImGui::InputText(GetUniqueName("ja", id).c_str(), rom.ja, rom.MAX);
-      ImGui::InputText(GetUniqueName("ja_hint", id).c_str(), rom.ja_hint,
+      ImGui::InputText(GetUniqueName("日文标题", id).c_str(), rom.ja, rom.MAX);
+      ImGui::InputText(GetUniqueName("日文提示", id).c_str(), rom.ja_hint,
                        rom.MAX);
       ImGui::EndGroup();
       ImGui::BeginGroup();
@@ -110,6 +107,9 @@ void ROMWindow::Paint() {
                 IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
             SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
             rom.cover_texture_ = texture;
+            auto cover_data = kiwi::base::ReadFileToBytes(path);
+            SDL_assert(cover_data);
+            rom.cover_data = std::move(*cover_data);
           }
         }
         ClearDroppedJPG();
@@ -129,6 +129,8 @@ void ROMWindow::Paint() {
             strncpy(rom.nes_file_name, path.BaseName().AsUTF8Unsafe().c_str(),
                     rom.MAX);
             rom.nes_data = std::move(*rom_contents);
+            if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") != 0)
+              rom.key = path.BaseName().RemoveExtension().AsUTF8Unsafe();
           }
         }
         ClearDroppedROM();
@@ -152,10 +154,11 @@ void ROMWindow::Paint() {
   if (ImGui::Button(GetUniqueName(u8"增加一个ROM", 0).c_str())) {
     ROM new_rom;
     if (roms_.empty())
-      strncpy(new_rom.name, "default", new_rom.MAX);
+      new_rom.key = "default";
     roms_.push_back(std::move(new_rom));
   }
 
+  ImGui::NewLine();
   ImGui::InputText(GetUniqueName(u8"另存文件目录", 0).c_str(), save_path_,
                    sizeof(save_path_));
   if (ImGui::Button(GetUniqueName(u8"保存", 0).c_str())) {
@@ -170,6 +173,7 @@ void ROMWindow::Paint() {
     }
   }
 
+  ImGui::SameLine();
   if (ImGui::Button(GetUniqueName(u8"关闭", 0).c_str())) {
     Close();
   }
@@ -177,7 +181,7 @@ void ROMWindow::Paint() {
   ImGui::End();
 
   if (show_message_box_) {
-    ImGui::Begin("MessageBox", &show_message_box_,
+    ImGui::Begin(u8"提示", &show_message_box_,
                  ImGuiWindowFlags_AlwaysAutoResize);
     if (!generated_packaged_path_.empty()) {
       ImGui::Text(u8"保存文件成功：%s",
@@ -191,7 +195,15 @@ void ROMWindow::Paint() {
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"测试", 0).c_str())) {
-        PackZip(generated_packaged_path_, GetDefaultSavePath());
+        kiwi::base::FilePath package_path =
+            PackZip(generated_packaged_path_, GetDefaultSavePath());
+        if (!package_path.empty()) {
+          kiwi::base::FilePath kiwi_machine(
+              FILE_PATH_LITERAL("kiwi_machine.app"));
+          RunExecutable(
+              kiwi_machine,
+              {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
+        }
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"确认", 0).c_str())) {

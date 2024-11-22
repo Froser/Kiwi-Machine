@@ -17,6 +17,7 @@
 
 namespace preset_roms {
 struct PresetROM;
+struct Package;
 }
 
 enum class RomPart {
@@ -40,12 +41,14 @@ inline bool HasAnyPart(RomPart part) {
 }
 
 #if defined(KIWI_USE_EXTERNAL_PAK)
+// Loads ROM's data from an external package.
+preset_roms::Package* CreatePackageFromFile(
+    const kiwi::base::FilePath& package_path);
+
 // Loads ROM's data from an external package. This function should be called
 // before InitializePresetROM().
-
 void OpenPackageFromFile(const kiwi::base::FilePath& package_path);
 void ClosePackages();
-
 #endif
 
 // Loads all ROM's title, i18n names, and alternative titles. This function

@@ -73,7 +73,7 @@ struct Package {
   virtual std::string GetTitleForLanguage(SupportedLanguage language) = 0;
 };
 
-std::vector<Package*> GetPresetRomsPackages();
+std::vector<Package*> GetPresetOrTestRomsPackages();
 
 }  // namespace preset_roms
 

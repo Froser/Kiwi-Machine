@@ -27,7 +27,7 @@ kiwi::base::FilePath GetDefaultSavePath() {
   }
 }
 
-void ShellOpen(const kiwi::base::FilePath file) {
+void ShellOpen(const kiwi::base::FilePath& file) {
   @autoreleasepool {
     NSString* ns_file_path =
         [[NSString alloc] initWithUTF8String:file.AsUTF8Unsafe().c_str()];
@@ -36,12 +36,32 @@ void ShellOpen(const kiwi::base::FilePath file) {
   }
 }
 
-void ShellOpenDirectory(const kiwi::base::FilePath file) {
+void ShellOpenDirectory(const kiwi::base::FilePath& file) {
   @autoreleasepool {
     NSString* ns_file_path =
         [[NSString alloc] initWithUTF8String:file.AsUTF8Unsafe().c_str()];
     NSURL* url = [NSURL fileURLWithPath:ns_file_path];
     url = [url URLByDeletingLastPathComponent];
     [[NSWorkspace sharedWorkspace] openURL:url];
+  }
+}
+
+void RunExecutable(const kiwi::base::FilePath& bundle,
+                   const std::vector<std::string>& args) {
+  @autoreleasepool {
+    kiwi::base::FilePath app_path =
+        bundle.Append(FILE_PATH_LITERAL("Contents"))
+            .Append(FILE_PATH_LITERAL("MacOS"))
+            .Append(bundle.BaseName().RemoveExtension());
+    NSString* bundle_path =
+        [[NSString alloc] initWithUTF8String:app_path.AsUTF8Unsafe().c_str()];
+    NSTask* task = [[NSTask alloc] init];
+    task.launchPath = bundle_path;
+    NSMutableArray* arguments = [[NSMutableArray alloc] init];
+    for (const auto& arg : args) {
+      [arguments addObject:[[NSString alloc] initWithUTF8String:arg.c_str()]];
+    };
+    task.arguments = arguments;
+    [task launch];
   }
 }

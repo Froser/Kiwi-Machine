@@ -105,10 +105,10 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
     nlohmann::json manifest_json = nlohmann::json::parse(manifest_data.data());
     if (manifest_json.contains("titles")) {
       const auto& titles = manifest_json.at("titles");
-      for (const auto& rom_version : titles.items()) {
+      for (const auto& rom_item : titles.items()) {
         ROM rom;
-        strncpy(rom.name, rom_version.key().c_str(), rom.MAX);
-        for (const auto& title : rom_version.value().items()) {
+        rom.key = rom_item.key();
+        for (const auto& title : rom_item.value().items()) {
           if (title.key() == "zh") {
             std::string zh = title.value();
             strncpy(rom.zh, zh.c_str(), ROM::MAX);
@@ -126,11 +126,11 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
 
         // Gets the cover jpg
         std::string cover_path;
-        if (kiwi::base::EqualsCaseInsensitiveASCII(rom.name, "default") == 0) {
+        if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") == 0) {
           cover_path =
               path.RemoveExtension().BaseName().AsUTF8Unsafe() + ".jpg";
         } else {
-          cover_path = rom.name + std::string(".jpg");
+          cover_path = rom.key + ".jpg";
         }
 
         err = unzLocateFile(file, cover_path.c_str(), false);
@@ -147,10 +147,10 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
 
         // Gets ROM data.
         std::string nes_name;
-        if (kiwi::base::EqualsCaseInsensitiveASCII(rom.name, "default") == 0)
+        if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") == 0)
           nes_name = path.RemoveExtension().BaseName().AsUTF8Unsafe() + ".nes";
         else
-          nes_name = std::string(rom.name) + ".nes";
+          nes_name = rom.key + ".nes";
 
         err = unzLocateFile(file, nes_name.c_str(), false);
         if (err != UNZ_OK)
@@ -173,10 +173,10 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
 
   // Sort results.
   std::sort(result.begin(), result.end(), [](const ROM& lhs, const ROM& rhs) {
-    if (kiwi::base::CompareCaseInsensitiveASCII("default", lhs.name) == 0)
+    if (kiwi::base::CompareCaseInsensitiveASCII("default", lhs.key) == 0)
       return true;
 
-    return strcmp(lhs.name, rhs.name) < 0;
+    return lhs.key < rhs.key;
   });
   return result;
 }
@@ -197,9 +197,9 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
       titles["ja"] = rom.zh;
     if (strlen(rom.ja_hint) > 0)
       titles["ja_hint"] = rom.ja_hint;
-    json["titles"][rom.name] = titles;
+    json["titles"][rom.key] = titles;
 
-    if (kiwi::base::CompareCaseInsensitiveASCII("default", rom.name) == 0) {
+    if (kiwi::base::CompareCaseInsensitiveASCII("default", rom.key) == 0) {
       package_name = kiwi::base::FilePath::FromUTF8Unsafe(
           kiwi::base::FilePath::FromUTF8Unsafe(std::string(rom.nes_file_name))
               .RemoveExtension()

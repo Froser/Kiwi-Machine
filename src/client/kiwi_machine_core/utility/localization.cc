@@ -82,7 +82,7 @@ void BuildGlyphRanges(SupportedLanguage language,
     ranges_builder.AddText(GetLocalizedString(language, i).c_str());
   }
 
-  const auto& packages = preset_roms::GetPresetRomsPackages();
+  const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
   for (const auto& package : packages) {
     for (size_t i = 0; i < package->GetRomsCount(); ++i) {
       auto& rom = package->GetRomsByIndex(i);

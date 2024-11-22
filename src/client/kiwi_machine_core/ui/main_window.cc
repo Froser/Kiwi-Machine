@@ -236,7 +236,10 @@ MainWindow::MainWindow(const std::string& title,
 void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   InitializeRuntimeData();
   InitializeAudio();
-  ShowSplash(kiwi::base::DoNothing());
+  if (!FLAGS_has_menu) {
+    // If the main window has menu, it won't show splash for speeding up.
+    ShowSplash(kiwi::base::DoNothing());
+  }
   Application::Get()->Initialize(
       kiwi::base::BindOnce(&MainWindow::InitializeDebugROMsOnIOThread,
                            kiwi::base::Unretained(this)),
@@ -637,7 +640,7 @@ void MainWindow::InitializeAudio() {
 
 void MainWindow::InitializeUI() {
   ScopedDisableEffect scoped_disable_effect;
-  is_headless_ = preset_roms::GetPresetRomsPackages().empty();
+  is_headless_ = preset_roms::GetPresetOrTestRomsPackages().empty();
 
   if (FLAGS_has_menu) {
     // Menu bar
@@ -676,7 +679,7 @@ void MainWindow::InitializeUI() {
     bg_widget_->AddWidget(std::move(contents_card_widget));
 
     // Main game items
-    const auto& packages = preset_roms::GetPresetRomsPackages();
+    const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
     for (const auto& package : packages) {
       std::unique_ptr<FlexItemsWidget> items_widget =
           std::make_unique<FlexItemsWidget>(this, runtime_id_);
@@ -725,7 +728,7 @@ void MainWindow::InitializeUI() {
     size_t package_index = 0;
     for (auto* items_widget : items_widgets_) {
       preset_roms::Package* package =
-          preset_roms::GetPresetRomsPackages()[package_index];
+          preset_roms::GetPresetOrTestRomsPackages()[package_index];
       side_menu->AddMenu(
           std::make_unique<SideMenuTitleStringUpdater>(package),
           package->GetSideMenuImage(), package->GetSideMenuHighlightImage(),

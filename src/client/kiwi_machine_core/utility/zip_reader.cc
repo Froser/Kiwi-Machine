@@ -311,7 +311,6 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
 }
 
 #if defined(KIWI_USE_EXTERNAL_PAK)
-
 // Reads all roms' data from package file.
 void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             std::map<std::string, std::string>& titles,
@@ -334,8 +333,8 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
       manifest_data.resize(fi.uncompressed_size);
       unzOpenCurrentFile(pak);
       unzReadCurrentFile(pak, manifest_data.data(), manifest_data.size());
-      manifest_data.push_back(0); // String terminator
-      manifest_data.push_back(0); // String terminator
+      manifest_data.push_back(0);  // String terminator
+      manifest_data.push_back(0);  // String terminator
       unzCloseCurrentFile(pak);
 
       nlohmann::json manifest_json =
@@ -409,11 +408,8 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
   unzClose(pak);
 }
 
-void CloseRomDataFromPackage(preset_roms::PresetROM& rom) {
-  delete[] rom.name;
-}
-
-void OpenPackageFromFile(const kiwi::base::FilePath& package_path) {
+preset_roms::Package* CreatePackageFromFile(
+    const kiwi::base::FilePath& package_path) {
   std::vector<preset_roms::PresetROM> roms;
   std::map<std::string, std::string> titles;
   kiwi::nes::Bytes icon, icon_highlight;
@@ -421,7 +417,15 @@ void OpenPackageFromFile(const kiwi::base::FilePath& package_path) {
   preset_roms::Package* package =
       new PackageImpl(std::move(roms), std::move(titles), std::move(icon),
                       std::move(icon_highlight));
-  g_packages.push_back(package);
+  return package;
+}
+
+void CloseRomDataFromPackage(preset_roms::PresetROM& rom) {
+  delete[] rom.name;
+}
+
+void OpenPackageFromFile(const kiwi::base::FilePath& package_path) {
+  g_packages.push_back(CreatePackageFromFile(package_path));
 }
 
 void ClosePackages() {
