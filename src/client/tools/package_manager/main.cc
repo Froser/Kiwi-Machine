@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Yisi Yu
+﻿// Copyright (C) 2024 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ void CreateROMWindow(ROMS roms, kiwi::base::FilePath file) {
 
 SDL_Window* CreateWindow() {
   SDL_Window* window =
-      SDL_CreateWindow("KiwiMachine 资源包管理器", SDL_WINDOWPOS_UNDEFINED,
+      SDL_CreateWindow(u8"KiwiMachine 资源包管理器", SDL_WINDOWPOS_UNDEFINED,
                        SDL_WINDOWPOS_UNDEFINED, 1024, 768, SDL_WINDOW_SHOWN);
   return window;
 }
@@ -83,6 +83,14 @@ bool InitSDL() {
 #if __APPLE__
   io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/STHeiti Light.ttc", 16,
                                nullptr, io.Fonts->GetGlyphRangesChineseFull());
+#endif
+#if _WIN32
+  io.Fonts->AddFontFromFileTTF(GetFontsPath()
+                                   .Append(FILE_PATH_LITERAL("msyh.ttc"))
+                                   .AsUTF8Unsafe()
+                                   .c_str(),
+                               16, nullptr,
+                               io.Fonts->GetGlyphRangesChineseFull());
 #endif
 
   ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
@@ -132,14 +140,15 @@ void Render() {
   ImGui::NewFrame();
   // ImGui::ShowDemoWindow();
 
-  ImGui::BeginMainMenuBar();
-  if (ImGui::BeginMenu(u8"资源包")) {
-    if (ImGui::MenuItem(u8"新建", "CTRL+N")) {
-      CreateROMWindow(ROMS(), kiwi::base::FilePath());
+  if (ImGui::BeginMainMenuBar()) {
+    if (ImGui::BeginMenu(u8"资源包")) {
+      if (ImGui::MenuItem(u8"新建", "CTRL+N")) {
+        CreateROMWindow(ROMS(), kiwi::base::FilePath());
+      }
+      ImGui::EndMenu();
     }
-    ImGui::EndMenu();
+    ImGui::EndMainMenuBar();
   }
-  ImGui::EndMainMenuBar();
 
   for (auto& rom_window : g_rom_windows) {
     rom_window.Paint();

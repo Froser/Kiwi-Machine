@@ -48,7 +48,11 @@ if (APPLE)
             util.mm
     )
 endif ()
-
+if (WIN32)
+    list(APPEND Sources
+            util_win.cc
+    )
+endif()
 
 if (WIN32)
     KIWI_ADD_EXECUTABLE(${PROJECT_NAME} WIN32 ${Sources})

@@ -14,6 +14,7 @@
 #define BASE_FILES_FILE_PATH_H_
 
 #include <string>
+#include <vector>
 
 #include "base/base_export.h"
 #include "base/compiler_specific.h"

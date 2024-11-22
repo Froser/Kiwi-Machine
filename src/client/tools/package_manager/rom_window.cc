@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Yisi Yu
+﻿// Copyright (C) 2024 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -79,11 +79,13 @@ void ROMWindow::Paint() {
       ImGui::BeginGroup();
       ImGui::TextUnformatted(rom.key.c_str());
 
-      ImGui::InputText(GetUniqueName("中文标题", id).c_str(), rom.zh, rom.MAX);
-      ImGui::InputText(GetUniqueName("中文提示", id).c_str(), rom.zh_hint,
+      ImGui::InputText(GetUniqueName(u8"中文标题", id).c_str(), rom.zh,
                        rom.MAX);
-      ImGui::InputText(GetUniqueName("日文标题", id).c_str(), rom.ja, rom.MAX);
-      ImGui::InputText(GetUniqueName("日文提示", id).c_str(), rom.ja_hint,
+      ImGui::InputText(GetUniqueName(u8"中文提示", id).c_str(), rom.zh_hint,
+                       rom.MAX);
+      ImGui::InputText(GetUniqueName(u8"日文标题", id).c_str(), rom.ja,
+                       rom.MAX);
+      ImGui::InputText(GetUniqueName(u8"日文提示", id).c_str(), rom.ja_hint,
                        rom.MAX);
       ImGui::EndGroup();
       ImGui::BeginGroup();
@@ -198,11 +200,17 @@ void ROMWindow::Paint() {
         kiwi::base::FilePath package_path =
             PackZip(generated_packaged_path_, GetDefaultSavePath());
         if (!package_path.empty()) {
+#if BUILDFLAG(IS_MAC)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.app"));
-          RunExecutable(
-              kiwi_machine,
-              {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
+#elif BUILDFLAG(IS_WIN)
+          kiwi::base::FilePath kiwi_machine(
+              FILE_PATH_LITERAL("kiwi_machine.exe"));
+#else
+          kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
+#endif
+          RunExecutable(kiwi_machine,
+                        {L"--test-pak=" + package_path.value(), L"--has_menu"});
         }
       }
       ImGui::SameLine();

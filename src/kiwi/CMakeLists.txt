@@ -222,6 +222,7 @@ endif ()
 target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
 
 if (WIN32)
+    target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE Shlwapi)
     target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC UNICODE _UNICODE)
 endif ()
 
@@ -241,6 +242,7 @@ if (NOT EMSCRIPTEN)
     target_link_libraries(${PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
 
     if (WIN32)
+        target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi)
         target_compile_definitions(${PROJECT_NAME} PUBLIC UNICODE _UNICODE)
     endif ()
 

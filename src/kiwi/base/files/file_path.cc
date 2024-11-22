@@ -12,6 +12,8 @@
 
 #include "base/files/file_path.h"
 
+#include <algorithm>
+
 #include "base/check.h"
 #include "base/strings/string_util.h"
 
@@ -24,7 +26,7 @@ namespace kiwi::base {
 using StringType = FilePath::StringType;
 using StringPieceType = FilePath::StringPieceType;
 
-namespace {
+namespace internal {
 
 #if BUILDFLAG(IS_WIN)
 
@@ -40,6 +42,9 @@ std::wstring UTF8ToWide(const std::string_view& utf8) {
 
 #endif
 
+}
+
+namespace {
 // If this FilePath contains a drive letter specification, returns the
 // position of the last character of the drive letter specification,
 // otherwise returns npos.  This can only be true on Windows, when a pathname
@@ -158,7 +163,7 @@ FilePath FilePath::StripTrailingSeparators() const {
 
 std::string FilePath::AsUTF8Unsafe() const {
 #if BUILDFLAG(IS_WIN)
-  return WideToUTF8(value());
+  return internal::WideToUTF8(value());
 #else
   return value();
 #endif
@@ -267,7 +272,7 @@ FilePath FilePath::RemoveExtension() const {
 
 FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {
 #if BUILDFLAG(IS_WIN)
-  return FilePath(UTF8ToWide(utf8));
+  return FilePath(internal::UTF8ToWide(utf8));
 #else
   return FilePath(utf8);
 #endif

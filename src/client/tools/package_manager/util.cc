@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Yisi Yu
+﻿// Copyright (C) 2024 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,7 +19,8 @@
 
 namespace {
 
-static const std::string g_package_manifest_template = R"({
+static const std::string g_package_manifest_template =
+    u8R"({
 "titles": {
   "en": "Package Test",
   "zh": "包测试",
@@ -65,24 +66,20 @@ bool WriteToZip(zipFile zf,
 bool IsPackageExtension(const std::string& filename) {
   kiwi::base::FilePath file_path =
       kiwi::base::FilePath::FromUTF8Unsafe(filename);
-  return kiwi::base::ToLowerASCII(file_path.Extension()) ==
-         FILE_PATH_LITERAL(".zip");
+  return file_path.Extension() == FILE_PATH_LITERAL(".zip");
 }
 
 bool IsJPEGExtension(const std::string& filename) {
   kiwi::base::FilePath file_path =
       kiwi::base::FilePath::FromUTF8Unsafe(filename);
-  return kiwi::base::ToLowerASCII(file_path.Extension()) ==
-             FILE_PATH_LITERAL(".jpg") ||
-         kiwi::base::ToLowerASCII(file_path.Extension()) ==
-             FILE_PATH_LITERAL(".jpeg");
+  return file_path.Extension() == FILE_PATH_LITERAL(".jpg") ||
+         file_path.Extension() == FILE_PATH_LITERAL(".jpeg");
 }
 
 bool IsNESExtension(const std::string& filename) {
   kiwi::base::FilePath file_path =
       kiwi::base::FilePath::FromUTF8Unsafe(filename);
-  return kiwi::base::ToLowerASCII(file_path.Extension()) ==
-         FILE_PATH_LITERAL(".nes");
+  return file_path.Extension() == FILE_PATH_LITERAL(".nes");
 }
 
 ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
@@ -102,6 +99,8 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
       return g_no_result;
     }
 
+    manifest_data.push_back(0);  // String terminator
+    manifest_data.push_back(0);  // String terminator
     nlohmann::json manifest_json = nlohmann::json::parse(manifest_data.data());
     if (manifest_json.contains("titles")) {
       const auto& titles = manifest_json.at("titles");
@@ -263,7 +262,8 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
 
 kiwi::base::FilePath PackZip(const kiwi::base::FilePath& rom_zip,
                              const kiwi::base::FilePath& save_dir) {
-  std::string output = save_dir.Append("test.pak").AsUTF8Unsafe();
+  std::string output =
+      save_dir.Append(FILE_PATH_LITERAL("test.pak")).AsUTF8Unsafe();
   zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
   if (!zf) {
     return kiwi::base::FilePath();

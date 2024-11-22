@@ -29,7 +29,6 @@ struct ROM {
 
   static constexpr size_t MAX = 128;
 
-
   // Title
   std::string key;
   char zh[MAX]{0};
@@ -57,10 +56,19 @@ kiwi::base::FilePath PackZip(const kiwi::base::FilePath& rom_zip,
 bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
                        std::string& mapper_name);
 
+#if BUILDFLAG(IS_WIN)
+kiwi::base::FilePath GetFontsPath();
+#endif
+
 kiwi::base::FilePath GetDefaultSavePath();
 void ShellOpen(const kiwi::base::FilePath& file);
 void ShellOpenDirectory(const kiwi::base::FilePath& file);
+#if BUILDFLAG(IS_MAC)
 void RunExecutable(const kiwi::base::FilePath& bundle,
                    const std::vector<std::string>& args);
+#else
+void RunExecutable(const kiwi::base::FilePath& executable,
+                   const std::vector<std::wstring>& args);
+#endif
 
 #endif  // UTIL_H_

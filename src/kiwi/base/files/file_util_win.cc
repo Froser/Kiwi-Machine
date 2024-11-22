@@ -159,8 +159,6 @@ bool CreateDirectoryAndGetError(const FilePath& full_path, File::Error* error) {
     if ((fileattr & FILE_ATTRIBUTE_DIRECTORY) != 0) {
       return true;
     }
-    DLOG(WARNING) << "CreateDirectory(" << full_path_str << "), "
-                  << "conflicts with existing file.";
     if (error)
       *error = File::FILE_ERROR_NOT_A_DIRECTORY;
     ::SetLastError(ERROR_FILE_EXISTS);
@@ -199,7 +197,6 @@ bool CreateDirectoryAndGetError(const FilePath& full_path, File::Error* error) {
   if (error)
     *error = File::OSErrorToFileError(error_code);
   ::SetLastError(error_code);
-  DLOG(WARNING) << "Failed to create directory " << full_path_str;
   return false;
 }
 
@@ -214,6 +211,10 @@ bool DirectoryExists(const FilePath& path) {
   return false;
 }
 
+namespace internal {
+std::wstring UTF8ToWide(const std::string_view& utf8);
+}
+
 FILE* OpenFile(const FilePath& filename, const char* mode) {
   // 'N' is unconditionally added below, so be sure there is not one already
   // present before a comma in |mode|.
@@ -223,7 +224,7 @@ FILE* OpenFile(const FilePath& filename, const char* mode) {
   // Do not check blocking call because it is not supported.
   // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
   // BlockingType::MAY_BLOCK);
-  std::wstring w_mode = UTF8ToWide(mode);
+  std::wstring w_mode = internal::UTF8ToWide(mode);
   AppendModeCharacter(L'N', &w_mode);
   return _wfsopen(filename.value().c_str(), w_mode.c_str(), _SH_DENYNO);
 }

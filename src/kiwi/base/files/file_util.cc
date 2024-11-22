@@ -12,12 +12,26 @@
 
 #include "base/files/file_util.h"
 
-#include <span>
 #include <functional>
+#include <span>
 
 #include "base/files/file_path.h"
 #include "base/files/scoped_file.h"
 #include "base/posix/eintr_wrapper.h"
+
+#if BUILDFLAG(IS_WIN)
+#include <io.h>
+#include <windows.h>
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+#if defined(CreateDirectory)
+#undef CreateDirectory
+#endif
+#endif
 
 namespace kiwi::base {
 
