@@ -75,6 +75,15 @@ bool IsPathAbsolute(StringPieceType path) {
 #endif  // FILE_PATH_USES_DRIVE_LETTERS
 }
 
+bool AreAllSeparators(const StringType& input) {
+  for (auto it : input) {
+    if (!FilePath::IsSeparator(it))
+      return false;
+  }
+
+  return true;
+}
+
 FilePath::StringType::size_type FinalExtensionSeparatorPosition(
     const FilePath::StringType& path) {
   // Special case "." and ".."
@@ -310,6 +319,60 @@ FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {
 
 FilePath FilePath::Append(const FilePath& component) const {
   return Append(component.value());
+}
+
+bool FilePath::ReferencesParent() const {
+  if (path_.find(kParentDirectory) == StringType::npos) {
+    // GetComponents is quite expensive, so avoid calling it in the majority
+    // of cases where there isn't a kParentDirectory anywhere in the path.
+    return false;
+  }
+
+  const std::vector<StringType> components = GetComponents();
+  return std::any_of(
+      components.begin(), components.end(), [](const StringType& component) {
+#if BUILDFLAG(IS_WIN)
+        // Windows has odd, undocumented behavior with path components
+        // containing only whitespace and . characters. So, if all we see is .
+        // and whitespace, then we treat any .. sequence as referencing parent.
+        return component.find_first_not_of(FILE_PATH_LITERAL(". \n\r\t")) ==
+                   std::string::npos &&
+               component.find(kParentDirectory) != std::string::npos;
+#else
+        return component == kParentDirectory;
+#endif
+      });
+}
+std::vector<FilePath::StringType> FilePath::GetComponents() const {
+  std::vector<StringType> ret_val;
+  if (value().empty())
+    return ret_val;
+
+  FilePath current = *this;
+  FilePath base;
+
+  // Capture path components.
+  while (current != current.DirName()) {
+    base = current.BaseName();
+    if (!AreAllSeparators(base.value()))
+      ret_val.push_back(base.value());
+    current = current.DirName();
+  }
+
+  // Capture root, if any.
+  base = current.BaseName();
+  if (!base.value().empty() && base.value() != kCurrentDirectory)
+    ret_val.push_back(current.BaseName().value());
+
+  // Capture drive letter, if any.
+  FilePath dir = current.DirName();
+  StringType::size_type letter = FindDriveLetter(dir.value());
+  if (letter != StringType::npos)
+    ret_val.emplace_back(dir.value(), 0, letter + 1);
+
+  std::reverse(ret_val.begin(), ret_val.end());
+
+  return ret_val;
 }
 
 void FilePath::StripTrailingSeparatorsInternal() {

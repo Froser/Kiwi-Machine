@@ -21,6 +21,21 @@
 SDL_Window* g_window;
 SDL_Renderer* g_renderer;
 std::vector<ROMWindow> g_rom_windows;
+kiwi::base::FilePath g_dropped_jpg;
+kiwi::base::FilePath g_dropped_rom;
+
+kiwi::base::FilePath GetDroppedJPG() {
+  return g_dropped_jpg;
+}
+void ClearDroppedJPG() {
+  g_dropped_jpg.clear();
+}
+kiwi::base::FilePath GetDroppedROM() {
+  return g_dropped_rom;
+}
+void ClearDroppedROM() {
+  g_dropped_rom.clear();
+}
 
 void CreateROMWindow(ROMS roms, kiwi::base::FilePath file) {
   ROMWindow window(g_renderer, roms, file);
@@ -35,7 +50,7 @@ SDL_Window* CreateWindow() {
 }
 
 void RemoveClosedWindows() {
-  for (auto iter = g_rom_windows.begin(); iter != g_rom_windows.end();){
+  for (auto iter = g_rom_windows.begin(); iter != g_rom_windows.end();) {
     if (iter->closed())
       iter = g_rom_windows.erase(iter);
     else
@@ -82,7 +97,11 @@ void HandleDrop(SDL_Event& event) {
     if (IsPackageExtension(dropped_file)) {
       kiwi::base::FilePath file =
           kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
-      CreateROMWindow(ReadPackageFromFile(file), file);
+      CreateROMWindow(ReadZipFromFile(file), file);
+    } else if (IsJPEGExtension(dropped_file)) {
+      g_dropped_jpg = kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
+    } else if (IsNESExtension(dropped_file)) {
+      g_dropped_rom = kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
     }
     SDL_free(dropped_file);
   }
@@ -111,7 +130,7 @@ void Render() {
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
-  ImGui::ShowDemoWindow();
+  // ImGui::ShowDemoWindow();
 
   ImGui::BeginMainMenuBar();
   if (ImGui::BeginMenu(u8"资源包")) {
@@ -136,6 +155,8 @@ void Render() {
     rom_window.Painted();
   }
   RemoveClosedWindows();
+  ClearDroppedJPG();
+  ClearDroppedROM();
 }
 
 void Cleanup() {

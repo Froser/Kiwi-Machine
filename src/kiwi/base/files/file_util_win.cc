@@ -139,6 +139,12 @@ bool DeleteFileOrSetLastError(const FilePath& path, bool recursive) {
   return false;
 }
 
+void AppendModeCharacter(wchar_t mode_char, std::wstring* mode) {
+  size_t comma_pos = mode->find(L',');
+  mode->insert(comma_pos == std::wstring::npos ? mode->length() : comma_pos, 1,
+               mode_char);
+}
+
 }  // namespace
 
 bool DeletePathRecursively(const FilePath& path) {
@@ -206,6 +212,20 @@ bool DirectoryExists(const FilePath& path) {
   if (fileattr != INVALID_FILE_ATTRIBUTES)
     return (fileattr & FILE_ATTRIBUTE_DIRECTORY) != 0;
   return false;
+}
+
+FILE* OpenFile(const FilePath& filename, const char* mode) {
+  // 'N' is unconditionally added below, so be sure there is not one already
+  // present before a comma in |mode|.
+  DCHECK(
+      strchr(mode, 'N') == nullptr ||
+      (strchr(mode, ',') != nullptr && strchr(mode, 'N') > strchr(mode, ',')));
+  // Do not check blocking call because it is not supported.
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+  std::wstring w_mode = UTF8ToWide(mode);
+  AppendModeCharacter(L'N', &w_mode);
+  return _wfsopen(filename.value().c_str(), w_mode.c_str(), _SH_DENYNO);
 }
 
 }  // namespace kiwi::base

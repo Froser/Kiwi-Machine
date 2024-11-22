@@ -20,6 +20,8 @@
 #include "base/files/file_path.h"
 
 bool IsPackageExtension(const std::string& filename);
+bool IsJPEGExtension(const std::string& filename);
+bool IsNESExtension(const std::string& filename);
 
 class ROMWindow;
 struct ROM {
@@ -38,12 +40,25 @@ struct ROM {
   // Cover
   std::vector<uint8_t> cover_data;
 
+  std::vector<uint8_t> nes_data;
+  char nes_file_name[MAX]{0};
+
  private:
   SDL_Texture* cover_texture_ = nullptr;
 };
 
 using ROMS = std::vector<ROM>;
 
-[[nodiscard]] ROMS ReadPackageFromFile(const kiwi::base::FilePath& path);
+[[nodiscard]] ROMS ReadZipFromFile(const kiwi::base::FilePath& path);
+kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
+                              const ROMS& roms);
+kiwi::base::FilePath PackZip(const kiwi::base::FilePath& rom_zip,
+                             const kiwi::base::FilePath& save_dir);
+bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
+                       std::string& mapper_name);
+
+kiwi::base::FilePath GetDefaultSavePath();
+void ShellOpen(const kiwi::base::FilePath file);
+void ShellOpenDirectory(const kiwi::base::FilePath file);
 
 #endif  // UTIL_H_

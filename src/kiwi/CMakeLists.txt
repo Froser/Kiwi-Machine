@@ -12,7 +12,7 @@
 
 project(kiwi CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(third_party)
 
@@ -49,6 +49,8 @@ set(base_sources
         base/files/file_path.h
         base/files/file_util.cc
         base/files/file_util.h
+        base/files/scoped_file.cc
+        base/files/scoped_file.h
         base/functional/bind.h
         base/functional/bind_internal.h
         base/functional/callback.h
@@ -63,6 +65,7 @@ set(base_sources
         base/memory/ref_counted.cc
         base/memory/ref_counted.h
         base/message_loop/message_pump_type.h
+        base/posix/eintr_wrapper.h
         base/platform/platform_factory.cc
         base/platform/platform_factory.h
         base/strings/string_number_conversions.cc
@@ -76,6 +79,7 @@ set(base_sources
         base/strings/string_util_constants.cc
         base/strings/string_util_impl_helpers.h
         base/strings/string_util_internal.h
+        base/scoped_generic.h
         base/task/sequenced_task_runner.cc
         base/task/sequenced_task_runner.h
         base/task/bind_post_task.h

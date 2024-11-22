@@ -43,6 +43,12 @@ class ROMWindow {
   ROMS roms_;
   bool check_close_ = false;
   bool closed_ = false;
+  SDL_Renderer* renderer_ = nullptr;
+
+  bool show_message_box_ = false;
+  kiwi::base::FilePath generated_packaged_path_;
+
+  char save_path_[ROM::MAX] = {0};
 };
 
 #endif  // ROM_WINDOW_H_

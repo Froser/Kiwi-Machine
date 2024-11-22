@@ -15,12 +15,29 @@
 #include <SDL_image.h>
 #include <imgui.h>
 
+#include "base/files/file_util.h"
+
 static int g_window_id = 0;
+
+// Implements in main.cc
+kiwi::base::FilePath GetDroppedJPG();
+void ClearDroppedJPG();
+kiwi::base::FilePath GetDroppedROM();
+void ClearDroppedROM();
+
+SDL_Texture* EmptyTexture(SDL_Renderer* renderer = nullptr) {
+  static SDL_Texture* texture = SDL_CreateTexture(
+      renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, 1, 1);
+  return texture;
+}
 
 ROMWindow::ROMWindow(SDL_Renderer* renderer,
                      ROMS roms,
                      kiwi::base::FilePath file)
-    : roms_(roms), file_(file) {
+    : roms_(roms), file_(file), renderer_(renderer) {
+  EmptyTexture(renderer);
+
+  strncpy(save_path_, GetDefaultSavePath().AsUTF8Unsafe().c_str(), ROM::MAX);
   window_id_ = g_window_id++;
   for (auto& rom : roms_) {
     if (!rom.cover_data.empty()) {
@@ -44,8 +61,9 @@ ROMWindow::~ROMWindow() {
 }
 
 void ROMWindow::Paint() {
-  ImGui::Begin(GetUniqueName(file_.AsUTF8Unsafe(), window_id()).c_str(),
-               nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+  std::string window_name = GetUniqueName(file_.AsUTF8Unsafe(), window_id());
+  ImGui::Begin(window_name.c_str(), nullptr);
+  ImGui::SetWindowSize(window_name.c_str(), ImVec2(800, 700));
 
   if ((check_close_ && ImGui::IsWindowFocused())) {
     closed_ = true;
@@ -73,11 +91,55 @@ void ROMWindow::Paint() {
       ImGui::EndGroup();
       ImGui::BeginGroup();
       ImGui::SameLine();
-      if (rom.cover_texture_)
+      if (rom.cover_texture_) {
         ImGui::Image(rom.cover_texture_, ImVec2(100, 100));
-      else
-        ImGui::Dummy(ImVec2(100, 100));
+      } else {
+        ImGui::Image(EmptyTexture(), ImVec2(100, 100), ImVec2(0, 0),
+                     ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
+      }
+
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
+        kiwi::base::FilePath path = GetDroppedJPG();
+        if (!path.empty()) {
+          if (rom.cover_texture_)
+            SDL_DestroyTexture(rom.cover_texture_);
+
+          SDL_RWops* res = SDL_RWFromFile(path.AsUTF8Unsafe().c_str(), "rb");
+          if (res) {
+            SDL_Texture* texture =
+                IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
+            SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
+            rom.cover_texture_ = texture;
+          }
+        }
+        ClearDroppedJPG();
+      }
       ImGui::EndGroup();
+
+      ImGui::BeginGroup();
+      ImGui::TextUnformatted(u8"将nes拖拽到此处进行增加/修改");
+      ImGui::InputText(GetUniqueName("romfilename", id).c_str(),
+                       rom.nes_file_name, rom.MAX);
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
+        kiwi::base::FilePath path = GetDroppedROM();
+        if (!path.empty()) {
+          std::optional<std::vector<uint8_t>> rom_contents =
+              kiwi::base::ReadFileToBytes(path);
+          if (rom_contents) {
+            strncpy(rom.nes_file_name, path.BaseName().AsUTF8Unsafe().c_str(),
+                    rom.MAX);
+            rom.nes_data = std::move(*rom_contents);
+          }
+        }
+        ClearDroppedROM();
+      }
+
+      std::string mapper;
+      bool supported = IsMapperSupported(rom.nes_data, mapper);
+      ImGui::Text(u8"Mapper: %s", mapper.c_str());
+      ImGui::Text(u8"KiwiMachine是否支持打开: %s", supported ? u8"是" : u8"否");
+      ImGui::EndGroup();
+
       if (ImGui::Button(GetUniqueName(u8"删除此ROM", id).c_str())) {
         to_be_deleted_ = id;
       }
@@ -88,7 +150,24 @@ void ROMWindow::Paint() {
   }
 
   if (ImGui::Button(GetUniqueName(u8"增加一个ROM", 0).c_str())) {
-    roms_.push_back(ROM());
+    ROM new_rom;
+    if (roms_.empty())
+      strncpy(new_rom.name, "default", new_rom.MAX);
+    roms_.push_back(std::move(new_rom));
+  }
+
+  ImGui::InputText(GetUniqueName(u8"另存文件目录", 0).c_str(), save_path_,
+                   sizeof(save_path_));
+  if (ImGui::Button(GetUniqueName(u8"保存", 0).c_str())) {
+    if (kiwi::base::FilePath output =
+            WriteZip(kiwi::base::FilePath::FromUTF8Unsafe(save_path_), roms_);
+        !output.empty()) {
+      generated_packaged_path_ = output;
+      show_message_box_ = true;
+    } else {
+      generated_packaged_path_.clear();
+      show_message_box_ = true;
+    }
   }
 
   if (ImGui::Button(GetUniqueName(u8"关闭", 0).c_str())) {
@@ -96,6 +175,33 @@ void ROMWindow::Paint() {
   }
 
   ImGui::End();
+
+  if (show_message_box_) {
+    ImGui::Begin("MessageBox", &show_message_box_,
+                 ImGuiWindowFlags_AlwaysAutoResize);
+    if (!generated_packaged_path_.empty()) {
+      ImGui::Text(u8"保存文件成功：%s",
+                  generated_packaged_path_.AsUTF8Unsafe().c_str());
+      if (ImGui::Button(GetUniqueName(u8"打开zip", 0).c_str())) {
+        ShellOpen(generated_packaged_path_);
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"打开zip所在文件夹", 0).c_str())) {
+        ShellOpenDirectory(generated_packaged_path_);
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"测试", 0).c_str())) {
+        PackZip(generated_packaged_path_, GetDefaultSavePath());
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"确认", 0).c_str())) {
+        show_message_box_ = false;
+      }
+    } else {
+      ImGui::TextUnformatted(u8"保存文件失败");
+    }
+    ImGui::End();
+  }
 }
 
 void ROMWindow::Close() {

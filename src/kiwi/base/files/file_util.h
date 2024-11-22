@@ -16,6 +16,8 @@
 #include <stdint.h>
 #include <fstream>
 #include <memory>
+#include <optional>
+#include <vector>
 
 #include "base/base_export.h"
 #include "base/files/file.h"
@@ -57,6 +59,27 @@ BASE_EXPORT bool PathExists(const FilePath& path);
 
 // Returns true if the given path exists and is a directory, false otherwise.
 BASE_EXPORT bool DirectoryExists(const FilePath& path);
+
+// Wrapper for fopen-like calls. Returns non-NULL FILE* on success. The
+// underlying file descriptor (POSIX) or handle (Windows) is unconditionally
+// configured to not be propagated to child processes.
+BASE_EXPORT FILE* OpenFile(const FilePath& filename, const char* mode);
+
+// Closes file opened by OpenFile. Returns true on success.
+BASE_EXPORT bool CloseFile(FILE* file);
+
+// Reads the file at |path| and returns a vector of bytes on success, and
+// nullopt on error. For security reasons, a |path| containing path traversal
+// components ('..') is treated as a read error, returning nullopt.
+BASE_EXPORT std::optional<std::vector<uint8_t>> ReadFileToBytes(
+    const FilePath& path);
+
+#if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+// Sets the given |fd| to close-on-exec mode.
+// Returns true if it was able to set it in the close-on-exec mode, otherwise
+// false.
+BASE_EXPORT bool SetCloseOnExec(int fd);
+#endif
 
 }  // namespace kiwi::base
 
