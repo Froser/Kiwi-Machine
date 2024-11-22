@@ -120,7 +120,7 @@ void ROMWindow::Paint() {
 
       ImGui::BeginGroup();
       ImGui::TextUnformatted(u8"将nes拖拽到此处进行增加/修改");
-      ImGui::InputText(GetUniqueName("romfilename", id).c_str(),
+      ImGui::InputText(GetUniqueName(u8"ROM名称", id).c_str(),
                        rom.nes_file_name, rom.MAX);
       if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
         kiwi::base::FilePath path = GetDroppedROM();
@@ -203,14 +203,20 @@ void ROMWindow::Paint() {
 #if BUILDFLAG(IS_MAC)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.app"));
+          RunExecutable(
+              kiwi_machine,
+              {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
 #elif BUILDFLAG(IS_WIN)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.exe"));
-#else
-          kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
-#endif
           RunExecutable(kiwi_machine,
                         {L"--test-pak=" + package_path.value(), L"--has_menu"});
+#else
+          kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
+          RunExecutable(
+              kiwi_machine,
+              {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
+#endif
         }
       }
       ImGui::SameLine();
