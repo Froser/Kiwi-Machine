@@ -53,6 +53,9 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
                               const ROMS& roms);
 kiwi::base::FilePath PackZip(const kiwi::base::FilePath& rom_zip,
                              const kiwi::base::FilePath& save_dir);
+kiwi::base::FilePath WriteROM(const char* filename,
+                              const std::vector<uint8_t>& data,
+                              const kiwi::base::FilePath& dir);
 bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
                        std::string& mapper_name);
 

@@ -127,6 +127,7 @@ class MainWindow : public WindowBase,
   void InitializeUI();
   void InitializeIODevices();
   void InitializeDebugROMsOnIOThread();
+  void LoadTestRomIfSpecified();
 
   void LoadROMByPath(kiwi::base::FilePath rom_path);
   void StartAutoSave();

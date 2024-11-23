@@ -16,6 +16,8 @@
 #include <imgui.h>
 #include <string>
 
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "rom_window.h"
 
 SDL_Window* g_window;
@@ -165,6 +167,18 @@ void Render() {
   }
   RemoveClosedWindows();
   ClearDroppedJPG();
+
+  if (!g_dropped_rom.empty()) {
+    auto cover_data = kiwi::base::ReadFileToBytes(g_dropped_rom);
+    if (cover_data) {
+      ROM rom;
+      strncpy(rom.nes_file_name,
+              g_dropped_rom.BaseName().AsUTF8Unsafe().c_str(), rom.MAX);
+      rom.key = "default";
+      rom.nes_data = std::move(*cover_data);
+      CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath());
+    }
+  }
   ClearDroppedROM();
 }
 

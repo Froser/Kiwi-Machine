@@ -48,6 +48,7 @@
 namespace {
 
 DEFINE_bool(has_menu, false, "Shows a menu bar at the top of the window.");
+DEFINE_string(test_rom, "", "Specifies a ROM's path to load");
 
 MainWindow* g_main_window_instance = nullptr;
 
@@ -246,6 +247,8 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
       kiwi::base::BindOnce(&MainWindow::InitializeUI,
                            kiwi::base::Unretained(this))
           .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
+                                     kiwi::base::Unretained(this)))
+          .Then(kiwi::base::BindOnce(&MainWindow::LoadTestRomIfSpecified,
                                      kiwi::base::Unretained(this)))
           .Then(std::move(callback)));
 }
@@ -890,6 +893,14 @@ void MainWindow::InitializeDebugROMsOnIOThread() {
         &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
   }
 #endif
+}
+
+void MainWindow::LoadTestRomIfSpecified() {
+  if (!FLAGS_test_rom.empty()) {
+    if (FLAGS_has_menu) {
+      LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_rom));
+    }
+  }
 }
 
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {

@@ -11,6 +11,9 @@
 // GNU General Public License for more details.
 
 #include "util.h"
+
+#include <fstream>
+
 #include "../third_party/nlohmann_json/json.hpp"
 #include "base/strings/string_util.h"
 #include "kiwi_nes.h"
@@ -286,6 +289,22 @@ kiwi::base::FilePath PackZip(const kiwi::base::FilePath& rom_zip,
 
   zipClose(zf, nullptr);
   return kiwi::base::FilePath::FromUTF8Unsafe(output);
+}
+
+kiwi::base::FilePath WriteROM(const char* filename,
+                              const std::vector<uint8_t>& data,
+                              const kiwi::base::FilePath& dir) {
+  kiwi::base::FilePath output =
+      dir.Append(kiwi::base::FilePath::FromUTF8Unsafe(filename));
+
+  std::ofstream out_rom(output.AsUTF8Unsafe(), std::ios::binary);
+  if (out_rom.is_open()) {
+    out_rom.write(reinterpret_cast<const char*>(data.data()), data.size());
+    out_rom.close();
+    return output;
+  } else {
+    return kiwi::base::FilePath();
+  }
 }
 
 bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
