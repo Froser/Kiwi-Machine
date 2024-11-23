@@ -113,16 +113,16 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
         for (const auto& title : rom_item.value().items()) {
           if (title.key() == "zh") {
             std::string zh = title.value();
-            strncpy(rom.zh, zh.c_str(), ROM::MAX);
+            strcpy(rom.zh, zh.c_str());
           } else if (title.key() == "zh-hint") {
             std::string zh_hint = title.value();
-            strncpy(rom.zh_hint, zh_hint.c_str(), ROM::MAX);
+            strcpy(rom.zh_hint, zh_hint.c_str());
           } else if (title.key() == "ja") {
             std::string jp = title.value();
-            strncpy(rom.ja, jp.c_str(), ROM::MAX);
+            strcpy(rom.ja, jp.c_str());
           } else if (title.key() == "ja-hint") {
             std::string jp_hint = title.value();
-            strncpy(rom.ja_hint, jp_hint.c_str(), ROM::MAX);
+            strcpy(rom.ja_hint, jp_hint.c_str());
           }
         }
 
@@ -161,7 +161,7 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
         if (!ReadCurrentFileFromZip(file, rom.nes_data))
           continue;
 
-        strncpy(rom.nes_file_name, nes_name.c_str(), rom.MAX);
+        strcpy(rom.nes_file_name, nes_name.c_str());
 
         result.push_back(rom);
       }
@@ -194,11 +194,11 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
     if (strlen(rom.zh) > 0)
       titles["zh"] = rom.zh;
     if (strlen(rom.zh_hint) > 0)
-      titles["zh_hint"] = rom.zh_hint;
+      titles["zh-hint"] = rom.zh_hint;
     if (strlen(rom.ja) > 0)
       titles["ja"] = rom.zh;
     if (strlen(rom.ja_hint) > 0)
-      titles["ja_hint"] = rom.ja_hint;
+      titles["ja-hint"] = rom.ja_hint;
     json["titles"][rom.key] = titles;
 
     if (kiwi::base::CompareCaseInsensitiveASCII("default", rom.key) == 0) {

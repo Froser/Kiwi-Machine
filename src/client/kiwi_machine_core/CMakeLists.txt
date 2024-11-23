@@ -44,6 +44,7 @@ set(Sources
         debug/debug_port.h
         debug/debug_roms.cc
         debug/debug_roms.h
+        kiwi_flags.h
         kiwi_main.h
         kiwi_main.cc
         models/nes_audio.cc

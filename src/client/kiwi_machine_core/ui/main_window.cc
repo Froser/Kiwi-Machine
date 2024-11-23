@@ -19,6 +19,7 @@
 
 #include "build/kiwi_defines.h"
 #include "debug/debug_roms.h"
+#include "kiwi_flags.h"
 #include "preset_roms/preset_roms.h"
 #include "resources/image_resources.h"
 #include "ui/application.h"
@@ -45,10 +46,9 @@
 #include "utility/math.h"
 #include "utility/zip_reader.h"
 
-namespace {
-
 DEFINE_bool(has_menu, false, "Shows a menu bar at the top of the window.");
-DEFINE_string(test_rom, "", "Specifies a ROM's path to load");
+
+namespace {
 
 MainWindow* g_main_window_instance = nullptr;
 

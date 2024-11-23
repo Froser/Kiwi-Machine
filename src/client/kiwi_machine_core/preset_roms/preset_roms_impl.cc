@@ -11,21 +11,29 @@
 // GNU General Public License for more details.
 
 #include "preset_roms/preset_roms.h"
-#include "utility/zip_reader.h"
 
 #include <gflags/gflags.h>
 #include <vector>
+
+#include "utility/zip_reader.h"
+#include "kiwi_flags.h"
 
 DEFINE_string(
     test_pak,
     "",
     "Specifies a package for testing. It will be added to the side menu");
+DEFINE_string(test_rom, "", "Specifies a ROM's path to load");
 
 namespace preset_roms {
 std::vector<Package*> GetPresetRomsPackages();
 
 std::vector<Package*> GetPresetOrTestRomsPackages() {
 #if defined(KIWI_USE_EXTERNAL_PAK)
+  // When a test rom is specified, it means we are in a headless mode.
+  if (!FLAGS_test_rom.empty()) {
+    return std::vector<Package*>();
+  }
+
   if (!FLAGS_test_pak.empty()) {
     static std::vector<Package*> leaky_package = {CreatePackageFromFile(
         kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_pak))};

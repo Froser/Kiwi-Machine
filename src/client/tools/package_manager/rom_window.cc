@@ -38,7 +38,7 @@ ROMWindow::ROMWindow(SDL_Renderer* renderer,
     : roms_(roms), file_(file), renderer_(renderer) {
   EmptyTexture(renderer);
 
-  strncpy(save_path_, GetDefaultSavePath().AsUTF8Unsafe().c_str(), ROM::MAX);
+  strcpy(save_path_, GetDefaultSavePath().AsUTF8Unsafe().c_str());
   window_id_ = g_window_id++;
   for (auto& rom : roms_) {
     if (!rom.cover_data.empty()) {
@@ -78,6 +78,20 @@ void ROMWindow::Paint() {
     for (auto& rom : roms_) {
       ImGui::BeginGroup();
       ImGui::TextUnformatted(rom.key.c_str());
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"日版", id).c_str())) {
+        strcat(rom.zh, u8"（日）");
+        strcat(rom.zh_hint, u8" (ri)");
+        strcat(rom.ja, u8"（日）");
+        strcat(rom.ja_hint, u8"（にち）");
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"美版", id).c_str())) {
+        strcat(rom.zh, u8"（美）");
+        strcat(rom.zh_hint, u8" (mei)");
+        strcat(rom.ja, u8"（米）");
+        strcat(rom.ja_hint, u8"（べい）");
+      }
 
       ImGui::InputText(GetUniqueName(u8"中文标题", id).c_str(), rom.zh,
                        rom.MAX);
@@ -122,6 +136,21 @@ void ROMWindow::Paint() {
       ImGui::TextUnformatted(u8"将nes拖拽到此处进行增加/修改");
       ImGui::InputText(GetUniqueName(u8"ROM名称", id).c_str(),
                        rom.nes_file_name, rom.MAX);
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
+        kiwi::base::FilePath path = GetDroppedROM();
+        if (!path.empty()) {
+          std::optional<std::vector<uint8_t>> rom_contents =
+              kiwi::base::ReadFileToBytes(path);
+          if (rom_contents) {
+            strcpy(rom.nes_file_name, path.BaseName().AsUTF8Unsafe().c_str());
+            rom.nes_data = std::move(*rom_contents);
+            if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") != 0)
+              rom.key = path.BaseName().RemoveExtension().AsUTF8Unsafe();
+          }
+        }
+        ClearDroppedROM();
+      }
+
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"测试", id).c_str())) {
         kiwi::base::FilePath output_rom =
@@ -149,22 +178,6 @@ void ROMWindow::Paint() {
         }
       }
 
-      if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
-        kiwi::base::FilePath path = GetDroppedROM();
-        if (!path.empty()) {
-          std::optional<std::vector<uint8_t>> rom_contents =
-              kiwi::base::ReadFileToBytes(path);
-          if (rom_contents) {
-            strncpy(rom.nes_file_name, path.BaseName().AsUTF8Unsafe().c_str(),
-                    rom.MAX);
-            rom.nes_data = std::move(*rom_contents);
-            if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") != 0)
-              rom.key = path.BaseName().RemoveExtension().AsUTF8Unsafe();
-          }
-        }
-        ClearDroppedROM();
-      }
-
       std::string mapper;
       bool supported = IsMapperSupported(rom.nes_data, mapper);
       ImGui::Text(u8"Mapper: %s", mapper.c_str());
@@ -182,8 +195,15 @@ void ROMWindow::Paint() {
 
   if (ImGui::Button(GetUniqueName(u8"增加一个ROM", 0).c_str())) {
     ROM new_rom;
-    if (roms_.empty())
+    if (roms_.empty()) {
       new_rom.key = "default";
+    } else {
+      strcpy(new_rom.zh, roms_[0].zh);
+      strcpy(new_rom.zh_hint, roms_[0].zh_hint);
+      strcpy(new_rom.ja, roms_[0].ja);
+      strcpy(new_rom.ja_hint, roms_[0].ja_hint);
+    }
+
     roms_.push_back(std::move(new_rom));
   }
 

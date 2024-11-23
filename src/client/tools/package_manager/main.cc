@@ -172,8 +172,8 @@ void Render() {
     auto cover_data = kiwi::base::ReadFileToBytes(g_dropped_rom);
     if (cover_data) {
       ROM rom;
-      strncpy(rom.nes_file_name,
-              g_dropped_rom.BaseName().AsUTF8Unsafe().c_str(), rom.MAX);
+      strcpy(rom.nes_file_name,
+             g_dropped_rom.BaseName().AsUTF8Unsafe().c_str());
       rom.key = "default";
       rom.nes_data = std::move(*cover_data);
       CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath());

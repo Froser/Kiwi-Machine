@@ -14,6 +14,7 @@
 #define UI_MAIN_WINDOW_H_
 
 #include <SDL.h>
+#include <gflags/gflags.h>
 
 #include "build/kiwi_defines.h"
 #include "models/nes_audio.h"
