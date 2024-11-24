@@ -102,8 +102,8 @@ void ROMWindow::Paint() {
       ImGui::InputText(GetUniqueName(u8"日文提示", id).c_str(), rom.ja_hint,
                        rom.MAX);
       ImGui::EndGroup();
-      ImGui::BeginGroup();
       ImGui::SameLine();
+      ImGui::BeginGroup();
       if (rom.cover_texture_) {
         ImGui::Image(rom.cover_texture_, ImVec2(100, 100));
       } else {
@@ -114,21 +114,19 @@ void ROMWindow::Paint() {
       if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
         kiwi::base::FilePath path = GetDroppedJPG();
         if (!path.empty()) {
-          if (rom.cover_texture_)
-            SDL_DestroyTexture(rom.cover_texture_);
-
-          SDL_RWops* res = SDL_RWFromFile(path.AsUTF8Unsafe().c_str(), "rb");
-          if (res) {
-            SDL_Texture* texture =
-                IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
-            SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
-            rom.cover_texture_ = texture;
-            auto cover_data = kiwi::base::ReadFileToBytes(path);
-            SDL_assert(cover_data);
-            rom.cover_data = std::move(*cover_data);
-          }
+          FillCoverData(rom, path);
         }
         ClearDroppedJPG();
+      }
+
+      if (ImGui::Button(GetUniqueName(u8"尝试获取封面", id).c_str())) {
+        kiwi::base::FilePath image_path = TryFetchCoverImage(
+            kiwi::base::FilePath::FromUTF8Unsafe(rom.nes_file_name)
+                .RemoveExtension()
+                .AsUTF8Unsafe());
+        if (!image_path.empty()) {
+          FillCoverData(rom, image_path);
+        }
       }
       ImGui::EndGroup();
 
@@ -293,4 +291,19 @@ void ROMWindow::Painted() {
     roms_.erase(roms_.begin() + to_be_deleted_);
   }
   to_be_deleted_ = -1;
+}
+
+void ROMWindow::FillCoverData(ROM& rom, const kiwi::base::FilePath& path) {
+  if (rom.cover_texture_)
+    SDL_DestroyTexture(rom.cover_texture_);
+
+  SDL_RWops* res = SDL_RWFromFile(path.AsUTF8Unsafe().c_str(), "rb");
+  if (res) {
+    SDL_Texture* texture = IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
+    SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
+    rom.cover_texture_ = texture;
+    auto cover_data = kiwi::base::ReadFileToBytes(path);
+    SDL_assert(cover_data);
+    rom.cover_data = std::move(*cover_data);
+  }
 }

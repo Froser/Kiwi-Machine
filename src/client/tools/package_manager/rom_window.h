@@ -35,6 +35,7 @@ class ROMWindow {
 
  private:
   std::string GetUniqueName(const std::string& name, int unique_id);
+  void FillCoverData(ROM& rom, const kiwi::base::FilePath& path);
 
  private:
   int window_id_ = 0;

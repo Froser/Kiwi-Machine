@@ -74,4 +74,6 @@ void RunExecutable(const kiwi::base::FilePath& executable,
                    const std::vector<std::wstring>& args);
 #endif
 
+kiwi::base::FilePath TryFetchCoverImage(const std::string& name);
+
 #endif  // UTIL_H_

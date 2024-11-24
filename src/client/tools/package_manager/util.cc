@@ -12,7 +12,8 @@
 
 #include "util.h"
 
-#include <fstream>
+#include <stdio.h>
+#include <cstdio>
 
 #include "../third_party/nlohmann_json/json.hpp"
 #include "base/strings/string_util.h"
@@ -35,6 +36,62 @@ static const std::string g_package_manifest_template =
 }
 }
 )";
+
+static const std::string g_py3_fetch_code =
+    u8R"T(from urllib.parse import quote
+from urllib.request import Request, urlopen
+import ssl
+import re
+import sys
+import random
+from pathlib import Path
+
+user_agents = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/540.30 (KHTML, HTML5) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, HTML5) Chrome/89.0.4389.82 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, HTML5) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 10; SM-G980F) AppleWebKit/537.36 (KHTML, HTML5) Chrome/89.0.4389.82 Mobile Safari/537.36"
+]
+
+
+def search_site_content(search, download_path):
+    params = quote(search)
+    url = "https://cse.google.com/cse/element/v1?rsz=filtered_cse&num=10&hl=en&source=gcsc&cselibv=8fa85d58e016b414&cx=002230802627130757280%3Afp34oki149w&safe=off&cse_tok=AB-tC_5R4I7tN1fbraZkXo7ZzdeE%3A1732451055997&sort=&exp=cc%2Capo&callback=google.search.cse.api13082&q=" + params
+
+    headers = {
+        "User-Agent": random.choice(user_agents)
+    }
+
+    req = Request(url, headers=headers, method="GET")
+
+    try:
+        context = ssl._create_unverified_context()
+        response = urlopen(req, context=context)
+        html = response.read().decode('utf-8')
+        link_pattern = re.compile(r'"src": "(.*?)"')
+        images = link_pattern.findall(html)
+        if len(images) > 0:
+            if images[0][-4:] == ".jpg":
+                dst_path = Path(download_path) / "tmp_cover.jpg"
+                req = Request(images[0], headers=headers, method="GET")
+                response = urlopen(req, context=context)
+                with open(dst_path, 'wb') as file:
+                    block_size = 1024
+                    while True:
+                        data = response.read(block_size)
+                        if not data:
+                            break
+                        file.write(data)
+                    print(f"{dst_path}")
+    except Exception as e:
+        print(f"Exception{e}")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 2:
+        search = sys.argv[1]
+        download_path = sys.argv[2]
+        search_site_content(search, download_path))T";
 
 bool ReadCurrentFileFromZip(unzFile file, std::vector<uint8_t>& data) {
   unzOpenCurrentFile(file);
@@ -316,4 +373,35 @@ bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
   uint8_t mapper = ((nes_data[6] >> 4) & 0xf) | (nes_data[7] & 0xf0);
   mapper_name = kiwi::base::NumberToString(mapper);
   return kiwi::nes::Mapper::IsMapperSupported(mapper);
+}
+
+kiwi::base::FilePath TryFetchCoverImage(const std::string& name) {
+  kiwi::base::FilePath tmp_py_fetch_script =
+      GetDefaultSavePath().Append(FILE_PATH_LITERAL("temp_fetch.py"));
+  std::ofstream out_py(tmp_py_fetch_script.AsUTF8Unsafe(), std::ios::binary);
+  if (out_py.is_open()) {
+    out_py.write(reinterpret_cast<const char*>(g_py3_fetch_code.data()),
+                 g_py3_fetch_code.size());
+    out_py.close();
+
+    // Run script
+    std::string command =
+        "python3 " + tmp_py_fetch_script.AsUTF8Unsafe() + " \"" + name + "\"";
+    command += " \"" + GetDefaultSavePath().AsUTF8Unsafe() + "\"";
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe) {
+      return kiwi::base::FilePath();
+    }
+    char buffer[1024];
+    std::string output;
+    while (std::fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+      output += buffer;
+    }
+    pclose(pipe);
+    std::string trimmed_path;
+    kiwi::base::TrimString(output, "\r\n", &trimmed_path);
+    return kiwi::base::FilePath::FromUTF8Unsafe(trimmed_path);
+  }
+
+  return kiwi::base::FilePath();
 }
