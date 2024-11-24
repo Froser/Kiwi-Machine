@@ -147,15 +147,17 @@ void Render() {
       if (ImGui::MenuItem(u8"新建", "CTRL+N")) {
         CreateROMWindow(ROMS(), kiwi::base::FilePath());
       }
-
-      ImGui::TextUnformatted(u8"包管理器，方便轻松打包NES资源。");
-      ImGui::TextUnformatted(u8"准备工作：");
-      ImGui::TextUnformatted(u8"- 将KiwiMachine的非内嵌版拷贝到本程序路径下");
-      ImGui::TextUnformatted(u8"- 需要安装Python3");
-      ImGui::TextUnformatted(u8"- 需要可以访问Google");
       ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
+
+    ImGui::Begin(u8"使用须知");
+    ImGui::TextUnformatted(u8"包管理器，方便轻松打包NES资源。");
+    ImGui::TextUnformatted(u8"准备工作：");
+    ImGui::TextUnformatted(u8"- 将KiwiMachine的非内嵌版拷贝到本程序路径下");
+    ImGui::TextUnformatted(u8"- 需要安装Python3");
+    ImGui::TextUnformatted(u8"- 需要可以访问Google");
+    ImGui::End();
   }
 
   for (auto& rom_window : g_rom_windows) {

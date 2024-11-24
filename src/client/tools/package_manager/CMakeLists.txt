@@ -67,6 +67,7 @@ target_link_libraries(${PROJECT_NAME}
         SDL2-static
         SDL2_image
         minizip
+        libjpeg
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)

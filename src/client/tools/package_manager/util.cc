@@ -12,8 +12,13 @@
 
 #include "util.h"
 
+#include <SDL_image.h>
 #include <stdio.h>
-#include <cstdio>
+
+extern "C" {
+#include "../third_party/jpeg-6b/jerror.h"
+#include "../third_party/jpeg-6b/jpeglib.h"
+}
 
 #include "../third_party/nlohmann_json/json.hpp"
 #include "base/strings/string_util.h"
@@ -22,6 +27,38 @@
 #include "third_party/zlib-1.3/contrib/minizip/zip.h"
 
 namespace {
+void init_source(j_decompress_ptr cinfo) {}
+boolean fill_input_buffer(j_decompress_ptr cinfo) {
+  ERREXIT(cinfo, JERR_INPUT_EMPTY);
+  return TRUE;
+}
+void skip_input_data(j_decompress_ptr cinfo, long num_bytes) {
+  struct jpeg_source_mgr* src = (struct jpeg_source_mgr*)cinfo->src;
+
+  if (num_bytes > 0) {
+    src->next_input_byte += (size_t)num_bytes;
+    src->bytes_in_buffer -= (size_t)num_bytes;
+  }
+}
+void term_source(j_decompress_ptr cinfo) {}
+
+void jpeg_mem_src(j_decompress_ptr cinfo, void* buffer, long nbytes) {
+  struct jpeg_source_mgr* src;
+
+  if (cinfo->src == NULL) { /* first time for this JPEG object? */
+    cinfo->src = (struct jpeg_source_mgr*)(*cinfo->mem->alloc_small)(
+        (j_common_ptr)cinfo, JPOOL_PERMANENT, sizeof(struct jpeg_source_mgr));
+  }
+
+  src = (struct jpeg_source_mgr*)cinfo->src;
+  src->init_source = init_source;
+  src->fill_input_buffer = fill_input_buffer;
+  src->skip_input_data = skip_input_data;
+  src->resync_to_restart = jpeg_resync_to_restart; /* use default method */
+  src->term_source = term_source;
+  src->bytes_in_buffer = nbytes;
+  src->next_input_byte = (JOCTET*)buffer;
+}
 
 static const std::string g_package_manifest_template =
     u8R"({
@@ -404,4 +441,80 @@ kiwi::base::FilePath TryFetchCoverImage(const std::string& name) {
   }
 
   return kiwi::base::FilePath();
+}
+
+std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
+  jpeg_decompress_struct cinfo{0};
+  jpeg_compress_struct out_cinfo{0};
+
+  jpeg_mem_src(&cinfo, input_data.data(), input_data.size());
+  jpeg_read_header(&cinfo, true);
+  jpeg_start_decompress(&cinfo);
+
+  int width = cinfo.output_width;
+  int height = cinfo.output_height;
+  int num_components = cinfo.output_components;
+
+  int new_width = height, new_height = width;
+  JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)(
+      (j_common_ptr)&cinfo, JPOOL_IMAGE, new_width * num_components, 1);
+  JSAMPARRAY rotated_buffer = (*cinfo.mem->alloc_sarray)(
+      (j_common_ptr)&cinfo, JPOOL_IMAGE, new_width * num_components, 1);
+
+  kiwi::base::FilePath output =
+      GetDefaultSavePath().Append(FILE_PATH_LITERAL("tmp_rotated_cover.jpg"));
+  std::string output_filename = output.AsUTF8Unsafe();
+  jpeg_create_compress(&out_cinfo);
+  FILE* outfile = fopen(output_filename.c_str(), "wb");
+  if (outfile == nullptr) {
+    jpeg_destroy_decompress(&cinfo);
+    jpeg_destroy_compress(&out_cinfo);
+    return std::vector<uint8_t>();
+  }
+  jpeg_stdio_dest(&out_cinfo, outfile);
+  out_cinfo.image_width = new_width;
+  out_cinfo.image_height = new_height;
+  out_cinfo.input_components = num_components;
+  if (num_components == 3) {
+    out_cinfo.in_color_space = JCS_RGB;
+  } else if (num_components == 4) {
+    return std::vector<uint8_t>();
+  } else {
+    fclose(outfile);
+    jpeg_destroy_decompress(&cinfo);
+    jpeg_destroy_compress(&out_cinfo);
+    return std::vector<uint8_t>();
+  }
+  jpeg_set_defaults(&out_cinfo);
+  jpeg_set_quality(&out_cinfo, 85, TRUE);
+  jpeg_start_compress(&out_cinfo, TRUE);
+
+  double cos_angle = cos(90 * (M_PI / 180.0));
+  double sin_angle = sin(90 * (M_PI / 180.0));
+  while (cinfo.output_scanline < cinfo.output_height) {
+    jpeg_read_scanlines(&cinfo, buffer, 1);
+    for (int y = 0; y < new_height; ++y) {
+      for (int x = 0; x < new_width; ++x) {
+        int src_x = (x - new_width / 2) * cos_angle +
+                    (y - new_height / 2) * sin_angle + width / 2;
+        int src_y = -(x - new_width / 2) * sin_angle +
+                    (y - new_height / 2) * cos_angle + height / 2;
+        if (src_x >= 0 && src_x < width && src_y >= 0 && src_y < height) {
+          for (int c = 0; c < num_components; ++c) {
+            rotated_buffer[y][x * num_components + c] =
+                buffer[src_y][src_x * num_components + c];
+          }
+        }
+      }
+    }
+    jpeg_write_scanlines(&out_cinfo, rotated_buffer, 1);
+  }
+
+  jpeg_finish_compress(&out_cinfo);
+  fclose(outfile);
+  jpeg_destroy_decompress(&cinfo);
+  jpeg_destroy_compress(&out_cinfo);
+
+  auto data = kiwi::base::ReadFileToBytes(output);
+  return *data;
 }

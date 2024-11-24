@@ -75,5 +75,6 @@ void RunExecutable(const kiwi::base::FilePath& executable,
 #endif
 
 kiwi::base::FilePath TryFetchCoverImage(const std::string& name);
+std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> cover_data);
 
 #endif  // UTIL_H_
