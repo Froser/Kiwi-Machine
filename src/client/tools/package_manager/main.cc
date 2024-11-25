@@ -39,8 +39,10 @@ void ClearDroppedROM() {
   g_dropped_rom.clear();
 }
 
-void CreateROMWindow(ROMS roms, kiwi::base::FilePath file) {
+void CreateROMWindow(ROMS roms, kiwi::base::FilePath file, bool new_rom) {
   ROMWindow window(g_renderer, roms, file);
+  if (new_rom)
+    window.NewRom();
   g_rom_windows.push_back(std::move(window));
 }
 
@@ -107,7 +109,7 @@ void HandleDrop(SDL_Event& event) {
     if (IsPackageExtension(dropped_file)) {
       kiwi::base::FilePath file =
           kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
-      CreateROMWindow(ReadZipFromFile(file), file);
+      CreateROMWindow(ReadZipFromFile(file), file, false);
     } else if (IsJPEGExtension(dropped_file)) {
       g_dropped_jpg = kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
     } else if (IsNESExtension(dropped_file)) {
@@ -145,7 +147,7 @@ void Render() {
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu(u8"资源包")) {
       if (ImGui::MenuItem(u8"新建", "CTRL+N")) {
-        CreateROMWindow(ROMS(), kiwi::base::FilePath());
+        CreateROMWindow(ROMS(), kiwi::base::FilePath(), true);
       }
       ImGui::EndMenu();
     }
@@ -184,7 +186,8 @@ void Render() {
              g_dropped_rom.BaseName().AsUTF8Unsafe().c_str());
       rom.key = "default";
       rom.nes_data = std::move(*cover_data);
-      CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath());
+      CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath(),
+                      false);
     }
   }
   ClearDroppedROM();

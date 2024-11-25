@@ -195,17 +195,7 @@ void ROMWindow::Paint() {
   }
 
   if (ImGui::Button(GetUniqueName(u8"增加一个ROM", 0).c_str())) {
-    ROM new_rom;
-    if (roms_.empty()) {
-      new_rom.key = "default";
-    } else {
-      strcpy(new_rom.zh, roms_[0].zh);
-      strcpy(new_rom.zh_hint, roms_[0].zh_hint);
-      strcpy(new_rom.ja, roms_[0].ja);
-      strcpy(new_rom.ja_hint, roms_[0].ja_hint);
-    }
-
-    roms_.push_back(std::move(new_rom));
+    NewRom();
   }
 
   ImGui::NewLine();
@@ -320,4 +310,18 @@ void ROMWindow::FillCoverData(ROM& rom, const std::vector<uint8_t>& data) {
   SDL_Texture* texture = IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
   SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
   rom.cover_texture_ = texture;
+}
+
+void ROMWindow::NewRom() {
+  ROM new_rom;
+  if (roms_.empty()) {
+    new_rom.key = "default";
+  } else {
+    strcpy(new_rom.zh, roms_[0].zh);
+    strcpy(new_rom.zh_hint, roms_[0].zh_hint);
+    strcpy(new_rom.ja, roms_[0].ja);
+    strcpy(new_rom.ja_hint, roms_[0].ja_hint);
+  }
+
+  roms_.push_back(std::move(new_rom));
 }

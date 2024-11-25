@@ -32,6 +32,7 @@ class ROMWindow {
   void Close();
   int window_id() const { return window_id_; }
   bool closed() const { return closed_; }
+  void NewRom();
 
  private:
   std::string GetUniqueName(const std::string& name, int unique_id);
