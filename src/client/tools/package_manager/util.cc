@@ -15,6 +15,7 @@
 #include <SDL_image.h>
 #include <stdio.h>
 #include <csetjmp>
+#include <regex>
 
 #include "../third_party/libjpeg-turbo-jpeg-9f/jpeglib.h"
 #include "../third_party/nlohmann_json/json.hpp"
@@ -29,6 +30,9 @@ Settings& GetSettings() {
 }
 
 namespace {
+
+#include "db.inc"
+
 static const std::string g_package_manifest_template =
     u8R"({
 "titles": {
@@ -196,9 +200,50 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
   return "";
 }
 
+int LevenshteinDistance(const std::string& s1, const std::string& s2) {
+  int m = s1.length();
+  int n = s2.length();
+  std::vector<std::vector<int>> dp(m + 1, std::vector<int>(n + 1));
+  for (int i = 0; i <= m; ++i) {
+    dp[i][0] = i;
+  }
+  for (int j = 0; j <= n; ++j) {
+    dp[0][j] = j;
+  }
+  for (int i = 1; i <= m; ++i) {
+    for (int j = 1; j <= n; ++j) {
+      if (s1[i - 1] == s2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + std::min({dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]});
+      }
+    }
+  }
+  return dp[m][n];
+}
+
+std::string RemoveQuote(const std::string& str) {
+  if (str.empty())
+    return str;
+
+  std::string result;
+  if (str[0] == '\"') {
+    result = str.substr(1, str.size() - 1);
+  }
+
+  if (result.empty())
+    return result;
+
+  if (result[result.size() - 1] == '\"') {
+    result = result.substr(0, str.size() - 2);
+  }
+
+  return result;
+}
+
 }  // namespace
 
-bool IsPackageExtension(const std::string& filename) {
+bool IsZipExtension(const std::string& filename) {
   kiwi::base::FilePath file_path =
       kiwi::base::FilePath::FromUTF8Unsafe(filename);
   return file_path.Extension() == FILE_PATH_LITERAL(".zip");
@@ -467,6 +512,33 @@ std::string TryGetKana(const std::string& kanji) {
   return RunPython3Code(g_py3_kana_code, kanji);
 }
 
+std::string TryGetJaTitle(const std::string& en_name) {
+  static const nlohmann::json kGames =
+      nlohmann::json::parse(g_db)["database"]["game"];
+  std::multimap<int, std::pair<std::string, std::string>> result;
+  for (const auto& game : kGames) {
+    std::string rom_name = to_string(game["$"]["name"]);
+    std::string alter_name =
+        game["$"].contains("altname") ? to_string(game["$"]["altname"]) : "";
+    std::string region = RemoveQuote(to_string(game["$"]["region"]));
+    if (kiwi::base::CompareCaseInsensitiveASCII(region, "japan") == 0) {
+      alter_name = RemoveQuote(alter_name) + "（日）";
+    } else if (kiwi::base::CompareCaseInsensitiveASCII(region, "usa") == 0) {
+      alter_name = RemoveQuote(alter_name) + "（米）";
+    }
+    int dis = LevenshteinDistance(rom_name, en_name);
+    result.insert({dis, {RemoveQuote(rom_name), alter_name}});
+  }
+
+  return !result.empty() ? (result.begin()->second.second) : std::string();
+}
+
+std::string RemoveROMRegion(const std::string& str) {
+  std::regex pattern(R"( \((.*)\)\.nes)");
+  std::string replacement = "";
+  return std::regex_replace(str, pattern, replacement);
+}
+
 std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
   jpeg_decompress_struct cinfo;
   jpeg_compress_struct out_cinfo;
@@ -537,6 +609,21 @@ std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
   memcpy(data.data(), outbuffer, out_size);
   free(outbuffer);
   return data;
+}
+
+void FillRomDetailsAutomatically(ROM& rom,
+                                 const kiwi::base::FilePath& basename) {
+  std::string maybe_pinyin = TryGetPinyin(rom.zh);
+  if (!maybe_pinyin.empty())
+    strcpy(rom.zh_hint, maybe_pinyin.c_str());
+  std::string rom_name_without_region =
+      RemoveROMRegion(basename.AsUTF8Unsafe());
+  std::string maybe_ja_name = TryGetJaTitle(rom_name_without_region);
+  if (!maybe_ja_name.empty())
+    strcpy(rom.ja, maybe_ja_name.c_str());
+  std::string maybe_kana = TryGetKana(rom.ja);
+  if (!maybe_kana.empty())
+    strcpy(rom.ja_hint, maybe_kana.c_str());
 }
 
 void RunThread(kiwi::base::OnceClosure runnable) {

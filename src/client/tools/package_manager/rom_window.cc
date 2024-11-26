@@ -72,8 +72,16 @@ void ROMWindow::Paint() {
   if (!roms_.empty()) {
     int id = 0;
     for (auto& rom : roms_) {
+      kiwi::base::FilePath rom_base_name =
+          kiwi::base::FilePath::FromUTF8Unsafe(rom.nes_file_name);
       ImGui::BeginGroup();
       ImGui::TextUnformatted(rom.key.c_str());
+
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"自动填充", id).c_str())) {
+        FillRomDetailsAutomatically(rom, rom_base_name);
+      }
+
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"日版", id).c_str())) {
         strcat(rom.zh, u8"（日）");
@@ -87,17 +95,6 @@ void ROMWindow::Paint() {
         strcat(rom.zh_hint, u8" (mei)");
         strcat(rom.ja, u8"（米）");
         strcat(rom.ja_hint, u8"（べい）");
-      }
-
-      ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"自动填充", id).c_str())) {
-        std::string maybe_pinyin = TryGetPinyin(rom.zh);
-        if (!maybe_pinyin.empty())
-          strcpy(rom.zh_hint, maybe_pinyin.c_str());
-
-        std::string maybe_kana = TryGetKana(rom.ja);
-        if (!maybe_kana.empty())
-          strcpy(rom.ja_hint, maybe_kana.c_str());
       }
 
       ImGui::InputText(GetUniqueName(u8"中文标题", id).c_str(), rom.zh,
@@ -127,17 +124,7 @@ void ROMWindow::Paint() {
       }
 
       if (ImGui::Button(GetUniqueName(u8"尝试获取封面", id).c_str())) {
-        RunThread(kiwi::base::BindOnce(
-            [](ROM* rom, ROMWindow* this_window) {
-              kiwi::base::FilePath image_path = TryFetchCoverImage(
-                  kiwi::base::FilePath::FromUTF8Unsafe(rom->nes_file_name)
-                      .RemoveExtension()
-                      .AsUTF8Unsafe());
-              if (!image_path.empty()) {
-                this_window->FillCoverData(*rom, image_path);
-              }
-            },
-            &rom, this));
+        TryFetchCoverAsync(rom, rom_base_name);
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"旋转", id).c_str())) {
@@ -346,4 +333,17 @@ void ROMWindow::NewRom() {
   }
 
   roms_.push_back(std::move(new_rom));
+}
+
+void ROMWindow::TryFetchCoverAsync(ROM& rom,
+                                   const kiwi::base::FilePath& rom_base_name) {
+  RunThread(kiwi::base::BindOnce(
+      [](ROM* rom, ROMWindow* this_window, kiwi::base::FilePath rom_pure_name) {
+        kiwi::base::FilePath image_path =
+            TryFetchCoverImage(rom_pure_name.AsUTF8Unsafe());
+        if (!image_path.empty()) {
+          this_window->FillCoverData(*rom, image_path);
+        }
+      },
+      &rom, this, rom_base_name.RemoveExtension()));
 }

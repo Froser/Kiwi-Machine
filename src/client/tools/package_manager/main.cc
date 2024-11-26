@@ -40,10 +40,18 @@ void ClearDroppedROM() {
   g_dropped_rom.clear();
 }
 
-void CreateROMWindow(ROMS roms, kiwi::base::FilePath file, bool new_rom) {
+void CreateROMWindow(ROMS roms,
+                     kiwi::base::FilePath file,
+                     bool new_rom,
+                     bool fetch_image) {
   ROMWindow window(g_renderer, roms, file);
   if (new_rom)
     window.NewRom();
+  if (fetch_image && window.first_rom()) {
+    window.TryFetchCoverAsync(*window.first_rom(),
+                              kiwi::base::FilePath::FromUTF8Unsafe(
+                                  window.first_rom()->nes_file_name));
+  }
   g_rom_windows.push_back(std::move(window));
 }
 
@@ -107,10 +115,10 @@ bool InitSDL() {
 void HandleDrop(SDL_Event& event) {
   char* dropped_file = event.drop.file;
   if (dropped_file) {
-    if (IsPackageExtension(dropped_file)) {
+    if (IsZipExtension(dropped_file)) {
       kiwi::base::FilePath file =
           kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
-      CreateROMWindow(ReadZipFromFile(file), file, false);
+      CreateROMWindow(ReadZipFromFile(file), file, false, false);
     } else if (IsJPEGExtension(dropped_file)) {
       g_dropped_jpg = kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
     } else if (IsNESExtension(dropped_file)) {
@@ -148,7 +156,7 @@ void Render() {
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu(u8"资源包")) {
       if (ImGui::MenuItem(u8"新建", "CTRL+N")) {
-        CreateROMWindow(ROMS(), kiwi::base::FilePath(), true);
+        CreateROMWindow(ROMS(), kiwi::base::FilePath(), true, false);
       }
       ImGui::EndMenu();
     }
@@ -211,8 +219,9 @@ void Render() {
              g_dropped_rom.BaseName().AsUTF8Unsafe().c_str());
       rom.key = "default";
       rom.nes_data = std::move(*cover_data);
+      FillRomDetailsAutomatically(rom, g_dropped_rom.BaseName());
       CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath(),
-                      false);
+                      false, true);
     }
   }
   ClearDroppedROM();

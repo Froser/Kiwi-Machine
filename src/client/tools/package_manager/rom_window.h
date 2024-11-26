@@ -33,6 +33,8 @@ class ROMWindow {
   int window_id() const { return window_id_; }
   bool closed() const { return closed_; }
   void NewRom();
+  void TryFetchCoverAsync(ROM& rom, const kiwi::base::FilePath& rom_base_name);
+  ROM* first_rom() { return roms_.empty() ? nullptr : &roms_[0]; }
 
  private:
   std::string GetUniqueName(const std::string& name, int unique_id);

@@ -30,7 +30,7 @@ struct Settings {
 };
 
 Settings& GetSettings();
-bool IsPackageExtension(const std::string& filename);
+bool IsZipExtension(const std::string& filename);
 bool IsJPEGExtension(const std::string& filename);
 bool IsNESExtension(const std::string& filename);
 
@@ -88,7 +88,11 @@ void RunExecutable(const kiwi::base::FilePath& executable,
 kiwi::base::FilePath TryFetchCoverImage(const std::string& name);
 std::string TryGetPinyin(const std::string& chinese);
 std::string TryGetKana(const std::string& kanji);
+std::string TryGetJaTitle(const std::string& en_name);
+std::string RemoveROMRegion(const std::string& str);
 std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> cover_data);
+void FillRomDetailsAutomatically(ROM& rom,
+                                 const kiwi::base::FilePath& filename);
 void RunThread(kiwi::base::OnceClosure runnable);
 
 #endif  // UTIL_H_
