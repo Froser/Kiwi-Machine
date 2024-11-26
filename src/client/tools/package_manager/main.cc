@@ -19,6 +19,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "rom_window.h"
+#include "util.h"
 
 SDL_Window* g_window;
 SDL_Renderer* g_renderer;
@@ -153,12 +154,36 @@ void Render() {
     }
     ImGui::EndMainMenuBar();
 
-    ImGui::Begin(u8"使用须知");
+    ImGui::Begin(u8"全局设置");
     ImGui::TextUnformatted(u8"包管理器，方便轻松打包NES资源。");
     ImGui::TextUnformatted(u8"准备工作：");
-    ImGui::TextUnformatted(u8"- 将KiwiMachine的非内嵌版拷贝到本程序路径下");
-    ImGui::TextUnformatted(u8"- 需要安装Python3");
-    ImGui::TextUnformatted(u8"- 需要可以访问Google");
+
+    ImGui::Bullet();
+    ImGui::SameLine();
+    ImGui::TextUnformatted(u8"将KiwiMachine的非内嵌版拷贝到本程序路径下");
+
+    ImGui::Bullet();
+    ImGui::SameLine();
+    ImGui::TextUnformatted(
+        u8"为了能够自动注音，需要安装Python3，并通过pip3安装pinyin依赖：");
+    ImGui::TextUnformatted("\t");
+    ImGui::SameLine();
+    ImGui::Bullet();
+    ImGui::TextUnformatted("pip3 install pinyin");
+    ImGui::TextUnformatted("\t");
+    ImGui::SameLine();
+    ImGui::Bullet();
+    ImGui::TextUnformatted("pip3 install pykakasi  ");
+
+    ImGui::Bullet();
+    ImGui::SameLine();
+    ImGui::TextUnformatted(u8"为了能自动获取封面，需要可以访问Google");
+
+    ImGui::NewLine();
+    ImGui::TextUnformatted(u8"全局设置");
+    ImGui::TextUnformatted(u8"封面搜索URL，可能会变化");
+    ImGui::InputText("##CoverUrl", GetSettings().cover_query_url,
+                     sizeof(GetSettings().cover_query_url));
     ImGui::End();
   }
 

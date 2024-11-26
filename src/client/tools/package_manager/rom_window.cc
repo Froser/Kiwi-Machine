@@ -36,6 +36,7 @@ ROMWindow::ROMWindow(SDL_Renderer* renderer,
                      ROMS roms,
                      kiwi::base::FilePath file)
     : roms_(roms), file_(file), renderer_(renderer) {
+  cover_update_mutex_ = SDL_CreateMutex();
   EmptyTexture(renderer);
 
   strcpy(save_path_, GetDefaultSavePath().AsUTF8Unsafe().c_str());
@@ -88,6 +89,17 @@ void ROMWindow::Paint() {
         strcat(rom.ja_hint, u8"（べい）");
       }
 
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"自动填充", id).c_str())) {
+        std::string maybe_pinyin = TryGetPinyin(rom.zh);
+        if (!maybe_pinyin.empty())
+          strcpy(rom.zh_hint, maybe_pinyin.c_str());
+
+        std::string maybe_kana = TryGetKana(rom.ja);
+        if (!maybe_kana.empty())
+          strcpy(rom.ja_hint, maybe_kana.c_str());
+      }
+
       ImGui::InputText(GetUniqueName(u8"中文标题", id).c_str(), rom.zh,
                        rom.MAX);
       ImGui::InputText(GetUniqueName(u8"中文提示", id).c_str(), rom.zh_hint,
@@ -115,19 +127,23 @@ void ROMWindow::Paint() {
       }
 
       if (ImGui::Button(GetUniqueName(u8"尝试获取封面", id).c_str())) {
-        kiwi::base::FilePath image_path = TryFetchCoverImage(
-            kiwi::base::FilePath::FromUTF8Unsafe(rom.nes_file_name)
-                .RemoveExtension()
-                .AsUTF8Unsafe());
-        if (!image_path.empty()) {
-          FillCoverData(rom, image_path);
-        }
+        RunThread(kiwi::base::BindOnce(
+            [](ROM* rom, ROMWindow* this_window) {
+              kiwi::base::FilePath image_path = TryFetchCoverImage(
+                  kiwi::base::FilePath::FromUTF8Unsafe(rom->nes_file_name)
+                      .RemoveExtension()
+                      .AsUTF8Unsafe());
+              if (!image_path.empty()) {
+                this_window->FillCoverData(*rom, image_path);
+              }
+            },
+            &rom, this));
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"旋转", id).c_str())) {
         std::vector<uint8_t> rotated_data = RotateJPEG(rom.cover_data);
         if (!rotated_data.empty()) {
-          rom.cover_data = std::move(rotated_data);
+          UpdateCover(rom, rotated_data);
           FillCoverData(rom, rom.cover_data);
         }
       }
@@ -297,7 +313,7 @@ void ROMWindow::FillCoverData(ROM& rom, const kiwi::base::FilePath& path) {
     rom.cover_texture_ = texture;
     auto cover_data = kiwi::base::ReadFileToBytes(path);
     SDL_assert(cover_data);
-    rom.cover_data = std::move(*cover_data);
+    UpdateCover(rom, std::move(*cover_data));
   }
 }
 
@@ -305,11 +321,17 @@ void ROMWindow::FillCoverData(ROM& rom, const std::vector<uint8_t>& data) {
   if (rom.cover_texture_)
     SDL_DestroyTexture(rom.cover_texture_);
 
-  SDL_RWops* res = SDL_RWFromMem(
-      const_cast<unsigned char*>(rom.cover_data.data()), rom.cover_data.size());
+  SDL_RWops* res =
+      SDL_RWFromMem(const_cast<unsigned char*>(data.data()), data.size());
   SDL_Texture* texture = IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
   SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
   rom.cover_texture_ = texture;
+}
+
+void ROMWindow::UpdateCover(ROM& rom, const std::vector<uint8_t>& data) {
+  SDL_LockMutex(cover_update_mutex_);
+  rom.cover_data = data;
+  SDL_UnlockMutex(cover_update_mutex_);
 }
 
 void ROMWindow::NewRom() {

@@ -23,6 +23,11 @@
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3/contrib/minizip/zip.h"
 
+Settings& GetSettings() {
+  static Settings settings;
+  return settings;
+}
+
 namespace {
 static const std::string g_package_manifest_template =
     u8R"({
@@ -55,9 +60,9 @@ user_agents = [
 ]
 
 
-def search_site_content(search, download_path):
+def search_site_content(urlbase, search, download_path):
     params = quote(search)
-    url = "https://cse.google.com/cse/element/v1?rsz=filtered_cse&num=10&hl=en&source=gcsc&cselibv=8fa85d58e016b414&cx=002230802627130757280%3Afp34oki149w&safe=off&cse_tok=AB-tC_5R4I7tN1fbraZkXo7ZzdeE%3A1732451055997&sort=&exp=cc%2Capo&callback=google.search.cse.api13082&q=" + params
+    url = urlbase + params
 
     headers = {
         "User-Agent": random.choice(user_agents)
@@ -72,27 +77,65 @@ def search_site_content(search, download_path):
         link_pattern = re.compile(r'"src": "(.*?)"')
         images = link_pattern.findall(html)
         if len(images) > 0:
-            if images[0][-4:] == ".jpg":
-                dst_path = Path(download_path) / "tmp_cover.jpg"
-                req = Request(images[0], headers=headers, method="GET")
-                response = urlopen(req, context=context)
-                with open(dst_path, 'wb') as file:
-                    block_size = 1024
-                    while True:
-                        data = response.read(block_size)
-                        if not data:
-                            break
-                        file.write(data)
-                    print(f"{dst_path}")
+            for i in range(len(images)):
+                if images[i][-4:] == ".jpg":
+                    dst_path = Path(download_path) / "tmp_cover.jpg"
+                    req = Request(images[i], headers=headers, method="GET")
+                    response = urlopen(req, context=context)
+                    with open(dst_path, 'wb') as file:
+                        block_size = 1024
+                        while True:
+                            data = response.read(block_size)
+                            if not data:
+                                break
+                            file.write(data)
+                        print(f"{dst_path}")
+                    break
     except Exception as e:
         print(f"Exception{e}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 3:
         search = sys.argv[1]
         download_path = sys.argv[2]
-        search_site_content(search, download_path))T";
+        urlbase = sys.argv[3]
+        search_site_content(urlbase, search, download_path))T";
+
+static const std::string g_py3_pinyin_code = R"(import pinyin, sys
+def getpinyin(text):
+    pinyin_result = pinyin.get(text, format='strip')
+    pinyin_result = pinyin_result.replace('（', ' (')
+    pinyin_result = pinyin_result.replace('）', ')')
+    print(pinyin_result)
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        getpinyin(sys.argv[1]))";
+
+static const std::string g_py3_kana_code = R"(import pykakasi, sys
+def getkana(text):
+    kakasi = pykakasi.kakasi()
+    kakasi.setMode(fr="J", to="H")
+    conv = kakasi.getConverter()
+    result=conv.do(text)
+    result = result.replace('（こめ）', '（べい）')
+    print(result)
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        getkana(sys.argv[1]))";
+
+struct WorkerData {
+  kiwi::base::OnceClosure runnable;
+};
+
+int SDLCALL WorkerThread(void* data) {
+  WorkerData* worker_data = static_cast<WorkerData*>(data);
+  std::move(worker_data->runnable).Run();
+  delete worker_data;
+  return 0;
+}
 
 bool ReadCurrentFileFromZip(unzFile file, std::vector<uint8_t>& data) {
   unzOpenCurrentFile(file);
@@ -120,6 +163,37 @@ bool WriteToZip(zipFile zf,
 
   zipCloseFileInZip(zf);
   return true;
+}
+
+std::string RunPython3Code(const std::string& code, const std::string& args) {
+  kiwi::base::FilePath tmp_py_fetch_script =
+      GetDefaultSavePath().Append(FILE_PATH_LITERAL("temp.py"));
+  std::ofstream out_py(tmp_py_fetch_script.AsUTF8Unsafe(), std::ios::binary);
+  if (out_py.is_open()) {
+    out_py.write(reinterpret_cast<const char*>(code.data()), code.size());
+    out_py.close();
+
+    // Run script
+    std::string command =
+        "python3 " + tmp_py_fetch_script.AsUTF8Unsafe() + " \"" + args + "\"";
+    command += " \"" + GetDefaultSavePath().AsUTF8Unsafe() + "\" \"" +
+               GetSettings().cover_query_url + "\"";
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe) {
+      return "";
+    }
+    char buffer[1024];
+    std::string output;
+    while (std::fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+      output += buffer;
+    }
+    pclose(pipe);
+
+    std::string trimmed;
+    kiwi::base::TrimString(output, "\r\n", &trimmed);
+    return trimmed;
+  }
+  return "";
 }
 
 }  // namespace
@@ -377,34 +451,20 @@ bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
 }
 
 kiwi::base::FilePath TryFetchCoverImage(const std::string& name) {
-  kiwi::base::FilePath tmp_py_fetch_script =
-      GetDefaultSavePath().Append(FILE_PATH_LITERAL("temp_fetch.py"));
-  std::ofstream out_py(tmp_py_fetch_script.AsUTF8Unsafe(), std::ios::binary);
-  if (out_py.is_open()) {
-    out_py.write(reinterpret_cast<const char*>(g_py3_fetch_code.data()),
-                 g_py3_fetch_code.size());
-    out_py.close();
-
-    // Run script
-    std::string command =
-        "python3 " + tmp_py_fetch_script.AsUTF8Unsafe() + " \"" + name + "\"";
-    command += " \"" + GetDefaultSavePath().AsUTF8Unsafe() + "\"";
-    FILE* pipe = popen(command.c_str(), "r");
-    if (!pipe) {
-      return kiwi::base::FilePath();
-    }
-    char buffer[1024];
-    std::string output;
-    while (std::fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-      output += buffer;
-    }
-    pclose(pipe);
-    std::string trimmed_path;
-    kiwi::base::TrimString(output, "\r\n", &trimmed_path);
-    return kiwi::base::FilePath::FromUTF8Unsafe(trimmed_path);
+  std::string output = RunPython3Code(g_py3_fetch_code, name);
+  if (!output.empty()) {
+    return kiwi::base::FilePath::FromUTF8Unsafe(output);
   }
 
   return kiwi::base::FilePath();
+}
+
+std::string TryGetPinyin(const std::string& chinese) {
+  return RunPython3Code(g_py3_pinyin_code, chinese);
+}
+
+std::string TryGetKana(const std::string& kanji) {
+  return RunPython3Code(g_py3_kana_code, kanji);
 }
 
 std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
@@ -477,4 +537,12 @@ std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
   memcpy(data.data(), outbuffer, out_size);
   free(outbuffer);
   return data;
+}
+
+void RunThread(kiwi::base::OnceClosure runnable) {
+  WorkerData* worker_data = new WorkerData();
+  worker_data->runnable = std::move(runnable);
+  SDL_Thread* g_leaky_thread =
+      SDL_CreateThread(WorkerThread, "Worker", worker_data);
+  SDL_DetachThread(g_leaky_thread);
 }

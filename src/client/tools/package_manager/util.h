@@ -18,7 +18,18 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 
+struct Settings {
+  char cover_query_url[1024] =
+      "https://cse.google.com/cse/element/"
+      "v1?rsz=filtered_cse&num=10&hl=en&source=gcsc&cselibv=8fa85d58e016b414&"
+      "cx=002230802627130757280%3Afp34oki149w&safe=off&cse_tok=AB-tC_5-"
+      "z84mBuhHZUOccUeA5L6N%3A1732549608708&sort=&exp=cc%2Capo&fexp=72801196%"
+      "2C72801194%2C72801195&callback=google.search.cse.api18412&q=";
+};
+
+Settings& GetSettings();
 bool IsPackageExtension(const std::string& filename);
 bool IsJPEGExtension(const std::string& filename);
 bool IsNESExtension(const std::string& filename);
@@ -75,6 +86,9 @@ void RunExecutable(const kiwi::base::FilePath& executable,
 #endif
 
 kiwi::base::FilePath TryFetchCoverImage(const std::string& name);
+std::string TryGetPinyin(const std::string& chinese);
+std::string TryGetKana(const std::string& kanji);
 std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> cover_data);
+void RunThread(kiwi::base::OnceClosure runnable);
 
 #endif  // UTIL_H_

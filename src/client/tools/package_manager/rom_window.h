@@ -38,6 +38,7 @@ class ROMWindow {
   std::string GetUniqueName(const std::string& name, int unique_id);
   void FillCoverData(ROM& rom, const kiwi::base::FilePath& path);
   void FillCoverData(ROM& rom, const std::vector<uint8_t>& data);
+  void UpdateCover(ROM& rom, const std::vector<uint8_t>& data);
 
  private:
   int window_id_ = 0;
@@ -52,6 +53,7 @@ class ROMWindow {
   kiwi::base::FilePath generated_packaged_path_;
 
   char save_path_[ROM::MAX] = {0};
+  SDL_mutex* cover_update_mutex_ = nullptr;
 };
 
 #endif  // ROM_WINDOW_H_
