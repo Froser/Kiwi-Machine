@@ -76,3 +76,11 @@ target_include_directories(${PROJECT_NAME}
         PRIVATE
         "../../../third_party/imgui"
 )
+
+add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ARGS "${${PROJECT_NAME}_SOURCE_DIR}/boxarts.zip" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/boxarts.zip"
+        VERBATIM
+)

@@ -495,13 +495,51 @@ bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
   return kiwi::nes::Mapper::IsMapperSupported(mapper);
 }
 
-kiwi::base::FilePath TryFetchCoverImage(const std::string& name) {
-  std::string output = RunPython3Code(g_py3_fetch_code, name);
-  if (!output.empty()) {
-    return kiwi::base::FilePath::FromUTF8Unsafe(output);
+std::vector<uint8_t> TryFetchCoverImage(const std::string& name) {
+  static unzFile g_leaky_file = unzOpen("boxarts.zip");
+  static std::set<std::pair<std::string, std::string>> g_boxarts;
+  if (g_boxarts.empty()) {
+    if (g_leaky_file) {
+      int ret = unzGoToFirstFile(g_leaky_file);
+      while (ret == UNZ_OK) {
+        char filename[ROM::MAX];
+        unzGetCurrentFileInfo(g_leaky_file, nullptr, filename, ROM::MAX,
+                              nullptr, 0, nullptr, 0);
+        g_boxarts.insert(
+            {filename, kiwi::base::FilePath::FromUTF8Unsafe(filename)
+                           .RemoveExtension()
+                           .AsUTF8Unsafe()});
+        ret = unzGoToNextFile(g_leaky_file);
+      }
+    }
   }
 
-  return kiwi::base::FilePath();
+  std::multimap<int, std::string> r;
+  for (const auto& boxart : g_boxarts) {
+    int dis = LevenshteinDistance(RemoveROMRegion(name), boxart.second);
+    r.insert({dis, boxart.first});
+  }
+
+  std::vector<uint8_t> result;
+  if (!r.empty() && r.begin()->first < 10) {
+    // Read from local
+    unzLocateFile(g_leaky_file, r.begin()->second.c_str(), 1);
+    if (ReadCurrentFileFromZip(g_leaky_file, result))
+      return result;
+  } else {
+    // Fetch from internet
+    std::string output = RunPython3Code(g_py3_fetch_code, name);
+    if (!output.empty()) {
+      auto maybe_result = kiwi::base::ReadFileToBytes(
+          kiwi::base::FilePath::FromUTF8Unsafe(output));
+      if (maybe_result) {
+        result = *maybe_result;
+        return result;
+      }
+    }
+  }
+
+  return std::vector<uint8_t>();
 }
 
 std::string TryGetPinyin(const std::string& chinese) {
@@ -624,12 +662,4 @@ void FillRomDetailsAutomatically(ROM& rom,
   std::string maybe_kana = TryGetKana(rom.ja);
   if (!maybe_kana.empty())
     strcpy(rom.ja_hint, maybe_kana.c_str());
-}
-
-void RunThread(kiwi::base::OnceClosure runnable) {
-  WorkerData* worker_data = new WorkerData();
-  worker_data->runnable = std::move(runnable);
-  SDL_Thread* g_leaky_thread =
-      SDL_CreateThread(WorkerThread, "Worker", worker_data);
-  SDL_DetachThread(g_leaky_thread);
 }

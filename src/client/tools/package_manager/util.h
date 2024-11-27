@@ -85,7 +85,7 @@ void RunExecutable(const kiwi::base::FilePath& executable,
                    const std::vector<std::wstring>& args);
 #endif
 
-kiwi::base::FilePath TryFetchCoverImage(const std::string& name);
+std::vector<uint8_t> TryFetchCoverImage(const std::string& name);
 std::string TryGetPinyin(const std::string& chinese);
 std::string TryGetKana(const std::string& kanji);
 std::string TryGetJaTitle(const std::string& en_name);
@@ -93,6 +93,5 @@ std::string RemoveROMRegion(const std::string& str);
 std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> cover_data);
 void FillRomDetailsAutomatically(ROM& rom,
                                  const kiwi::base::FilePath& filename);
-void RunThread(kiwi::base::OnceClosure runnable);
 
 #endif  // UTIL_H_

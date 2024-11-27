@@ -124,7 +124,7 @@ void ROMWindow::Paint() {
       }
 
       if (ImGui::Button(GetUniqueName(u8"尝试获取封面", id).c_str())) {
-        TryFetchCoverAsync(rom, rom_base_name);
+        TryFetchCoverByName(rom, rom_base_name);
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"旋转", id).c_str())) {
@@ -313,6 +313,7 @@ void ROMWindow::FillCoverData(ROM& rom, const std::vector<uint8_t>& data) {
   SDL_Texture* texture = IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
   SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
   rom.cover_texture_ = texture;
+  UpdateCover(rom, std::move(data));
 }
 
 void ROMWindow::UpdateCover(ROM& rom, const std::vector<uint8_t>& data) {
@@ -335,15 +336,10 @@ void ROMWindow::NewRom() {
   roms_.push_back(std::move(new_rom));
 }
 
-void ROMWindow::TryFetchCoverAsync(ROM& rom,
-                                   const kiwi::base::FilePath& rom_base_name) {
-  RunThread(kiwi::base::BindOnce(
-      [](ROM* rom, ROMWindow* this_window, kiwi::base::FilePath rom_pure_name) {
-        kiwi::base::FilePath image_path =
-            TryFetchCoverImage(rom_pure_name.AsUTF8Unsafe());
-        if (!image_path.empty()) {
-          this_window->FillCoverData(*rom, image_path);
-        }
-      },
-      &rom, this, rom_base_name.RemoveExtension()));
+void ROMWindow::TryFetchCoverByName(ROM& rom,
+                                    const kiwi::base::FilePath& rom_base_name) {
+  std::vector<uint8_t> data = TryFetchCoverImage(rom_base_name.AsUTF8Unsafe());
+  if (!data.empty()) {
+    FillCoverData(rom, data);
+  }
 }

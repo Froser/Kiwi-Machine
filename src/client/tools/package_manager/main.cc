@@ -48,9 +48,9 @@ void CreateROMWindow(ROMS roms,
   if (new_rom)
     window.NewRom();
   if (fetch_image && window.first_rom()) {
-    window.TryFetchCoverAsync(*window.first_rom(),
-                              kiwi::base::FilePath::FromUTF8Unsafe(
-                                  window.first_rom()->nes_file_name));
+    window.TryFetchCoverByName(*window.first_rom(),
+                               kiwi::base::FilePath::FromUTF8Unsafe(
+                                   window.first_rom()->nes_file_name));
   }
   g_rom_windows.push_back(std::move(window));
 }
