@@ -24,6 +24,14 @@
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3/contrib/minizip/zip.h"
 
+DEFINE_string(output, "", "Default final output path or a nes zip file.");
+
+constexpr int kMaxLevenshteinDistance = 10;
+
+Settings::Settings() {
+  strcpy(zip_output_path, FLAGS_output.c_str());
+}
+
 Settings& GetSettings() {
   static Settings settings;
   return settings;
@@ -46,65 +54,6 @@ static const std::string g_package_manifest_template =
 }
 }
 )";
-
-static const std::string g_py3_fetch_code =
-    u8R"T(from urllib.parse import quote
-from urllib.request import Request, urlopen
-import ssl
-import re
-import sys
-import random
-from pathlib import Path
-
-user_agents = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/540.30 (KHTML, HTML5) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, HTML5) Chrome/89.0.4389.82 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, HTML5) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 10; SM-G980F) AppleWebKit/537.36 (KHTML, HTML5) Chrome/89.0.4389.82 Mobile Safari/537.36"
-]
-
-
-def search_site_content(urlbase, search, download_path):
-    params = quote(search)
-    url = urlbase + params
-
-    headers = {
-        "User-Agent": random.choice(user_agents)
-    }
-
-    req = Request(url, headers=headers, method="GET")
-
-    try:
-        context = ssl._create_unverified_context()
-        response = urlopen(req, context=context)
-        html = response.read().decode('utf-8')
-        link_pattern = re.compile(r'"src": "(.*?)"')
-        images = link_pattern.findall(html)
-        if len(images) > 0:
-            for i in range(len(images)):
-                if images[i][-4:] == ".jpg":
-                    dst_path = Path(download_path) / "tmp_cover.jpg"
-                    req = Request(images[i], headers=headers, method="GET")
-                    response = urlopen(req, context=context)
-                    with open(dst_path, 'wb') as file:
-                        block_size = 1024
-                        while True:
-                            data = response.read(block_size)
-                            if not data:
-                                break
-                            file.write(data)
-                        print(f"{dst_path}")
-                    break
-    except Exception as e:
-        print(f"Exception{e}")
-
-
-if __name__ == "__main__":
-    if len(sys.argv) > 3:
-        search = sys.argv[1]
-        download_path = sys.argv[2]
-        urlbase = sys.argv[3]
-        search_site_content(urlbase, search, download_path))T";
 
 static const std::string g_py3_pinyin_code = R"(import pinyin, sys
 def getpinyin(text):
@@ -180,8 +129,6 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
     // Run script
     std::string command =
         "python3 " + tmp_py_fetch_script.AsUTF8Unsafe() + " \"" + args + "\"";
-    command += " \"" + GetDefaultSavePath().AsUTF8Unsafe() + "\" \"" +
-               GetSettings().cover_query_url + "\"";
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
       return "";
@@ -495,8 +442,9 @@ bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
   return kiwi::nes::Mapper::IsMapperSupported(mapper);
 }
 
-std::vector<uint8_t> TryFetchCoverImage(const std::string& name) {
-  static unzFile g_leaky_file = unzOpen("boxarts.zip");
+std::vector<uint8_t> TryFetchCoverImage(const std::string& name,
+                                        kiwi::base::FilePath* suggested_url) {
+  static unzFile g_leaky_file = unzOpen(GetSettings().boxarts_package);
   static std::set<std::pair<std::string, std::string>> g_boxarts;
   if (g_boxarts.empty()) {
     if (g_leaky_file) {
@@ -516,27 +464,27 @@ std::vector<uint8_t> TryFetchCoverImage(const std::string& name) {
 
   std::multimap<int, std::string> r;
   for (const auto& boxart : g_boxarts) {
-    int dis = LevenshteinDistance(RemoveROMRegion(name), boxart.second);
+    int dis = LevenshteinDistance(kiwi::base::FilePath::FromUTF8Unsafe(name)
+                                      .RemoveExtension()
+                                      .AsUTF8Unsafe(),
+                                  boxart.second);
     r.insert({dis, boxart.first});
   }
 
   std::vector<uint8_t> result;
-  if (!r.empty() && r.begin()->first < 10) {
+  if (!r.empty() && r.begin()->first < kMaxLevenshteinDistance) {
     // Read from local
     unzLocateFile(g_leaky_file, r.begin()->second.c_str(), 1);
     if (ReadCurrentFileFromZip(g_leaky_file, result))
       return result;
   } else {
-    // Fetch from internet
-    std::string output = RunPython3Code(g_py3_fetch_code, name);
-    if (!output.empty()) {
-      auto maybe_result = kiwi::base::ReadFileToBytes(
-          kiwi::base::FilePath::FromUTF8Unsafe(output));
-      if (maybe_result) {
-        result = *maybe_result;
-        return result;
-      }
-    }
+    // Re from internet
+    constexpr char kSearchUrl[] = "https://wowroms.com/en/roms/list?search=";
+    if (suggested_url)
+      *suggested_url =
+          kiwi::base::FilePath::FromUTF8Unsafe(kSearchUrl)
+              .Append(
+                  kiwi::base::FilePath::FromUTF8Unsafe(name).RemoveExtension());
   }
 
   return std::vector<uint8_t>();
@@ -567,8 +515,9 @@ std::string TryGetJaTitle(const std::string& en_name) {
     int dis = LevenshteinDistance(rom_name, en_name);
     result.insert({dis, {RemoveQuote(rom_name), alter_name}});
   }
-
-  return !result.empty() ? (result.begin()->second.second) : std::string();
+  return (!result.empty() && result.begin()->first < kMaxLevenshteinDistance)
+             ? (result.begin()->second.second)
+             : std::string();
 }
 
 std::string RemoveROMRegion(const std::string& str) {
@@ -649,17 +598,64 @@ std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
   return data;
 }
 
-void FillRomDetailsAutomatically(ROM& rom,
+bool FillRomDetailsAutomatically(ROM& rom,
                                  const kiwi::base::FilePath& basename) {
+  bool found = false;
   std::string maybe_pinyin = TryGetPinyin(rom.zh);
   if (!maybe_pinyin.empty())
     strcpy(rom.zh_hint, maybe_pinyin.c_str());
   std::string rom_name_without_region =
       RemoveROMRegion(basename.AsUTF8Unsafe());
   std::string maybe_ja_name = TryGetJaTitle(rom_name_without_region);
-  if (!maybe_ja_name.empty())
+  if (!maybe_ja_name.empty()) {
     strcpy(rom.ja, maybe_ja_name.c_str());
+    found = true;
+  }
   std::string maybe_kana = TryGetKana(rom.ja);
   if (!maybe_kana.empty())
     strcpy(rom.ja_hint, maybe_kana.c_str());
+  return found;
+}
+
+std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
+                                                 int height,
+                                                 size_t bytes_per_row,
+                                                 unsigned char* data) {
+  std::vector<uint8_t> result;
+  jpeg_compress_struct cinfo;
+  jpeg_create_compress(&cinfo);
+  cinfo.image_width = width;
+  cinfo.image_height = height;
+  cinfo.input_components = 3;
+  cinfo.in_color_space = JCS_RGB;
+  jpeg_error_mgr jerr;
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_set_defaults(&cinfo);
+  jpeg_set_quality(&cinfo, 100, TRUE);
+
+  unsigned char* outbuffer = nullptr;
+  size_t out_size;
+  jpeg_mem_dest(&cinfo, &outbuffer, &out_size);
+  jpeg_start_compress(&cinfo, TRUE);
+  JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo,
+                                                 JPOOL_IMAGE, width * 3, 1);
+
+  while (cinfo.next_scanline < cinfo.image_height) {
+    for (int x = 0; x < width; x++) {
+      int offset =
+          (cinfo.next_scanline * bytes_per_row) + (x * (bytes_per_row / width));
+      for (int i = 0; i < 3; ++i) {
+        buffer[0][x * 3 + i] = data[offset + i];
+      }
+    }
+
+    jpeg_write_scanlines(&cinfo, &buffer[0], 1);
+  }
+
+  jpeg_finish_compress(&cinfo);
+  jpeg_destroy_compress(&cinfo);
+  result.resize(out_size);
+  memcpy(result.data(), outbuffer, result.size());
+  free(outbuffer);
+  return result;
 }

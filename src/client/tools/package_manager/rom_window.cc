@@ -79,7 +79,14 @@ void ROMWindow::Paint() {
 
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"自动填充", id).c_str())) {
-        FillRomDetailsAutomatically(rom, rom_base_name);
+        if (!FillRomDetailsAutomatically(rom, rom_base_name)) {
+          ShellOpen(kiwi::base::FilePath::FromUTF8Unsafe(std::string(
+              "https://google.com/search?q=" +
+              rom_base_name.RemoveExtension().AsUTF8Unsafe() + " とは")));
+          ShellOpen(kiwi::base::FilePath::FromUTF8Unsafe(std::string(
+              "https://google.com/search?q=" +
+              rom_base_name.RemoveExtension().AsUTF8Unsafe() + " 中文名")));
+        }
       }
 
       ImGui::SameLine();
@@ -95,6 +102,18 @@ void ROMWindow::Paint() {
         strcat(rom.zh_hint, u8" (mei)");
         strcat(rom.ja, u8"（米）");
         strcat(rom.ja_hint, u8"（べい）");
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"补全中文提示", id).c_str())) {
+        std::string r = TryGetPinyin(rom.zh);
+        if (!r.empty())
+          strcpy(rom.zh_hint, r.c_str());
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"补全日文提示", id).c_str())) {
+        std::string r = TryGetKana(rom.ja);
+        if (!r.empty())
+          strcpy(rom.ja_hint, r.c_str());
       }
 
       ImGui::InputText(GetUniqueName(u8"中文标题", id).c_str(), rom.zh,
@@ -122,9 +141,24 @@ void ROMWindow::Paint() {
         }
         ClearDroppedJPG();
       }
+      if (ImGui::BeginPopupContextWindow()) {
+        if (HasPNGImageInClipboard()) {
+          if (ImGui::MenuItem(u8"粘贴")) {
+            std::vector<uint8_t> paste_image = ReadImageAsJPGFromClipboard();
+            FillCoverData(rom, paste_image);
+          }
+        } else {
+          ImGui::MenuItem(u8"剪贴板中无PNG图片");
+        }
+
+        ImGui::EndPopup();
+      }
 
       if (ImGui::Button(GetUniqueName(u8"尝试获取封面", id).c_str())) {
-        TryFetchCoverByName(rom, rom_base_name);
+        kiwi::base::FilePath suggested_url =
+            TryFetchCoverByName(rom, rom_base_name);
+        if (!suggested_url.empty())
+          ShellOpen(suggested_url);
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"旋转", id).c_str())) {
@@ -262,11 +296,31 @@ void ROMWindow::Paint() {
         }
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"确认", 0).c_str())) {
+      if (ImGui::Button(GetUniqueName(u8"复制到最终输出路径", 0).c_str())) {
+        kiwi::base::FilePath copied_path =
+            kiwi::base::FilePath::FromUTF8Unsafe(GetSettings().zip_output_path)
+                .Append(generated_packaged_path_.BaseName());
+        if (kiwi::base::CopyFile(generated_packaged_path_, copied_path)) {
+          copied_path_ = copied_path;
+        } else {
+          copied_path_.clear();
+        }
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(GetUniqueName(u8"关闭", 0).c_str())) {
         show_message_box_ = false;
+      }
+
+      if (!copied_path_.empty()) {
+        ImGui::Text(u8"%s 已经拷贝到 %s",
+                    generated_packaged_path_.AsUTF8Unsafe().c_str(),
+                    copied_path_.AsUTF8Unsafe().c_str());
       }
     } else {
       ImGui::TextUnformatted(u8"保存文件失败");
+    }
+
+    if (!copied_path_.empty()) {
     }
     ImGui::End();
   }
@@ -336,10 +390,14 @@ void ROMWindow::NewRom() {
   roms_.push_back(std::move(new_rom));
 }
 
-void ROMWindow::TryFetchCoverByName(ROM& rom,
-                                    const kiwi::base::FilePath& rom_base_name) {
-  std::vector<uint8_t> data = TryFetchCoverImage(rom_base_name.AsUTF8Unsafe());
+kiwi::base::FilePath ROMWindow::TryFetchCoverByName(
+    ROM& rom,
+    const kiwi::base::FilePath& rom_base_name) {
+  kiwi::base::FilePath suggested_url;
+  std::vector<uint8_t> data =
+      TryFetchCoverImage(rom_base_name.AsUTF8Unsafe(), &suggested_url);
   if (!data.empty()) {
     FillCoverData(rom, data);
   }
+  return suggested_url;
 }

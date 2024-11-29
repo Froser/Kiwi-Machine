@@ -12,9 +12,11 @@
 
 #include "util.h"
 
+#import <AppKit/AppKit.h>
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 
+#include "../third_party/libjpeg-turbo-jpeg-9f/jpeglib.h"
 #include "base/files/file_path.h"
 
 kiwi::base::FilePath GetDefaultSavePath() {
@@ -31,8 +33,14 @@ void ShellOpen(const kiwi::base::FilePath& file) {
   @autoreleasepool {
     NSString* ns_file_path =
         [[NSString alloc] initWithUTF8String:file.AsUTF8Unsafe().c_str()];
-    NSURL* url = [NSURL fileURLWithPath:ns_file_path];
-    [[NSWorkspace sharedWorkspace] openURL:url];
+    NSString* maybe_url_string =
+        [ns_file_path stringByAddingPercentEncodingWithAllowedCharacters:
+                          [NSCharacterSet URLQueryAllowedCharacterSet]];
+    NSURL* maybe_url = [NSURL URLWithString:maybe_url_string];
+    if (maybe_url == nil) {
+      maybe_url = [NSURL fileURLWithPath:ns_file_path];
+    }
+    [[NSWorkspace sharedWorkspace] openURL:maybe_url];
   }
 }
 
@@ -63,5 +71,39 @@ void RunExecutable(const kiwi::base::FilePath& bundle,
     };
     task.arguments = arguments;
     [task launch];
+  }
+}
+
+bool HasPNGImageInClipboard() {
+  @autoreleasepool {
+    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+    NSArray* types = pasteboard.types;
+    return [types containsObject:NSPasteboardTypePNG];
+  }
+}
+
+std::vector<uint8_t> ReadImageAsJPGFromClipboard() {
+  @autoreleasepool {
+    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+    NSArray* types = pasteboard.types;
+    std::vector<uint8_t> result;
+    NSData* data = nil;
+    if ([types containsObject:NSPasteboardTypePNG]) {
+      data = [pasteboard dataForType:NSPasteboardTypePNG];
+      NSImage* image = [[NSImage alloc] initWithData:data];
+      if (image) {
+        NSArray* representations = image.representations;
+        for (NSBitmapImageRep* bitmap_rep in representations) {
+          if ([bitmap_rep isKindOfClass:[NSBitmapImageRep class]]) {
+            unsigned char* pixel_data = (unsigned char*)bitmap_rep.bitmapData;
+            NSInteger width = bitmap_rep.pixelsWide;
+            NSInteger height = bitmap_rep.pixelsHigh;
+            return ReadImageAsJPGFromImageData(
+                width, height, bitmap_rep.bytesPerRow, pixel_data);
+          }
+        }
+      }
+    }
+    return result;
   }
 }

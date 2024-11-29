@@ -25,6 +25,8 @@ include_directories(
 
         # Generation directory
         ${CMAKE_CURRENT_BINARY_DIR}/
+
+        ${CMAKE_CURRENT_BINARY_DIR}/../third_party/gflags/include
 )
 
 # Include zlib directory
@@ -63,6 +65,7 @@ endif ()
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Kiwi::kiwi_static
+        gflags_nothreads_static
         imgui
         SDL2-static
         SDL2_image
@@ -75,12 +78,4 @@ target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
 target_include_directories(${PROJECT_NAME}
         PRIVATE
         "../../../third_party/imgui"
-)
-
-add_custom_command(
-        TARGET ${PROJECT_NAME}
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ARGS "${${PROJECT_NAME}_SOURCE_DIR}/boxarts.zip" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/boxarts.zip"
-        VERBATIM
 )

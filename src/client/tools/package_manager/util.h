@@ -14,6 +14,7 @@
 #define UTIL_H_
 
 #include <SDL.h>
+#include <gflags/gflags.h>
 #include <string>
 #include <vector>
 
@@ -21,12 +22,10 @@
 #include "base/functional/callback.h"
 
 struct Settings {
-  char cover_query_url[1024] =
-      "https://cse.google.com/cse/element/"
-      "v1?rsz=filtered_cse&num=10&hl=en&source=gcsc&cselibv=8fa85d58e016b414&"
-      "cx=002230802627130757280%3Afp34oki149w&safe=off&cse_tok=AB-tC_5-"
-      "z84mBuhHZUOccUeA5L6N%3A1732549608708&sort=&exp=cc%2Capo&fexp=72801196%"
-      "2C72801194%2C72801195&callback=google.search.cse.api18412&q=";
+  char boxarts_package[1024] = "boxarts.zip";
+  char zip_output_path[1024] = {0};
+
+  Settings();
 };
 
 Settings& GetSettings();
@@ -85,13 +84,19 @@ void RunExecutable(const kiwi::base::FilePath& executable,
                    const std::vector<std::wstring>& args);
 #endif
 
-std::vector<uint8_t> TryFetchCoverImage(const std::string& name);
+std::vector<uint8_t> TryFetchCoverImage(const std::string& name,
+                                        kiwi::base::FilePath* suggested_url);
 std::string TryGetPinyin(const std::string& chinese);
 std::string TryGetKana(const std::string& kanji);
 std::string TryGetJaTitle(const std::string& en_name);
 std::string RemoveROMRegion(const std::string& str);
 std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> cover_data);
-void FillRomDetailsAutomatically(ROM& rom,
+bool FillRomDetailsAutomatically(ROM& rom,
                                  const kiwi::base::FilePath& filename);
-
+bool HasPNGImageInClipboard();
+std::vector<uint8_t> ReadImageAsJPGFromClipboard();
+std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
+                                                 int height,
+                                                 size_t bytes_per_row,
+                                                 unsigned char* data);
 #endif  // UTIL_H_

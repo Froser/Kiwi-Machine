@@ -100,6 +100,7 @@ set(base_sources
 
 if (MACOSX)
     list(APPEND base_sources
+            base/files/file_util_apple.mm
             base/mac/scoped_block.h
             base/mac/scoped_typeref.h
     )

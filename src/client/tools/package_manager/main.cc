@@ -13,6 +13,7 @@
 #include <SDL.h>
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
+#include <gflags/gflags.h>
 #include <imgui.h>
 #include <string>
 
@@ -20,6 +21,10 @@
 #include "base/files/file_util.h"
 #include "rom_window.h"
 #include "util.h"
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 SDL_Window* g_window;
 SDL_Renderer* g_renderer;
@@ -183,15 +188,14 @@ void Render() {
     ImGui::Bullet();
     ImGui::TextUnformatted("pip3 install pykakasi  ");
 
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::TextUnformatted(u8"为了能自动获取封面，需要可以访问Google");
-
     ImGui::NewLine();
     ImGui::TextUnformatted(u8"全局设置");
-    ImGui::TextUnformatted(u8"封面搜索URL，可能会变化");
-    ImGui::InputText("##CoverUrl", GetSettings().cover_query_url,
-                     sizeof(GetSettings().cover_query_url));
+    ImGui::TextUnformatted(u8"游戏封面数据库路径");
+    ImGui::InputText("##BoxartPath", GetSettings().boxarts_package,
+                     sizeof(GetSettings().boxarts_package));
+    ImGui::TextUnformatted(u8"最终输出路径 (--output)");
+    ImGui::InputText("##Output", GetSettings().zip_output_path,
+                     sizeof(GetSettings().zip_output_path));
     ImGui::End();
   }
 
@@ -236,13 +240,40 @@ void Cleanup() {
 
 #if defined(_WIN32)
 #include <windows.h>
+char** g_argv = nullptr;
+
+void Cleanup() {
+  for (size_t i = 0; i < __argc; ++i) {
+    free(g_argv[i]);
+  }
+  free(g_argv);
+}
+
 int WINAPI wWinMain(HINSTANCE hInstance,
                     HINSTANCE hPrevInstance,
                     PWSTR pCmdLine,
                     int nCmdShow) {
+  wchar_t** wargv = __wargv;
+  SDL_assert(wargv);
+  g_argv = (char**)calloc(__argc, sizeof(char*));
+  for (size_t i = 0; i < __argc; ++i) {
+    g_argv[i] = (char*)calloc(wcslen(wargv[i]) + 1, sizeof(char));
+    if (g_argv[i]) {
+      size_t converted;
+      wcstombs_s(&converted, g_argv[i], wcslen(wargv[i]) + 1, wargv[i],
+                 wcslen(wargv[i]) + 1);
+    }
+  }
+  atexit(Cleanup);
+
+  gflags::ParseCommandLineFlags(&__argc, &g_argv, true);
+
 #else
 int main(int argc, char** argv) {
 #endif
+
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
   InitSDL();
 
   bool running = true;

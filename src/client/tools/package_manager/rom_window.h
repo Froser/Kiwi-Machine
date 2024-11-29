@@ -33,7 +33,9 @@ class ROMWindow {
   int window_id() const { return window_id_; }
   bool closed() const { return closed_; }
   void NewRom();
-  void TryFetchCoverByName(ROM& rom, const kiwi::base::FilePath& rom_base_name);
+  kiwi::base::FilePath TryFetchCoverByName(
+      ROM& rom,
+      const kiwi::base::FilePath& rom_base_name);
   ROM* first_rom() { return roms_.empty() ? nullptr : &roms_[0]; }
 
  private:
@@ -56,6 +58,8 @@ class ROMWindow {
 
   char save_path_[ROM::MAX] = {0};
   SDL_mutex* cover_update_mutex_ = nullptr;
+
+  kiwi::base::FilePath copied_path_;
 };
 
 #endif  // ROM_WINDOW_H_
