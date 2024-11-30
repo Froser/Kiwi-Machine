@@ -26,6 +26,10 @@
 #undef CreateDirectory
 #endif
 
+#if defined(CopyFile)
+#undef CopyFile
+#endif
+
 namespace kiwi::base {
 
 class FilePath;

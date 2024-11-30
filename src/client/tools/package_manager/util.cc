@@ -24,6 +24,12 @@
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3/contrib/minizip/zip.h"
 
+#if BUILDFLAG(IS_WIN)
+#include <Windows.h>
+#undef min
+#undef max
+#endif
+
 DEFINE_string(output, "", "Default final output path or a nes zip file.");
 
 constexpr int kMaxLevenshteinDistance = 10;
@@ -38,9 +44,6 @@ Settings& GetSettings() {
 }
 
 namespace {
-
-#include "db.inc"
-
 static const std::string g_package_manifest_template =
     u8R"({
 "titles": {
@@ -129,16 +132,44 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
     // Run script
     std::string command =
         "python3 " + tmp_py_fetch_script.AsUTF8Unsafe() + " \"" + args + "\"";
+    std::string output;
+#if defined(IS_WIN)
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
       return "";
     }
     char buffer[1024];
-    std::string output;
     while (std::fgets(buffer, sizeof(buffer), pipe) != nullptr) {
       output += buffer;
     }
     pclose(pipe);
+#else
+    HANDLE hReadPipe, hWritePipe;
+    BOOL bSuccess = CreatePipe(&hReadPipe, &hWritePipe, NULL, 0);
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.hStdOutput = hWritePipe;
+    si.dwFlags = STARTF_USESTDHANDLES;
+    ZeroMemory(&pi, sizeof(pi));
+    BOOL bCreateProcessSuccess =
+        CreateProcessA(NULL, (LPSTR)command.c_str(), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    CloseHandle(hWritePipe);
+    char buffer[1024];
+    DWORD bytesRead;
+    while (ReadFile(hReadPipe, buffer, sizeof(buffer) , &bytesRead, NULL)) {
+      if (bytesRead == 0) {
+        // 读到0字节表示读取结束
+        break;
+      }
+      output += buffer;
+    }
+    output += "\0";
+    CloseHandle(hReadPipe);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+#endif
 
     std::string trimmed;
     kiwi::base::TrimString(output, "\r\n", &trimmed);
@@ -499,8 +530,24 @@ std::string TryGetKana(const std::string& kanji) {
 }
 
 std::string TryGetJaTitle(const std::string& en_name) {
+#if BUILDFLAG(IS_WIN)
+  WCHAR app_path_str[MAX_PATH];
+  GetModuleFileNameW(NULL, app_path_str, MAX_PATH);
+  kiwi::base::FilePath app_path(app_path_str);
+  kiwi::base::FilePath db_path =
+      app_path.DirName().Append(FILE_PATH_LITERAL("db.json"));
+  auto db = kiwi::base::ReadFileToBytes(db_path);
+#else
+  auto db = kiwi::base::ReadFileToBytes(
+      kiwi::base::FilePath::FromUTF8Unsafe("db.json"));
+#endif
+  if (!db)
+    return std::string();
+  db->push_back('\0');
+  db->push_back('\0');
+
   static const nlohmann::json kGames =
-      nlohmann::json::parse(g_db)["database"]["game"];
+      nlohmann::json::parse(*db)["database"]["game"];
   std::multimap<int, std::pair<std::string, std::string>> result;
   for (const auto& game : kGames) {
     std::string rom_name = to_string(game["$"]["name"]);
@@ -508,9 +555,9 @@ std::string TryGetJaTitle(const std::string& en_name) {
         game["$"].contains("altname") ? to_string(game["$"]["altname"]) : "";
     std::string region = RemoveQuote(to_string(game["$"]["region"]));
     if (kiwi::base::CompareCaseInsensitiveASCII(region, "japan") == 0) {
-      alter_name = RemoveQuote(alter_name) + "（日）";
+      alter_name = RemoveQuote(alter_name) + u8"（日）";
     } else if (kiwi::base::CompareCaseInsensitiveASCII(region, "usa") == 0) {
-      alter_name = RemoveQuote(alter_name) + "（米）";
+      alter_name = RemoveQuote(alter_name) + u8"（米）";
     }
     int dis = LevenshteinDistance(rom_name, en_name);
     result.insert({dis, {RemoveQuote(rom_name), alter_name}});

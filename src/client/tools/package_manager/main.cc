@@ -60,7 +60,7 @@ void CreateROMWindow(ROMS roms,
   g_rom_windows.push_back(std::move(window));
 }
 
-SDL_Window* CreateWindow() {
+SDL_Window* CreateMainWindow() {
   SDL_Window* window =
       SDL_CreateWindow(u8"KiwiMachine 资源包管理器", SDL_WINDOWPOS_UNDEFINED,
                        SDL_WINDOWPOS_UNDEFINED, 1024, 768, SDL_WINDOW_SHOWN);
@@ -81,7 +81,7 @@ bool InitSDL() {
     return false;
   }
 
-  SDL_Window* window = CreateWindow();
+  SDL_Window* window = CreateMainWindow();
   if (!window) {
     return false;
   }
@@ -242,7 +242,7 @@ void Cleanup() {
 #include <windows.h>
 char** g_argv = nullptr;
 
-void Cleanup() {
+void CleanupArgs() {
   for (size_t i = 0; i < __argc; ++i) {
     free(g_argv[i]);
   }
@@ -264,15 +264,15 @@ int WINAPI wWinMain(HINSTANCE hInstance,
                  wcslen(wargv[i]) + 1);
     }
   }
-  atexit(Cleanup);
+  atexit(CleanupArgs);
 
   gflags::ParseCommandLineFlags(&__argc, &g_argv, true);
 
 #else
 int main(int argc, char** argv) {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 #endif
 
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   InitSDL();
 

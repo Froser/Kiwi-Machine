@@ -145,6 +145,44 @@ void AppendModeCharacter(wchar_t mode_char, std::wstring* mode) {
                mode_char);
 }
 
+bool DoCopyFile(const FilePath& from_path,
+                const FilePath& to_path,
+                bool fail_if_exists) {
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+  if (from_path.ReferencesParent() || to_path.ReferencesParent())
+    return false;
+
+  // NOTE: I suspect we could support longer paths, but that would involve
+  // analyzing all our usage of files.
+  if (from_path.value().length() >= MAX_PATH ||
+      to_path.value().length() >= MAX_PATH) {
+    return false;
+  }
+
+  // Mitigate the issues caused by loading DLLs on a background thread
+  // (http://crbug/973868).
+  // SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
+
+  // Unlike the posix implementation that copies the file manually and discards
+  // the ACL bits, CopyFile() copies the complete SECURITY_DESCRIPTOR and access
+  // bits, which is usually not what we want. We can't do much about the
+  // SECURITY_DESCRIPTOR but at least remove the read only bit.
+  const wchar_t* dest = to_path.value().c_str();
+  if (!::CopyFile(from_path.value().c_str(), dest, fail_if_exists)) {
+    // Copy failed.
+    return false;
+  }
+  DWORD attrs = GetFileAttributes(dest);
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+  if (attrs & FILE_ATTRIBUTE_READONLY) {
+    SetFileAttributes(dest, attrs & ~DWORD{FILE_ATTRIBUTE_READONLY});
+  }
+  return true;
+}
+
 }  // namespace
 
 bool DeletePathRecursively(const FilePath& path) {
@@ -209,6 +247,11 @@ bool DirectoryExists(const FilePath& path) {
   if (fileattr != INVALID_FILE_ATTRIBUTES)
     return (fileattr & FILE_ATTRIBUTE_DIRECTORY) != 0;
   return false;
+}
+
+#undef CopyFile
+bool CopyFile(const FilePath& from_path, const FilePath& to_path) {
+  return DoCopyFile(from_path, to_path, false);
 }
 
 namespace internal {

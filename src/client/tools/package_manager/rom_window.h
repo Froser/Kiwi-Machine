@@ -16,6 +16,8 @@
 #include "base/files/file_path.h"
 #include "util.h"
 
+#include <optional>
+
 struct SDL_Renderer;
 struct ROM;
 class ROMWindow {
@@ -60,6 +62,7 @@ class ROMWindow {
   SDL_mutex* cover_update_mutex_ = nullptr;
 
   kiwi::base::FilePath copied_path_;
+  std::optional<bool> has_png_in_clipboard_ = std::nullopt;
 };
 
 #endif  // ROM_WINDOW_H_

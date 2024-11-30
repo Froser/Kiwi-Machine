@@ -57,3 +57,39 @@ void RunExecutable(const kiwi::base::FilePath& executable,
   ShellExecuteW(NULL, L"open", executable.value().c_str(), params.c_str(),
                 current_path.value().c_str(), SW_SHOWNORMAL);
 }
+
+bool HasPNGImageInClipboard() {
+  if (OpenClipboard(NULL)) {
+    bool avail = IsClipboardFormatAvailable(CF_DIB);
+    CloseClipboard();
+    return avail;
+  }
+  return false;
+}
+
+std::vector<uint8_t> ReadImageAsJPGFromClipboard() {
+  std::vector<uint8_t> result;
+  if (OpenClipboard(NULL)) {
+    bool avail = IsClipboardFormatAvailable(CF_DIB);
+    if (avail) {
+      HANDLE data_handle = GetClipboardData(CF_DIB);
+      BITMAPINFOHEADER* header =
+          static_cast<BITMAPINFOHEADER*>(GlobalLock(data_handle));
+      size_t image_size =
+          header->biCompression
+              ? header->biSizeImage
+              : header->biWidth * header->biHeight * header->biBitCount / 8;
+      std::vector<uint8_t> buffer;
+      for (size_t i = 0; i < image_size; i += 4) {
+        buffer.push_back(*(reinterpret_cast<const char*>(header) + i + 2));
+        buffer.push_back(*(reinterpret_cast<const char*>(header) + i + 1));
+        buffer.push_back(*(reinterpret_cast<const char*>(header) + i));
+      }
+      result = ReadImageAsJPGFromImageData(header->biWidth, header->biHeight,
+                                           header->biWidth * 3, buffer.data());
+      GlobalUnlock(data_handle);
+    }
+    CloseClipboard();
+  }
+  return result;
+}
