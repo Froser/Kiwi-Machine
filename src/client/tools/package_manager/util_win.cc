@@ -58,15 +58,6 @@ void RunExecutable(const kiwi::base::FilePath& executable,
                 current_path.value().c_str(), SW_SHOWNORMAL);
 }
 
-bool HasPNGImageInClipboard() {
-  if (OpenClipboard(NULL)) {
-    bool avail = IsClipboardFormatAvailable(CF_DIB);
-    CloseClipboard();
-    return avail;
-  }
-  return false;
-}
-
 std::vector<uint8_t> ReadImageAsJPGFromClipboard() {
   std::vector<uint8_t> result;
   if (OpenClipboard(NULL)) {

@@ -133,7 +133,7 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
     std::string command =
         "python3 " + tmp_py_fetch_script.AsUTF8Unsafe() + " \"" + args + "\"";
     std::string output;
-#if defined(IS_WIN)
+#if !defined(IS_WIN)
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
       return "";

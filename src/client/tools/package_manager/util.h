@@ -93,7 +93,6 @@ std::string RemoveROMRegion(const std::string& str);
 std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> cover_data);
 bool FillRomDetailsAutomatically(ROM& rom,
                                  const kiwi::base::FilePath& filename);
-bool HasPNGImageInClipboard();
 std::vector<uint8_t> ReadImageAsJPGFromClipboard();
 std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
                                                  int height,

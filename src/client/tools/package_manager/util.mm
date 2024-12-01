@@ -74,14 +74,6 @@ void RunExecutable(const kiwi::base::FilePath& bundle,
   }
 }
 
-bool HasPNGImageInClipboard() {
-  @autoreleasepool {
-    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
-    NSArray* types = pasteboard.types;
-    return [types containsObject:NSPasteboardTypePNG];
-  }
-}
-
 std::vector<uint8_t> ReadImageAsJPGFromClipboard() {
   @autoreleasepool {
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];

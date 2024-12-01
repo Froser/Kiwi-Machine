@@ -133,23 +133,6 @@ void ROMWindow::Paint() {
         ImGui::Image(EmptyTexture(), ImVec2(100, 100), ImVec2(0, 0),
                      ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
       }
-      // TODO BeginPopup
-      if (ImGui::BeginPopupContextWindow()) {
-        if (!has_png_in_clipboard_)
-          has_png_in_clipboard_ = HasPNGImageInClipboard();
-        if (*has_png_in_clipboard_) {
-          if (ImGui::MenuItem(u8"粘贴")) {
-            std::vector<uint8_t> paste_image = ReadImageAsJPGFromClipboard();
-            FillCoverData(rom, paste_image);
-          }
-        } else {
-          ImGui::MenuItem(u8"剪贴板中无PNG图片");
-        }
-
-        ImGui::EndPopup();
-      } else {
-        has_png_in_clipboard_ = std::nullopt;
-      }
 
       if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
         kiwi::base::FilePath path = GetDroppedJPG();
@@ -173,6 +156,11 @@ void ROMWindow::Paint() {
           FillCoverData(rom, rom.cover_data);
         }
       }
+      if (ImGui::Button(u8"从剪贴板粘贴")) {
+        std::vector<uint8_t> paste_image = ReadImageAsJPGFromClipboard();
+        FillCoverData(rom, paste_image);
+      }
+
       ImGui::EndGroup();
 
       ImGui::BeginGroup();
