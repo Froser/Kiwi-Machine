@@ -154,11 +154,12 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
     si.dwFlags = STARTF_USESTDHANDLES;
     ZeroMemory(&pi, sizeof(pi));
     BOOL bCreateProcessSuccess =
-        CreateProcessA(NULL, (LPSTR)command.c_str(), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+        CreateProcessA(NULL, (LPSTR)command.c_str(), NULL, NULL, TRUE, 0, NULL,
+                       NULL, &si, &pi);
     CloseHandle(hWritePipe);
     char buffer[1024];
     DWORD bytesRead;
-    while (ReadFile(hReadPipe, buffer, sizeof(buffer) , &bytesRead, NULL)) {
+    while (ReadFile(hReadPipe, buffer, sizeof(buffer), &bytesRead, NULL)) {
       if (bytesRead == 0) {
         // 读到0字节表示读取结束
         break;
@@ -219,6 +220,60 @@ std::string RemoveQuote(const std::string& str) {
   return result;
 }
 
+struct SampleArray {
+  JSAMPARRAY data = nullptr;
+  int row_bytes = 0;
+  int height = 0;
+};
+
+SampleArray AllocSampleArray(int row_bytes, int height) {
+  JSAMPARRAY object = new JSAMPROW[height];
+  for (int i = 0; i < height; ++i) {
+    object[i] = new JSAMPLE[row_bytes];
+  }
+  return {object, row_bytes, height};
+}
+
+void FreeSampleArray(SampleArray& object) {
+  for (int i = 0; i < object.height; ++i) {
+    delete[] object.data[i];
+  }
+  delete object.data;
+  object.data = nullptr;
+  object.row_bytes = 0;
+  object.height = 0;
+}
+
+struct SampleArrayDeleter {
+  void operator()(SampleArray& object) { FreeSampleArray(object); }
+};
+
+class ScopedSampleArray {
+ public:
+  ScopedSampleArray(int row_bytes, int height);
+  ~ScopedSampleArray();
+
+  JSAMPLE& data(int y, int x) {
+    SDL_assert(x < object_.row_bytes && y < object_.height);
+    return object_.data[y][x];
+  }
+
+  JSAMPARRAY data(int y) {
+    SDL_assert(y < object_.height);
+    return &object_.data[y];
+  }
+
+ private:
+  SampleArray object_;
+};
+
+ScopedSampleArray::ScopedSampleArray(int row_bytes, int height) {
+  object_ = AllocSampleArray(row_bytes, height);
+}
+
+ScopedSampleArray ::~ScopedSampleArray() {
+  FreeSampleArray(object_);
+}
 }  // namespace
 
 bool IsZipExtension(const std::string& filename) {
@@ -594,9 +649,8 @@ std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
       (j_common_ptr)&cinfo, JPOOL_IMAGE, width * num_components, 1);
 
   jpeg_create_compress(&out_cinfo);
-  JSAMPARRAY rotated_buffer =
-      (*cinfo.mem->alloc_sarray)((j_common_ptr)&out_cinfo, JPOOL_IMAGE,
-                                 new_width * num_components, new_height);
+
+  ScopedSampleArray rotated_buffer(new_width * num_components, new_height);
 
   unsigned char* outbuffer = nullptr;
   size_t out_size;
@@ -620,19 +674,20 @@ std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
   jpeg_start_compress(&out_cinfo, TRUE);
 
   while (cinfo.output_scanline < cinfo.output_height) {
+    int current_scanline = cinfo.output_scanline;
     jpeg_read_scanlines(&cinfo, buffer, 1);
     for (int src_x = 0; src_x < width; ++src_x) {
       for (int c = 0; c < num_components; ++c) {
-        rotated_buffer[width - src_x - 1]
-                      [cinfo.output_scanline * num_components + c] =
-                          buffer[0][src_x * num_components + c];
+        rotated_buffer.data(width - src_x - 1,
+                            current_scanline * num_components + c) =
+            buffer[0][src_x * num_components + c];
       }
     }
   }
 
   while (out_cinfo.next_scanline < out_cinfo.image_height) {
-    jpeg_write_scanlines(&out_cinfo, &rotated_buffer[out_cinfo.next_scanline],
-                         1);
+    jpeg_write_scanlines(&out_cinfo,
+                         rotated_buffer.data(out_cinfo.next_scanline), 1);
   }
 
   jpeg_finish_compress(&out_cinfo);
@@ -684,19 +739,18 @@ std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
   size_t out_size;
   jpeg_mem_dest(&cinfo, &outbuffer, &out_size);
   jpeg_start_compress(&cinfo, TRUE);
-  JSAMPARRAY buffer = (*cinfo.mem->alloc_sarray)((j_common_ptr)&cinfo,
-                                                 JPOOL_IMAGE, width * 3, 1);
 
+  ScopedSampleArray buffer(width * 3, 1);
   while (cinfo.next_scanline < cinfo.image_height) {
     for (int x = 0; x < width; x++) {
       int offset =
           (cinfo.next_scanline * bytes_per_row) + (x * (bytes_per_row / width));
       for (int i = 0; i < 3; ++i) {
-        buffer[0][x * 3 + i] = data[offset + i];
+        buffer.data(0, x * 3 + i) = data[offset + i];
       }
     }
 
-    jpeg_write_scanlines(&cinfo, &buffer[0], 1);
+    jpeg_write_scanlines(&cinfo, buffer.data(0), 1);
   }
 
   jpeg_finish_compress(&cinfo);
