@@ -44,6 +44,17 @@ Settings& GetSettings() {
 }
 
 namespace {
+#if BUILDFLAG(IS_WIN)
+std::wstring StringToWString(const std::string& str) {
+  int size_needed =
+      MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), NULL, 0);
+  std::wstring to(size_needed, 0);
+  MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), to.data(),
+                      size_needed);
+  return to.data();
+}
+#endif
+
 static const std::string g_package_manifest_template =
     u8R"({
 "titles": {
@@ -58,7 +69,8 @@ static const std::string g_package_manifest_template =
 }
 )";
 
-static const std::string g_py3_pinyin_code = R"(import pinyin, sys
+static const std::string g_py3_pinyin_code =
+    u8R"(import pinyin, sys
 def getpinyin(text):
     pinyin_result = pinyin.get(text, format='strip')
     pinyin_result = pinyin_result.replace('（', ' (')
@@ -69,7 +81,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         getpinyin(sys.argv[1]))";
 
-static const std::string g_py3_kana_code = R"(import pykakasi, sys
+static const std::string g_py3_kana_code =
+    u8R"(import pykakasi, sys
 def getkana(text):
     kakasi = pykakasi.kakasi()
     kakasi.setMode(fr="J", to="H")
@@ -81,17 +94,6 @@ def getkana(text):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         getkana(sys.argv[1]))";
-
-struct WorkerData {
-  kiwi::base::OnceClosure runnable;
-};
-
-int SDLCALL WorkerThread(void* data) {
-  WorkerData* worker_data = static_cast<WorkerData*>(data);
-  std::move(worker_data->runnable).Run();
-  delete worker_data;
-  return 0;
-}
 
 bool ReadCurrentFileFromZip(unzFile file, std::vector<uint8_t>& data) {
   unzOpenCurrentFile(file);
@@ -130,10 +132,10 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
     out_py.close();
 
     // Run script
+    std::string output;
+#if !BUILDFLAG(IS_WIN)
     std::string command =
         "python3 " + tmp_py_fetch_script.AsUTF8Unsafe() + " \"" + args + "\"";
-    std::string output;
-#if !defined(IS_WIN)
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
       return "";
@@ -144,9 +146,16 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
     }
     pclose(pipe);
 #else
+    std::wstring command = L"python3 " + tmp_py_fetch_script.value() + L" \"" +
+                           StringToWString(args) + L"\"";
+
     HANDLE hReadPipe, hWritePipe;
-    BOOL bSuccess = CreatePipe(&hReadPipe, &hWritePipe, NULL, 0);
-    STARTUPINFOA si;
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    sa.lpSecurityDescriptor = NULL;
+    BOOL bSuccess = CreatePipe(&hReadPipe, &hWritePipe, &sa, 0);
+    STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
@@ -154,17 +163,21 @@ std::string RunPython3Code(const std::string& code, const std::string& args) {
     si.dwFlags = STARTF_USESTDHANDLES;
     ZeroMemory(&pi, sizeof(pi));
     BOOL bCreateProcessSuccess =
-        CreateProcessA(NULL, (LPSTR)command.c_str(), NULL, NULL, TRUE, 0, NULL,
+        CreateProcessW(NULL, (LPWSTR)command.c_str(), NULL, NULL, TRUE, 0, NULL,
                        NULL, &si, &pi);
+    WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(hWritePipe);
     char buffer[1024];
-    DWORD bytesRead;
-    while (ReadFile(hReadPipe, buffer, sizeof(buffer), &bytesRead, NULL)) {
-      if (bytesRead == 0) {
-        // 读到0字节表示读取结束
+    DWORD bytes_read;
+    while (ReadFile(hReadPipe, buffer, sizeof(buffer), &bytes_read, NULL)) {
+      if (bytes_read == 0) {
         break;
       }
-      output += buffer;
+
+      std::string t;
+      t.resize(bytes_read);
+      memcpy(t.data(), buffer, bytes_read);
+      output += t;
     }
     output += "\0";
     CloseHandle(hReadPipe);

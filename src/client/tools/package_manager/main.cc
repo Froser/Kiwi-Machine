@@ -160,7 +160,7 @@ void Render() {
 
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu(u8"资源包")) {
-      if (ImGui::MenuItem(u8"新建", "CTRL+N")) {
+      if (ImGui::MenuItem(u8"新建压缩包", "CTRL+N")) {
         CreateROMWindow(ROMS(), kiwi::base::FilePath(), true, false);
       }
       ImGui::EndMenu();
@@ -186,7 +186,7 @@ void Render() {
     ImGui::TextUnformatted("\t");
     ImGui::SameLine();
     ImGui::Bullet();
-    ImGui::TextUnformatted("pip3 install pykakasi  ");
+    ImGui::TextUnformatted("pip3 install pykakasi");
 
     ImGui::NewLine();
     ImGui::TextUnformatted(u8"全局设置");
