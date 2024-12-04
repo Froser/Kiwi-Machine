@@ -15,10 +15,13 @@
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <gflags/gflags.h>
 #include <imgui.h>
+#include <set>
 #include <string>
 
+#include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/strings/string_util.h"
 #include "rom_window.h"
 #include "util.h"
 
@@ -26,11 +29,22 @@
 #include <windows.h>
 #endif
 
-SDL_Window* g_window;
+DECLARE_string(output);
+DEFINE_string(explorer_dir, "", "A default explorer directory path to view.");
+
 SDL_Renderer* g_renderer;
 std::vector<ROMWindow> g_rom_windows;
 kiwi::base::FilePath g_dropped_jpg;
 kiwi::base::FilePath g_dropped_rom;
+
+struct {
+  Explorer explorer;
+  char explorer_dir[ROM::MAX];
+  char compare_dir[ROM::MAX];
+  bool first_open = true;
+  bool explorer_opened = false;
+  Explorer::File* selected_item = nullptr;
+} g_explorer;
 
 kiwi::base::FilePath GetDroppedJPG() {
   return g_dropped_jpg;
@@ -58,6 +72,19 @@ void CreateROMWindow(ROMS roms,
                                    window.first_rom()->nes_file_name));
   }
   g_rom_windows.push_back(std::move(window));
+}
+
+void CreateROMFromNES(const kiwi::base::FilePath& rom_path) {
+  auto nes_data = kiwi::base::ReadFileToBytes(rom_path);
+  if (nes_data) {
+    ROM rom;
+    strcpy(rom.nes_file_name, rom_path.BaseName().AsUTF8Unsafe().c_str());
+    rom.key = "default";
+    rom.nes_data = std::move(*nes_data);
+    FillRomDetailsAutomatically(rom, rom_path.BaseName());
+    CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath(),
+                    false, true);
+  }
 }
 
 SDL_Window* CreateMainWindow() {
@@ -93,7 +120,6 @@ bool InitSDL() {
     return false;
   }
 
-  g_window = window;
   g_renderer = renderer;
 
   ImGui::CreateContext();
@@ -150,54 +176,131 @@ bool HandleEvents() {
   return true;
 }
 
+void PaintGlobal() {
+  ImGui::Begin(u8"全局设置");
+  ImGui::TextUnformatted(u8"包管理器，方便轻松打包NES资源。");
+  ImGui::TextUnformatted(u8"准备工作：");
+
+  ImGui::Bullet();
+  ImGui::SameLine();
+  ImGui::TextUnformatted(u8"将KiwiMachine的非内嵌版拷贝到本程序路径下");
+
+  ImGui::Bullet();
+  ImGui::SameLine();
+  ImGui::TextUnformatted(
+      u8"为了能够自动注音，需要安装Python3，并通过pip3安装pinyin依赖：");
+  ImGui::TextUnformatted("\t");
+  ImGui::SameLine();
+  ImGui::Bullet();
+  ImGui::TextUnformatted("pip3 install pinyin");
+  ImGui::TextUnformatted("\t");
+  ImGui::SameLine();
+  ImGui::Bullet();
+  ImGui::TextUnformatted("pip3 install pykakasi");
+
+  ImGui::NewLine();
+  ImGui::TextUnformatted(u8"全局设置");
+  ImGui::TextUnformatted(u8"游戏封面数据库路径");
+  ImGui::InputText("##BoxartPath", GetSettings().boxarts_package,
+                   sizeof(GetSettings().boxarts_package));
+  ImGui::TextUnformatted(u8"最终输出路径 (--output)");
+  ImGui::InputText("##Output", GetSettings().zip_output_path,
+                   sizeof(GetSettings().zip_output_path));
+  ImGui::End();
+}
+
+void PaintExplorer() {
+  if (g_explorer.explorer_opened) {
+    ImGui::Begin(u8"目录浏览器##Explorer", &g_explorer.explorer_opened);
+    ImGui::InputText(u8"文件夹路径##", g_explorer.explorer_dir,
+                     sizeof(g_explorer.explorer_dir));
+    ImGui::SameLine();
+    if (ImGui::Button(u8"刷新") || g_explorer.first_open) {
+      InitializeExplorerFiles(
+          kiwi::base::FilePath::FromUTF8Unsafe(g_explorer.explorer_dir),
+          kiwi::base::FilePath::FromUTF8Unsafe(g_explorer.compare_dir),
+          g_explorer.explorer.explorer_files);
+      g_explorer.first_open = false;
+    }
+
+    ImGui::InputText(u8"对比路径##", g_explorer.compare_dir,
+                     sizeof(g_explorer.compare_dir));
+
+    if (ImGui::BeginListBox(u8"文件##Files")) {
+      for (auto& item : g_explorer.explorer.explorer_files) {
+        ImGui::PushStyleColor(ImGuiCol_Text,
+                              item.supported
+                                  ? (item.matched ? ImColor(0, 255, 0).Value
+                                                  : ImColor(255, 0, 0).Value)
+                                  : ImColor(127, 127, 127).Value);
+        if (ImGui::Selectable(item.title.c_str(), &item.selected,
+                              ImGuiSelectableFlags_AllowDoubleClick)) {
+          for (auto& i : g_explorer.explorer.explorer_files) {
+            if (&i != &item)
+              i.selected = false;
+          }
+          if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            kiwi::base::FilePath nes_file = item.dir.Append(
+                kiwi::base::FilePath::FromUTF8Unsafe(item.title));
+            CreateROMFromNES(nes_file);
+          }
+          g_explorer.selected_item = &item;
+        }
+        ImGui::PopStyleColor();
+      }
+      ImGui::EndListBox();
+
+      if (g_explorer.selected_item)
+        ImGui::Text(u8"Mapper: %s, 是否支持：%s",
+                    g_explorer.selected_item->mapper.c_str(),
+                    g_explorer.selected_item->supported ? u8"是" : u8"否");
+    }
+
+    ImGui::Button(u8"选择上一个##Previous");
+    ImGui::SameLine();
+    ImGui::Button(u8"选择下一个##Next");
+
+    ImGui::NewLine();
+    ImGui::TextUnformatted(u8"颜色说明：");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImColor(255, 0, 0).Value);
+    ImGui::TextUnformatted(u8"红色表示文件在对比路径中不存在");
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImColor(0, 255, 0).Value);
+    ImGui::TextUnformatted(u8"绿色表示文件在对比路径中已存在");
+    ImGui::PopStyleColor();
+
+    ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
+    ImGui::TextUnformatted(u8"灰色表示文件不支持被打开");
+    ImGui::PopStyleColor();
+
+    ImGui::End();
+  }
+}
+
 void Render() {
   SDL_RenderClear(g_renderer);
   SDL_SetRenderDrawColor(g_renderer, 0x00, 0x00, 0x00, 0x00);
   ImGui_ImplSDLRenderer2_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
-  // ImGui::ShowDemoWindow();
 
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu(u8"资源包")) {
-      if (ImGui::MenuItem(u8"新建压缩包", "CTRL+N")) {
+      if (ImGui::MenuItem(u8"新建压缩包")) {
         CreateROMWindow(ROMS(), kiwi::base::FilePath(), true, false);
       }
+      if (ImGui::MenuItem(u8"目录浏览器")) {
+        g_explorer.explorer_opened = true;
+      }
+
       ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
-
-    ImGui::Begin(u8"全局设置");
-    ImGui::TextUnformatted(u8"包管理器，方便轻松打包NES资源。");
-    ImGui::TextUnformatted(u8"准备工作：");
-
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::TextUnformatted(u8"将KiwiMachine的非内嵌版拷贝到本程序路径下");
-
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::TextUnformatted(
-        u8"为了能够自动注音，需要安装Python3，并通过pip3安装pinyin依赖：");
-    ImGui::TextUnformatted("\t");
-    ImGui::SameLine();
-    ImGui::Bullet();
-    ImGui::TextUnformatted("pip3 install pinyin");
-    ImGui::TextUnformatted("\t");
-    ImGui::SameLine();
-    ImGui::Bullet();
-    ImGui::TextUnformatted("pip3 install pykakasi");
-
-    ImGui::NewLine();
-    ImGui::TextUnformatted(u8"全局设置");
-    ImGui::TextUnformatted(u8"游戏封面数据库路径");
-    ImGui::InputText("##BoxartPath", GetSettings().boxarts_package,
-                     sizeof(GetSettings().boxarts_package));
-    ImGui::TextUnformatted(u8"最终输出路径 (--output)");
-    ImGui::InputText("##Output", GetSettings().zip_output_path,
-                     sizeof(GetSettings().zip_output_path));
-    ImGui::End();
   }
+
+  PaintGlobal();
+  PaintExplorer();
 
   for (auto& rom_window : g_rom_windows) {
     rom_window.Paint();
@@ -216,17 +319,7 @@ void Render() {
   ClearDroppedJPG();
 
   if (!g_dropped_rom.empty()) {
-    auto cover_data = kiwi::base::ReadFileToBytes(g_dropped_rom);
-    if (cover_data) {
-      ROM rom;
-      strcpy(rom.nes_file_name,
-             g_dropped_rom.BaseName().AsUTF8Unsafe().c_str());
-      rom.key = "default";
-      rom.nes_data = std::move(*cover_data);
-      FillRomDetailsAutomatically(rom, g_dropped_rom.BaseName());
-      CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath(),
-                      false, true);
-    }
+    CreateROMFromNES(g_dropped_rom);
   }
   ClearDroppedROM();
 }
@@ -273,8 +366,15 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 #endif
 
-
   InitSDL();
+
+  if (!FLAGS_explorer_dir.empty()) {
+    memcpy(g_explorer.explorer_dir, FLAGS_explorer_dir.data(),
+           FLAGS_explorer_dir.size());
+  }
+  if (!FLAGS_output.empty()) {
+    memcpy(g_explorer.compare_dir, FLAGS_output.data(), FLAGS_output.size());
+  }
 
   bool running = true;
   while (running) {

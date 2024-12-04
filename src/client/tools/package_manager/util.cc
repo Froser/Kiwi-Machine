@@ -287,6 +287,79 @@ ScopedSampleArray::ScopedSampleArray(int row_bytes, int height) {
 ScopedSampleArray ::~ScopedSampleArray() {
   FreeSampleArray(object_);
 }
+
+// Explorer internal functions
+void FetchFileNames(const kiwi::base::FilePath& dir,
+                    std::vector<Explorer::File>& out) {
+  out.clear();
+  kiwi::base::FileEnumerator d(dir, false, kiwi::base::FileEnumerator::FILES);
+  for (kiwi::base::FilePath current = d.Next(); !current.empty();
+       current = d.Next()) {
+    if (current.Extension() == FILE_PATH_LITERAL(".nes") ||
+        current.Extension() == FILE_PATH_LITERAL(".zip")) {
+      out.push_back({current.BaseName().AsUTF8Unsafe(), false, dir});
+    }
+  }
+
+  std::sort(out.begin(), out.end(), [](const auto& lhs, const auto& rhs) {
+    return lhs.title < rhs.title;
+  });
+}
+
+void FetchFileMapperSupported(std::vector<Explorer::File>& nes_files) {
+  for (auto& nes : nes_files) {
+    nes.supported = IsMapperSupported(
+        nes.dir.Append(kiwi::base::FilePath::FromUTF8Unsafe(nes.title)),
+        nes.mapper);
+  }
+}
+
+void GenerateCompare(const kiwi::base::FilePath& cmp_dir,
+                     std::vector<Explorer::File>& input_files) {
+  std::vector<Explorer::File> compared_files;
+  FetchFileNames(cmp_dir, compared_files);
+
+  for (auto& item : compared_files) {
+    if (kiwi::base::FilePath::FromUTF8Unsafe(item.title).Extension() ==
+        FILE_PATH_LITERAL(".zip")) {
+      kiwi::base::FilePath fullpath =
+          item.dir.Append(kiwi::base::FilePath::FromUTF8Unsafe(item.title));
+      std::vector<ROM> roms = ReadZipFromFile(fullpath);
+
+      auto iter = (std::find_if(
+          input_files.begin(), input_files.end(),
+          [roms](const Explorer::File& lhs) {
+            return std::find_if(roms.begin(), roms.end(), [lhs](const ROM& r) {
+                     // Special rules:
+                     // XXX, The (USA).nes will be adjusted into two possible
+                     // names: The XXX (USA).nes
+                     // XXX (USA).nes
+                     constexpr char kReplaceKey[] = ", The";
+                     if (auto pos = lhs.title.find(kReplaceKey);
+                         pos != std::string::npos) {
+                       std::string replacement = lhs.title;
+                       replacement.replace(pos, sizeof(kReplaceKey) - 1, "");
+
+                       bool found_alternative =
+                           (kiwi::base::CompareCaseInsensitiveASCII(
+                                r.nes_file_name, "The " + replacement) == 0) ||
+                           (kiwi::base::CompareCaseInsensitiveASCII(
+                                r.nes_file_name, replacement) == 0);
+                       if (found_alternative)
+                         return true;
+                     }
+
+                     return kiwi::base::CompareCaseInsensitiveASCII(
+                                r.nes_file_name, lhs.title) == 0;
+                   }) != roms.end();
+          }));
+      if (iter != input_files.end()) {
+        iter->matched = true;
+      }
+    }
+  }
+}
+
 }  // namespace
 
 bool IsZipExtension(const std::string& filename) {
@@ -541,8 +614,14 @@ bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
   return kiwi::nes::Mapper::IsMapperSupported(mapper);
 }
 
-std::vector<uint8_t> TryFetchCoverImage(const std::string& name,
-                                        kiwi::base::FilePath* suggested_url) {
+bool IsMapperSupported(const kiwi::base::FilePath& nes_files,
+                       std::string& mapper_name) {
+  auto bytes = kiwi::base::ReadFileToBytes(nes_files);
+  return bytes && IsMapperSupported(*bytes, mapper_name);
+}
+
+std::vector<uint8_t> TryFetchBoxArtImage(const std::string& name,
+                                         kiwi::base::FilePath* suggested_url) {
   static unzFile g_leaky_file = unzOpen(GetSettings().boxarts_package);
   static std::set<std::pair<std::string, std::string>> g_boxarts;
   if (g_boxarts.empty()) {
@@ -772,4 +851,12 @@ std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
   memcpy(result.data(), outbuffer, result.size());
   free(outbuffer);
   return result;
+}
+
+void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
+                             const kiwi::base::FilePath& cmp_dir,
+                             std::vector<Explorer::File>& out) {
+  FetchFileNames(input_dir, out);
+  FetchFileMapperSupported(out);
+  GenerateCompare(cmp_dir, out);
 }

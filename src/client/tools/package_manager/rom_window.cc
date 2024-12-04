@@ -80,12 +80,12 @@ void ROMWindow::Paint() {
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"自动填充", id).c_str())) {
         if (!FillRomDetailsAutomatically(rom, rom_base_name)) {
-          ShellOpen(kiwi::base::FilePath::FromUTF8Unsafe(std::string(
+          ShellOpen(kiwi::base::FilePath::FromUTF8Unsafe(
               "https://google.com/search?q=" +
-              rom_base_name.RemoveExtension().AsUTF8Unsafe() + " とは")));
-          ShellOpen(kiwi::base::FilePath::FromUTF8Unsafe(std::string(
+              rom_base_name.RemoveExtension().AsUTF8Unsafe() + " とは"));
+          ShellOpen(kiwi::base::FilePath::FromUTF8Unsafe(
               "https://google.com/search?q=" +
-              rom_base_name.RemoveExtension().AsUTF8Unsafe() + " 中文名")));
+              rom_base_name.RemoveExtension().AsUTF8Unsafe() + " 中文名"));
         }
       }
 
@@ -388,7 +388,7 @@ kiwi::base::FilePath ROMWindow::TryFetchCoverByName(
     const kiwi::base::FilePath& rom_base_name) {
   kiwi::base::FilePath suggested_url;
   std::vector<uint8_t> data =
-      TryFetchCoverImage(rom_base_name.AsUTF8Unsafe(), &suggested_url);
+      TryFetchBoxArtImage(rom_base_name.AsUTF8Unsafe(), &suggested_url);
   if (!data.empty()) {
     FillCoverData(rom, data);
   }

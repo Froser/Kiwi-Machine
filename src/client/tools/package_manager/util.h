@@ -46,7 +46,7 @@ struct ROM {
   char ja[MAX]{0};
   char ja_hint[MAX]{0};
 
-  // Cover
+  // Cover (boxart)
   std::vector<uint8_t> cover_data;
 
   std::vector<uint8_t> nes_data;
@@ -68,6 +68,8 @@ kiwi::base::FilePath WriteROM(const char* filename,
                               const kiwi::base::FilePath& dir);
 bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
                        std::string& mapper_name);
+bool IsMapperSupported(const kiwi::base::FilePath& nes_files,
+                       std::string& mapper_name);
 
 #if BUILDFLAG(IS_WIN)
 kiwi::base::FilePath GetFontsPath();
@@ -84,8 +86,8 @@ void RunExecutable(const kiwi::base::FilePath& executable,
                    const std::vector<std::wstring>& args);
 #endif
 
-std::vector<uint8_t> TryFetchCoverImage(const std::string& name,
-                                        kiwi::base::FilePath* suggested_url);
+std::vector<uint8_t> TryFetchBoxArtImage(const std::string& name,
+                                         kiwi::base::FilePath* suggested_url);
 std::string TryGetPinyin(const std::string& chinese);
 std::string TryGetKana(const std::string& kanji);
 std::string TryGetJaTitle(const std::string& en_name);
@@ -98,4 +100,22 @@ std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
                                                  int height,
                                                  size_t bytes_per_row,
                                                  unsigned char* data);
+
+// Explorer
+struct Explorer {
+  struct File {
+    std::string title;
+    bool selected;
+    kiwi::base::FilePath dir;
+    bool matched;
+    bool supported;
+    std::string mapper;
+  };
+  std::vector<File> explorer_files;
+};
+
+void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
+                             const kiwi::base::FilePath& cmp_dir,
+                             std::vector<Explorer::File>& out);
+
 #endif  // UTIL_H_
