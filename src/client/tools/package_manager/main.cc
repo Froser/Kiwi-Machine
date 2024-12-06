@@ -226,7 +226,11 @@ void PaintExplorer() {
     ImGui::InputText(u8"对比路径##", g_explorer.compare_dir,
                      sizeof(g_explorer.compare_dir));
 
-    if (ImGui::BeginListBox(u8"文件##Files")) {
+    constexpr int kItemCount = 20;
+    if (ImGui::BeginListBox(
+            u8"文件##Files",
+            ImVec2(-FLT_MIN,
+                   kItemCount * ImGui::GetTextLineHeightWithSpacing()))) {
       for (auto& item : g_explorer.explorer.explorer_files) {
         ImGui::PushStyleColor(ImGuiCol_Text,
                               item.supported
@@ -250,31 +254,41 @@ void PaintExplorer() {
       }
       ImGui::EndListBox();
 
-      if (g_explorer.selected_item)
+      if (g_explorer.selected_item) {
         ImGui::Text(u8"Mapper: %s, 是否支持：%s",
                     g_explorer.selected_item->mapper.c_str(),
                     g_explorer.selected_item->supported ? u8"是" : u8"否");
+      }
+
+      if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
+        ImGui::BeginDisabled();
+      if (ImGui::Button(u8"打开对应的压缩包")) {
+        const kiwi::base::FilePath& file =
+            g_explorer.selected_item->compared_zip_path;
+        if (IsZipExtension(
+                g_explorer.selected_item->compared_zip_path.AsUTF8Unsafe())) {
+          CreateROMWindow(ReadZipFromFile(file), file, false, false);
+        }
+      }
+      if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
+        ImGui::EndDisabled();
+
+      ImGui::NewLine();
+      ImGui::TextUnformatted(u8"颜色说明：");
+      ImGui::PushStyleColor(ImGuiCol_Text, ImColor(255, 0, 0).Value);
+      ImGui::TextUnformatted(u8"红色表示文件在对比路径中不存在");
+      ImGui::PopStyleColor();
+
+      ImGui::PushStyleColor(ImGuiCol_Text, ImColor(0, 255, 0).Value);
+      ImGui::TextUnformatted(u8"绿色表示文件在对比路径中已存在");
+      ImGui::PopStyleColor();
+
+      ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
+      ImGui::TextUnformatted(u8"灰色表示文件不支持被打开");
+      ImGui::PopStyleColor();
+
+      ImGui::End();
     }
-
-    ImGui::Button(u8"选择上一个##Previous");
-    ImGui::SameLine();
-    ImGui::Button(u8"选择下一个##Next");
-
-    ImGui::NewLine();
-    ImGui::TextUnformatted(u8"颜色说明：");
-    ImGui::PushStyleColor(ImGuiCol_Text, ImColor(255, 0, 0).Value);
-    ImGui::TextUnformatted(u8"红色表示文件在对比路径中不存在");
-    ImGui::PopStyleColor();
-
-    ImGui::PushStyleColor(ImGuiCol_Text, ImColor(0, 255, 0).Value);
-    ImGui::TextUnformatted(u8"绿色表示文件在对比路径中已存在");
-    ImGui::PopStyleColor();
-
-    ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
-    ImGui::TextUnformatted(u8"灰色表示文件不支持被打开");
-    ImGui::PopStyleColor();
-
-    ImGui::End();
   }
 }
 

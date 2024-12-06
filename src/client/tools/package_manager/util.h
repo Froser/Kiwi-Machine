@@ -47,13 +47,13 @@ struct ROM {
   char ja_hint[MAX]{0};
 
   // Cover (boxart)
-  std::vector<uint8_t> cover_data;
+  std::vector<uint8_t> boxart_data;
 
   std::vector<uint8_t> nes_data;
   char nes_file_name[MAX]{0};
 
  private:
-  SDL_Texture* cover_texture_ = nullptr;
+  SDL_Texture* boxart_texture_ = nullptr;
 };
 
 using ROMS = std::vector<ROM>;
@@ -110,6 +110,7 @@ struct Explorer {
     bool matched;
     bool supported;
     std::string mapper;
+    kiwi::base::FilePath compared_zip_path;
   };
   std::vector<File> explorer_files;
 };

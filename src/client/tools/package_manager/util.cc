@@ -355,6 +355,7 @@ void GenerateCompare(const kiwi::base::FilePath& cmp_dir,
           }));
       if (iter != input_files.end()) {
         iter->matched = true;
+        iter->compared_zip_path = fullpath;
       }
     }
   }
@@ -438,7 +439,7 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
           return g_no_result;
         }
 
-        if (!ReadCurrentFileFromZip(file, rom.cover_data)) {
+        if (!ReadCurrentFileFromZip(file, rom.boxart_data)) {
           unzClose(file);
           return g_no_result;
         }
@@ -548,8 +549,8 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
     }
 
     if (!WriteToZip(zf, (base_name + ".jpg").c_str(),
-                    reinterpret_cast<const char*>(rom.cover_data.data()),
-                    rom.cover_data.size())) {
+                    reinterpret_cast<const char*>(rom.boxart_data.data()),
+                    rom.boxart_data.size())) {
       zipClose(zf, nullptr);
       return kiwi::base::FilePath();
     }

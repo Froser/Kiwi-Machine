@@ -42,17 +42,17 @@ ROMWindow::ROMWindow(SDL_Renderer* renderer,
   strcpy(save_path_, GetDefaultSavePath().AsUTF8Unsafe().c_str());
   window_id_ = g_window_id++;
   for (auto& rom : roms_) {
-    if (!rom.cover_data.empty()) {
-      FillCoverData(rom, rom.cover_data);
+    if (!rom.boxart_data.empty()) {
+      FillCoverData(rom, rom.boxart_data);
     }
   }
 }
 
 ROMWindow::~ROMWindow() {
   for (auto& rom : roms_) {
-    if (rom.cover_texture_) {
-      SDL_DestroyTexture(rom.cover_texture_);
-      rom.cover_texture_ = nullptr;
+    if (rom.boxart_texture_) {
+      SDL_DestroyTexture(rom.boxart_texture_);
+      rom.boxart_texture_ = nullptr;
     }
   }
 }
@@ -127,19 +127,39 @@ void ROMWindow::Paint() {
       ImGui::EndGroup();
       ImGui::SameLine();
       ImGui::BeginGroup();
-      if (rom.cover_texture_) {
-        ImGui::Image(rom.cover_texture_, ImVec2(100, 100));
+
+      constexpr int kMaxBound = 100;
+      if (rom.boxart_texture_) {
+        int w, h, real_w, real_h;
+        SDL_QueryTexture(rom.boxart_texture_, nullptr, nullptr, &w, &h);
+        if (w > h) {
+          real_w = kMaxBound;
+          real_h = h / static_cast<float>(w) * kMaxBound;
+        } else {
+          real_h = kMaxBound;
+          real_w = w / static_cast<float>(h) * kMaxBound;
+        }
+
+        ImGui::Image(rom.boxart_texture_, ImVec2(real_w, real_h));
       } else {
         ImGui::Image(EmptyTexture(), ImVec2(100, 100), ImVec2(0, 0),
                      ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
       }
-
       if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
         kiwi::base::FilePath path = GetDroppedJPG();
         if (!path.empty()) {
           FillCoverData(rom, path);
         }
         ClearDroppedJPG();
+
+        if (rom.boxart_texture_) {
+          if (ImGui::BeginTooltip()) {
+            int w, h;
+            SDL_QueryTexture(rom.boxart_texture_, nullptr, nullptr, &w, &h);
+            ImGui::Image(rom.boxart_texture_, ImVec2(w, h));
+            ImGui::EndTooltip();
+          }
+        }
       }
 
       if (ImGui::Button(GetUniqueName(u8"尝试获取封面", id).c_str())) {
@@ -150,15 +170,16 @@ void ROMWindow::Paint() {
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"旋转", id).c_str())) {
-        std::vector<uint8_t> rotated_data = RotateJPEG(rom.cover_data);
+        std::vector<uint8_t> rotated_data = RotateJPEG(rom.boxart_data);
         if (!rotated_data.empty()) {
           UpdateCover(rom, rotated_data);
-          FillCoverData(rom, rom.cover_data);
+          FillCoverData(rom, rom.boxart_data);
         }
       }
       if (ImGui::Button(u8"从剪贴板粘贴")) {
         std::vector<uint8_t> paste_image = ReadImageAsJPGFromClipboard();
-        FillCoverData(rom, paste_image);
+        if (!paste_image.empty())
+          FillCoverData(rom, paste_image);
       }
 
       ImGui::EndGroup();
@@ -264,7 +285,7 @@ void ROMWindow::Paint() {
         ShellOpenDirectory(generated_packaged_path_);
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"测试", 0).c_str())) {
+      if (ImGui::Button(GetUniqueName(u8"测试包", 0).c_str())) {
         kiwi::base::FilePath package_path =
             PackZip(generated_packaged_path_, GetDefaultSavePath());
         if (!package_path.empty()) {
@@ -300,10 +321,6 @@ void ROMWindow::Paint() {
         }
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"关闭", 0).c_str())) {
-        show_message_box_ = false;
-      }
-
       if (!copied_path_.empty()) {
         ImGui::Text(u8"%s 已经拷贝到 %s",
                     generated_packaged_path_.AsUTF8Unsafe().c_str(),
@@ -311,9 +328,6 @@ void ROMWindow::Paint() {
       }
     } else {
       ImGui::TextUnformatted(u8"保存文件失败");
-    }
-
-    if (!copied_path_.empty()) {
     }
     ImGui::End();
   }
@@ -337,14 +351,14 @@ void ROMWindow::Painted() {
 }
 
 void ROMWindow::FillCoverData(ROM& rom, const kiwi::base::FilePath& path) {
-  if (rom.cover_texture_)
-    SDL_DestroyTexture(rom.cover_texture_);
+  if (rom.boxart_texture_)
+    SDL_DestroyTexture(rom.boxart_texture_);
 
   SDL_RWops* res = SDL_RWFromFile(path.AsUTF8Unsafe().c_str(), "rb");
   if (res) {
     SDL_Texture* texture = IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
     SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
-    rom.cover_texture_ = texture;
+    rom.boxart_texture_ = texture;
     auto cover_data = kiwi::base::ReadFileToBytes(path);
     SDL_assert(cover_data);
     UpdateCover(rom, std::move(*cover_data));
@@ -352,20 +366,20 @@ void ROMWindow::FillCoverData(ROM& rom, const kiwi::base::FilePath& path) {
 }
 
 void ROMWindow::FillCoverData(ROM& rom, const std::vector<uint8_t>& data) {
-  if (rom.cover_texture_)
-    SDL_DestroyTexture(rom.cover_texture_);
+  if (rom.boxart_texture_)
+    SDL_DestroyTexture(rom.boxart_texture_);
 
   SDL_RWops* res =
       SDL_RWFromMem(const_cast<unsigned char*>(data.data()), data.size());
   SDL_Texture* texture = IMG_LoadTextureTyped_RW(renderer_, res, 1, nullptr);
   SDL_SetTextureScaleMode(texture, SDL_ScaleModeBest);
-  rom.cover_texture_ = texture;
+  rom.boxart_texture_ = texture;
   UpdateCover(rom, std::move(data));
 }
 
 void ROMWindow::UpdateCover(ROM& rom, const std::vector<uint8_t>& data) {
   SDL_LockMutex(cover_update_mutex_);
-  rom.cover_data = data;
+  rom.boxart_data = data;
   SDL_UnlockMutex(cover_update_mutex_);
 }
 
