@@ -45,6 +45,8 @@ class ROMWindow {
   void FillCoverData(ROM& rom, const kiwi::base::FilePath& path);
   void FillCoverData(ROM& rom, const std::vector<uint8_t>& data);
   void UpdateCover(ROM& rom, const std::vector<uint8_t>& data);
+  kiwi::base::FilePath SaveROMs(const kiwi::base::FilePath& save_path,
+                                const ROMS& roms);
 
  private:
   int window_id_ = 0;

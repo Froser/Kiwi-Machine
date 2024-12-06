@@ -100,6 +100,8 @@ std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
                                                  int height,
                                                  size_t bytes_per_row,
                                                  unsigned char* data);
+void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
+                         const kiwi::base::FilePath& save_dir);
 
 // Explorer
 struct Explorer {

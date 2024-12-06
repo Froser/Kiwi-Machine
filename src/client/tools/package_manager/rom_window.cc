@@ -249,19 +249,18 @@ void ROMWindow::Paint() {
     NewRom();
   }
 
-  ImGui::NewLine();
   ImGui::InputText(GetUniqueName(u8"另存文件目录", 0).c_str(), save_path_,
                    sizeof(save_path_));
   if (ImGui::Button(GetUniqueName(u8"保存", 0).c_str())) {
-    if (kiwi::base::FilePath output =
-            WriteZip(kiwi::base::FilePath::FromUTF8Unsafe(save_path_), roms_);
-        !output.empty()) {
-      generated_packaged_path_ = output;
-      show_message_box_ = true;
-    } else {
-      generated_packaged_path_.clear();
-      show_message_box_ = true;
-    }
+    generated_packaged_path_ =
+        SaveROMs(kiwi::base::FilePath::FromUTF8Unsafe(save_path_), roms_);
+    show_message_box_ = true;
+  }
+
+  if (ImGui::Button(GetUniqueName(u8"打包并测试", 0).c_str())) {
+    generated_packaged_path_ =
+        SaveROMs(kiwi::base::FilePath::FromUTF8Unsafe(save_path_), roms_);
+    PackSingleZipAndRun(generated_packaged_path_, GetDefaultSavePath());
   }
 
   ImGui::SameLine();
@@ -286,28 +285,7 @@ void ROMWindow::Paint() {
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"测试包", 0).c_str())) {
-        kiwi::base::FilePath package_path =
-            PackZip(generated_packaged_path_, GetDefaultSavePath());
-        if (!package_path.empty()) {
-#if BUILDFLAG(IS_MAC)
-          kiwi::base::FilePath kiwi_machine(
-              FILE_PATH_LITERAL("kiwi_machine.app"));
-          RunExecutable(
-              kiwi_machine,
-              {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
-#elif BUILDFLAG(IS_WIN)
-          kiwi::base::FilePath kiwi_machine(
-              FILE_PATH_LITERAL("kiwi_machine.exe"));
-          RunExecutable(
-              kiwi_machine,
-              {L"--test-pak=\"" + package_path.value() + L"\"", L"--has_menu"});
-#else
-          kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
-          RunExecutable(
-              kiwi_machine,
-              {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
-#endif
-        }
+        PackSingleZipAndRun(generated_packaged_path_, GetDefaultSavePath());
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"复制到最终输出路径", 0).c_str())) {
@@ -320,7 +298,7 @@ void ROMWindow::Paint() {
           copied_path_.clear();
         }
       }
-      ImGui::SameLine();
+
       if (!copied_path_.empty()) {
         ImGui::Text(u8"%s 已经拷贝到 %s",
                     generated_packaged_path_.AsUTF8Unsafe().c_str(),
@@ -381,6 +359,16 @@ void ROMWindow::UpdateCover(ROM& rom, const std::vector<uint8_t>& data) {
   SDL_LockMutex(cover_update_mutex_);
   rom.boxart_data = data;
   SDL_UnlockMutex(cover_update_mutex_);
+}
+
+kiwi::base::FilePath ROMWindow::SaveROMs(const kiwi::base::FilePath& save_path,
+                                         const ROMS& roms) {
+  if (kiwi::base::FilePath output = WriteZip(save_path, roms_);
+      !output.empty()) {
+    return output;
+  } else {
+    return kiwi::base::FilePath();
+  }
 }
 
 void ROMWindow::NewRom() {

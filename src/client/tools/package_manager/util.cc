@@ -854,6 +854,30 @@ std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
   return result;
 }
 
+void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
+                         const kiwi::base::FilePath& save_dir) {
+  if (zip.empty())
+    return;
+
+  kiwi::base::FilePath package_path = PackZip(zip, save_dir);
+  if (!package_path.empty()) {
+#if BUILDFLAG(IS_MAC)
+    kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.app"));
+    RunExecutable(kiwi_machine,
+                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
+#elif BUILDFLAG(IS_WIN)
+    kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.exe"));
+    RunExecutable(
+        kiwi_machine,
+        {L"--test-pak=\"" + package_path.value() + L"\"", L"--has_menu"});
+#else
+    kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
+    RunExecutable(kiwi_machine,
+                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
+#endif
+  }
+}
+
 void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
                              const kiwi::base::FilePath& cmp_dir,
                              std::vector<Explorer::File>& out) {
