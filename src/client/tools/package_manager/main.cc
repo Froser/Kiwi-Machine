@@ -24,13 +24,11 @@
 #include "base/strings/string_util.h"
 #include "rom_window.h"
 #include "util.h"
+#include "workspace.h"
 
 #if defined(_WIN32)
 #include <windows.h>
 #endif
-
-DECLARE_string(output);
-DEFINE_string(explorer_dir, "", "A default explorer directory path to view.");
 
 SDL_Renderer* g_renderer;
 std::vector<ROMWindow> g_rom_windows;
@@ -39,8 +37,6 @@ kiwi::base::FilePath g_dropped_rom;
 
 struct {
   Explorer explorer;
-  char explorer_dir[ROM::MAX];
-  char compare_dir[ROM::MAX];
   bool first_open = true;
   bool explorer_opened = false;
   Explorer::File* selected_item = nullptr;
@@ -201,30 +197,36 @@ void PaintGlobal() {
   ImGui::NewLine();
   ImGui::TextUnformatted(u8"全局设置");
   ImGui::TextUnformatted(u8"游戏封面数据库路径");
-  ImGui::InputText("##BoxartPath", GetSettings().boxarts_package,
-                   sizeof(GetSettings().boxarts_package));
-  ImGui::TextUnformatted(u8"最终输出路径 (--output)");
-  ImGui::InputText("##Output", GetSettings().zip_output_path,
-                   sizeof(GetSettings().zip_output_path));
+  ImGui::TextUnformatted(u8"工作空间 (--workspace)");
+  ImGui::InputText("##Workspace", GetWorkspace().workspace_dir,
+                   sizeof(GetWorkspace().workspace_dir));
+  ImGui::SameLine();
+  if (ImGui::Button(u8"加载工作空间")) {
+    kiwi::base::FilePath manifest_path =
+        kiwi::base::FilePath::FromUTF8Unsafe(GetWorkspace().workspace_dir)
+            .Append(FILE_PATH_LITERAL("manifest.json"));
+    GetWorkspace().ReadFromManifest(manifest_path);
+  }
+  ImGui::Text(u8"封面数据库: %s",
+              GetWorkspace().GetNESBoxartsPath().AsUTF8Unsafe().c_str());
   ImGui::End();
 }
 
 void PaintExplorer() {
   if (g_explorer.explorer_opened) {
     ImGui::Begin(u8"目录浏览器##Explorer", &g_explorer.explorer_opened);
-    ImGui::InputText(u8"文件夹路径##", g_explorer.explorer_dir,
-                     sizeof(g_explorer.explorer_dir));
+    ImGui::Text(u8"NES Roms 路径: %s",
+                GetWorkspace().GetNESRomsPath().AsUTF8Unsafe().c_str());
     ImGui::SameLine();
-    if (ImGui::Button(u8"刷新") || g_explorer.first_open) {
-      InitializeExplorerFiles(
-          kiwi::base::FilePath::FromUTF8Unsafe(g_explorer.explorer_dir),
-          kiwi::base::FilePath::FromUTF8Unsafe(g_explorer.compare_dir),
-          g_explorer.explorer.explorer_files);
+    if (ImGui::Button(u8"与打包路径对比") || g_explorer.first_open) {
+      InitializeExplorerFiles(GetWorkspace().GetNESRomsPath(),
+                              GetWorkspace().GetZippedPath(),
+                              g_explorer.explorer.explorer_files);
       g_explorer.first_open = false;
     }
 
-    ImGui::InputText(u8"对比路径##", g_explorer.compare_dir,
-                     sizeof(g_explorer.compare_dir));
+    ImGui::Text(u8"打包路径: %s",
+                GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
 
     constexpr int kItemCount = 20;
     if (ImGui::BeginListBox(
@@ -273,14 +275,20 @@ void PaintExplorer() {
       if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
         ImGui::EndDisabled();
 
+      ImGui::SameLine();
+      if (ImGui::Button(u8"对文件夹打包")) {
+        PackEntireDirectory(GetWorkspace().GetZippedPath(),
+                            GetWorkspace().GetPackageOutputPath());
+      }
+
       ImGui::NewLine();
       ImGui::TextUnformatted(u8"颜色说明：");
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(255, 0, 0).Value);
-      ImGui::TextUnformatted(u8"红色表示文件在对比路径中不存在");
+      ImGui::TextUnformatted(u8"红色表示文件在目标路径中不存在");
       ImGui::PopStyleColor();
 
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(0, 255, 0).Value);
-      ImGui::TextUnformatted(u8"绿色表示文件在对比路径中已存在");
+      ImGui::TextUnformatted(u8"绿色表示文件在目标路径中已存在");
       ImGui::PopStyleColor();
 
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
@@ -381,14 +389,6 @@ int main(int argc, char** argv) {
 #endif
 
   InitSDL();
-
-  if (!FLAGS_explorer_dir.empty()) {
-    memcpy(g_explorer.explorer_dir, FLAGS_explorer_dir.data(),
-           FLAGS_explorer_dir.size());
-  }
-  if (!FLAGS_output.empty()) {
-    memcpy(g_explorer.compare_dir, FLAGS_output.data(), FLAGS_output.size());
-  }
 
   bool running = true;
   while (running) {

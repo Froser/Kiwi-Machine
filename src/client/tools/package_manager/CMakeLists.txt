@@ -43,6 +43,8 @@ set(Sources
         rom_window.h
         util.cc
         util.h
+        workspace.cc
+        workspace.h
 )
 
 if (APPLE)

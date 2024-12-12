@@ -21,18 +21,6 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 
-struct Settings {
-  char boxarts_package[1024] = "boxarts.zip";
-  char zip_output_path[1024] = {0};
-
-  Settings();
-};
-
-Settings& GetSettings();
-bool IsZipExtension(const std::string& filename);
-bool IsJPEGExtension(const std::string& filename);
-bool IsNESExtension(const std::string& filename);
-
 class ROMWindow;
 struct ROM {
   friend class ROMWindow;
@@ -58,11 +46,27 @@ struct ROM {
 
 using ROMS = std::vector<ROM>;
 
+bool IsZipExtension(const std::string& filename);
+bool IsJPEGExtension(const std::string& filename);
+bool IsNESExtension(const std::string& filename);
+
 [[nodiscard]] ROMS ReadZipFromFile(const kiwi::base::FilePath& path);
 kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
                               const ROMS& roms);
-kiwi::base::FilePath PackZip(const kiwi::base::FilePath& rom_zip,
-                             const kiwi::base::FilePath& save_dir);
+std::vector<kiwi::base::FilePath> PackZip(
+    const std::vector<std::pair<kiwi::base::FilePath,
+                                kiwi::base::FilePath::StringType>>& rom_zips,
+    const kiwi::base::FilePath& save_dir);
+kiwi::base::FilePath PackZip(
+    const kiwi::base::FilePath& rom_zip,
+    const kiwi::base::FilePath::StringType& package_name,
+    const kiwi::base::FilePath& save_dir);
+// Packs the entire directory.
+// If the root contains manifest.json, uses it. Otherwise, use a template
+// manifest.json for testing. If the root contains subdirectories, it will
+// generate its package as well.
+std::vector<kiwi::base::FilePath> PackEntireDirectory(const kiwi::base::FilePath& dir,
+                                         const kiwi::base::FilePath& save_dir);
 kiwi::base::FilePath WriteROM(const char* filename,
                               const std::vector<uint8_t>& data,
                               const kiwi::base::FilePath& dir);

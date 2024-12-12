@@ -23,6 +23,7 @@
 #include "kiwi_nes.h"
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3/contrib/minizip/zip.h"
+#include "workspace.h"
 
 #if BUILDFLAG(IS_WIN)
 #include <Windows.h>
@@ -30,18 +31,7 @@
 #undef max
 #endif
 
-DEFINE_string(output, "", "Default final output path or a nes zip file.");
-
 constexpr int kMaxLevenshteinDistance = 10;
-
-Settings::Settings() {
-  strcpy(zip_output_path, FLAGS_output.c_str());
-}
-
-Settings& GetSettings() {
-  static Settings settings;
-  return settings;
-}
 
 namespace {
 #if BUILDFLAG(IS_WIN)
@@ -560,32 +550,68 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
   return kiwi::base::FilePath::FromUTF8Unsafe(output);
 }
 
-kiwi::base::FilePath PackZip(const kiwi::base::FilePath& rom_zip,
-                             const kiwi::base::FilePath& save_dir) {
-  std::string output =
-      save_dir.Append(FILE_PATH_LITERAL("test.pak")).AsUTF8Unsafe();
-  zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
-  if (!zf) {
+kiwi::base::FilePath PackZip(
+    const kiwi::base::FilePath& rom_zip,
+    const kiwi::base::FilePath::StringType& package_name,
+    const kiwi::base::FilePath& save_dir) {
+  std::vector<kiwi::base::FilePath> result =
+      PackZip(std::vector{std::make_pair(rom_zip, package_name)}, save_dir);
+  if (result.empty())
     return kiwi::base::FilePath();
-  }
-  if (!WriteToZip(zf, "manifest.json", g_package_manifest_template.data(),
-                  g_package_manifest_template.size())) {
+
+  return *result.begin();
+}
+
+std::vector<kiwi::base::FilePath> PackZip(
+    const std::vector<std::pair<kiwi::base::FilePath,
+                                kiwi::base::FilePath::StringType>>& rom_zips,
+    const kiwi::base::FilePath& save_dir) {
+  std::vector<kiwi::base::FilePath> result;
+  for (const auto& [rom_zip, package_name] : rom_zips) {
+    std::string output = save_dir.Append(package_name).AsUTF8Unsafe();
+    zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
+    if (!zf) {
+      continue;
+    }
+
+    if (!WriteToZip(zf, "manifest.json", g_package_manifest_template.data(),
+                    g_package_manifest_template.size())) {
+      zipClose(zf, nullptr);
+      continue;
+    }
+
+    std::optional<std::vector<uint8_t>> zip_contents =
+        kiwi::base::ReadFileToBytes(rom_zip);
+    SDL_assert(zip_contents);
+    if (!WriteToZip(zf, rom_zip.BaseName().AsUTF8Unsafe().c_str(),
+                    reinterpret_cast<const char*>(zip_contents->data()),
+                    zip_contents->size())) {
+      zipClose(zf, nullptr);
+      continue;
+    }
     zipClose(zf, nullptr);
-    return kiwi::base::FilePath();
+    result.push_back(kiwi::base::FilePath::FromUTF8Unsafe(output));
   }
 
-  std::optional<std::vector<uint8_t>> zip_contents =
-      kiwi::base::ReadFileToBytes(rom_zip);
-  SDL_assert(zip_contents);
-  if (!WriteToZip(zf, rom_zip.BaseName().AsUTF8Unsafe().c_str(),
-                  reinterpret_cast<const char*>(zip_contents->data()),
-                  zip_contents->size())) {
-    zipClose(zf, nullptr);
-    return kiwi::base::FilePath();
+  return result;
+}
+
+std::vector<kiwi::base::FilePath> PackEntireDirectory(
+    const kiwi::base::FilePath& dir,
+    const kiwi::base::FilePath& save_dir) {
+  std::vector<std::pair<kiwi::base::FilePath, kiwi::base::FilePath::StringType>>
+      rom_zips;
+  rom_zips.push_back({dir, FILE_PATH_LITERAL("main.pak")});
+
+  kiwi::base::FileEnumerator d(GetWorkspace().GetNESBoxartsPath(), false,
+                               kiwi::base::FileEnumerator::DIRECTORIES);
+  for (kiwi::base::FilePath current = d.Next(); !current.empty();
+       current = d.Next()) {
+    rom_zips.push_back({current, current.BaseName().AsUTF8Unsafe() +
+                                     FILE_PATH_LITERAL(".pak")});
   }
 
-  zipClose(zf, nullptr);
-  return kiwi::base::FilePath::FromUTF8Unsafe(output);
+  return PackZip(rom_zips, save_dir);
 }
 
 kiwi::base::FilePath WriteROM(const char* filename,
@@ -623,39 +649,35 @@ bool IsMapperSupported(const kiwi::base::FilePath& nes_files,
 
 std::vector<uint8_t> TryFetchBoxArtImage(const std::string& name,
                                          kiwi::base::FilePath* suggested_url) {
-  static unzFile g_leaky_file = unzOpen(GetSettings().boxarts_package);
-  static std::set<std::pair<std::string, std::string>> g_boxarts;
+  static std::set<std::pair<kiwi::base::FilePath, kiwi::base::FilePath>>
+      g_boxarts;
   if (g_boxarts.empty()) {
-    if (g_leaky_file) {
-      int ret = unzGoToFirstFile(g_leaky_file);
-      while (ret == UNZ_OK) {
-        char filename[ROM::MAX];
-        unzGetCurrentFileInfo(g_leaky_file, nullptr, filename, ROM::MAX,
-                              nullptr, 0, nullptr, 0);
-        g_boxarts.insert(
-            {filename, kiwi::base::FilePath::FromUTF8Unsafe(filename)
-                           .RemoveExtension()
-                           .AsUTF8Unsafe()});
-        ret = unzGoToNextFile(g_leaky_file);
+    kiwi::base::FileEnumerator d(GetWorkspace().GetNESBoxartsPath(), false,
+                                 kiwi::base::FileEnumerator::FILES);
+    for (kiwi::base::FilePath current = d.Next(); !current.empty();
+         current = d.Next()) {
+      if (current.Extension() == FILE_PATH_LITERAL(".jpg")) {
+        g_boxarts.insert({current, current.BaseName().RemoveExtension()});
       }
     }
   }
 
-  std::multimap<int, std::string> r;
+  std::multimap<int, kiwi::base::FilePath> r;
   for (const auto& boxart : g_boxarts) {
     int dis = LevenshteinDistance(kiwi::base::FilePath::FromUTF8Unsafe(name)
                                       .RemoveExtension()
                                       .AsUTF8Unsafe(),
-                                  boxart.second);
+                                  boxart.second.AsUTF8Unsafe());
     r.insert({dis, boxart.first});
   }
 
   std::vector<uint8_t> result;
   if (!r.empty() && r.begin()->first < kMaxLevenshteinDistance) {
     // Read from local
-    unzLocateFile(g_leaky_file, r.begin()->second.c_str(), 1);
-    if (ReadCurrentFileFromZip(g_leaky_file, result))
-      return result;
+    auto maybe_result = kiwi::base::ReadFileToBytes(r.begin()->second);
+    if (maybe_result)
+      result = *maybe_result;
+    return result;
   } else {
     // Re from internet
     constexpr char kSearchUrl[] = "https://wowroms.com/en/roms/list?search=";
@@ -859,7 +881,8 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
   if (zip.empty())
     return;
 
-  kiwi::base::FilePath package_path = PackZip(zip, save_dir);
+  kiwi::base::FilePath package_path =
+      PackZip(zip, FILE_PATH_LITERAL("test.pak"), save_dir);
   if (!package_path.empty()) {
 #if BUILDFLAG(IS_MAC)
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.app"));

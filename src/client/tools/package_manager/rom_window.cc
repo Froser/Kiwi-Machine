@@ -17,6 +17,7 @@
 
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
+#include "workspace.h"
 
 static int g_window_id = 0;
 
@@ -257,6 +258,7 @@ void ROMWindow::Paint() {
     show_message_box_ = true;
   }
 
+  ImGui::SameLine();
   if (ImGui::Button(GetUniqueName(u8"打包并测试", 0).c_str())) {
     generated_packaged_path_ =
         SaveROMs(kiwi::base::FilePath::FromUTF8Unsafe(save_path_), roms_);
@@ -288,10 +290,10 @@ void ROMWindow::Paint() {
         PackSingleZipAndRun(generated_packaged_path_, GetDefaultSavePath());
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"复制到最终输出路径", 0).c_str())) {
+      if (ImGui::Button(GetUniqueName(u8"复制到打包路径", 0).c_str())) {
         kiwi::base::FilePath copied_path =
-            kiwi::base::FilePath::FromUTF8Unsafe(GetSettings().zip_output_path)
-                .Append(generated_packaged_path_.BaseName());
+            GetWorkspace().GetZippedPath().Append(
+                generated_packaged_path_.BaseName());
         if (kiwi::base::CopyFile(generated_packaged_path_, copied_path)) {
           copied_path_ = copied_path;
         } else {
