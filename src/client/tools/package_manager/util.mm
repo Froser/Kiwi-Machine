@@ -19,16 +19,6 @@
 #include "../third_party/libjpeg-turbo-jpeg-9f/jpeglib.h"
 #include "base/files/file_path.h"
 
-kiwi::base::FilePath GetDefaultSavePath() {
-  @autoreleasepool {
-    NSString* documents_dir =
-        [NSHomeDirectory() stringByAppendingPathComponent:@"Documents"];
-    const char* u8_documents_dir =
-        [documents_dir cStringUsingEncoding:NSUTF8StringEncoding];
-    return kiwi::base::FilePath::FromUTF8Unsafe(u8_documents_dir);
-  }
-}
-
 void ShellOpen(const kiwi::base::FilePath& file) {
   @autoreleasepool {
     NSString* ns_file_path =

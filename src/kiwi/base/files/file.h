@@ -94,6 +94,40 @@ class BASE_EXPORT File {
   // This explicit mapping matches both FILE_ on Windows and SEEK_ on Linux.
   enum Whence { FROM_BEGIN = 0, FROM_CURRENT = 1, FROM_END = 2 };
 
+  // Used to hold information about a given file.
+  // If you add more fields to this structure (platform-specific fields are OK),
+  // make sure to update all functions that use it in file_util_{win|posix}.cc,
+  // too, and the ParamTraits<base::File::Info> implementation in
+  // ipc/ipc_message_utils.cc.
+  struct BASE_EXPORT Info {
+    Info();
+    ~Info();
+#if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+    // Fills this struct with values from |stat_info|.
+    void FromStat(const stat_wrapper_t& stat_info);
+#endif
+
+    // The size of the file in bytes.  Undefined when is_directory is true.
+    int64_t size = 0;
+
+    // True if the file corresponds to a directory.
+    bool is_directory = false;
+
+    // True if the file corresponds to a symbolic link.  For Windows currently
+    // not supported and thus always false.
+    bool is_symbolic_link = false;
+
+    // In chromium's base, we will get following time information. But for a
+    // simple file info, we won't get these, because we haven't implemented Time
+    // class yet :(
+    // The last modified time of a file.
+    // Time last_modified;
+    // The last accessed time of a file.
+    // Time last_accessed;
+    // The creation time of a file.
+    // Time creation_time;
+  };
+
   File(const FilePath& path, uint32_t flags);
   ~File();
 

@@ -258,6 +258,33 @@ namespace internal {
 std::wstring UTF8ToWide(const std::string_view& utf8);
 }
 
+bool GetFileInfo(const FilePath& file_path, File::Info* results) {
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+
+  WIN32_FILE_ATTRIBUTE_DATA attr;
+  if (!GetFileAttributesEx(file_path.value().c_str(), GetFileExInfoStandard,
+                           &attr)) {
+    return false;
+  }
+
+  ULARGE_INTEGER size;
+  size.HighPart = attr.nFileSizeHigh;
+  size.LowPart = attr.nFileSizeLow;
+  // TODO(crbug.com/40227936): Change Info::size to uint64_t and eliminate this
+  // cast.
+  results->size = checked_cast<int64_t>(size.QuadPart);
+
+  results->is_directory =
+      (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+  // Time class is not supported yet.
+  // results->last_modified = Time::FromFileTime(attr.ftLastWriteTime);
+  // results->last_accessed = Time::FromFileTime(attr.ftLastAccessTime);
+  // results->creation_time = Time::FromFileTime(attr.ftCreationTime);
+
+  return true;
+}
+
 FILE* OpenFile(const FilePath& filename, const char* mode) {
   // 'N' is unconditionally added below, so be sure there is not one already
   // present before a comma in |mode|.

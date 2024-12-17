@@ -60,7 +60,6 @@ class ROMWindow {
   bool show_message_box_ = false;
   kiwi::base::FilePath generated_packaged_path_;
 
-  char save_path_[ROM::MAX] = {0};
   SDL_mutex* cover_update_mutex_ = nullptr;
 
   kiwi::base::FilePath copied_path_;

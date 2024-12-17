@@ -65,8 +65,9 @@ kiwi::base::FilePath PackZip(
 // If the root contains manifest.json, uses it. Otherwise, use a template
 // manifest.json for testing. If the root contains subdirectories, it will
 // generate its package as well.
-std::vector<kiwi::base::FilePath> PackEntireDirectory(const kiwi::base::FilePath& dir,
-                                         const kiwi::base::FilePath& save_dir);
+std::vector<kiwi::base::FilePath> PackEntireDirectory(
+    const kiwi::base::FilePath& dir,
+    const kiwi::base::FilePath& save_dir);
 kiwi::base::FilePath WriteROM(const char* filename,
                               const std::vector<uint8_t>& data,
                               const kiwi::base::FilePath& dir);
@@ -79,7 +80,6 @@ bool IsMapperSupported(const kiwi::base::FilePath& nes_files,
 kiwi::base::FilePath GetFontsPath();
 #endif
 
-kiwi::base::FilePath GetDefaultSavePath();
 void ShellOpen(const kiwi::base::FilePath& file);
 void ShellOpenDirectory(const kiwi::base::FilePath& file);
 #if BUILDFLAG(IS_MAC)
@@ -124,5 +124,7 @@ struct Explorer {
 void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
                              const kiwi::base::FilePath& cmp_dir,
                              std::vector<Explorer::File>& out);
+void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
+                         std::vector<Explorer::File>& files);
 
 #endif  // UTIL_H_

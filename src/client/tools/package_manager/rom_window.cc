@@ -21,6 +21,9 @@
 
 static int g_window_id = 0;
 
+// main.cc
+void NotifySaved(const kiwi::base::FilePath& updated_zip_file);
+
 // Implements in main.cc
 kiwi::base::FilePath GetDroppedJPG();
 void ClearDroppedJPG();
@@ -40,7 +43,6 @@ ROMWindow::ROMWindow(SDL_Renderer* renderer,
   cover_update_mutex_ = SDL_CreateMutex();
   EmptyTexture(renderer);
 
-  strcpy(save_path_, GetDefaultSavePath().AsUTF8Unsafe().c_str());
   window_id_ = g_window_id++;
   for (auto& rom : roms_) {
     if (!rom.boxart_data.empty()) {
@@ -206,9 +208,8 @@ void ROMWindow::Paint() {
 
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"测试", id).c_str())) {
-        kiwi::base::FilePath output_rom =
-            WriteROM(rom.nes_file_name, rom.nes_data,
-                     kiwi::base::FilePath::FromUTF8Unsafe(save_path_));
+        kiwi::base::FilePath output_rom = WriteROM(
+            rom.nes_file_name, rom.nes_data, GetWorkspace().GetTestPath());
         if (!output_rom.empty()) {
 #if BUILDFLAG(IS_MAC)
           kiwi::base::FilePath kiwi_machine(
@@ -250,19 +251,18 @@ void ROMWindow::Paint() {
     NewRom();
   }
 
-  ImGui::InputText(GetUniqueName(u8"另存文件目录", 0).c_str(), save_path_,
-                   sizeof(save_path_));
+  ImGui::TextUnformatted(u8"保存路径");
+  ImGui::TextUnformatted(GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
   if (ImGui::Button(GetUniqueName(u8"保存", 0).c_str())) {
-    generated_packaged_path_ =
-        SaveROMs(kiwi::base::FilePath::FromUTF8Unsafe(save_path_), roms_);
+    generated_packaged_path_ = SaveROMs(GetWorkspace().GetZippedPath(), roms_);
     show_message_box_ = true;
+    NotifySaved(generated_packaged_path_);  // Update explorer's item.
   }
 
   ImGui::SameLine();
   if (ImGui::Button(GetUniqueName(u8"打包并测试", 0).c_str())) {
-    generated_packaged_path_ =
-        SaveROMs(kiwi::base::FilePath::FromUTF8Unsafe(save_path_), roms_);
-    PackSingleZipAndRun(generated_packaged_path_, GetDefaultSavePath());
+    generated_packaged_path_ = SaveROMs(GetWorkspace().GetTestPath(), roms_);
+    PackSingleZipAndRun(generated_packaged_path_, GetWorkspace().GetTestPath());
   }
 
   ImGui::SameLine();
@@ -287,7 +287,8 @@ void ROMWindow::Paint() {
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"测试包", 0).c_str())) {
-        PackSingleZipAndRun(generated_packaged_path_, GetDefaultSavePath());
+        PackSingleZipAndRun(generated_packaged_path_,
+                            GetWorkspace().GetTestPath());
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"复制到打包路径", 0).c_str())) {

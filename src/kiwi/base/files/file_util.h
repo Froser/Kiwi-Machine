@@ -72,6 +72,9 @@ BASE_EXPORT FILE* OpenFile(const FilePath& filename, const char* mode);
 // Closes file opened by OpenFile. Returns true on success.
 BASE_EXPORT bool CloseFile(FILE* file);
 
+// Returns information about the given file path. Also see |File::GetInfo|.
+BASE_EXPORT bool GetFileInfo(const FilePath& file_path, File::Info* info);
+
 // Reads the file at |path| and returns a vector of bytes on success, and
 // nullopt on error. For security reasons, a |path| containing path traversal
 // components ('..') is treated as a read error, returning nullopt.

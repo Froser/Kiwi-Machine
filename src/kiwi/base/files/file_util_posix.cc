@@ -107,6 +107,16 @@ bool CreateDirectoryAndGetError(const FilePath& full_path, File::Error* error) {
   return true;
 }
 
+bool GetFileInfo(const FilePath& file_path, File::Info* results) {
+  stat_wrapper_t file_info;
+  if (File::Stat(file_path.value().c_str(), &file_info) != 0) {
+    return false;
+  }
+
+  results->FromStat(file_info);
+  return true;
+}
+
 FILE* OpenFile(const FilePath& filename, const char* mode) {
   // 'e' is unconditionally added below, so be sure there is not one already
   // present before a comma in |mode|.
@@ -114,7 +124,8 @@ FILE* OpenFile(const FilePath& filename, const char* mode) {
       strchr(mode, 'e') == nullptr ||
       (strchr(mode, ',') != nullptr && strchr(mode, 'e') > strchr(mode, ',')));
   // Do not check blocking call because it is not supported.
-  // ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
   FILE* result = nullptr;
 #if BUILDFLAG(IS_APPLE)
   // macOS does not provide a mode character to set O_CLOEXEC; see

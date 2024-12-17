@@ -26,16 +26,6 @@ kiwi::base::FilePath GetFontsPath() {
   return kiwi::base::FilePath();
 }
 
-kiwi::base::FilePath GetDefaultSavePath() {
-  PWSTR path = NULL;
-  HRESULT hr = SHGetKnownFolderPath(FOLDERID_Downloads, 0, NULL, &path);
-  if (SUCCEEDED(hr)) {
-    return kiwi::base::FilePath(path);
-  }
-
-  return kiwi::base::FilePath();
-}
-
 void ShellOpen(const kiwi::base::FilePath& file) {
   ShellExecuteW(NULL, L"open", file.value().c_str(), NULL, NULL, SW_SHOWNORMAL);
 }

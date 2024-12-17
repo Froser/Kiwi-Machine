@@ -42,6 +42,10 @@ struct {
   Explorer::File* selected_item = nullptr;
 } g_explorer;
 
+void NotifySaved(const kiwi::base::FilePath& updated_zip_file) {
+  UpdateExplorerFiles(updated_zip_file, g_explorer.explorer.explorer_files);
+}
+
 kiwi::base::FilePath GetDroppedJPG() {
   return g_dropped_jpg;
 }
@@ -195,8 +199,6 @@ void PaintGlobal() {
   ImGui::TextUnformatted("pip3 install pykakasi");
 
   ImGui::NewLine();
-  ImGui::TextUnformatted(u8"全局设置");
-  ImGui::TextUnformatted(u8"游戏封面数据库路径");
   ImGui::TextUnformatted(u8"工作空间 (--workspace)");
   ImGui::InputText("##Workspace", GetWorkspace().workspace_dir,
                    sizeof(GetWorkspace().workspace_dir));
@@ -207,11 +209,26 @@ void PaintGlobal() {
             .Append(FILE_PATH_LITERAL("manifest.json"));
     GetWorkspace().ReadFromManifest(manifest_path);
   }
+
+  ImGui::Bullet();
+  ImGui::SameLine();
+  ImGui::Text(u8"Zip包路径: %s",
+              GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
+
+  ImGui::Bullet();
+  ImGui::SameLine();
+  ImGui::Text(u8"最终包输出路径: %s",
+              GetWorkspace().GetPackageOutputPath().AsUTF8Unsafe().c_str());
+
+  ImGui::Bullet();
+  ImGui::SameLine();
   ImGui::Text(u8"封面数据库: %s",
               GetWorkspace().GetNESBoxartsPath().AsUTF8Unsafe().c_str());
   ImGui::End();
 }
 
+std::string g_last_pack_result_str;
+kiwi::base::FilePath g_last_pack_dir;
 void PaintExplorer() {
   if (g_explorer.explorer_opened) {
     ImGui::Begin(u8"目录浏览器##Explorer", &g_explorer.explorer_opened);
@@ -262,23 +279,74 @@ void PaintExplorer() {
                     g_explorer.selected_item->supported ? u8"是" : u8"否");
       }
 
-      if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
-        ImGui::BeginDisabled();
-      if (ImGui::Button(u8"打开对应的压缩包")) {
-        const kiwi::base::FilePath& file =
-            g_explorer.selected_item->compared_zip_path;
-        if (IsZipExtension(
-                g_explorer.selected_item->compared_zip_path.AsUTF8Unsafe())) {
-          CreateROMWindow(ReadZipFromFile(file), file, false, false);
+      {
+        if (!g_explorer.selected_item)
+          ImGui::BeginDisabled();
+        if (ImGui::Button(u8"以此NES开始制作压缩包")) {
+          kiwi::base::FilePath nes_file = g_explorer.selected_item->dir.Append(
+              kiwi::base::FilePath::FromUTF8Unsafe(
+                  g_explorer.selected_item->title));
+          CreateROMFromNES(nes_file);
         }
+        if (!g_explorer.selected_item)
+          ImGui::EndDisabled();
+        ImGui::SameLine();
       }
-      if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
-        ImGui::EndDisabled();
+
+      {
+        if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
+          ImGui::BeginDisabled();
+        if (ImGui::Button(u8"打开对应的压缩包")) {
+          const kiwi::base::FilePath& file =
+              g_explorer.selected_item->compared_zip_path;
+          if (IsZipExtension(
+                  g_explorer.selected_item->compared_zip_path.AsUTF8Unsafe())) {
+            CreateROMWindow(ReadZipFromFile(file), file, false, false);
+          }
+        }
+        if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
+          ImGui::EndDisabled();
+      }
 
       ImGui::SameLine();
       if (ImGui::Button(u8"对文件夹打包")) {
-        PackEntireDirectory(GetWorkspace().GetZippedPath(),
-                            GetWorkspace().GetPackageOutputPath());
+        auto result =
+            PackEntireDirectory(GetWorkspace().GetZippedPath(),
+                                GetWorkspace().GetPackageOutputPath());
+        if (!result.empty()) {
+          g_last_pack_result_str = u8"打包成功。生成文件：\n";
+          g_last_pack_dir = GetWorkspace().GetPackageOutputPath();
+          for (const auto& path : result) {
+            g_last_pack_result_str += path.AsUTF8Unsafe() + "\n";
+          }
+        } else {
+          g_last_pack_result_str = u8"打包失败。";
+          g_last_pack_dir.clear();
+        }
+      }
+
+      if (!g_last_pack_dir.empty()) {
+        ImGui::TextUnformatted(g_last_pack_result_str.c_str());
+        if (ImGui::Button(u8"测试包##TestPackage")) {
+#if BUILDFLAG(IS_MAC)
+          kiwi::base::FilePath kiwi_machine(
+              FILE_PATH_LITERAL("kiwi_machine.app"));
+          RunExecutable(kiwi_machine,
+                        {"--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
+                         "--has_menu"});
+#elif BUILDFLAG(IS_WIN)
+          kiwi::base::FilePath kiwi_machine(
+              FILE_PATH_LITERAL("kiwi_machine.exe"));
+          RunExecutable(kiwi_machine,
+                        {L"--package-dir=\"" + g_last_pack_dir.value() + L"\"",
+                         L"--has_menu"});
+#else
+          kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
+          RunExecutable(kiwi_machine,
+                        {"--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
+                         "--has_menu"});
+#endif
+        }
       }
 
       ImGui::NewLine();
@@ -294,9 +362,8 @@ void PaintExplorer() {
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
       ImGui::TextUnformatted(u8"灰色表示文件不支持被打开");
       ImGui::PopStyleColor();
-
-      ImGui::End();
     }
+    ImGui::End();
   }
 }
 

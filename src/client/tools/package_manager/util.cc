@@ -115,7 +115,7 @@ bool WriteToZip(zipFile zf,
 
 std::string RunPython3Code(const std::string& code, const std::string& args) {
   kiwi::base::FilePath tmp_py_fetch_script =
-      GetDefaultSavePath().Append(FILE_PATH_LITERAL("temp.py"));
+      GetWorkspace().GetTestPath().Append(FILE_PATH_LITERAL("temp.py"));
   std::ofstream out_py(tmp_py_fetch_script.AsUTF8Unsafe(), std::ios::binary);
   if (out_py.is_open()) {
     out_py.write(reinterpret_cast<const char*>(code.data()), code.size());
@@ -279,6 +279,34 @@ ScopedSampleArray ::~ScopedSampleArray() {
 }
 
 // Explorer internal functions
+struct ExplorerFileAndZipFileComparer {
+  explicit ExplorerFileAndZipFileComparer(const ROM& r) : rom(r) {}
+  const ROM& rom;
+
+  bool operator()(const Explorer::File& rhs) {
+    // Special rules:
+    // XXX, The (USA).nes will be adjusted into two possible
+    // names: The XXX (USA).nes
+    // XXX (USA).nes
+    constexpr char kReplaceKey[] = ", The";
+    if (auto pos = rhs.title.find(kReplaceKey); pos != std::string::npos) {
+      std::string replacement = rhs.title;
+      replacement.replace(pos, sizeof(kReplaceKey) - 1, "");
+
+      bool found_alternative =
+          (kiwi::base::CompareCaseInsensitiveASCII(
+               rom.nes_file_name, "The " + replacement) == 0) ||
+          (kiwi::base::CompareCaseInsensitiveASCII(rom.nes_file_name,
+                                                   replacement) == 0);
+      if (found_alternative)
+        return true;
+    }
+
+    return kiwi::base::CompareCaseInsensitiveASCII(rom.nes_file_name,
+                                                   rhs.title) == 0;
+  }
+};
+
 void FetchFileNames(const kiwi::base::FilePath& dir,
                     std::vector<Explorer::File>& out) {
   out.clear();
@@ -316,36 +344,14 @@ void GenerateCompare(const kiwi::base::FilePath& cmp_dir,
           item.dir.Append(kiwi::base::FilePath::FromUTF8Unsafe(item.title));
       std::vector<ROM> roms = ReadZipFromFile(fullpath);
 
-      auto iter = (std::find_if(
-          input_files.begin(), input_files.end(),
-          [roms](const Explorer::File& lhs) {
-            return std::find_if(roms.begin(), roms.end(), [lhs](const ROM& r) {
-                     // Special rules:
-                     // XXX, The (USA).nes will be adjusted into two possible
-                     // names: The XXX (USA).nes
-                     // XXX (USA).nes
-                     constexpr char kReplaceKey[] = ", The";
-                     if (auto pos = lhs.title.find(kReplaceKey);
-                         pos != std::string::npos) {
-                       std::string replacement = lhs.title;
-                       replacement.replace(pos, sizeof(kReplaceKey) - 1, "");
-
-                       bool found_alternative =
-                           (kiwi::base::CompareCaseInsensitiveASCII(
-                                r.nes_file_name, "The " + replacement) == 0) ||
-                           (kiwi::base::CompareCaseInsensitiveASCII(
-                                r.nes_file_name, replacement) == 0);
-                       if (found_alternative)
-                         return true;
-                     }
-
-                     return kiwi::base::CompareCaseInsensitiveASCII(
-                                r.nes_file_name, lhs.title) == 0;
-                   }) != roms.end();
-          }));
-      if (iter != input_files.end()) {
-        iter->matched = true;
-        iter->compared_zip_path = fullpath;
+      for (const auto& rom : roms) {
+        auto input_file_iter =
+            std::find_if(input_files.begin(), input_files.end(),
+                         ExplorerFileAndZipFileComparer(rom));
+        if (input_file_iter != input_files.end()) {
+          input_file_iter->matched = true;
+          input_file_iter->compared_zip_path = fullpath;
+        }
       }
     }
   }
@@ -483,7 +489,7 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
     if (strlen(rom.zh_hint) > 0)
       titles["zh-hint"] = rom.zh_hint;
     if (strlen(rom.ja) > 0)
-      titles["ja"] = rom.zh;
+      titles["ja"] = rom.ja;
     if (strlen(rom.ja_hint) > 0)
       titles["ja-hint"] = rom.ja_hint;
     json["titles"][rom.key] = titles;
@@ -574,20 +580,55 @@ std::vector<kiwi::base::FilePath> PackZip(
       continue;
     }
 
-    if (!WriteToZip(zf, "manifest.json", g_package_manifest_template.data(),
-                    g_package_manifest_template.size())) {
+    // Try to read existed manifest.
+    kiwi::base::FilePath manifest_path =
+        rom_zip.Append(FILE_PATH_LITERAL("manifest.json"));
+    auto maybe_manifest_content = kiwi::base::ReadFileToBytes(manifest_path);
+    bool wrote = false;
+    if (maybe_manifest_content) {
+      wrote = WriteToZip(
+          zf, "manifest.json",
+          reinterpret_cast<const char*>(maybe_manifest_content->data()),
+          maybe_manifest_content->size());
+    }
+    if (!wrote) {
+      wrote =
+          WriteToZip(zf, "manifest.json", g_package_manifest_template.data(),
+                     g_package_manifest_template.size());
+    }
+    if (!wrote) {
       zipClose(zf, nullptr);
       continue;
     }
 
-    std::optional<std::vector<uint8_t>> zip_contents =
-        kiwi::base::ReadFileToBytes(rom_zip);
-    SDL_assert(zip_contents);
-    if (!WriteToZip(zf, rom_zip.BaseName().AsUTF8Unsafe().c_str(),
-                    reinterpret_cast<const char*>(zip_contents->data()),
-                    zip_contents->size())) {
-      zipClose(zf, nullptr);
-      continue;
+    kiwi::base::File::Info file_info;
+    kiwi::base::GetFileInfo(rom_zip, &file_info);
+    if (file_info.is_directory) {
+      kiwi::base::FileEnumerator d(rom_zip, false,
+                                   kiwi::base::FileEnumerator::FILES,
+                                   FILE_PATH_LITERAL("*.zip"));
+      for (kiwi::base::FilePath current = d.Next(); !current.empty();
+           current = d.Next()) {
+        std::optional<std::vector<uint8_t>> zip_contents =
+            kiwi::base::ReadFileToBytes(current);
+        SDL_assert(zip_contents);
+        if (!WriteToZip(zf, current.BaseName().AsUTF8Unsafe().c_str(),
+                        reinterpret_cast<const char*>(zip_contents->data()),
+                        zip_contents->size())) {
+          zipClose(zf, nullptr);
+          continue;
+        }
+      }
+    } else if (!file_info.is_symbolic_link) {
+      std::optional<std::vector<uint8_t>> zip_contents =
+          kiwi::base::ReadFileToBytes(rom_zip);
+      SDL_assert(zip_contents);
+      if (!WriteToZip(zf, rom_zip.BaseName().AsUTF8Unsafe().c_str(),
+                      reinterpret_cast<const char*>(zip_contents->data()),
+                      zip_contents->size())) {
+        zipClose(zf, nullptr);
+        continue;
+      }
     }
     zipClose(zf, nullptr);
     result.push_back(kiwi::base::FilePath::FromUTF8Unsafe(output));
@@ -603,7 +644,7 @@ std::vector<kiwi::base::FilePath> PackEntireDirectory(
       rom_zips;
   rom_zips.push_back({dir, FILE_PATH_LITERAL("main.pak")});
 
-  kiwi::base::FileEnumerator d(GetWorkspace().GetNESBoxartsPath(), false,
+  kiwi::base::FileEnumerator d(dir, false,
                                kiwi::base::FileEnumerator::DIRECTORIES);
   for (kiwi::base::FilePath current = d.Next(); !current.empty();
        current = d.Next()) {
@@ -907,4 +948,18 @@ void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
   FetchFileNames(input_dir, out);
   FetchFileMapperSupported(out);
   GenerateCompare(cmp_dir, out);
+}
+
+void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
+                         std::vector<Explorer::File>& files) {
+  std::vector<ROM> roms = ReadZipFromFile(updated_zip_file);
+  for (const auto& rom : roms) {
+    auto input_file_iter = std::find_if(files.begin(), files.end(),
+                                        ExplorerFileAndZipFileComparer(rom));
+    if (input_file_iter != files.end()) {
+      input_file_iter->matched = true;
+      input_file_iter->compared_zip_path = updated_zip_file;
+      break;
+    }
+  }
 }
