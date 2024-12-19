@@ -352,16 +352,20 @@ void MainWindow::ChangeFocus(MainFocus focus) {
   SDL_assert(side_menu_);
   switch (focus) {
     case MainFocus::kContents:
-      side_menu_->set_activate(false);
-      SwitchToSideMenuByCurrentFlexItemWidget();
-      for (auto* items_widget : items_widgets_) {
-        items_widget->SetActivate(true);
+      if (contents_card_widget_->HasWidgets()) {
+        side_menu_->set_activate(false);
+        SwitchToSideMenuByCurrentFlexItemWidget();
+        for (auto* items_widget : items_widgets_) {
+          items_widget->SetActivate(true);
+        }
       }
       break;
     case MainFocus::kSideMenu:
-      side_menu_->set_activate(true);
-      for (auto* items_widget : items_widgets_) {
-        items_widget->SetActivate(false);
+      if (contents_card_widget_->HasWidgets()) {
+        side_menu_->set_activate(true);
+        for (auto* items_widget : items_widgets_) {
+          items_widget->SetActivate(false);
+        }
       }
       break;
     default:
@@ -643,7 +647,11 @@ void MainWindow::InitializeAudio() {
 
 void MainWindow::InitializeUI() {
   ScopedDisableEffect scoped_disable_effect;
+#if BUILDFLAG(IS_WASM)
   is_headless_ = preset_roms::GetPresetOrTestRomsPackages().empty();
+#else
+  is_headless_ = false;
+#endif
 
   if (FLAGS_has_menu) {
     // Menu bar
@@ -726,6 +734,13 @@ void MainWindow::InitializeUI() {
     // Side menu
     std::unique_ptr<SideMenu> side_menu =
         std::make_unique<SideMenu>(this, runtime_id_);
+    if (preset_roms::GetPresetOrTestRomsPackages().empty()) {
+      // If there's no game package, show a default background.
+      // There's no game selection menu, so we won't trigger the first menu
+      // item, because the first menu item will be a settings menu.
+      side_menu->set_auto_trigger_first_item(false);
+    }
+
     side_menu->set_activate(true);
 
     size_t package_index = 0;

@@ -90,8 +90,6 @@ unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
   return file;
 }
 
-#if defined(KIWI_USE_EXTERNAL_PAK)
-
 std::vector<preset_roms::Package*> g_packages;
 
 class PackageImpl : public preset_roms::Package {
@@ -144,21 +142,14 @@ std::string PackageImpl::GetTitleForLanguage(SupportedLanguage language) {
   return titles_[ToLanguageCode(language)];
 }
 
-#endif
-
 }  // namespace
 
 void InitializePresetROM(preset_roms::PresetROM& rom_data) {
   if (!rom_data.title_loaded) {
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-    kiwi::nes::Byte* zip_data = const_cast<kiwi::nes::Byte*>(rom_data.zip_data);
-    size_t zip_size = rom_data.zip_size;
-#else
     kiwi::nes::Bytes zip_data_container =
         rom_data.zip_data_loader.Run(rom_data.file_pos);
     kiwi::nes::Byte* zip_data = zip_data_container.data();
     size_t zip_size = zip_data_container.size();
-#endif
 
     unzFile file =
         unzOpenFromMemory(const_cast<kiwi::nes::Byte*>(zip_data), zip_size);
@@ -239,13 +230,9 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
             preset_roms::PresetROM alternative_rom;
             alternative_rom.title_loaded = true;
             alternative_rom.owned_zip_data = false;
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-            alternative_rom.zip_data = rom_data.zip_data;
-            alternative_rom.zip_size = rom_data.zip_size;
-#else
             alternative_rom.file_pos = rom_data.file_pos;
             alternative_rom.zip_data_loader = rom_data.zip_data_loader;
-#endif
+
             // Leaky name
             std::string rom_name =
                 alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
@@ -277,15 +264,10 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
   // Loads cover or ROM contents on demand.
   RomPart loaded_part = RomPart::kNone;
 
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-  kiwi::nes::Byte* zip_data = const_cast<kiwi::nes::Byte*>(rom_data.zip_data);
-  size_t zip_size = rom_data.zip_size;
-#else
   kiwi::nes::Bytes zip_data_container =
       rom_data.zip_data_loader.Run(rom_data.file_pos);
   kiwi::nes::Byte* zip_data = zip_data_container.data();
   size_t zip_size = zip_data_container.size();
-#endif
 
   unzFile file =
       unzOpenFromMemory(const_cast<kiwi::nes::Byte*>(zip_data), zip_size);
@@ -310,7 +292,6 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
   }
 }
 
-#if defined(KIWI_USE_EXTERNAL_PAK)
 // Reads all roms' data from package file.
 void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             std::map<std::string, std::string>& titles,
@@ -444,5 +425,3 @@ std::vector<preset_roms::Package*> GetPresetRomsPackages() {
   return g_packages;
 }
 }  // namespace preset_roms
-
-#endif

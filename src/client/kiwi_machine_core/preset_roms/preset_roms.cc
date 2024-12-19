@@ -15,8 +15,8 @@
 #include <gflags/gflags.h>
 #include <vector>
 
-#include "utility/zip_reader.h"
 #include "kiwi_flags.h"
+#include "utility/zip_reader.h"
 
 DEFINE_string(
     test_pak,
@@ -28,7 +28,6 @@ namespace preset_roms {
 std::vector<Package*> GetPresetRomsPackages();
 
 std::vector<Package*> GetPresetOrTestRomsPackages() {
-#if defined(KIWI_USE_EXTERNAL_PAK)
   // When a test rom is specified, it means we are in a headless mode.
   if (!FLAGS_test_rom.empty()) {
     return std::vector<Package*>();
@@ -41,9 +40,6 @@ std::vector<Package*> GetPresetOrTestRomsPackages() {
   } else {
     return preset_roms::GetPresetRomsPackages();
   }
-#else
-  return preset_roms::GetPresetRomsPackages();
-#endif
 }
 
 }  // namespace preset_roms

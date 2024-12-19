@@ -44,6 +44,10 @@ Widget* CardWidget::GetCurrentWidget() {
   return nullptr;
 }
 
+bool CardWidget::HasWidgets() {
+  return !children().empty();
+}
+
 void CardWidget::OnWindowResized() {
   if (children().size() > 0) {
     for (auto& child : children()) {

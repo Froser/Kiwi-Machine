@@ -40,7 +40,6 @@ inline bool HasAnyPart(RomPart part) {
   return !!static_cast<int>(part);
 }
 
-#if defined(KIWI_USE_EXTERNAL_PAK)
 // Loads ROM's data from an external package.
 preset_roms::Package* CreatePackageFromFile(
     const kiwi::base::FilePath& package_path);
@@ -49,7 +48,6 @@ preset_roms::Package* CreatePackageFromFile(
 // before InitializePresetROM().
 void OpenPackageFromFile(const kiwi::base::FilePath& package_path);
 void ClosePackages();
-#endif
 
 // Loads all ROM's title, i18n names, and alternative titles. This function
 // should be called before calling LoadPresetROM().

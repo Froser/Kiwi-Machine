@@ -42,9 +42,7 @@ DEFINE_string(package_dir, "", "Sets package loading dir.");
 ApplicationObserver::ApplicationObserver() = default;
 
 ApplicationObserver::~ApplicationObserver() {
-#if defined(KIWI_USE_EXTERNAL_PAK)
   ClosePackages();
-#endif
 }
 
 void ApplicationObserver::OnPreRender(int since_last_frame_ms) {}
@@ -404,13 +402,11 @@ void Application::InitializeRuntimeAndConfigs() {
 }
 
 void Application::InitializeROMs() {
-#if defined(KIWI_USE_EXTERNAL_PAK)
   // Iterates all pak file for loading package.
   std::vector<kiwi::base::FilePath> file_paths = GetPackagePathList();
   for (kiwi::base::FilePath file_path : file_paths) {
     OpenPackageFromFile(file_path);
   }
-#endif
 
   for (auto* package : preset_roms::GetPresetOrTestRomsPackages()) {
     for (size_t i = 0; i < package->GetRomsCount(); ++i) {

@@ -4,8 +4,6 @@
 **/.DS_Store
 /venv/
 /src/client/kiwi_machine/build/win/*.aps
-/cmake-build-release_noembed/
-/cmake-build-debug_noembed/
 /cmake-build-ios/
 /cmake-build-release-intel/
 /cmake-build-emscripten_debug/
