@@ -671,9 +671,25 @@ kiwi::base::FilePath WriteROM(const char* filename,
   }
 }
 
+std::optional<std::vector<uint8_t>> ReadMapperFast(
+    const kiwi::base::FilePath& nes_file) {
+  std::vector<uint8_t> header;
+  FILE* file(kiwi::base::OpenFile(nes_file, "rb"));
+  if (!file)
+    return std::nullopt;
+
+  header.resize(0x10);
+  fseek(file, 0, SEEK_SET);
+  fread(header.data(), 0x10, 1, file);
+
+  fclose(file);
+  return header;
+}
+
 bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
                        std::string& mapper_name) {
-  if (nes_data.size() <= 0x10) {
+  if (nes_data.size() < 3 && (nes_data[0] != 'N' || nes_data[1] != 'N' ||
+                              nes_data[2] != 'N' || nes_data[3] != 0x1a)) {
     // Not a valid nes.
     return false;
   }
@@ -684,7 +700,7 @@ bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
 
 bool IsMapperSupported(const kiwi::base::FilePath& nes_files,
                        std::string& mapper_name) {
-  auto bytes = kiwi::base::ReadFileToBytes(nes_files);
+  auto bytes = ReadMapperFast(nes_files);
   return bytes && IsMapperSupported(*bytes, mapper_name);
 }
 

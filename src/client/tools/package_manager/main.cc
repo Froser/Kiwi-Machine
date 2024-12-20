@@ -26,6 +26,8 @@
 #include "util.h"
 #include "workspace.h"
 
+DEFINE_string(km_path, "", "Kiwi-Machine executable/bundle directory.");
+
 #if defined(_WIN32)
 #include <windows.h>
 #endif
@@ -328,20 +330,31 @@ void PaintExplorer() {
       if (!g_last_pack_dir.empty()) {
         ImGui::TextUnformatted(g_last_pack_result_str.c_str());
         if (ImGui::Button(u8"测试包##TestPackage")) {
+          kiwi::base::FilePath kiwi_machine_path_from_cmdline;
+          if (!FLAGS_km_path.empty()) {
+            kiwi_machine_path_from_cmdline =
+                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_km_path);
+          }
 #if BUILDFLAG(IS_MAC)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.app"));
+          if (!kiwi_machine_path_from_cmdline.empty())
+            kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(kiwi_machine,
                         {"--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
                          "--has_menu"});
 #elif BUILDFLAG(IS_WIN)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.exe"));
+          if (!kiwi_machine_path_from_cmdline.empty())
+            kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(kiwi_machine,
                         {L"--package-dir=\"" + g_last_pack_dir.value() + L"\"",
                          L"--has_menu"});
 #else
           kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
+          if (!kiwi_machine_path_from_cmdline.empty())
+            kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(kiwi_machine,
                         {"--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
                          "--has_menu"});
