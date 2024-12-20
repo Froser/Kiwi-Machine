@@ -65,6 +65,9 @@ set(base_sources
         base/memory/ref_counted.cc
         base/memory/ref_counted.h
         base/message_loop/message_pump_type.h
+        base/numerics/safe_conversions.h
+        base/numerics/safe_conversions_arm_impl.h
+        base/numerics/safe_conversions_impl.h
         base/posix/eintr_wrapper.h
         base/platform/platform_factory.cc
         base/platform/platform_factory.h
