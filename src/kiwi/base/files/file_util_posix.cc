@@ -8,9 +8,11 @@
 
 #include "base/files/file_util.h"
 
+#include <fcntl.h>
 #include <unistd.h>
 #include <stack>
 
+#include "base/check.h"
 #include "base/containers/adapters.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
@@ -101,6 +103,60 @@ bool CreateDirectoryAndGetError(const FilePath& full_path, File::Error* error) {
         *error = File::OSErrorToFileError(saved_errno);
       return false;
     }
+  }
+  return true;
+}
+
+bool GetFileInfo(const FilePath& file_path, File::Info* results) {
+  stat_wrapper_t file_info;
+  if (File::Stat(file_path.value().c_str(), &file_info) != 0) {
+    return false;
+  }
+
+  results->FromStat(file_info);
+  return true;
+}
+
+FILE* OpenFile(const FilePath& filename, const char* mode) {
+  // 'e' is unconditionally added below, so be sure there is not one already
+  // present before a comma in |mode|.
+  DCHECK(
+      strchr(mode, 'e') == nullptr ||
+      (strchr(mode, ',') != nullptr && strchr(mode, 'e') > strchr(mode, ',')));
+  // Do not check blocking call because it is not supported.
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+  FILE* result = nullptr;
+#if BUILDFLAG(IS_APPLE)
+  // macOS does not provide a mode character to set O_CLOEXEC; see
+  // https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man3/fopen.3.html.
+  const char* the_mode = mode;
+#else
+  std::string mode_with_e(AppendModeCharacter(mode, 'e'));
+  const char* the_mode = mode_with_e.c_str();
+#endif
+  do {
+    result = fopen(filename.value().c_str(), the_mode);
+  } while (!result && errno == EINTR);
+#if BUILDFLAG(IS_APPLE)
+  // Mark the descriptor as close-on-exec.
+  if (result) {
+    SetCloseOnExec(fileno(result));
+  }
+#endif
+  return result;
+}
+
+bool SetCloseOnExec(int fd) {
+  const int flags = fcntl(fd, F_GETFD);
+  if (flags == -1) {
+    return false;
+  }
+  if (flags & FD_CLOEXEC) {
+    return true;
+  }
+  if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1) {
+    return false;
   }
   return true;
 }

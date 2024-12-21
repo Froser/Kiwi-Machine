@@ -14,6 +14,7 @@
 #define UI_MAIN_WINDOW_H_
 
 #include <SDL.h>
+#include <gflags/gflags.h>
 
 #include "build/kiwi_defines.h"
 #include "models/nes_audio.h"
@@ -127,6 +128,7 @@ class MainWindow : public WindowBase,
   void InitializeUI();
   void InitializeIODevices();
   void InitializeDebugROMsOnIOThread();
+  void LoadTestRomIfSpecified();
 
   void LoadROMByPath(kiwi::base::FilePath rom_path);
   void StartAutoSave();

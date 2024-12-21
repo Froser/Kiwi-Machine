@@ -36,14 +36,13 @@ constexpr int kInitializeSDLImageFailed = -2;
 Application* g_app_instance = nullptr;
 }  // namespace
 
-DEFINE_string(lang, "", "Set application's language.");
+DEFINE_string(lang, "", "Sets application's language.");
+DEFINE_string(package_dir, "", "Sets package loading dir.");
 
 ApplicationObserver::ApplicationObserver() = default;
 
 ApplicationObserver::~ApplicationObserver() {
-#if defined(KIWI_USE_EXTERNAL_PAK)
   ClosePackages();
-#endif
 }
 
 void ApplicationObserver::OnPreRender(int since_last_frame_ms) {}
@@ -403,27 +402,39 @@ void Application::InitializeRuntimeAndConfigs() {
 }
 
 void Application::InitializeROMs() {
-#if defined(KIWI_USE_EXTERNAL_PAK)
   // Iterates all pak file for loading package.
   std::vector<kiwi::base::FilePath> file_paths = GetPackagePathList();
   for (kiwi::base::FilePath file_path : file_paths) {
     OpenPackageFromFile(file_path);
   }
-#endif
 
-  for (auto* package : preset_roms::GetPresetRomsPackages()) {
+  for (auto* package : preset_roms::GetPresetOrTestRomsPackages()) {
     for (size_t i = 0; i < package->GetRomsCount(); ++i) {
       auto& rom = package->GetRomsByIndex(i);
       InitializePresetROM(rom);
-      LoadPresetROM(rom, RomPart::kCover);
+      LoadPresetROM(rom, RomPart::kBoxArt);
       for (auto& alternative_rom : rom.alternates) {
-        LoadPresetROM(alternative_rom, RomPart::kCover);
+        LoadPresetROM(alternative_rom, RomPart::kBoxArt);
       }
     }
   }
 }
 
 std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
+  if (!FLAGS_package_dir.empty()) {
+    std::vector<kiwi::base::FilePath> list;
+    kiwi::base::FileEnumerator package_enumerator(
+        kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_package_dir), false,
+        kiwi::base::FileEnumerator::FILES, FILE_PATH_LITERAL("*.pak"));
+    kiwi::base::FilePath file_path = package_enumerator.Next();
+    while (!file_path.empty()) {
+      list.push_back(file_path);
+      file_path = package_enumerator.Next();
+    }
+
+    return list;
+  }
+
 #if BUILDFLAG(IS_MAC)
   std::vector<kiwi::base::FilePath> list;
   CFBundleRef main_bundle = CFBundleGetMainBundle();
@@ -453,13 +464,13 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
   DWORD buffer_len = GetModuleFileNameA(NULL, current_exe_filename, MAX_PATH);
   kiwi::base::FilePath resource_path =
       kiwi::base::FilePath::FromUTF8Unsafe(current_exe_filename).DirName();
-  kiwi::base::FileEnumerator package_enumator(resource_path, false,
-                                              kiwi::base::FileEnumerator::FILES,
-                                              FILE_PATH_LITERAL("*.pak"));
-  kiwi::base::FilePath file_path = package_enumator.Next();
+  kiwi::base::FileEnumerator package_enumerator(
+      resource_path, false, kiwi::base::FileEnumerator::FILES,
+      FILE_PATH_LITERAL("*.pak"));
+  kiwi::base::FilePath file_path = package_enumerator.Next();
   while (!file_path.empty()) {
     list.push_back(file_path);
-    file_path = package_enumator.Next();
+    file_path = package_enumerator.Next();
   }
   return list;
 #else

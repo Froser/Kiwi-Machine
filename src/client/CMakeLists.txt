@@ -12,3 +12,4 @@
 
 add_subdirectory(kiwi_machine_core)
 add_subdirectory(kiwi_machine)
+add_subdirectory(tools)

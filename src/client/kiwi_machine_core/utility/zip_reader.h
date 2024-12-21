@@ -17,13 +17,14 @@
 
 namespace preset_roms {
 struct PresetROM;
+struct Package;
 }
 
 enum class RomPart {
   kNone,
-  kCover = 1,
+  kBoxArt = 1,
   kContent = 2,
-  kAll = kCover | kContent,
+  kAll = kBoxArt | kContent,
 };
 inline RomPart operator&(RomPart lhs, RomPart rhs) {
   return static_cast<RomPart>(static_cast<int>(lhs) & static_cast<int>(rhs));
@@ -39,14 +40,14 @@ inline bool HasAnyPart(RomPart part) {
   return !!static_cast<int>(part);
 }
 
-#if defined(KIWI_USE_EXTERNAL_PAK)
+// Loads ROM's data from an external package.
+preset_roms::Package* CreatePackageFromFile(
+    const kiwi::base::FilePath& package_path);
+
 // Loads ROM's data from an external package. This function should be called
 // before InitializePresetROM().
-
 void OpenPackageFromFile(const kiwi::base::FilePath& package_path);
 void ClosePackages();
-
-#endif
 
 // Loads all ROM's title, i18n names, and alternative titles. This function
 // should be called before calling LoadPresetROM().

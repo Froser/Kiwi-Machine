@@ -145,7 +145,7 @@ void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
 
   // When the first widget is added, trigger its selected callback, because it
   // is selected by default.
-  if (menu_items_.size() == 1)
+  if (menu_items_.size() == 1 && auto_trigger_first_menu_)
     menu_items_[0].callbacks.trigger_callback.Run(0);
 }
 

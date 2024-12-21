@@ -50,6 +50,10 @@ class SideMenu : public Widget {
   void set_activate(bool activate) { activate_ = activate; }
   bool activate() { return activate_; }
   void invalidate() { bounds_valid_ = false; }
+  void set_auto_trigger_first_item(bool trigger) {
+    auto_trigger_first_menu_ = trigger;
+  }
+
   int GetSuggestedCollapsedWidth();
   int GetMinExtendedWidth();
   void Layout();
@@ -88,6 +92,7 @@ class SideMenu : public Widget {
  private:
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
+  bool auto_trigger_first_menu_ = true;
   struct MenuItem {
     MenuItem(std::unique_ptr<LocalizedStringUpdater> string_updater,
              image_resources::ImageID icon,

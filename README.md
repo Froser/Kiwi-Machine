@@ -245,3 +245,9 @@ Emulator类中有一个LoadFromXXX系列函数，可以从文件或者内存读�
                           base::OnceClosure callback = base::DoNothing()) = 0;
 ```
 它表示当读取某个ROM成功后，调用`Emulator::Run()`，然后再调用`callback`。
+
+## 资源打包
+Kiwi-Machine 提供了一个nes打包工具，位于`src/tools/package_manager`。你可以将自己喜欢的nes打包成资源，就如本文档封面所示。
+
+本仓库不包含nes资源，如果需要获取nes资源，可以用git来clone `https://github.com/Froser/kiwi-machine-workspace`
+通过`package_manager --workspace {Kiwi-Machine的Workspace路径}`，来打开包管理器的GUI界面进行打包。

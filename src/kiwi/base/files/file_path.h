@@ -14,6 +14,7 @@
 #define BASE_FILES_FILE_PATH_H_
 
 #include <string>
+#include <vector>
 
 #include "base/base_export.h"
 #include "base/compiler_specific.h"
@@ -152,6 +153,22 @@ class BASE_EXPORT FilePath {
   static FilePath FromUTF8Unsafe(StringPiece utf8);
 
   [[nodiscard]] FilePath Append(const FilePath& component) const;
+
+  // Returns true if this FilePath contains an attempt to reference a parent
+  // directory (e.g. has a path component that is "..").
+  bool ReferencesParent() const;
+
+  // Returns a vector of all of the components of the provided path. It is
+  // equivalent to calling DirName().value() on the path's root component,
+  // and BaseName().value() on each child component.
+  //
+  // To make sure this is lossless so we can differentiate absolute and
+  // relative paths, the root slash will be included even though no other
+  // slashes will be. The precise behavior is:
+  //
+  // Posix:  "/foo/bar"  ->  [ "/", "foo", "bar" ]
+  // Windows:  "C:\foo\bar"  ->  [ "C:", "\\", "foo", "bar" ]
+  std::vector<FilePath::StringType> GetComponents() const;
 
   // Returns a FilePath corresponding to the directory containing the path
   // named by this object, stripping away the file component.  If this object

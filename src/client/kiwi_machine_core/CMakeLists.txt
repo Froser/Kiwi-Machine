@@ -44,6 +44,7 @@ set(Sources
         debug/debug_port.h
         debug/debug_roms.cc
         debug/debug_roms.h
+        kiwi_flags.h
         kiwi_main.h
         kiwi_main.cc
         models/nes_audio.cc
@@ -167,13 +168,6 @@ if (EMSCRIPTEN)
     )
 endif ()
 
-if (${KIWI_EMBEDDED_ROMS} AND NOT EMSCRIPTEN)
-    set(USE_EMBEDDED_ROMS ON)
-else ()
-    set(USE_EMBEDDED_ROMS OFF)
-endif ()
-message(STATUS "Use embedded roms: " ${USE_EMBEDDED_ROMS})
-
 # Resources generation:
 # Use '__always_buildx.h' as a fake output, to make the command run every time.
 if (EMSCRIPTEN)
@@ -212,14 +206,6 @@ add_custom_command(
         VERBATIM
 )
 
-add_custom_command(
-        OUTPUT preset_roms/preset_roms.cc __always_build_roms.h
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_preset_roms_data.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/preset_roms ${USE_EMBEDDED_ROMS}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build
-        VERBATIM
-)
-
 KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
 
 target_link_libraries(${PROJECT_NAME}
@@ -236,8 +222,4 @@ target_include_directories(${PROJECT_NAME}
         "../../third_party/imgui"
 )
 
-if (${USE_EMBEDDED_ROMS})
-    target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
-else ()
-    target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static PRIVATE KIWI_USE_EXTERNAL_PAK)
-endif ()
+target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)

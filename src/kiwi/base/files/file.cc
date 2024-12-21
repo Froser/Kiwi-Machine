@@ -11,6 +11,10 @@
 #include "base/files/file_path.h"
 
 namespace kiwi::base {
+File::Info::Info() = default;
+
+File::Info::~Info() = default;
+
 File::File(const FilePath& path, uint32_t flags) {
   Open(path, flags);
 }

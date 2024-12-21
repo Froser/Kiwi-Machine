@@ -21,6 +21,8 @@
 #include "utility/localization.h"
 
 namespace {
+constexpr size_t kFileNameMaxLength = 256;
+
 voidpf OpenFileImpl(voidpf opaque, const char* ops, int mode) {
   return (SDL_RWops*)(ops);
 }
@@ -90,8 +92,6 @@ unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
   return file;
 }
 
-#if defined(KIWI_USE_EXTERNAL_PAK)
-
 std::vector<preset_roms::Package*> g_packages;
 
 class PackageImpl : public preset_roms::Package {
@@ -144,21 +144,14 @@ std::string PackageImpl::GetTitleForLanguage(SupportedLanguage language) {
   return titles_[ToLanguageCode(language)];
 }
 
-#endif
-
 }  // namespace
 
 void InitializePresetROM(preset_roms::PresetROM& rom_data) {
   if (!rom_data.title_loaded) {
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-    kiwi::nes::Byte* zip_data = const_cast<kiwi::nes::Byte*>(rom_data.zip_data);
-    size_t zip_size = rom_data.zip_size;
-#else
     kiwi::nes::Bytes zip_data_container =
         rom_data.zip_data_loader.Run(rom_data.file_pos);
     kiwi::nes::Byte* zip_data = zip_data_container.data();
     size_t zip_size = zip_data_container.size();
-#endif
 
     unzFile file =
         unzOpenFromMemory(const_cast<kiwi::nes::Byte*>(zip_data), zip_size);
@@ -201,7 +194,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
       int located = unzGoToFirstFile(file);
       kiwi::base::FilePath alter_rom_path;
       std::string filename;
-      filename.resize(64);
+      filename.resize(kFileNameMaxLength);
       while (located == UNZ_OK) {
         unz_file_info fi;
         unzGetCurrentFileInfo(file, &fi, filename.data(), filename.size(),
@@ -239,13 +232,9 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
             preset_roms::PresetROM alternative_rom;
             alternative_rom.title_loaded = true;
             alternative_rom.owned_zip_data = false;
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-            alternative_rom.zip_data = rom_data.zip_data;
-            alternative_rom.zip_size = rom_data.zip_size;
-#else
             alternative_rom.file_pos = rom_data.file_pos;
             alternative_rom.zip_data_loader = rom_data.zip_data_loader;
-#endif
+
             // Leaky name
             std::string rom_name =
                 alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
@@ -270,31 +259,29 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();
   SDL_assert(io_task_runner->RunsTasksInCurrentSequence());
-  if (!((HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) ||
+  if (!((HasAnyPart(part & RomPart::kBoxArt) && !rom_data.cover_loaded) ||
         (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded)))
     return;
 
   // Loads cover or ROM contents on demand.
   RomPart loaded_part = RomPart::kNone;
 
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-  kiwi::nes::Byte* zip_data = const_cast<kiwi::nes::Byte*>(rom_data.zip_data);
-  size_t zip_size = rom_data.zip_size;
-#else
   kiwi::nes::Bytes zip_data_container =
       rom_data.zip_data_loader.Run(rom_data.file_pos);
   kiwi::nes::Byte* zip_data = zip_data_container.data();
   size_t zip_size = zip_data_container.size();
-#endif
 
   unzFile file =
       unzOpenFromMemory(const_cast<kiwi::nes::Byte*>(zip_data), zip_size);
   if (file) {
-    if (HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) {
+    if (HasAnyPart(part & RomPart::kBoxArt) && !rom_data.cover_loaded) {
       if (ReadFileFromZip(file, std::string(rom_data.name) + ".jpg",
                           rom_data.rom_cover)) {
         rom_data.cover_loaded = true;
-        loaded_part |= RomPart::kCover;
+        loaded_part |= RomPart::kBoxArt;
+      } else {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "Failed to get boxart cover for name %s", rom_data.name);
       }
     }
 
@@ -310,8 +297,6 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
   }
 }
 
-#if defined(KIWI_USE_EXTERNAL_PAK)
-
 // Reads all roms' data from package file.
 void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             std::map<std::string, std::string>& titles,
@@ -323,7 +308,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
 
   int located = unzGoToFirstFile(pak);
   std::string filename;
-  filename.resize(64);
+  filename.resize(kFileNameMaxLength);
   while (located == UNZ_OK) {
     unz_file_info fi;
     unzGetCurrentFileInfo(pak, &fi, filename.data(), filename.size(), nullptr,
@@ -334,8 +319,8 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
       manifest_data.resize(fi.uncompressed_size);
       unzOpenCurrentFile(pak);
       unzReadCurrentFile(pak, manifest_data.data(), manifest_data.size());
-      manifest_data.push_back(0); // String terminator
-      manifest_data.push_back(0); // String terminator
+      manifest_data.push_back(0);  // String terminator
+      manifest_data.push_back(0);  // String terminator
       unzCloseCurrentFile(pak);
 
       nlohmann::json manifest_json =
@@ -372,7 +357,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
             int found = unzGoToFilePos(f, &file_pos);
             if (found == UNZ_OK) {
               std::string filename;
-              filename.resize(64);
+              filename.resize(kFileNameMaxLength);
               unz_file_info fi;
               unzGetCurrentFileInfo(f, &fi, filename.data(), filename.size(),
                                     nullptr, 0, nullptr, 0);
@@ -409,11 +394,8 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
   unzClose(pak);
 }
 
-void CloseRomDataFromPackage(preset_roms::PresetROM& rom) {
-  delete[] rom.name;
-}
-
-void OpenPackageFromFile(const kiwi::base::FilePath& package_path) {
+preset_roms::Package* CreatePackageFromFile(
+    const kiwi::base::FilePath& package_path) {
   std::vector<preset_roms::PresetROM> roms;
   std::map<std::string, std::string> titles;
   kiwi::nes::Bytes icon, icon_highlight;
@@ -421,7 +403,15 @@ void OpenPackageFromFile(const kiwi::base::FilePath& package_path) {
   preset_roms::Package* package =
       new PackageImpl(std::move(roms), std::move(titles), std::move(icon),
                       std::move(icon_highlight));
-  g_packages.push_back(package);
+  return package;
+}
+
+void CloseRomDataFromPackage(preset_roms::PresetROM& rom) {
+  delete[] rom.name;
+}
+
+void OpenPackageFromFile(const kiwi::base::FilePath& package_path) {
+  g_packages.push_back(CreatePackageFromFile(package_path));
 }
 
 void ClosePackages() {
@@ -440,5 +430,3 @@ std::vector<preset_roms::Package*> GetPresetRomsPackages() {
   return g_packages;
 }
 }  // namespace preset_roms
-
-#endif

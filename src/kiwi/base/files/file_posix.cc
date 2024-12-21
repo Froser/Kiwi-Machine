@@ -47,6 +47,72 @@ File::Error File::OSErrorToFileError(int saved_errno) {
   }
 }
 
+void File::Info::FromStat(const stat_wrapper_t& stat_info) {
+  is_directory = S_ISDIR(stat_info.st_mode);
+  is_symbolic_link = S_ISLNK(stat_info.st_mode);
+  size = stat_info.st_size;
+
+  // We don't support Time class yet.
+
+  /*
+  // Get last modification time, last access time, and creation time from
+  // |stat_info|.
+  // Note: st_ctime is actually last status change time when the inode was last
+  // updated, which happens on any metadata change. It is not the file's
+  // creation time. However, other than on Mac & iOS where the actual file
+  // creation time is included as st_birthtime, the rest of POSIX platforms have
+  // no portable way to get the creation time.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+  time_t last_modified_sec = stat_info.st_mtim.tv_sec;
+  int64_t last_modified_nsec = stat_info.st_mtim.tv_nsec;
+  time_t last_accessed_sec = stat_info.st_atim.tv_sec;
+  int64_t last_accessed_nsec = stat_info.st_atim.tv_nsec;
+  time_t creation_time_sec = stat_info.st_ctim.tv_sec;
+  int64_t creation_time_nsec = stat_info.st_ctim.tv_nsec;
+#elif BUILDFLAG(IS_ANDROID)
+  time_t last_modified_sec = stat_info.st_mtime;
+  int64_t last_modified_nsec = stat_info.st_mtime_nsec;
+  time_t last_accessed_sec = stat_info.st_atime;
+  int64_t last_accessed_nsec = stat_info.st_atime_nsec;
+  time_t creation_time_sec = stat_info.st_ctime;
+  int64_t creation_time_nsec = stat_info.st_ctime_nsec;
+#elif BUILDFLAG(IS_APPLE)
+  time_t last_modified_sec = stat_info.st_mtimespec.tv_sec;
+  int64_t last_modified_nsec = stat_info.st_mtimespec.tv_nsec;
+  time_t last_accessed_sec = stat_info.st_atimespec.tv_sec;
+  int64_t last_accessed_nsec = stat_info.st_atimespec.tv_nsec;
+  time_t creation_time_sec = stat_info.st_birthtimespec.tv_sec;
+  int64_t creation_time_nsec = stat_info.st_birthtimespec.tv_nsec;
+#elif BUILDFLAG(IS_BSD)
+  time_t last_modified_sec = stat_info.st_mtimespec.tv_sec;
+  int64_t last_modified_nsec = stat_info.st_mtimespec.tv_nsec;
+  time_t last_accessed_sec = stat_info.st_atimespec.tv_sec;
+  int64_t last_accessed_nsec = stat_info.st_atimespec.tv_nsec;
+  time_t creation_time_sec = stat_info.st_ctimespec.tv_sec;
+  int64_t creation_time_nsec = stat_info.st_ctimespec.tv_nsec;
+#else
+  time_t last_modified_sec = stat_info.st_mtime;
+  int64_t last_modified_nsec = 0;
+  time_t last_accessed_sec = stat_info.st_atime;
+  int64_t last_accessed_nsec = 0;
+  time_t creation_time_sec = stat_info.st_ctime;
+  int64_t creation_time_nsec = 0;
+#endif
+
+  last_modified =
+      Time::FromTimeT(last_modified_sec) +
+      Microseconds(last_modified_nsec / Time::kNanosecondsPerMicrosecond);
+
+  last_accessed =
+      Time::FromTimeT(last_accessed_sec) +
+      Microseconds(last_accessed_nsec / Time::kNanosecondsPerMicrosecond);
+
+  creation_time =
+      Time::FromTimeT(creation_time_sec) +
+      Microseconds(creation_time_nsec / Time::kNanosecondsPerMicrosecond);
+      */
+}
+
 #if BUILDFLAG(IS_BSD) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_NACL) || \
     BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_ANDROID)
 int File::Stat(const char* path, stat_wrapper_t* sb) {

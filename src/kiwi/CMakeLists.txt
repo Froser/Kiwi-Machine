@@ -12,7 +12,7 @@
 
 project(kiwi CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(third_party)
 
@@ -49,6 +49,8 @@ set(base_sources
         base/files/file_path.h
         base/files/file_util.cc
         base/files/file_util.h
+        base/files/scoped_file.cc
+        base/files/scoped_file.h
         base/functional/bind.h
         base/functional/bind_internal.h
         base/functional/callback.h
@@ -63,6 +65,10 @@ set(base_sources
         base/memory/ref_counted.cc
         base/memory/ref_counted.h
         base/message_loop/message_pump_type.h
+        base/numerics/safe_conversions.h
+        base/numerics/safe_conversions_arm_impl.h
+        base/numerics/safe_conversions_impl.h
+        base/posix/eintr_wrapper.h
         base/platform/platform_factory.cc
         base/platform/platform_factory.h
         base/strings/string_number_conversions.cc
@@ -76,6 +82,7 @@ set(base_sources
         base/strings/string_util_constants.cc
         base/strings/string_util_impl_helpers.h
         base/strings/string_util_internal.h
+        base/scoped_generic.h
         base/task/sequenced_task_runner.cc
         base/task/sequenced_task_runner.h
         base/task/bind_post_task.h
@@ -96,6 +103,7 @@ set(base_sources
 
 if (MACOSX)
     list(APPEND base_sources
+            base/files/file_util_apple.mm
             base/mac/scoped_block.h
             base/mac/scoped_typeref.h
     )
@@ -218,6 +226,7 @@ endif ()
 target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
 
 if (WIN32)
+    target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE Shlwapi)
     target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC UNICODE _UNICODE)
 endif ()
 
@@ -237,6 +246,7 @@ if (NOT EMSCRIPTEN)
     target_link_libraries(${PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
 
     if (WIN32)
+        target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi)
         target_compile_definitions(${PROJECT_NAME} PUBLIC UNICODE _UNICODE)
     endif ()
 

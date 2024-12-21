@@ -17,6 +17,8 @@ set(SOURCES
         ioapi.h
         unzip.c
         unzip.h
+        zip.c
+        zip.h
 )
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES})

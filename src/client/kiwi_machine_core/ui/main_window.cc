@@ -19,6 +19,7 @@
 
 #include "build/kiwi_defines.h"
 #include "debug/debug_roms.h"
+#include "kiwi_flags.h"
 #include "preset_roms/preset_roms.h"
 #include "resources/image_resources.h"
 #include "ui/application.h"
@@ -45,9 +46,9 @@
 #include "utility/math.h"
 #include "utility/zip_reader.h"
 
-namespace {
-
 DEFINE_bool(has_menu, false, "Shows a menu bar at the top of the window.");
+
+namespace {
 
 MainWindow* g_main_window_instance = nullptr;
 
@@ -236,13 +237,18 @@ MainWindow::MainWindow(const std::string& title,
 void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   InitializeRuntimeData();
   InitializeAudio();
-  ShowSplash(kiwi::base::DoNothing());
+  if (!FLAGS_has_menu) {
+    // If the main window has menu, it won't show splash for speeding up.
+    ShowSplash(kiwi::base::DoNothing());
+  }
   Application::Get()->Initialize(
       kiwi::base::BindOnce(&MainWindow::InitializeDebugROMsOnIOThread,
                            kiwi::base::Unretained(this)),
       kiwi::base::BindOnce(&MainWindow::InitializeUI,
                            kiwi::base::Unretained(this))
           .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
+                                     kiwi::base::Unretained(this)))
+          .Then(kiwi::base::BindOnce(&MainWindow::LoadTestRomIfSpecified,
                                      kiwi::base::Unretained(this)))
           .Then(std::move(callback)));
 }
@@ -346,16 +352,20 @@ void MainWindow::ChangeFocus(MainFocus focus) {
   SDL_assert(side_menu_);
   switch (focus) {
     case MainFocus::kContents:
-      side_menu_->set_activate(false);
-      SwitchToSideMenuByCurrentFlexItemWidget();
-      for (auto* items_widget : items_widgets_) {
-        items_widget->SetActivate(true);
+      if (contents_card_widget_->HasWidgets()) {
+        side_menu_->set_activate(false);
+        SwitchToSideMenuByCurrentFlexItemWidget();
+        for (auto* items_widget : items_widgets_) {
+          items_widget->SetActivate(true);
+        }
       }
       break;
     case MainFocus::kSideMenu:
-      side_menu_->set_activate(true);
-      for (auto* items_widget : items_widgets_) {
-        items_widget->SetActivate(false);
+      if (contents_card_widget_->HasWidgets()) {
+        side_menu_->set_activate(true);
+        for (auto* items_widget : items_widgets_) {
+          items_widget->SetActivate(false);
+        }
       }
       break;
     default:
@@ -637,7 +647,11 @@ void MainWindow::InitializeAudio() {
 
 void MainWindow::InitializeUI() {
   ScopedDisableEffect scoped_disable_effect;
-  is_headless_ = preset_roms::GetPresetRomsPackages().empty();
+#if BUILDFLAG(IS_WASM)
+  is_headless_ = preset_roms::GetPresetOrTestRomsPackages().empty();
+#else
+  is_headless_ = false;
+#endif
 
   if (FLAGS_has_menu) {
     // Menu bar
@@ -676,7 +690,7 @@ void MainWindow::InitializeUI() {
     bg_widget_->AddWidget(std::move(contents_card_widget));
 
     // Main game items
-    const auto& packages = preset_roms::GetPresetRomsPackages();
+    const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
     for (const auto& package : packages) {
       std::unique_ptr<FlexItemsWidget> items_widget =
           std::make_unique<FlexItemsWidget>(this, runtime_id_);
@@ -720,12 +734,19 @@ void MainWindow::InitializeUI() {
     // Side menu
     std::unique_ptr<SideMenu> side_menu =
         std::make_unique<SideMenu>(this, runtime_id_);
+    if (preset_roms::GetPresetOrTestRomsPackages().empty()) {
+      // If there's no game package, show a default background.
+      // There's no game selection menu, so we won't trigger the first menu
+      // item, because the first menu item will be a settings menu.
+      side_menu->set_auto_trigger_first_item(false);
+    }
+
     side_menu->set_activate(true);
 
     size_t package_index = 0;
     for (auto* items_widget : items_widgets_) {
       preset_roms::Package* package =
-          preset_roms::GetPresetRomsPackages()[package_index];
+          preset_roms::GetPresetOrTestRomsPackages()[package_index];
       side_menu->AddMenu(
           std::make_unique<SideMenuTitleStringUpdater>(package),
           package->GetSideMenuImage(), package->GetSideMenuHighlightImage(),
@@ -887,6 +908,14 @@ void MainWindow::InitializeDebugROMsOnIOThread() {
         &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
   }
 #endif
+}
+
+void MainWindow::LoadTestRomIfSpecified() {
+  if (!FLAGS_test_rom.empty()) {
+    if (FLAGS_has_menu) {
+      LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_rom));
+    }
+  }
 }
 
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {

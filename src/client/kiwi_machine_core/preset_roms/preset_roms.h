@@ -17,24 +17,17 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include <gflags/gflags.h>
 
 #include "utility/localization.h"
-
-#if defined(KIWI_USE_EXTERNAL_PAK)
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
-#endif
 
 namespace preset_roms {
 struct PresetROM {
   const char* name;
 
-#if !defined(KIWI_USE_EXTERNAL_PAK)
-  const kiwi::nes::Byte* zip_data;
-  size_t zip_size;
-#else
   unz_file_pos file_pos;
   kiwi::base::RepeatingCallback<kiwi::nes::Bytes(unz_file_pos)> zip_data_loader;
-#endif
 
   // Following data will be written when loaded. Do not modify them:
   // Uncompressed data. Filled by FillRomDataFromZip().
@@ -73,7 +66,7 @@ struct Package {
   virtual std::string GetTitleForLanguage(SupportedLanguage language) = 0;
 };
 
-std::vector<Package*> GetPresetRomsPackages();
+std::vector<Package*> GetPresetOrTestRomsPackages();
 
 }  // namespace preset_roms
 
