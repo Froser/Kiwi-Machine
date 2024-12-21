@@ -21,6 +21,8 @@
 #include "utility/localization.h"
 
 namespace {
+constexpr size_t kFileNameMaxLength = 256;
+
 voidpf OpenFileImpl(voidpf opaque, const char* ops, int mode) {
   return (SDL_RWops*)(ops);
 }
@@ -192,7 +194,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
       int located = unzGoToFirstFile(file);
       kiwi::base::FilePath alter_rom_path;
       std::string filename;
-      filename.resize(64);
+      filename.resize(kFileNameMaxLength);
       while (located == UNZ_OK) {
         unz_file_info fi;
         unzGetCurrentFileInfo(file, &fi, filename.data(), filename.size(),
@@ -257,7 +259,7 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();
   SDL_assert(io_task_runner->RunsTasksInCurrentSequence());
-  if (!((HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) ||
+  if (!((HasAnyPart(part & RomPart::kBoxArt) && !rom_data.cover_loaded) ||
         (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded)))
     return;
 
@@ -272,11 +274,14 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
   unzFile file =
       unzOpenFromMemory(const_cast<kiwi::nes::Byte*>(zip_data), zip_size);
   if (file) {
-    if (HasAnyPart(part & RomPart::kCover) && !rom_data.cover_loaded) {
+    if (HasAnyPart(part & RomPart::kBoxArt) && !rom_data.cover_loaded) {
       if (ReadFileFromZip(file, std::string(rom_data.name) + ".jpg",
                           rom_data.rom_cover)) {
         rom_data.cover_loaded = true;
-        loaded_part |= RomPart::kCover;
+        loaded_part |= RomPart::kBoxArt;
+      } else {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "Failed to get boxart cover for name %s", rom_data.name);
       }
     }
 
@@ -303,7 +308,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
 
   int located = unzGoToFirstFile(pak);
   std::string filename;
-  filename.resize(64);
+  filename.resize(kFileNameMaxLength);
   while (located == UNZ_OK) {
     unz_file_info fi;
     unzGetCurrentFileInfo(pak, &fi, filename.data(), filename.size(), nullptr,
@@ -352,7 +357,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
             int found = unzGoToFilePos(f, &file_pos);
             if (found == UNZ_OK) {
               std::string filename;
-              filename.resize(64);
+              filename.resize(kFileNameMaxLength);
               unz_file_info fi;
               unzGetCurrentFileInfo(f, &fi, filename.data(), filename.size(),
                                     nullptr, 0, nullptr, 0);

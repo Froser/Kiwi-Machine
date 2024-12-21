@@ -412,9 +412,9 @@ void Application::InitializeROMs() {
     for (size_t i = 0; i < package->GetRomsCount(); ++i) {
       auto& rom = package->GetRomsByIndex(i);
       InitializePresetROM(rom);
-      LoadPresetROM(rom, RomPart::kCover);
+      LoadPresetROM(rom, RomPart::kBoxArt);
       for (auto& alternative_rom : rom.alternates) {
-        LoadPresetROM(alternative_rom, RomPart::kCover);
+        LoadPresetROM(alternative_rom, RomPart::kBoxArt);
       }
     }
   }

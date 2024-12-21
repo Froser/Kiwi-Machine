@@ -12,11 +12,12 @@
 
 #include "base/files/file_util.h"
 
-#include <windows.h>
-
 #include "base/check.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/numerics/safe_conversions.h"
+
+#include <windows.h>
 
 namespace kiwi::base {
 

@@ -648,8 +648,8 @@ std::vector<kiwi::base::FilePath> PackEntireDirectory(
                                kiwi::base::FileEnumerator::DIRECTORIES);
   for (kiwi::base::FilePath current = d.Next(); !current.empty();
        current = d.Next()) {
-    rom_zips.push_back({current, current.BaseName().AsUTF8Unsafe() +
-                                     FILE_PATH_LITERAL(".pak")});
+    rom_zips.push_back(
+        {current, current.BaseName().value() + FILE_PATH_LITERAL(".pak")});
   }
 
   return PackZip(rom_zips, save_dir);
@@ -688,8 +688,8 @@ std::optional<std::vector<uint8_t>> ReadMapperFast(
 
 bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
                        std::string& mapper_name) {
-  if (nes_data.size() < 3 && (nes_data[0] != 'N' || nes_data[1] != 'N' ||
-                              nes_data[2] != 'N' || nes_data[3] != 0x1a)) {
+  if (nes_data.size() < 3 || nes_data[0] != 'N' || nes_data[1] != 'N' ||
+      nes_data[2] != 'N' || nes_data[3] != 0x1a) {
     // Not a valid nes.
     return false;
   }

@@ -22,9 +22,9 @@ struct Package;
 
 enum class RomPart {
   kNone,
-  kCover = 1,
+  kBoxArt = 1,
   kContent = 2,
-  kAll = kCover | kContent,
+  kAll = kBoxArt | kContent,
 };
 inline RomPart operator&(RomPart lhs, RomPart rhs) {
   return static_cast<RomPart>(static_cast<int>(lhs) & static_cast<int>(rhs));
