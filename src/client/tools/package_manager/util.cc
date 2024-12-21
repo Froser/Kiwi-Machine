@@ -688,8 +688,8 @@ std::optional<std::vector<uint8_t>> ReadMapperFast(
 
 bool IsMapperSupported(const std::vector<uint8_t>& nes_data,
                        std::string& mapper_name) {
-  if (nes_data.size() < 3 || nes_data[0] != 'N' || nes_data[1] != 'N' ||
-      nes_data[2] != 'N' || nes_data[3] != 0x1a) {
+  if (nes_data.size() < 3 || nes_data[0] != 'N' || nes_data[1] != 'E' ||
+      nes_data[2] != 'S' || nes_data[3] != 0x1a) {
     // Not a valid nes.
     return false;
   }
