@@ -82,7 +82,12 @@ set(base_sources
         base/strings/string_util_constants.cc
         base/strings/string_util_impl_helpers.h
         base/strings/string_util_internal.h
+        base/strings/stringprintf.cc
+        base/strings/stringprintf.h
+        base/scoped_clear_last_error.h
         base/scoped_generic.h
+        base/runloop.cc
+        base/runloop.h
         base/task/sequenced_task_runner.cc
         base/task/sequenced_task_runner.h
         base/task/bind_post_task.h
@@ -97,8 +102,6 @@ set(base_sources
         base/types/always_false.h
         base/threading/thread.cc
         base/threading/thread.h
-        base/runloop.cc
-        base/runloop.h
 )
 
 if (MACOSX)
@@ -122,6 +125,7 @@ if (WIN32)
             base/files/file_enumerator_win.cc
             base/files/file_util_win.cc
             base/files/file_win.cc
+            base/scoped_clear_last_error_win.cc
             base/win/shlwapi.h
             base/win/windows_types.h
             base/win/win_handle_types.h

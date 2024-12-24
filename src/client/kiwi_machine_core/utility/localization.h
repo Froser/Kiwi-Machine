@@ -45,6 +45,9 @@ class LocalizedStringUpdater {
 
   // The collate string is used for comparison.
   virtual std::string GetCollateStringHint() = 0;
+
+  // Tests if a filter matches this string. It is used in filtering.
+  virtual bool IsTitleMatchedFilter(const std::string& filter) = 0;
 };
 
 const char* ToLanguageCode(SupportedLanguage language);

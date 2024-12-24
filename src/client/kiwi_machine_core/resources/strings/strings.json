@@ -189,6 +189,11 @@
     "zh": "(触摸版本方框键切换游戏版本)",
     "ja": "(バージョンボックスをタッチしてバージョンを切り替える)"
   },
+  "IDR_ITEMS_WIGDET_FILTERING": {
+    "default": "Current filter: %s, press ESC to show all",
+    "zh": "当前筛选：%s, 按ESC查看所有",
+    "ja": "現在のフィルタ:%s、ESCを押すとすべてを表示する"
+  },
   "IDR_SIDE_MENU_ABOUT": {
     "default": "About",
     "zh": "关于",

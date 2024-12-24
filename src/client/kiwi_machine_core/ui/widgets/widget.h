@@ -78,6 +78,8 @@ class Widget {
   bool HandleMouseWheelEvent(SDL_MouseWheelEvent* event);
   bool HandleMousePressedEvent(SDL_MouseButtonEvent* event);
   bool HandleMouseReleasedEvent(SDL_MouseButtonEvent* event);
+  bool HandleTextEditingEvent(SDL_TextEditingEvent* event);
+  bool HandleTextInputEvent(SDL_TextInputEvent* event);
   void HandleResizedEvent();
   void HandleDisplayEvent();
   bool HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
@@ -115,6 +117,8 @@ class Widget {
   virtual bool OnMouseWheel(SDL_MouseWheelEvent* event);
   virtual bool OnMousePressed(SDL_MouseButtonEvent* event);
   virtual bool OnMouseReleased(SDL_MouseButtonEvent* event);
+  virtual bool OnTextEditing(SDL_TextEditingEvent* event);
+  virtual bool OnTextInput(SDL_TextInputEvent* event);
   virtual void OnWindowResized();
   virtual void OnWidgetsRemoved();
   virtual void OnDisplayChanged();

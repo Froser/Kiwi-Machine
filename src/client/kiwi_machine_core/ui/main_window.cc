@@ -40,6 +40,7 @@
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
+#include "utility/algorithm.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
@@ -101,6 +102,7 @@ class SideMenuTitleStringUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
+  bool IsTitleMatchedFilter(const std::string& filter) override;
 
  private:
   preset_roms::Package* package_;
@@ -117,6 +119,13 @@ std::string SideMenuTitleStringUpdater::GetLocalizedString() {
 
 std::string SideMenuTitleStringUpdater::GetCollateStringHint() {
   return GetLocalizedString();
+}
+
+bool SideMenuTitleStringUpdater::IsTitleMatchedFilter(
+    const std::string& filter) {
+  // SideMenu won't call this function.
+  SDL_assert(false);
+  return false;
 }
 
 int CalculateWindowWidth(float window_scale) {
@@ -146,6 +155,7 @@ class StringUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
+  bool IsTitleMatchedFilter(const std::string& filter) override;
 
  private:
   int string_id_;
@@ -161,6 +171,12 @@ std::string StringUpdater::GetCollateStringHint() {
   return ::GetLocalizedString(string_id_);
 }
 
+bool StringUpdater::IsTitleMatchedFilter(const std::string& filter) {
+  // StringUpdater won't call this function.
+  SDL_assert(false);
+  return false;
+}
+
 class ROMTitleUpdater : public LocalizedStringUpdater {
  public:
   explicit ROMTitleUpdater(const preset_roms::PresetROM& preset_rom);
@@ -169,6 +185,7 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
+  bool IsTitleMatchedFilter(const std::string& filter) override;
 
  private:
   const preset_roms::PresetROM& preset_rom_;
@@ -184,6 +201,19 @@ std::string ROMTitleUpdater::GetLocalizedString() {
 std::string ROMTitleUpdater::GetCollateStringHint() {
   return GetROMLocalizedCollateStringHint(preset_rom_);
 }
+
+bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter) {
+  if (HasString(filter, preset_rom_.name))
+    return true;
+
+  for (const auto& name : preset_rom_.i18n_names) {
+    if (HasString(filter, name.second))
+      return true;
+  }
+
+  return false;
+}
+
 }  // namespace
 
 // A mask widget to handle finger events.

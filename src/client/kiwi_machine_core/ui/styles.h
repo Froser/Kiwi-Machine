@@ -24,6 +24,7 @@ namespace flex_items_widget {
 int GetItemHeightHint();
 int GetItemHighlightedSize();
 PreferredFontSize GetDetailFontSize();
+PreferredFontSize GetFilterFontSize();
 
 }  // namespace flex_items_widget
 

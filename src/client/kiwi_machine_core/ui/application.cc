@@ -172,6 +172,20 @@ void Application::HandleEvent(SDL_Event* event) {
         target->HandleMouseReleasedEvent(&event->button);
     } break;
 #endif
+    case SDL_TEXTEDITING: {
+      WindowBase* target = FindWindowFromID(event->button.windowID);
+      if (target) {
+        target->HandleTextEditingEvent(&event->edit);
+      }
+      break;
+    }
+    case SDL_TEXTINPUT: {
+      WindowBase* target = FindWindowFromID(event->button.windowID);
+      if (target) {
+        target->HandleTextInputEvent(&event->text);
+      }
+      break;
+    }
     default:
       break;
   }

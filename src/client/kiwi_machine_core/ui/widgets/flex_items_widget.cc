@@ -17,6 +17,7 @@
 
 #include "ui/main_window.h"
 #include "ui/styles.h"
+#include "ui/widgets/filter_widget.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/math.h"
@@ -29,6 +30,8 @@ constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
 constexpr int kDetailWidgetMargin = 25;
 constexpr int kDetailWidgetPadding = 5;
+constexpr int kFilterWidgetMargin = kDetailWidgetMargin;
+constexpr int kFilterWidgetPadding = kDetailWidgetPadding;
 constexpr int kItemHoverDurationMs = 1000;
 
 struct AutoReset {
@@ -56,6 +59,12 @@ FlexItemsWidget::FlexItemsWidget(MainWindow* main_window,
   set_flags(ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs);
   set_title("KiwiItemsWidget");
+
+  std::unique_ptr<FilterWidget> filter_widget = std::make_unique<FilterWidget>(
+      main_window_, kiwi::base::BindRepeating(&FlexItemsWidget::OnFilter,
+                                              kiwi::base::Unretained(this)));
+  filter_widget_ = filter_widget.get();
+  AddWidget(std::move(filter_widget));
 }
 
 FlexItemsWidget::~FlexItemsWidget() = default;
@@ -70,9 +79,9 @@ size_t FlexItemsWidget::AddItem(
 
   item->set_cover(cover_img_ref, cover_size);
   items_.push_back(item.get());
+  all_items_.push_back(item.get());
   AddWidget(std::move(item));
   need_layout_all_ = true;
-
   return items_.size() - 1;
 }
 
@@ -88,11 +97,11 @@ void FlexItemsWidget::AddSubItem(
 }
 
 void FlexItemsWidget::SetIndex(size_t index) {
-  SetIndex(index, LayoutOption::kAdjustScrolling);
+  SetIndex(index, LayoutOption::kAdjustScrolling, false);
 }
 
-void FlexItemsWidget::SetIndex(size_t index, LayoutOption option) {
-  if (current_index_ != index) {
+void FlexItemsWidget::SetIndex(size_t index, LayoutOption option, bool force) {
+  if (current_index_ != index || force) {
     RestoreCurrentItemToDefault();
     current_index_ = index;
     if (items_.empty())
@@ -112,6 +121,9 @@ void FlexItemsWidget::SetActivate(bool activate) {
   if (activate_ != activate) {
     activate_ = activate;
     Layout(LayoutOption::kDoNotAdjustScrolling);
+  }
+  if (!activate_) {
+    filter_widget_->EndFilter();
   }
 }
 
@@ -186,6 +198,7 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
   size_t index = 0;
   rows_to_first_item_.clear();
   rows_to_first_item_[0] = 0;
+  bounds_map_without_scrolling_.clear();
 
   bool current_index_exceeded_bottom = false;
   for (auto* item : items_) {
@@ -233,6 +246,9 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
 }
 
 void FlexItemsWidget::LayoutPartial(LayoutOption option) {
+  if (items_.empty())
+    return;
+
   if (current_item_widget_ != items_[current_index_]) {
     original_view_scrolling_ = target_view_scrolling_;
     bool current_index_exceeded_bottom =
@@ -390,27 +406,39 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
       IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_A) {
-    PlayEffect(audio_resources::AudioID::kStart);
-    TriggerCurrentItem(false);
+    if (TriggerCurrentItem(false))
+      PlayEffect(audio_resources::AudioID::kStart);
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kSelect, k) ||
       (c && c->button == SDL_CONTROLLER_BUTTON_Y)) {
-    if (items_[current_index_]->has_sub_items()) {
+    if (!items_.empty() && items_[current_index_]->has_sub_items()) {
       PlayEffect(audio_resources::AudioID::kSelect);
       SwapCurrentItemToNextSubItem();
     }
     return true;
   }
 
+  if (k->keysym.sym == SDLK_f) {
+    filter_widget_->set_bounds(GetLocalBounds());
+    filter_widget_->BeginFilter();
+    return true;
+  } else if (k->keysym.sym == SDLK_ESCAPE) {
+    OnFilter(std::string());
+  }
+
   return false;
 }
 
-void FlexItemsWidget::TriggerCurrentItem(bool triggered_by_finger) {
-  items_[current_index_]->Trigger(triggered_by_finger);
-  RestoreCurrentItemToDefault();
+bool FlexItemsWidget::TriggerCurrentItem(bool triggered_by_finger) {
+  if (!items_.empty()) {
+    items_[current_index_]->Trigger(triggered_by_finger);
+    RestoreCurrentItemToDefault();
+    return true;
+  }
+  return false;
 }
 
 void FlexItemsWidget::ApplyScrolling(int scrolling) {
@@ -459,6 +487,9 @@ size_t FlexItemsWidget::FindNextIndex(Direction direction) {
 }
 
 size_t FlexItemsWidget::FindNextIndex(bool down) {
+  if (items_.empty())
+    return 0;
+
   int area = 0, last_area = 0;
   int start_index, end_index;
   const int kCurrentRow = items_[current_index_]->row_index();
@@ -503,6 +534,9 @@ size_t FlexItemsWidget::FindNextIndex(bool down) {
 bool FlexItemsWidget::FindItemIndexByMousePosition(int x_in_window,
                                                    int y_in_window,
                                                    size_t& index_out) {
+  if (items_.empty())
+    return false;
+
   // A faster way to find the hovered item.
   int current_row_index = 0;
   if (current_item_widget_) {
@@ -551,7 +585,7 @@ void FlexItemsWidget::SwapCurrentItemToNextSubItem() {
 }
 
 void FlexItemsWidget::RestoreCurrentItemToDefault() {
-  if (items_[current_index_]->RestoreToDefaultItem()) {
+  if (!items_.empty() && items_[current_index_]->RestoreToDefaultItem()) {
     RefreshCurrentItemBounds();
   }
 }
@@ -571,6 +605,9 @@ void FlexItemsWidget::RefreshCurrentItemBounds() {
 }
 
 void FlexItemsWidget::PaintDetails() {
+  if (items_.empty())
+    return;
+
   FlexItemWidget* item = items_[current_index_];
   std::string title = item->current_data()->title_updater->GetLocalizedString();
   std::string hint =
@@ -623,10 +660,68 @@ void FlexItemsWidget::PaintDetails() {
       ImColor(1.f, 1.f, 1.f), title.c_str());
 }
 
+void FlexItemsWidget::PaintFilter() {
+  if (!filter_contents_.empty()) {
+    std::string template_string =
+        GetLocalizedString(string_resources::IDR_ITEMS_WIGDET_FILTERING);
+    std::string filter_contents = kiwi::base::StringPrintf(
+        template_string.c_str(), filter_contents_.c_str());
+
+    PreferredFontSize preferred_font_size =
+        styles::flex_items_widget::GetFilterFontSize();
+    ScopedFont font =
+        GetPreferredFont(preferred_font_size, filter_contents.c_str());
+    ImVec2 text_size = ImGui::CalcTextSize(filter_contents.c_str());
+    SDL_Rect text_bounds_top =
+        MapToWindow({kFilterWidgetMargin, kFilterWidgetMargin,
+                     static_cast<int>(text_size.x + kFilterWidgetPadding * 2),
+                     static_cast<int>(text_size.y + kFilterWidgetPadding * 2)});
+    SDL_Rect text_bounds_bottom =
+        MapToWindow({kFilterWidgetMargin,
+                     static_cast<int>(bounds().h - kFilterWidgetMargin -
+                                      kFilterWidgetPadding * 2 - text_size.y),
+                     static_cast<int>(text_size.x + kFilterWidgetPadding * 2),
+                     static_cast<int>(text_size.y + kFilterWidgetPadding * 2)});
+
+    const SDL_Rect* kTextBounds = nullptr;
+    if (last_detail_widget_position_ == kTop) {
+      if (Intersect(MapToWindow(current_item_target_bounds_),
+                    text_bounds_top)) {
+        kTextBounds = &text_bounds_bottom;
+        last_detail_widget_position_ = kBottom;
+      } else {
+        kTextBounds = &text_bounds_top;
+      }
+    } else {
+      if (Intersect(MapToWindow(current_item_target_bounds_),
+                    text_bounds_bottom)) {
+        kTextBounds = &text_bounds_top;
+        last_detail_widget_position_ = kTop;
+      } else {
+        kTextBounds = &text_bounds_bottom;
+      }
+    }
+
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2(kTextBounds->x, kTextBounds->y),
+        ImVec2(kTextBounds->x + kTextBounds->w,
+               kTextBounds->y + kTextBounds->h),
+        ImColor(0.f, 0.f, 0.f, .7f));
+    ImGui::GetWindowDrawList()->AddText(
+        font.GetFont(), font.GetFont()->FontSize,
+        ImVec2(kTextBounds->x + kDetailWidgetPadding,
+               kTextBounds->y + kDetailWidgetPadding),
+        ImColor(1.f, 1.f, 1.f), filter_contents.c_str());
+  }
+}
+
 bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
                                                 MouseButton button,
                                                 int x_in_window,
                                                 int y_in_window) {
+  if (filter_widget_->has_begun())
+    return true;
+
   switch (type) {
     case MouseOrFingerEventType::kHover: {
       if (!mouse_moved_ && !scrolling_by_finger_) {
@@ -664,7 +759,7 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
               size_t select_index = 0;
               if (FindItemIndexByMousePosition(x_in_window, y_in_window,
                                                select_index))
-                SetIndex(index, LayoutOption::kAdjustScrolling);
+                SetIndex(index, LayoutOption::kAdjustScrolling, false);
             }
           }
         }
@@ -684,7 +779,7 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
 
       size_t index = 0;
       if (FindItemIndexByMousePosition(x_in_window, y_in_window, index))
-        SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+        SetIndex(index, LayoutOption::kDoNotAdjustScrolling, false);
 
       return true;
     }
@@ -722,10 +817,10 @@ void FlexItemsWidget::HandleTriggerItemByLeftMouseButtonDownOrFingerUp(
   if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
     // If the highlight item doesn't change, trigger it.
     if (index_before_released == index) {
-      PlayEffect(audio_resources::AudioID::kStart);
-      TriggerCurrentItem(is_finger_gesture);
+      if (TriggerCurrentItem(is_finger_gesture))
+        PlayEffect(audio_resources::AudioID::kStart);
     } else {
-      SetIndex(index, LayoutOption::kDoNotAdjustScrolling);
+      SetIndex(index, LayoutOption::kDoNotAdjustScrolling, false);
     }
   }
 }
@@ -774,6 +869,42 @@ void FlexItemsWidget::Paint() {
       ImColor(48, 48, 48));
 }
 
+void FlexItemsWidget::OnFilter(const std::string& filter) {
+  if (filter_contents_ == filter)
+    return;
+
+  filter_contents_ = filter;
+  if (!filter.empty()) {
+    RestoreCurrentItemToDefault();
+    items_ = CalculateFilteredResult(filter);
+    for (FlexItemWidget* item : all_items_) {
+      item->set_filtered(std::find(items_.begin(), items_.end(), item) ==
+                         items_.end());
+    }
+  } else {
+    RestoreCurrentItemToDefault();
+    items_ = all_items_;
+    for (FlexItemWidget* item : all_items_) {
+      item->set_filtered(false);
+    }
+  }
+  original_view_scrolling_ = target_view_scrolling_ = 0;
+  need_layout_all_ = true;
+  current_index_ = 0;
+  SetIndex(0, LayoutOption::kAdjustScrolling, true);
+}
+
+std::vector<FlexItemWidget*> FlexItemsWidget::CalculateFilteredResult(
+    const std::string& filter) {
+  std::vector<FlexItemWidget*> result;
+  for (auto* item : all_items_) {
+    if (item->MatchFilter(filter))
+      result.push_back(item);
+  }
+
+  return result;
+}
+
 void FlexItemsWidget::PostPaint() {
   // Renders current item again, to make it on the top of all the items.
   if (current_item_widget_) {
@@ -781,6 +912,10 @@ void FlexItemsWidget::PostPaint() {
   }
 
   PaintDetails();
+  PaintFilter();
+
+  if (filter_widget_->visible())
+    filter_widget_->Render();
 
   if (!activate_) {
     SDL_Rect bounds_to_window = MapToWindow(bounds());
@@ -802,12 +937,18 @@ bool FlexItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool FlexItemsWidget::OnMouseMove(SDL_MouseMotionEvent* event) {
+  if (filter_widget_->OnMouseMove(event))
+    return true;
+
   return HandleMouseOrFingerEvents(MouseOrFingerEventType::kMouseMove,
                                    MouseButton::kUnknownButton, event->x,
                                    event->y);
 }
 
 bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
+  if (filter_widget_->OnMouseWheel(event))
+    return true;
+
   if (!activate_ || gesture_locked_)
     return true;
 
@@ -825,6 +966,9 @@ bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
 }
 
 bool FlexItemsWidget::OnMousePressed(SDL_MouseButtonEvent* event) {
+  if (filter_widget_->OnMousePressed(event))
+    return true;
+
   MouseButton button = (event->button == SDL_BUTTON_LEFT
                             ? MouseButton::kLeftButton
                             : ((event->button == SDL_BUTTON_RIGHT
@@ -835,6 +979,9 @@ bool FlexItemsWidget::OnMousePressed(SDL_MouseButtonEvent* event) {
 }
 
 bool FlexItemsWidget::OnMouseReleased(SDL_MouseButtonEvent* event) {
+  if (filter_widget_->OnMouseReleased(event))
+    return true;
+
   MouseButton button = (event->button == SDL_BUTTON_LEFT
                             ? MouseButton::kLeftButton
                             : ((event->button == SDL_BUTTON_RIGHT

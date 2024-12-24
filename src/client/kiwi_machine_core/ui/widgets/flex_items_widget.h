@@ -21,6 +21,7 @@
 #include "utility/localization.h"
 
 class MainWindow;
+class FilterWidget;
 class FlexItemsWidget : public Widget {
  public:
   enum class LayoutOption {
@@ -55,7 +56,7 @@ class FlexItemsWidget : public Widget {
   }
 
  private:
-  void SetIndex(size_t index, LayoutOption option);
+  void SetIndex(size_t index, LayoutOption option, bool force);
   void Layout(LayoutOption option);
   void LayoutAll(LayoutOption);
   void LayoutPartial(LayoutOption);
@@ -70,7 +71,7 @@ class FlexItemsWidget : public Widget {
   void AdjustBottomRowItemsIfNeeded(LayoutOption option);
 
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
-  void TriggerCurrentItem(bool triggered_by_finger);
+  bool TriggerCurrentItem(bool triggered_by_finger);
   void ApplyScrolling(int scrolling);
 
   enum Direction { kUp, kDown, kLeft, kRight };
@@ -85,6 +86,8 @@ class FlexItemsWidget : public Widget {
   void RefreshCurrentItemBounds();
 
   void PaintDetails();
+  void PaintFilter();
+
   enum class MouseOrFingerEventType {
     kMousePressed,
     kMouseReleased,
@@ -105,6 +108,10 @@ class FlexItemsWidget : public Widget {
   void HandleTriggerItemByLeftMouseButtonDownOrFingerUp(int x_in_window,
                                                         int y_in_window,
                                                         bool is_finger_gesture);
+
+  void OnFilter(const std::string& filter);
+  std::vector<FlexItemWidget*> CalculateFilteredResult(
+      const std::string& filter);
 
  protected:
   void Paint() override;
@@ -131,7 +138,10 @@ class FlexItemsWidget : public Widget {
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
   kiwi::base::RepeatingClosure back_callback_ = kiwi::base::DoNothing();
+  // items_ are the items which should be paint, excluding filtered items. While
+  // all_items_ are all items called by AddItem().
   std::vector<FlexItemWidget*> items_;
+  std::vector<FlexItemWidget*> all_items_;
   bool first_paint_ = true;
   size_t current_index_ = 0;
   FlexItemWidget* current_item_widget_ = nullptr;
@@ -154,6 +164,11 @@ class FlexItemsWidget : public Widget {
 
   // Detail widget
   enum { kTop, kBottom } last_detail_widget_position_ = kTop;
+
+  // Filter widget
+  FilterWidget* filter_widget_ = nullptr;
+  // If filter_contents_ is empty, show all results.
+  std::string filter_contents_;
 
   Timer gesture_locked_timer_;
   MouseButton gesture_locked_button_ = MouseButton::kLeftButton;

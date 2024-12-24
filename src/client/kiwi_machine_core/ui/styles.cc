@@ -44,6 +44,10 @@ PreferredFontSize GetDetailFontSize() {
 #endif
 }
 
+PreferredFontSize GetFilterFontSize() {
+  return GetDetailFontSize();
+}
+
 }  // namespace flex_items_widget
 
 namespace flex_item_widget {

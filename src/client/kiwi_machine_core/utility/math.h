@@ -39,4 +39,9 @@ struct Triangle {
   SDL_Rect BoundingBox();
 };
 
+inline SDL_Rect Center(const SDL_Rect& parent, const SDL_Rect& rect) {
+  return SDL_Rect{parent.x + (parent.w - rect.w) / 2,
+                  parent.y + (parent.h - rect.h) / 2, rect.w, rect.h};
+}
+
 #endif  // UTILITY_MATH_H_

@@ -158,27 +158,25 @@ bool Widget::HandleKeyEvent(SDL_KeyboardEvent* event) {
   switch (event->type) {
     case SDL_KEYDOWN: {
       if (visible() && enabled()) {
-        handled = OnKeyPressed(event);
-        if (!handled) {
-          for (auto& widget : widgets_) {
-            handled = widget->HandleKeyEvent(event);
-            if (handled)
-              break;
-          }
+        for (auto& widget : widgets_) {
+          handled = widget->HandleKeyEvent(event);
+          if (handled)
+            break;
         }
+        if (!handled)
+          handled = OnKeyPressed(event);
       }
       break;
     }
     case SDL_KEYUP: {
       if (visible() && enabled()) {
-        handled = OnKeyReleased(event);
-        if (!handled) {
-          for (auto& widget : widgets_) {
-            handled = widget->HandleKeyEvent(event);
-            if (handled)
-              break;
-          }
+        for (auto& widget : widgets_) {
+          handled = widget->HandleKeyEvent(event);
+          if (handled)
+            break;
         }
+        if (!handled)
+          handled = OnKeyReleased(event);
       }
       break;
     }
@@ -238,6 +236,39 @@ bool Widget::HandleMouseReleasedEvent(SDL_MouseButtonEvent* event) {
       return target->OnMouseReleased(event);
   }
   return false;
+}
+
+bool Widget::HandleTextEditingEvent(SDL_TextEditingEvent* event) {
+  bool handled = false;
+  if (visible() && enabled()) {
+    // Child handles first.
+    for (auto& widget : widgets_) {
+      handled = widget->OnTextEditing(event);
+      if (handled)
+        break;
+    }
+
+    if (!handled)
+      handled = OnTextEditing(event);
+  }
+
+  return handled;
+}
+
+bool Widget::HandleTextInputEvent(SDL_TextInputEvent* event) {
+  bool handled = false;
+  if (visible() && enabled()) {
+    // Child handles first.
+    for (auto& widget : widgets_) {
+      handled = widget->HandleTextInputEvent(event);
+      if (handled)
+        break;
+    }
+
+    if (!handled)
+      handled = OnTextInput(event);
+  }
+  return handled;
 }
 
 bool Widget::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
@@ -394,6 +425,14 @@ bool Widget::OnMousePressed(SDL_MouseButtonEvent* event) {
 
 bool Widget::OnMouseReleased(SDL_MouseButtonEvent* event) {
   return true;
+}
+
+bool Widget::OnTextEditing(SDL_TextEditingEvent* event) {
+  return false;
+}
+
+bool Widget::OnTextInput(SDL_TextInputEvent* event) {
+  return false;
 }
 
 void Widget::OnWindowResized() {}

@@ -77,6 +77,8 @@ set(Sources
         ui/widgets/disassembly_widget.h
         ui/widgets/demo_widget.cc
         ui/widgets/demo_widget.h
+        ui/widgets/filter_widget.cc
+        ui/widgets/filter_widget.h
         ui/widgets/flex_item_widget.cc
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
@@ -123,6 +125,8 @@ set(Sources
         ui/styles.h
         ui/window_base.cc
         ui/window_base.h
+        utility/algorithm.cc
+        utility/algorithm.h
         utility/audio_effects.cc
         utility/audio_effects.h
         utility/fonts.cc

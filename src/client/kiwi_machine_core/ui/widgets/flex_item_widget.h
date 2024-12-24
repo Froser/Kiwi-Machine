@@ -53,6 +53,12 @@ class FlexItemWidget : public Widget {
     current_data()->cover_size = cover_size;
   }
 
+  // If an item has been filtered, it won't be displayed, and won't participant
+  // in layout.
+  void set_filtered(bool filtered) { filtered_ = filtered; }
+  bool filtered() const { return filtered_; }
+  bool MatchFilter(const std::string& filter) const;
+
   void set_row_index(int row_index) { row_index_ = row_index; }
   void set_column_index(int column_index) { column_index_ = column_index; }
   int row_index() { return row_index_; }
@@ -93,6 +99,9 @@ class FlexItemWidget : public Widget {
   // Children
   std::vector<std::unique_ptr<Data>> sub_data_;
   int current_sub_item_index_ = 0;
+
+  // Filter
+  bool filtered_ = false;
 };
 
 #endif  // UI_WIDGETS_FLEX_ITEM_WIDGET_H_
