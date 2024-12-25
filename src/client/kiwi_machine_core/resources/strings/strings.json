@@ -189,9 +189,14 @@
     "zh": "(触摸版本方框键切换游戏版本)",
     "ja": "(バージョンボックスをタッチしてバージョンを切り替える)"
   },
+  "IDR_ITEMS_WIGDET_FILTER": {
+    "default": "Enter some part of characters, numbers, or symbols to search",
+    "zh": "输入部分字母、数字或符号来进行搜索",
+    "ja": "文字、数字、記号を入力して検索する"
+  },
   "IDR_ITEMS_WIGDET_FILTERING": {
-    "default": "Current filter: %s, press ESC to show all",
-    "zh": "当前筛选：%s, 按ESC查看所有",
+    "default": "Current filter: %s, press ESC to cancel the filter",
+    "zh": "当前筛选：%s, 按ESC取消筛选",
     "ja": "現在のフィルタ:%s、ESCを押すとすべてを表示する"
   },
   "IDR_SIDE_MENU_ABOUT": {

@@ -13,6 +13,7 @@
 #include "ui/widgets/filter_widget.h"
 
 #include "ui/main_window.h"
+#include "utility/localization.h"
 
 namespace {
 int g_global_input = 0;
@@ -54,8 +55,34 @@ void FilterWidget::Paint() {
       ImVec2(bounds_to_window.x + bounds_to_window.w,
              bounds_to_window.y + bounds_to_window.h),
       ImColor(0, 0, 0, 196));
-  ScopedFont font(GetPreferredFont(PreferredFontSize::k1x));
-  ImGui::TextUnformatted(filter_contents_.c_str());
+
+  ImVec2 title_rect, contents_rect;
+  std::string title =
+      GetLocalizedString(string_resources::IDR_ITEMS_WIGDET_FILTER);
+  {
+    ScopedFont font(GetPreferredFont(PreferredFontSize::k2x));
+    title_rect = ImGui::CalcTextSize(title.c_str());
+  }
+  {
+    ScopedFont font(FontType::kDefault);
+    contents_rect = ImGui::CalcTextSize(filter_contents_.c_str());
+  }
+
+  ImVec2 combined_rect = {std::max(title_rect.x, contents_rect.x),
+                          title_rect.y + contents_rect.y};
+
+  ImGui::SetCursorPosX((GetLocalBounds().w - title_rect.x) / 2);
+  ImGui::SetCursorPosY((GetLocalBounds().h - combined_rect.y) / 2);
+  {
+    ScopedFont font(GetPreferredFont(PreferredFontSize::k2x));
+    ImGui::TextUnformatted(title.c_str());
+  }
+
+  {
+    ImGui::SetCursorPosX((GetLocalBounds().w - contents_rect.x) / 2);
+    ScopedFont font(FontType::kDefault);
+    ImGui::TextUnformatted(filter_contents_.c_str());
+  }
 }
 
 bool FilterWidget::OnMousePressed(SDL_MouseButtonEvent* event) {
