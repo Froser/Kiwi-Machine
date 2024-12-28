@@ -896,13 +896,25 @@ void FlexItemsWidget::OnFilter(const std::string& filter) {
 
 std::vector<FlexItemWidget*> FlexItemsWidget::CalculateFilteredResult(
     const std::string& filter) {
-  std::vector<FlexItemWidget*> result;
+  std::vector<std::pair<FlexItemWidget*, int>> result;
   for (auto* item : all_items_) {
-    if (item->MatchFilter(filter))
-      result.push_back(item);
+    int similarity;
+    if (item->MatchFilter(filter, similarity))
+      result.push_back({item, similarity});
   }
 
-  return result;
+  std::sort(result.begin(), result.end(),
+            [filter](const std::pair<FlexItemWidget*, int>& lhs,
+                     const std::pair<FlexItemWidget*, int>& rhs) {
+              return lhs.second < rhs.second;
+            });
+
+  std::vector<FlexItemWidget*> ret;
+  for (const auto& i : result) {
+    ret.push_back(i.first);
+  }
+
+  return ret;
 }
 
 void FlexItemsWidget::PostPaint() {

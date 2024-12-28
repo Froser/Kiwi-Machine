@@ -102,7 +102,8 @@ class SideMenuTitleStringUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
-  bool IsTitleMatchedFilter(const std::string& filter) override;
+  bool IsTitleMatchedFilter(const std::string& filter,
+                            int& similarity) override;
 
  private:
   preset_roms::Package* package_;
@@ -121,8 +122,8 @@ std::string SideMenuTitleStringUpdater::GetCollateStringHint() {
   return GetLocalizedString();
 }
 
-bool SideMenuTitleStringUpdater::IsTitleMatchedFilter(
-    const std::string& filter) {
+bool SideMenuTitleStringUpdater::IsTitleMatchedFilter(const std::string& filter,
+                                                      int& similarity) {
   // SideMenu won't call this function.
   SDL_assert(false);
   return false;
@@ -155,7 +156,8 @@ class StringUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
-  bool IsTitleMatchedFilter(const std::string& filter) override;
+  bool IsTitleMatchedFilter(const std::string& filter,
+                            int& similarity) override;
 
  private:
   int string_id_;
@@ -171,7 +173,8 @@ std::string StringUpdater::GetCollateStringHint() {
   return ::GetLocalizedString(string_id_);
 }
 
-bool StringUpdater::IsTitleMatchedFilter(const std::string& filter) {
+bool StringUpdater::IsTitleMatchedFilter(const std::string& filter,
+                                         int& similarity) {
   // StringUpdater won't call this function.
   SDL_assert(false);
   return false;
@@ -185,7 +188,8 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
-  bool IsTitleMatchedFilter(const std::string& filter) override;
+  bool IsTitleMatchedFilter(const std::string& filter,
+                            int& similarity) override;
 
  private:
   const preset_roms::PresetROM& preset_rom_;
@@ -202,13 +206,17 @@ std::string ROMTitleUpdater::GetCollateStringHint() {
   return GetROMLocalizedCollateStringHint(preset_rom_);
 }
 
-bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter) {
-  if (HasString(filter, preset_rom_.name))
+bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
+                                           int& similarity) {
+  if (HasString(filter, preset_rom_.name)) {
+    similarity = std::string_view(preset_rom_.name).size() - filter.size();
     return true;
+  }
 
-  for (const auto& name : preset_rom_.i18n_names) {
-    if (HasString(filter, name.second))
-      return true;
+  std::string hint = language_conversion::KanaToRomaji(GetCollateStringHint());
+  if (HasString(filter, hint)) {
+    similarity = hint.size() - filter.size();
+    return true;
   }
 
   return false;

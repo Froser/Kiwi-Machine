@@ -73,9 +73,10 @@ void FlexItemWidget::CreateTextureIfNotExists() {
   }
 }
 
-bool FlexItemWidget::MatchFilter(const std::string& filter) const {
+bool FlexItemWidget::MatchFilter(const std::string& filter,
+                                 int& similarity) const {
   for (const auto& sub_data : sub_data_) {
-    if (sub_data->title_updater->IsTitleMatchedFilter(filter))
+    if (sub_data->title_updater->IsTitleMatchedFilter(filter, similarity))
       return true;
   }
   return false;

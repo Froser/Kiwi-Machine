@@ -47,7 +47,8 @@ class LocalizedStringUpdater {
   virtual std::string GetCollateStringHint() = 0;
 
   // Tests if a filter matches this string. It is used in filtering.
-  virtual bool IsTitleMatchedFilter(const std::string& filter) = 0;
+  virtual bool IsTitleMatchedFilter(const std::string& filter,
+                                    int& similarity) = 0;
 };
 
 const char* ToLanguageCode(SupportedLanguage language);
@@ -67,5 +68,9 @@ const char* GetROMLocalizedCollateStringHint(const preset_roms::PresetROM& rom);
 const std::string& GetLocalizedString(int id);
 
 const ImVector<ImWchar>& GetGlyphRanges(SupportedLanguage language);
+
+namespace language_conversion {
+std::string KanaToRomaji(const std::string& kana);
+}
 
 #endif  // UTILITY_LOCALIZATION_H_

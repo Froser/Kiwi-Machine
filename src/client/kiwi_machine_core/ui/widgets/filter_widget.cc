@@ -58,14 +58,16 @@ void FilterWidget::Paint() {
 
   ImVec2 title_rect, contents_rect;
   std::string title =
-      GetLocalizedString(string_resources::IDR_ITEMS_WIGDET_FILTER);
+      GetLocalizedString(string_resources::IDR_FILTER_WIGDET_FILTER);
   {
     ScopedFont font(GetPreferredFont(PreferredFontSize::k2x));
     title_rect = ImGui::CalcTextSize(title.c_str());
   }
+
+  std::string display_filter_contents = filter_contents_ + "_";
   {
-    ScopedFont font(FontType::kDefault);
-    contents_rect = ImGui::CalcTextSize(filter_contents_.c_str());
+    ScopedFont font(FontType::kDefault2x);
+    contents_rect = ImGui::CalcTextSize(display_filter_contents.c_str());
   }
 
   ImVec2 combined_rect = {std::max(title_rect.x, contents_rect.x),
@@ -80,8 +82,17 @@ void FilterWidget::Paint() {
 
   {
     ImGui::SetCursorPosX((GetLocalBounds().w - contents_rect.x) / 2);
-    ScopedFont font(FontType::kDefault);
-    ImGui::TextUnformatted(filter_contents_.c_str());
+    ScopedFont font(FontType::kDefault2x);
+    ImGui::TextUnformatted(display_filter_contents.c_str());
+  }
+
+  {
+    ScopedFont font(GetPreferredFont(PreferredFontSize::k1x));
+    std::string hint =
+        GetLocalizedString(string_resources::IDR_FILTER_WIGDET_HINT);
+    ImVec2 hint_rect = ImGui::CalcTextSize(hint.c_str());
+    ImGui::SetCursorPosX((GetLocalBounds().w - hint_rect.x) / 2);
+    ImGui::TextUnformatted(hint.c_str());
   }
 }
 
