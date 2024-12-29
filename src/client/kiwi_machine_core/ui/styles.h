@@ -72,6 +72,7 @@ int GetJoystickPauseButtonMarginY(float window_scale,
 namespace side_menu {
 
 int GetItemHeight();
+int GetButtonHeight();
 int GetMarginBottom();
 PreferredFontSize GetPreferredFontSize();
 

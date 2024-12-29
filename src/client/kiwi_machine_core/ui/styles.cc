@@ -173,6 +173,10 @@ int GetItemHeight() {
 #endif
 }
 
+int GetButtonHeight() {
+  return GetItemHeight();
+}
+
 int GetMarginBottom() {
 #if KIWI_MOBILE
   // Many mobile screen has a rounded corner, we set margin as a larger value

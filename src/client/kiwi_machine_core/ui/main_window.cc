@@ -814,6 +814,18 @@ void MainWindow::InitializeUI() {
         image_resources::ImageID::kMenuQuitHighlight, quit_callbacks);
 #endif
 
+    {
+      SideMenu::ButtonCallbacks button_callbacks = {
+          // Callback when search button is triggered
+          kiwi::base::BindRepeating(
+              &MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter,
+              kiwi::base::Unretained(this))};
+      side_menu->AddButton(std::make_unique<StringUpdater>(
+                               string_resources::IDR_SIDE_MENU_SEARCH),
+                           image_resources::ImageID::kMenuSearch,
+                           button_callbacks, SDLK_f);
+    }
+
     side_menu->Layout();
     side_menu_ = side_menu.get();
     bg_widget_->AddWidget(std::move(side_menu));
@@ -1405,6 +1417,13 @@ void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
     target_index = 0;
   }
   side_menu_->SetIndex(target_index);
+}
+
+void MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter() {
+  ChangeFocus(MainFocus::kContents);
+  SDL_assert(flex_items_map_.find(side_menu_->current_index()) !=
+             flex_items_map_.end());
+  flex_items_map_[side_menu_->current_index()]->ShowFilterWidget();
 }
 
 void MainWindow::OnRomLoaded(const std::string& name,

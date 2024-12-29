@@ -33,6 +33,10 @@ class SideMenu : public Widget {
     kiwi::base::RepeatingClosure enter_callback = kiwi::base::DoNothing();
   };
 
+  struct ButtonCallbacks {
+    kiwi::base::RepeatingClosure trigger_callback;
+  };
+
   explicit SideMenu(MainWindow* main_window, NESRuntimeID runtime_id);
   ~SideMenu() override;
 
@@ -47,6 +51,12 @@ class SideMenu : public Widget {
                const kiwi::nes::Bytes& highlight_icon_data,
                MenuCallbacks callbacks);
 
+  // A menu button is a simple button on the top of the side menu.
+  void AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
+                 image_resources::ImageID icon,
+                 ButtonCallbacks callbacks,
+                 SDL_KeyCode hotkey);
+
   void set_activate(bool activate) { activate_ = activate; }
   bool activate() { return activate_; }
   void invalidate() { bounds_valid_ = false; }
@@ -58,6 +68,7 @@ class SideMenu : public Widget {
   int GetMinExtendedWidth();
   void Layout();
   void SetIndex(int index);
+  int current_index() { return current_index_; }
 
  private:
   void Paint() override;
@@ -88,6 +99,7 @@ class SideMenu : public Widget {
   bool FindItemIndexByMousePosition(int x_in_window,
                                     int y_in_window,
                                     int& index_out);
+  void FindButtonAndTrigger(int x_in_window, int y_in_window);
 
  private:
   MainWindow* main_window_ = nullptr;
@@ -112,6 +124,23 @@ class SideMenu : public Widget {
   // Order: from last added menu to first added menu
   std::vector<SDL_Rect> items_bounds_map_;
   bool bounds_valid_ = false;
+
+  struct ButtonItem {
+    ButtonItem(std::unique_ptr<LocalizedStringUpdater> string_updater,
+               image_resources::ImageID icon,
+               ButtonCallbacks callbacks,
+               SDL_KeyCode hotkey);
+    ~ButtonItem();
+    ButtonItem(ButtonItem&& rhs);
+    ButtonItem& operator=(ButtonItem&& rhs);
+
+    SDL_KeyCode hotkey = SDLK_UNKNOWN;
+    std::unique_ptr<LocalizedStringUpdater> string_updater;
+    image_resources::ImageID icon;
+    ButtonCallbacks callbacks;
+  };
+  std::vector<ButtonItem> button_items_;
+  std::vector<SDL_Rect> buttons_bounds_map_;
 
   int current_index_ = 0;
   int triggered_index_ = 0;

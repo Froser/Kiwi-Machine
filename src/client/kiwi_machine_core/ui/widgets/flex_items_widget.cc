@@ -63,6 +63,7 @@ FlexItemsWidget::FlexItemsWidget(MainWindow* main_window,
   std::unique_ptr<FilterWidget> filter_widget = std::make_unique<FilterWidget>(
       main_window_, kiwi::base::BindRepeating(&FlexItemsWidget::OnFilter,
                                               kiwi::base::Unretained(this)));
+  filter_widget->set_visible(false);
   filter_widget_ = filter_widget.get();
   AddWidget(std::move(filter_widget));
 }
@@ -178,6 +179,11 @@ void FlexItemsWidget::ScrollWith(int scrolling_delta,
     if (current_index_exceeded_bottom)
       AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
   }
+}
+
+void FlexItemsWidget::ShowFilterWidget() {
+  filter_widget_->set_bounds(GetLocalBounds());
+  filter_widget_->BeginFilter();
 }
 
 void FlexItemsWidget::Layout(LayoutOption option) {
@@ -363,7 +369,8 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
   if (IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_X) {
+      (c && c->button == SDL_CONTROLLER_BUTTON_X) ||
+      (k && k->keysym.sym == SDLK_ESCAPE)) {
     back_callback_.Run();
   }
 
@@ -422,8 +429,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   }
 
   if (k->keysym.sym == SDLK_f) {
-    filter_widget_->set_bounds(GetLocalBounds());
-    filter_widget_->BeginFilter();
+    ShowFilterWidget();
     return true;
   } else if (k->keysym.sym == SDLK_ESCAPE) {
     OnFilter(std::string());

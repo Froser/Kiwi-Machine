@@ -190,7 +190,7 @@
     "ja": "(バージョンボックスをタッチしてバージョンを切り替える)"
   },
   "IDR_FILTER_WIGDET_FILTER": {
-    "default": "Enter some part of characters, numbers, or symbols to search",
+    "default": "Search game",
     "zh": "输入部分字母、数字或符号来进行搜索",
     "ja": "文字、数字、記号を入力して検索する"
   },
@@ -208,6 +208,11 @@
     "default": "About",
     "zh": "关于",
     "ja": "ヘルプ"
+  },
+  "IDR_SIDE_MENU_SEARCH": {
+    "default": "Search (F)",
+    "zh": "搜索 (F)",
+    "ja": "検索 (F)"
   },
   "IDR_SIDE_MENU_SETTINGS": {
     "default": "Settings",

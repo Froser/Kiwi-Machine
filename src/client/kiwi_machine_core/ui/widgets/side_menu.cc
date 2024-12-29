@@ -23,6 +23,7 @@
 #include "utility/math.h"
 
 const int kItemHeight = styles::side_menu::GetItemHeight();
+const int kButtonHeight = styles::side_menu::GetButtonHeight();
 const int kItemMarginBottom = styles::side_menu::GetMarginBottom();
 constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
@@ -54,6 +55,34 @@ void SideMenu::Paint() {
       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
              kBoundsToWindow.y + kBoundsToWindow.h),
       kBackgroundColor);
+
+  for (int i = 0; i < button_items_.size(); ++i) {
+    int kIconSize = kIconSizeScale * buttons_bounds_map_[i].h;
+    int kIconTop = buttons_bounds_map_[i].y;
+    int kIconLeft = SCALED(kIconSpacing) + buttons_bounds_map_[i].x;
+
+    if (activate_) {
+      std::string contents =
+          button_items_[i].string_updater->GetLocalizedString();
+      ScopedFont font = GetPreferredFont(kPreferredFontSize, contents.c_str());
+      ImVec2 text_size = ImGui::CalcTextSize(contents.c_str());
+      SDL_Rect button_bounds = MapToWindow(buttons_bounds_map_[i]);
+      int text_top = button_bounds.y + (kIconSize - text_size.y) / 2;
+      ImGui::GetWindowDrawList()->AddText(
+          font.GetFont(), font.GetFont()->FontSize,
+          ImVec2(button_bounds.x + kIconLeft * 2 + kIconSize, text_top),
+          ImColor(255, 255, 255), contents.c_str());
+    }
+
+    image_resources::ImageID icon = button_items_[i].icon;
+    SDL_Texture* icon_texture = GetImage(window()->renderer(), icon);
+    SDL_Rect icon_rect_to_window =
+        MapToWindow(SDL_Rect{kIconLeft, kIconTop, kIconSize, kIconSize});
+    ImGui::GetWindowDrawList()->AddImage(
+        icon_texture, ImVec2(icon_rect_to_window.x, icon_rect_to_window.y),
+        ImVec2(icon_rect_to_window.x + icon_rect_to_window.w,
+               icon_rect_to_window.y + icon_rect_to_window.h));
+  }
 
   for (int i = menu_items_.size() - 1; i >= 0; --i) {
     int kIconSize = kIconSizeScale * items_bounds_map_[i].h;
@@ -157,6 +186,14 @@ void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
           ImageRegister(highlight_icon_data), std::move(callbacks));
 }
 
+void SideMenu::AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
+                         image_resources::ImageID icon,
+                         ButtonCallbacks callbacks,
+                         SDL_KeyCode hotkey) {
+  button_items_.push_back(ButtonItem(std::move(string_updater), icon,
+                                     std::move(callbacks), hotkey));
+}
+
 int SideMenu::GetSuggestedCollapsedWidth() {
   if (items_bounds_map_.empty())
     return 0;
@@ -217,6 +254,13 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
     return true;
   }
 
+  for (const auto& button : button_items_) {
+    if (k && k->keysym.sym == button.hotkey &&
+        button.callbacks.trigger_callback) {
+      button.callbacks.trigger_callback.Run();
+    }
+  }
+
   return false;
 }
 
@@ -238,6 +282,7 @@ bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
     if (button == MouseButton::kLeftButton) {
       int index_before_released = current_index_;
       int index = 0;
+      // Finds menu item first.
       if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
         // If the highlight item doesn't change, trigger it.
         if (index_before_released != index) {
@@ -245,6 +290,9 @@ bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
         } else {
           TriggerCurrentItem();
         }
+      } else {
+        // If there's no menu item found, find button and trigger if any.
+        FindButtonAndTrigger(x_in_window, y_in_window);
       }
     }
   } else if (button == MouseButton::kRightButton) {
@@ -258,10 +306,18 @@ bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
 void SideMenu::Layout() {
   if (!bounds_valid_) {
     items_bounds_map_.resize(menu_items_.size());
+    buttons_bounds_map_.resize(button_items_.size());
     SDL_Rect kBoundsToWindow = MapToWindow(bounds());
     const int kX = kBoundsToWindow.x + SCALED(kItemSpacing.x);
-    int y = 0;
+    int y = SCALED(kItemMarginBottom);
+    for (int i = 0; i < button_items_.size(); ++i) {
+      buttons_bounds_map_[i] =
+          SDL_Rect{kX, y, kBoundsToWindow.w - SCALED(kItemSpacing.x),
+                   SCALED(kButtonHeight + kItemSpacing.y * 2)};
+      y += SCALED(kButtonHeight + kItemSpacing.y * 2);
+    }
 
+    y = 0;
     for (int i = menu_items_.size() - 1; i >= 0; --i) {
       if (i == menu_items_.size() - 1)
         y = kBoundsToWindow.h - SCALED(kItemMarginBottom) -
@@ -307,6 +363,18 @@ bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
     }
   }
   return false;
+}
+
+void SideMenu::FindButtonAndTrigger(int x_in_window, int y_in_window) {
+  for (int i = 0; i < buttons_bounds_map_.size(); ++i) {
+    SDL_Rect bounds_to_window = MapToWindow(buttons_bounds_map_[i]);
+    if (Contains(bounds_to_window, x_in_window, y_in_window)) {
+      const ButtonCallbacks& callbacks = button_items_[i].callbacks;
+      if (callbacks.trigger_callback)
+        callbacks.trigger_callback.Run();
+      break;
+    }
+  }
 }
 
 bool SideMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
@@ -374,4 +442,36 @@ SideMenu::MenuItem::~MenuItem() {
     ImageUnregister(icon);
   if (highlight_icon > image_resources::ImageID::kLast)
     ImageUnregister(highlight_icon);
+}
+
+SideMenu::ButtonItem::ButtonItem(
+    std::unique_ptr<LocalizedStringUpdater> string_updater,
+    image_resources::ImageID icon,
+    ButtonCallbacks callbacks,
+    SDL_KeyCode hotkey) {
+  this->string_updater = std::move(string_updater);
+  this->icon = icon;
+  this->callbacks = callbacks;
+  this->hotkey = hotkey;
+}
+
+SideMenu::ButtonItem::~ButtonItem() {
+  if (icon > image_resources::ImageID::kLast)
+    ImageUnregister(icon);
+}
+
+SideMenu::ButtonItem::ButtonItem(ButtonItem&& rhs) {
+  *this = std::move(rhs);
+}
+
+SideMenu::ButtonItem& SideMenu::ButtonItem::operator=(
+    SideMenu::ButtonItem&& rhs) {
+  string_updater = std::move(rhs.string_updater);
+  icon = rhs.icon;
+  hotkey = rhs.hotkey;
+  rhs.hotkey = SDLK_UNKNOWN;
+  rhs.icon = image_resources::ImageID::kLast;
+  callbacks = rhs.callbacks;
+  rhs.callbacks = ButtonCallbacks{};
+  return *this;
 }

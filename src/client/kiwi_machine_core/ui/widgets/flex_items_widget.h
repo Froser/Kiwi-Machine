@@ -46,6 +46,7 @@ class FlexItemsWidget : public Widget {
   bool IsItemSelected(FlexItemWidget* item);
   void SetActivate(bool activate);
   void ScrollWith(int scrolling_delta, const int* mouse_x, const int* mouse_y);
+  void ShowFilterWidget();
 
   bool empty() { return items_.empty(); }
   size_t size() { return items_.size(); }
