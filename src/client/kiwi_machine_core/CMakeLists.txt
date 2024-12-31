@@ -14,8 +14,6 @@ project(kiwi_machine_core CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
-OPTION(KIWI_EMBEDDED_ROMS "Embed roms data in code" ON)
-
 FIND_PACKAGE(Python3 REQUIRED)
 
 include_directories(

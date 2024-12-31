@@ -78,33 +78,40 @@ if (APPLE)
     endif ()
 endif ()
 
-# Copy package file for non-embedded mode.
-if (NOT ${KIWI_EMBEDDED_ROMS})
+FIND_PACKAGE(Python3 REQUIRED)
+if (DEFINED KIWI_PACKAGE_DIR)
+    message(STATUS "KIWI_PACKAGE_DIR is ${KIWI_PACKAGE_DIR}")
     if (WIN32)
         add_custom_command(
                 TARGET ${PROJECT_NAME}
                 POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/main.pak" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/main.pak"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/specials.pak" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/specials.pak"
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/copy_packages.py
+                ARGS "${KIWI_PACKAGE_DIR}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
                 VERBATIM
         )
     elseif (APPLE)
-        add_custom_command(
-                TARGET ${PROJECT_NAME}
-                POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/main.pak" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources/main.pak"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                ARGS "${kiwi_machine_core_BINARY_DIR}/preset_roms/specials.pak" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources/specials.pak"
-                VERBATIM
-        )
+        if (IOS)
+            add_custom_command(
+                    TARGET ${PROJECT_NAME}
+                    POST_BUILD
+                    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/copy_packages.py
+                    ARGS "${KIWI_PACKAGE_DIR}" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources" "${EFFECTIVE_PLATFORM_NAME}"
+                    VERBATIM
+            )
+        else ()
+            add_custom_command(
+                    TARGET ${PROJECT_NAME}
+                    POST_BUILD
+                    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/copy_packages.py
+                    ARGS "${KIWI_PACKAGE_DIR}" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources"
+                    VERBATIM
+            )
+        endif ()
     endif ()
 endif ()
 
 if (EMSCRIPTEN)
-    # Emscripten needs a larger wasm-ld intial memory.
+    # Emscripten needs a larger wasm-ld initial memory.
     set(EM_FLAGS
             "-s PTHREAD_POOL_SIZE=5 \
 -s MAXIMUM_MEMORY=1gb \

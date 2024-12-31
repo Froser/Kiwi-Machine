@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 
+project(libjpeg-turbo-jpeg-9f
+    LANGUAGES C
+)
+
 set(SOURCE_FILES
         cdjpeg.c
         jaricom.c
