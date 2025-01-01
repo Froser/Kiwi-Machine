@@ -84,7 +84,7 @@ int GetMarginX(float window_scale);
 PreferredFontSize PreferredTitleFontSize(float window_scale);
 PreferredFontSize PreferredContentFontSize();
 
-}
+}  // namespace about_widget
 
 namespace toast {
 
@@ -92,6 +92,12 @@ SDL_Point GetTopLeft();
 PreferredFontSize GetFontSize();
 
 }  // namespace toast
+
+namespace filter_widget {
+
+int GetTitleTop(const SDL_Rect& global_bounds, const ImVec2& combined_rect);
+
+}  // namespace filter_widget
 
 }  // namespace styles
 

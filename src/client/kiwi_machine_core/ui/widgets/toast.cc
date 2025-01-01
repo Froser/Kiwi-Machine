@@ -60,7 +60,6 @@ void Toast::Paint() {
     return;
   }
 
-  ScopedFont font =
-      GetPreferredFont(styles::toast::GetFontSize(), message_.c_str());
+  ScopedFont font = GetPreferredFont(styles::toast::GetFontSize());
   ImGui::Text("%s", message_.c_str());
 }

@@ -13,6 +13,7 @@
 #include "ui/widgets/filter_widget.h"
 
 #include "ui/main_window.h"
+#include "ui/styles.h"
 #include "utility/localization.h"
 
 namespace {
@@ -74,7 +75,8 @@ void FilterWidget::Paint() {
                           title_rect.y + contents_rect.y};
 
   ImGui::SetCursorPosX((GetLocalBounds().w - title_rect.x) / 2);
-  ImGui::SetCursorPosY((GetLocalBounds().h - combined_rect.y) / 2);
+  ImGui::SetCursorPosY(
+      styles::filter_widget::GetTitleTop(GetLocalBounds(), combined_rect));
   {
     ScopedFont font(GetPreferredFont(PreferredFontSize::k2x));
     ImGui::TextUnformatted(title.c_str());

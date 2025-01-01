@@ -66,7 +66,7 @@ namespace in_game_menu {
 
 PreferredFontSize GetPreferredFontSize(float window_scale) {
 #if KIWI_MOBILE
-  return PreferredFontSize::k3x;
+  return PreferredFontSize::k1x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
 #endif
@@ -247,5 +247,17 @@ PreferredFontSize GetFontSize() {
 }
 
 }  // namespace toast
+
+namespace filter_widget {
+
+int GetTitleTop(const SDL_Rect& global_bounds, const ImVec2& combined_rect) {
+#if KIWI_MOBILE
+  return 20;
+#else
+  return (global_bounds.h - combined_rect.y) / 2;
+#endif
+}
+
+}  // namespace filter_widget
 
 }  // namespace styles

@@ -28,6 +28,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #elif BUILDFLAG(IS_WIN)
 #include <Windows.h>
+#elif BUILDFLAG(IS_ANDROID)
+#include <jni.h>
 #endif
 
 namespace {
@@ -487,9 +489,19 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
     file_path = package_enumerator.Next();
   }
   return list;
+#elif BUILDFLAG(IS_ANDROID)
+
 #else
-  return std::vector<kiwi::base::FilePath>{
-      kiwi::base::FilePath(kiwi::base::FilePath::kCurrentDirectory)};
+  std::vector<kiwi::base::FilePath> list;
+  kiwi::base::FileEnumerator package_enumerator(
+      kiwi::base::FilePath(kiwi::base::FilePath::kCurrentDirectory), false,
+      kiwi::base::FileEnumerator::FILES, FILE_PATH_LITERAL("*.pak"));
+  kiwi::base::FilePath file_path = package_enumerator.Next();
+  while (!file_path.empty()) {
+    list.push_back(file_path);
+    file_path = package_enumerator.Next();
+  }
+  return list;
 #endif
 }
 

@@ -95,7 +95,7 @@ if (DEFINED KIWI_PACKAGE_DIR)
                     TARGET ${PROJECT_NAME}
                     POST_BUILD
                     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/copy_packages.py
-                    ARGS "${KIWI_PACKAGE_DIR}" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/Contents/Resources" "${EFFECTIVE_PLATFORM_NAME}"
+                    ARGS "${KIWI_PACKAGE_DIR}" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>" "$(EFFECTIVE_PLATFORM_NAME)"
                     VERBATIM
             )
         else ()
