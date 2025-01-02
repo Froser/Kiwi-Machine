@@ -88,6 +88,8 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 3. 构建KiwiMachine主体，在CMake中指定`-DKIWI_PACKAGE_DIR=~/Documents/Kiwi-Machine-Workspace/out/output`，这样它将会把你生成的pak文件自动拷贝
 到资源目录中。
 
+如果你是编译的Android系统，需要手动将pak文件拷贝到asset目录中。
+
 ### MacOS, Windows, Linux构建方式
 
 直接使用CMake可进行构建。主要的产物有`kiwi`和`kiwi_machine`。

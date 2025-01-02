@@ -65,8 +65,10 @@ int GetBadgeSize() {
 namespace in_game_menu {
 
 PreferredFontSize GetPreferredFontSize(float window_scale) {
-#if KIWI_MOBILE
+#if KIWI_IOS
   return PreferredFontSize::k1x;
+#elif KIWI_ANDROID
+  return PreferredFontSize::k3x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
 #endif

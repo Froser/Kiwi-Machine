@@ -10,6 +10,8 @@ if __name__ == "__main__":
         print("${EFFECTIVE_PLATFORM_NAME} is", sys.argv[3])
         destination_folder = destination_folder.replace("${EFFECTIVE_PLATFORM_NAME}", sys.argv[3])
         print("Final destination folder is ", destination_folder)
+    if not os.path.exists(destination_folder):
+        os.makedirs(destination_folder)
     for root, dirs, files in os.walk(source_folder):
         for file in files:
             if file.endswith(".pak"):

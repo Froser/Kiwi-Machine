@@ -170,6 +170,13 @@ if (EMSCRIPTEN)
     )
 endif ()
 
+if (ANDROID)
+    list(APPEND Sources
+            utility/android/asset.cc
+            utility/android/asset.h
+    )
+endif ()
+
 # Resources generation:
 # Use '__always_buildx.h' as a fake output, to make the command run every time.
 if (EMSCRIPTEN)

@@ -30,6 +30,7 @@
 #include <Windows.h>
 #elif BUILDFLAG(IS_ANDROID)
 #include <jni.h>
+#include "utility/android/asset.h"
 #endif
 
 namespace {
@@ -490,7 +491,14 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
   }
   return list;
 #elif BUILDFLAG(IS_ANDROID)
-
+  std::vector<kiwi::base::FilePath> temp = GetAssets();
+  std::vector<kiwi::base::FilePath> result;
+  for (const auto& file : temp) {
+    if (file.FinalExtension() == FILE_PATH_LITERAL(".pak")) {
+      result.push_back(file);
+    }
+  }
+  return result;
 #else
   std::vector<kiwi::base::FilePath> list;
   kiwi::base::FileEnumerator package_enumerator(

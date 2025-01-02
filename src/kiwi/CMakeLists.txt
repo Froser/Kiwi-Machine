@@ -86,6 +86,7 @@ set(base_sources
         base/strings/stringprintf.h
         base/scoped_clear_last_error.h
         base/scoped_generic.h
+        base/no_destructor.h
         base/runloop.cc
         base/runloop.h
         base/task/sequenced_task_runner.cc
