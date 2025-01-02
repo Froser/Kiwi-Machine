@@ -21,6 +21,8 @@
 
 static int g_window_id = 0;
 
+DECLARE_string(km_path);
+
 // main.cc
 void NotifySaved(const kiwi::base::FilePath& updated_zip_file);
 
@@ -208,23 +210,34 @@ void ROMWindow::Paint() {
 
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"测试", id).c_str())) {
+        kiwi::base::FilePath kiwi_machine_path_from_cmdline;
+        if (!FLAGS_km_path.empty()) {
+          kiwi_machine_path_from_cmdline =
+              kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_km_path);
+        }
         kiwi::base::FilePath output_rom = WriteROM(
             rom.nes_file_name, rom.nes_data, GetWorkspace().GetTestPath());
         if (!output_rom.empty()) {
 #if BUILDFLAG(IS_MAC)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.app"));
+          if (!kiwi_machine_path_from_cmdline.empty())
+            kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(
               kiwi_machine,
               {"--test-rom=" + output_rom.AsUTF8Unsafe(), "--has_menu"});
 #elif BUILDFLAG(IS_WIN)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.exe"));
+          if (!kiwi_machine_path_from_cmdline.empty())
+            kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(
               kiwi_machine,
               {L"--test-rom=\"" + output_rom.value() + L"\"", L"--has_menu"});
 #else
           kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
+          if (!kiwi_machine_path_from_cmdline.empty())
+            kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(
               kiwi_machine,
               {"--test-rom=" + output_rom.AsUTF8Unsafe(), "--has_menu"});
@@ -289,23 +302,6 @@ void ROMWindow::Paint() {
       if (ImGui::Button(GetUniqueName(u8"测试包", 0).c_str())) {
         PackSingleZipAndRun(generated_packaged_path_,
                             GetWorkspace().GetTestPath());
-      }
-      ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"复制到打包路径", 0).c_str())) {
-        kiwi::base::FilePath copied_path =
-            GetWorkspace().GetZippedPath().Append(
-                generated_packaged_path_.BaseName());
-        if (kiwi::base::CopyFile(generated_packaged_path_, copied_path)) {
-          copied_path_ = copied_path;
-        } else {
-          copied_path_.clear();
-        }
-      }
-
-      if (!copied_path_.empty()) {
-        ImGui::Text(u8"%s 已经拷贝到 %s",
-                    generated_packaged_path_.AsUTF8Unsafe().c_str(),
-                    copied_path_.AsUTF8Unsafe().c_str());
       }
     } else {
       ImGui::TextUnformatted(u8"保存文件失败");

@@ -61,8 +61,6 @@ class ROMWindow {
   kiwi::base::FilePath generated_packaged_path_;
 
   SDL_mutex* cover_update_mutex_ = nullptr;
-
-  kiwi::base::FilePath copied_path_;
 };
 
 #endif  // ROM_WINDOW_H_

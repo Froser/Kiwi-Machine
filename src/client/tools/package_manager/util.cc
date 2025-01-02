@@ -25,6 +25,8 @@
 #include "third_party/zlib-1.3/contrib/minizip/zip.h"
 #include "workspace.h"
 
+DECLARE_string(km_path);
+
 #if BUILDFLAG(IS_WIN)
 #include <Windows.h>
 #undef min
@@ -941,17 +943,29 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
   kiwi::base::FilePath package_path =
       PackZip(zip, FILE_PATH_LITERAL("test.pak"), save_dir);
   if (!package_path.empty()) {
+    kiwi::base::FilePath kiwi_machine_path_from_cmdline;
+    if (!FLAGS_km_path.empty()) {
+      kiwi_machine_path_from_cmdline =
+          kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_km_path);
+    }
+
 #if BUILDFLAG(IS_MAC)
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.app"));
+    if (!kiwi_machine_path_from_cmdline.empty())
+      kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(kiwi_machine,
                   {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
 #elif BUILDFLAG(IS_WIN)
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.exe"));
+    if (!kiwi_machine_path_from_cmdline.empty())
+      kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(
         kiwi_machine,
         {L"--test-pak=\"" + package_path.value() + L"\"", L"--has_menu"});
 #else
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
+    if (!kiwi_machine_path_from_cmdline.empty())
+      kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(kiwi_machine,
                   {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
 #endif
