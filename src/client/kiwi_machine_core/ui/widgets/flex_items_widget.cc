@@ -668,8 +668,13 @@ void FlexItemsWidget::PaintDetails() {
 
 void FlexItemsWidget::PaintFilter() {
   if (!filter_contents_.empty()) {
+#if KIWI_MOBILE
+    std::string template_string =
+        GetLocalizedString(string_resources::IDR_ITEMS_WIGDET_FILTERING_MOBILE);
+#else
     std::string template_string =
         GetLocalizedString(string_resources::IDR_ITEMS_WIGDET_FILTERING);
+#endif
     std::string filter_contents = kiwi::base::StringPrintf(
         template_string.c_str(), filter_contents_.c_str());
 

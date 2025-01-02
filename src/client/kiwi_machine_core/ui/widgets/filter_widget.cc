@@ -90,8 +90,13 @@ void FilterWidget::Paint() {
 
   {
     ScopedFont font(GetPreferredFont(PreferredFontSize::k1x));
+#if KIWI_MOBILE
+    std::string hint =
+        GetLocalizedString(string_resources::IDR_FILTER_WIGDET_HINT_MOBILE);
+#else
     std::string hint =
         GetLocalizedString(string_resources::IDR_FILTER_WIGDET_HINT);
+#endif
     ImVec2 hint_rect = ImGui::CalcTextSize(hint.c_str());
     ImGui::SetCursorPosX((GetLocalBounds().w - hint_rect.x) / 2);
     ImGui::TextUnformatted(hint.c_str());

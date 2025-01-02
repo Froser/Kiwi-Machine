@@ -199,10 +199,20 @@
     "zh": "Enter确认，ESC取消搜索",
     "ja": "Enter：探す、ESC：キャンセル"
   },
+  "IDR_FILTER_WIGDET_HINT_MOBILE": {
+    "default": "Clear all contents to show all games",
+    "zh": "清除所有内容以展示全部",
+    "ja": "内容をクリアしてすべてを表示する"
+  },
   "IDR_ITEMS_WIGDET_FILTERING": {
     "default": "Current filter: %s, press ESC to cancel the filter",
-    "zh": "当前筛选：%s, 按ESC取消筛选",
-    "ja": "現在のフィルタ:%s、ESCを押すとすべてを表示する"
+    "zh": "当前筛选：%s",
+    "ja": "現在のフィルタ:%s"
+  },
+  "IDR_ITEMS_WIGDET_FILTERING_MOBILE": {
+    "default": "Current filter: %s",
+    "zh": "当前筛选：%s",
+    "ja": "現在のフィルタ:%s"
   },
   "IDR_SIDE_MENU_ABOUT": {
     "default": "About",
