@@ -1928,6 +1928,20 @@ static void Internal_Android_Destroy_AssetManager()
     }
 }
 
+AAssetManager* Android_JNI_Get_AssetManager(void)
+{
+    if (asset_manager)
+    {
+        Internal_Android_Create_AssetManager();
+    }
+    return asset_manager;
+}
+
+void Android_JNI_Destroy_AssetManager(void)
+{
+    Internal_Android_Destroy_AssetManager();
+}
+
 int Android_JNI_FileOpen(SDL_RWops *ctx,
                          const char *fileName, const char *mode)
 {

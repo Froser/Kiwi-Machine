@@ -529,17 +529,19 @@ InGameMenu::LayoutImmediateContext InGameMenu::PreLayoutImmediate() {
 }
 
 void InGameMenu::DrawBackgroundImmediate(LayoutImmediateContext& context) {
+  ImVec2 window_fullscreen_pos = ImGui::GetWindowPos();
+  ImVec2 window_fullscreen_size = ImGui::GetWindowSize();
   ImGui::GetWindowDrawList()->AddRectFilled(
-      context.window_pos,
-      ImVec2(context.window_pos.x + context.window_size.x + 1,
-             context.window_pos.y + context.window_size.y + 1),
+      window_fullscreen_pos,
+      ImVec2(window_fullscreen_pos.x + window_fullscreen_size.x + 1,
+             window_fullscreen_pos.y + window_fullscreen_size.y + 1),
       IM_COL32(0, 0, 0, 196));
 
   // Draw a new vertical line in the middle.
   ImGui::GetWindowDrawList()->AddLine(
       ImVec2(context.window_center_x, 0),
       ImVec2(context.window_center_x,
-             context.window_pos.y + context.window_size.y),
+             window_fullscreen_pos.y + window_fullscreen_size.y),
       IM_COL32_WHITE);
 }
 

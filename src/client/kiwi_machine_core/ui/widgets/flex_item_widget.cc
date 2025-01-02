@@ -18,6 +18,7 @@
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "ui/widgets/flex_items_widget.h"
+#include "utility/algorithm.h"
 
 namespace {
 constexpr float kCoverHWRatio = 250.f / 200;
@@ -72,6 +73,15 @@ void FlexItemWidget::CreateTextureIfNotExists() {
   }
 }
 
+bool FlexItemWidget::MatchFilter(const std::string& filter,
+                                 int& similarity) const {
+  for (const auto& sub_data : sub_data_) {
+    if (sub_data->title_updater->IsTitleMatchedFilter(filter, similarity))
+      return true;
+  }
+  return false;
+}
+
 SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height) {
   SDL_Rect bs = bounds();
   bs.h = item_height;
@@ -118,6 +128,9 @@ bool FlexItemWidget::SwapToNextSubItem() {
 }
 
 void FlexItemWidget::Paint() {
+  if (filtered())
+    return;
+
   CreateTextureIfNotExists();
   const SDL_Rect kBoundsToWindow = MapToWindow(bounds());
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -139,18 +152,21 @@ void FlexItemWidget::Paint() {
                kBoundsToWindow.y + kBadgeMargin + kBadgeSize));
   }
 
-  // Highlight selected item.
-  if (parent_->IsItemSelected(this)) {
-    int elapsed = fade_timer_.ElapsedInMilliseconds();
-    int rgb = static_cast<int>(512 * elapsed / kFadeDurationInMs) % 512;
-    if (rgb > 255)
-      rgb = 512 - rgb;
+  // Items can be empty, because we can use filter.
+  if (!parent_->empty()) {
+    // Highlight selected item.
+    if (parent_->IsItemSelected(this)) {
+      int elapsed = fade_timer_.ElapsedInMilliseconds();
+      int rgb = static_cast<int>(512 * elapsed / kFadeDurationInMs) % 512;
+      if (rgb > 255)
+        rgb = 512 - rgb;
 
-    draw_list->AddRect(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
-                       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
-                              kBoundsToWindow.y + kBoundsToWindow.h),
-                       ImColor(rgb, rgb, rgb));
-  } else {
-    fade_timer_.Reset();
+      draw_list->AddRect(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+                         ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+                                kBoundsToWindow.y + kBoundsToWindow.h),
+                         ImColor(rgb, rgb, rgb));
+    } else {
+      fade_timer_.Reset();
+    }
   }
 }

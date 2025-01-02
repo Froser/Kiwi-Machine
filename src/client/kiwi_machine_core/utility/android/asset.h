@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Yisi Yu
+// Copyright (C) 2025 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -10,16 +10,13 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef KIWI_FLAGS_H_
-#define KIWI_FLAGS_H_
+#ifndef UTILITY_ANDROID_ASSET_H_
+#define UTILITY_ANDROID_ASSET_H_
 
-#include <gflags/gflags.h>
+#include "kiwi/base/files/file_path.h"
 
-DECLARE_string(test_rom);
-DECLARE_string(test_pak);
-DECLARE_bool(has_menu);
-DECLARE_string(debug_roms);
-DECLARE_string(lang);
-DECLARE_string(package_dir);
+#include <vector>
 
-#endif  // KIWI_FLAGS_H_
+std::vector<kiwi::base::FilePath> GetAssets();
+
+#endif  // UTILITY_ANDROID_ASSET_H_

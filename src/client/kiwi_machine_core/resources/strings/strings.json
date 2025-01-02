@@ -189,10 +189,40 @@
     "zh": "(触摸版本方框键切换游戏版本)",
     "ja": "(バージョンボックスをタッチしてバージョンを切り替える)"
   },
+  "IDR_FILTER_WIGDET_FILTER": {
+    "default": "Search game",
+    "zh": "输入部分字母、数字或符号来进行搜索",
+    "ja": "文字、数字、記号を入力して検索する"
+  },
+  "IDR_FILTER_WIGDET_HINT": {
+    "default": "Press Enter to search, press ESC to cancel",
+    "zh": "Enter确认，ESC取消搜索",
+    "ja": "Enter：探す、ESC：キャンセル"
+  },
+  "IDR_FILTER_WIGDET_HINT_MOBILE": {
+    "default": "Clear all contents to show all games",
+    "zh": "清除所有内容以展示全部",
+    "ja": "内容をクリアしてすべてを表示する"
+  },
+  "IDR_ITEMS_WIGDET_FILTERING": {
+    "default": "Current filter: %s, press ESC to cancel the filter",
+    "zh": "当前筛选：%s",
+    "ja": "現在のフィルタ:%s"
+  },
+  "IDR_ITEMS_WIGDET_FILTERING_MOBILE": {
+    "default": "Current filter: %s",
+    "zh": "当前筛选：%s",
+    "ja": "現在のフィルタ:%s"
+  },
   "IDR_SIDE_MENU_ABOUT": {
     "default": "About",
     "zh": "关于",
     "ja": "ヘルプ"
+  },
+  "IDR_SIDE_MENU_SEARCH": {
+    "default": "Search (F)",
+    "zh": "搜索 (F)",
+    "ja": "検索 (F)"
   },
   "IDR_SIDE_MENU_SETTINGS": {
     "default": "Settings",

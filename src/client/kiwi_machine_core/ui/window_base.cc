@@ -219,6 +219,22 @@ void WindowBase::HandleMouseReleasedEvent(SDL_MouseButtonEvent* event) {
   }
 }
 
+void WindowBase::HandleTextEditingEvent(SDL_TextEditingEvent* event) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
+    if (widget->HandleTextEditingEvent(event))
+      break;
+  }
+}
+
+void WindowBase::HandleTextInputEvent(SDL_TextInputEvent* event) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
+    if (widget->HandleTextInputEvent(event))
+      break;
+  }
+}
+
 void WindowBase::HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event) {
   switch (event->type) {
     case SDL_CONTROLLERDEVICEADDED:

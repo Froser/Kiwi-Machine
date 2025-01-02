@@ -198,4 +198,106 @@ const ImVector<ImWchar>& GetGlyphRanges(SupportedLanguage language) {
   return *g_glyph_ranges[language];
 }
 
-kiwi::nes::Bytes r{};
+namespace language_conversion {
+namespace {
+const std::unordered_map<std::string, std::string> kHiraganaToRomajiMap = {
+    {"あ", "a"},  {"い", "i"},   {"う", "u"},   {"え", "e"},  {"お", "o"},
+    {"か", "ka"}, {"き", "ki"},  {"く", "ku"},  {"け", "ke"}, {"こ", "ko"},
+    {"が", "ga"}, {"ぎ", "gi"},  {"ぐ", "gu"},  {"げ", "ge"}, {"ご", "go"},
+    {"さ", "sa"}, {"し", "shi"}, {"す", "su"},  {"せ", "se"}, {"そ", "so"},
+    {"ざ", "za"}, {"じ", "ji"},  {"ず", "zu"},  {"ぜ", "ze"}, {"ぞ", "zo"},
+    {"た", "ta"}, {"ち", "chi"}, {"つ", "tsu"}, {"て", "te"}, {"と", "to"},
+    {"だ", "da"}, {"ぢ", "ji"},  {"づ", "zu"},  {"で", "de"}, {"ど", "do"},
+    {"な", "na"}, {"に", "ni"},  {"ぬ", "nu"},  {"ね", "ne"}, {"の", "no"},
+    {"は", "ha"}, {"ひ", "hi"},  {"ふ", "fu"},  {"へ", "he"}, {"ほ", "ho"},
+    {"ば", "ba"}, {"び", "bi"},  {"ぶ", "bu"},  {"べ", "be"}, {"ぼ", "bo"},
+    {"ぱ", "pa"}, {"ぴ", "pi"},  {"ぷ", "pu"},  {"ぺ", "pe"}, {"ぽ", "po"},
+    {"ま", "ma"}, {"み", "mi"},  {"む", "mu"},  {"め", "me"}, {"も", "mo"},
+    {"や", "ya"}, {"ゆ", "yu"},  {"よ", "yo"},  {"ら", "ra"}, {"り", "ri"},
+    {"る", "ru"}, {"れ", "re"},  {"ろ", "ro"},  {"わ", "wa"}, {"を", "wo"},
+    {"ん", "n"}};
+
+const std::unordered_map<std::string, std::string> kHiraganaSpecialToRomajiMap =
+    {{u8"きゃ", "kya"}, {u8"きゅ", "kyu"}, {u8"きょ", "kyo"}, {u8"しゃ", "sha"},
+     {u8"しゅ", "shu"}, {u8"しょ", "sho"}, {u8"ちゃ", "cha"}, {u8"ちゅ", "chu"},
+     {u8"ちょ", "cho"}, {u8"にゃ", "nya"}, {u8"にゅ", "nyu"}, {u8"にょ", "nyo"},
+     {u8"ひゃ", "hya"}, {u8"ひゅ", "hyu"}, {u8"ひょ", "hyo"}, {u8"みゃ", "mya"},
+     {u8"みゅ", "myu"}, {u8"みょ", "myo"}, {u8"りゃ", "rya"}, {u8"りゅ", "ryu"},
+     {u8"りょ", "ryo"}, {u8"ぎゃ", "gya"}, {u8"ぎゅ", "gyu"}, {u8"ぎょ", "gyo"},
+     {u8"じゃ", "ja"},  {u8"じゅ", "ju"},  {u8"じょ", "jo"},  {u8"びゃ", "bya"},
+     {u8"びゅ", "byu"}, {u8"びょ", "byo"}, {u8"ぴゃ", "pya"}, {u8"ぴゅ", "pyu"},
+     {u8"ぴょ", "pyo"}};
+
+const std::unordered_map<std::string, std::string> kKatakanaToRomajiMap = {
+    {"ア", "a"},  {"イ", "i"},   {"ウ", "u"},   {"エ", "e"},  {"オ", "o"},
+    {"カ", "ka"}, {"キ", "ki"},  {"ク", "ku"},  {"ケ", "ke"}, {"コ", "ko"},
+    {"ガ", "ga"}, {"ギ", "gi"},  {"グ", "gu"},  {"ケ", "ge"}, {"ゴ", "go"},
+    {"サ", "sa"}, {"シ", "shi"}, {"ス", "su"},  {"セ", "se"}, {"ソ", "so"},
+    {"ザ", "za"}, {"ジ", "ji"},  {"ズ", "zu"},  {"ゼ", "ze"}, {"ゾ", "zo"},
+    {"タ", "ta"}, {"チ", "chi"}, {"ツ", "tsu"}, {"テ", "te"}, {"ト", "to"},
+    {"ダ", "da"}, {"ヂ", "ji"},  {"ヅ", "zu"},  {"デ", "de"}, {"ド", "do"},
+    {"ナ", "na"}, {"ニ", "ni"},  {"ヌ", "nu"},  {"ネ", "ne"}, {"ノ", "no"},
+    {"ハ", "ha"}, {"ヒ", "hi"},  {"フ", "fu"},  {"ヘ", "he"}, {"ホ", "ho"},
+    {"バ", "ba"}, {"ビ", "bi"},  {"ブ", "bu"},  {"ベ", "be"}, {"ボ", "bo"},
+    {"パ", "pa"}, {"ピ", "pi"},  {"プ", "pu"},  {"ペ", "pe"}, {"ポ", "bo"},
+    {"マ", "ma"}, {"ミ", "mi"},  {"ム", "mu"},  {"メ", "me"}, {"モ", "mo"},
+    {"ヤ", "ya"}, {"ユ", "yu"},  {"ヨ", "yo"},  {"ラ", "ra"}, {"リ", "ri"},
+    {"ル", "ru"}, {"レ", "re"},  {"ロ", "ro"},  {"ワ", "wa"}, {"ヲ", "wo"},
+    {"ン", "n"},
+};
+
+const std::unordered_map<std::string, std::string> kKatakanaSpecialToRomajiMap =
+    {{u8"キャ", "kya"}, {u8"キュ", "kyu"}, {u8"キョ", "kyo"}, {u8"シャ", "sha"},
+     {u8"シュ", "shu"}, {u8"ショ", "sho"}, {u8"チャ", "cha"}, {u8"チュ", "chu"},
+     {u8"チョ", "cho"}, {u8"ニャ", "nya"}, {u8"ニュ", "nyu"}, {u8"ニョ", "nyo"},
+     {u8"ヒャ", "hya"}, {u8"ヒュ", "hyu"}, {u8"ヒョ", "hyo"}, {u8"ミャ", "mya"},
+     {u8"ミュ", "myu"}, {u8"ミョ", "myo"}, {u8"リャ", "rya"}, {u8"リュ", "ryu"},
+     {u8"リョ", "ryo"}, {u8"ギャ", "gya"}, {u8"ギュ", "gyu"}, {u8"ギョ", "gyo"},
+     {u8"ジャ", "ja"},  {u8"ジュ", "ju"},  {u8"ジョ", "jo"},  {u8"ビャ", "bya"},
+     {u8"ビュ", "byu"}, {u8"ビョ", "byo"}, {u8"ピャ", "pya"}, {u8"ピュ", "pyu"},
+     {u8"ピョ", "pyo"}};
+}  // namespace
+
+std::string KanaToRomaji(const std::string& kana) {
+  std::string r = kana;
+  for (const auto& i : kHiraganaSpecialToRomajiMap) {
+    size_t pos = std::string::npos;
+    while ((pos = r.find(i.first)) != std::string::npos) {
+      r.replace(pos, i.first.size(), i.second);
+    }
+  }
+
+  for (const auto& i : kKatakanaSpecialToRomajiMap) {
+    size_t pos = std::string::npos;
+    while ((pos = r.find(i.first)) != std::string::npos) {
+      r.replace(pos, i.first.size(), i.second);
+    }
+  }
+
+  for (const auto& i : kHiraganaToRomajiMap) {
+    size_t pos = std::string::npos;
+    while ((pos = r.find(i.first)) != std::string::npos) {
+      r.replace(pos, i.first.size(), i.second);
+    }
+  }
+
+  for (const auto& i : kKatakanaToRomajiMap) {
+    size_t pos = std::string::npos;
+    while ((pos = r.find(i.first)) != std::string::npos) {
+      r.replace(pos, i.first.size(), i.second);
+    }
+  }
+
+  size_t pos = std::string::npos;
+  while ((pos = r.find(u8"っ")) != std::string::npos) {
+    if (pos < r.size() - 1)
+      r.replace(pos, sizeof(u8"っ") - 1,
+                std::string(r[pos + sizeof(u8"っ") - 1], 1));
+    else
+      r.replace(pos, 1, u8"xtsu");
+  }
+
+  return r;
+}
+
+}  // namespace language_conversion

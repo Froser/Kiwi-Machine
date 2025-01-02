@@ -65,6 +65,10 @@ extern void Android_JNI_AudioSetThreadPriority(int iscapture, int device_id);
 extern SDL_bool Android_IsDeXMode(void);
 extern SDL_bool Android_IsChromebook(void);
 
+/* AssetManager */
+struct AAssetManager;
+struct AAssetManager* Android_JNI_Get_AssetManager(void);
+
 #include "SDL_rwops.h"
 
 int Android_JNI_FileOpen(SDL_RWops* ctx, const char* fileName, const char* mode);

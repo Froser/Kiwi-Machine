@@ -59,6 +59,8 @@ class WindowBase {
   virtual void HandleMouseWheelEvent(SDL_MouseWheelEvent* event);
   virtual void HandleMousePressedEvent(SDL_MouseButtonEvent* event);
   virtual void HandleMouseReleasedEvent(SDL_MouseButtonEvent* event);
+  virtual void HandleTextEditingEvent(SDL_TextEditingEvent* event);
+  virtual void HandleTextInputEvent(SDL_TextInputEvent* event);
   virtual void HandleResizedEvent();
   virtual void HandleDisplayEvent(SDL_DisplayEvent* event);
   virtual void HandlePostEvent();

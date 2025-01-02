@@ -40,6 +40,7 @@
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
+#include "utility/algorithm.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
@@ -101,6 +102,8 @@ class SideMenuTitleStringUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
+  bool IsTitleMatchedFilter(const std::string& filter,
+                            int& similarity) override;
 
  private:
   preset_roms::Package* package_;
@@ -117,6 +120,13 @@ std::string SideMenuTitleStringUpdater::GetLocalizedString() {
 
 std::string SideMenuTitleStringUpdater::GetCollateStringHint() {
   return GetLocalizedString();
+}
+
+bool SideMenuTitleStringUpdater::IsTitleMatchedFilter(const std::string& filter,
+                                                      int& similarity) {
+  // SideMenu won't call this function.
+  SDL_assert(false);
+  return false;
 }
 
 int CalculateWindowWidth(float window_scale) {
@@ -146,6 +156,8 @@ class StringUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
+  bool IsTitleMatchedFilter(const std::string& filter,
+                            int& similarity) override;
 
  private:
   int string_id_;
@@ -161,6 +173,13 @@ std::string StringUpdater::GetCollateStringHint() {
   return ::GetLocalizedString(string_id_);
 }
 
+bool StringUpdater::IsTitleMatchedFilter(const std::string& filter,
+                                         int& similarity) {
+  // StringUpdater won't call this function.
+  SDL_assert(false);
+  return false;
+}
+
 class ROMTitleUpdater : public LocalizedStringUpdater {
  public:
   explicit ROMTitleUpdater(const preset_roms::PresetROM& preset_rom);
@@ -169,6 +188,8 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
+  bool IsTitleMatchedFilter(const std::string& filter,
+                            int& similarity) override;
 
  private:
   const preset_roms::PresetROM& preset_rom_;
@@ -184,6 +205,23 @@ std::string ROMTitleUpdater::GetLocalizedString() {
 std::string ROMTitleUpdater::GetCollateStringHint() {
   return GetROMLocalizedCollateStringHint(preset_rom_);
 }
+
+bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
+                                           int& similarity) {
+  if (HasString(filter, preset_rom_.name)) {
+    similarity = std::string_view(preset_rom_.name).size() - filter.size();
+    return true;
+  }
+
+  std::string hint = language_conversion::KanaToRomaji(GetCollateStringHint());
+  if (HasString(filter, hint)) {
+    similarity = hint.size() - filter.size();
+    return true;
+  }
+
+  return false;
+}
+
 }  // namespace
 
 // A mask widget to handle finger events.
@@ -776,6 +814,18 @@ void MainWindow::InitializeUI() {
         image_resources::ImageID::kMenuQuitHighlight, quit_callbacks);
 #endif
 
+    {
+      SideMenu::ButtonCallbacks button_callbacks = {
+          // Callback when search button is triggered
+          kiwi::base::BindRepeating(
+              &MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter,
+              kiwi::base::Unretained(this))};
+      side_menu->AddButton(std::make_unique<StringUpdater>(
+                               string_resources::IDR_SIDE_MENU_SEARCH),
+                           image_resources::ImageID::kMenuSearch,
+                           button_callbacks, SDLK_f);
+    }
+
     side_menu->Layout();
     side_menu_ = side_menu.get();
     bg_widget_->AddWidget(std::move(side_menu));
@@ -1367,6 +1417,13 @@ void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
     target_index = 0;
   }
   side_menu_->SetIndex(target_index);
+}
+
+void MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter() {
+  ChangeFocus(MainFocus::kContents);
+  SDL_assert(flex_items_map_.find(side_menu_->current_index()) !=
+             flex_items_map_.end());
+  flex_items_map_[side_menu_->current_index()]->ShowFilterWidget();
 }
 
 void MainWindow::OnRomLoaded(const std::string& name,

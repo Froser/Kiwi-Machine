@@ -10,16 +10,12 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef KIWI_FLAGS_H_
-#define KIWI_FLAGS_H_
+#ifndef UTILITY_ALGORITMN_H_
+#define UTILITY_ALGORITMN_H_
 
-#include <gflags/gflags.h>
+#include <string>
 
-DECLARE_string(test_rom);
-DECLARE_string(test_pak);
-DECLARE_bool(has_menu);
-DECLARE_string(debug_roms);
-DECLARE_string(lang);
-DECLARE_string(package_dir);
+// Calculates whether a string s1 has another string s2.
+bool HasString(const std::string& s1, const std::string& s2);
 
-#endif  // KIWI_FLAGS_H_
+#endif  // UTILITY_ALGORITMN_H_

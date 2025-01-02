@@ -44,6 +44,10 @@ PreferredFontSize GetDetailFontSize() {
 #endif
 }
 
+PreferredFontSize GetFilterFontSize() {
+  return GetDetailFontSize();
+}
+
 }  // namespace flex_items_widget
 
 namespace flex_item_widget {
@@ -61,7 +65,9 @@ int GetBadgeSize() {
 namespace in_game_menu {
 
 PreferredFontSize GetPreferredFontSize(float window_scale) {
-#if KIWI_MOBILE
+#if KIWI_IOS
+  return PreferredFontSize::k1x;
+#elif KIWI_ANDROID
   return PreferredFontSize::k3x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
@@ -169,6 +175,10 @@ int GetItemHeight() {
 #endif
 }
 
+int GetButtonHeight() {
+  return GetItemHeight();
+}
+
 int GetMarginBottom() {
 #if KIWI_MOBILE
   // Many mobile screen has a rounded corner, we set margin as a larger value
@@ -239,5 +249,17 @@ PreferredFontSize GetFontSize() {
 }
 
 }  // namespace toast
+
+namespace filter_widget {
+
+int GetTitleTop(const SDL_Rect& global_bounds, const ImVec2& combined_rect) {
+#if KIWI_MOBILE
+  return 20;
+#else
+  return (global_bounds.h - combined_rect.y) / 2;
+#endif
+}
+
+}  // namespace filter_widget
 
 }  // namespace styles

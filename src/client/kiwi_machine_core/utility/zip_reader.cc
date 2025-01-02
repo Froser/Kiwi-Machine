@@ -20,6 +20,10 @@
 #include "ui/application.h"
 #include "utility/localization.h"
 
+#if KIWI_ANDROID
+#include "third_party/SDL2/src/core/android/SDL_android.h"
+#endif
+
 namespace {
 constexpr size_t kFileNameMaxLength = 256;
 
@@ -90,6 +94,48 @@ unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
 
   unzFile file = unzOpen2(reinterpret_cast<const char*>(ops), &func);
   return file;
+}
+
+struct Unz : kiwi::base::RefCounted<Unz> {
+  unzFile unz = nullptr;
+  kiwi::nes::Bytes data;
+
+  operator bool() { return !!unz; }
+  operator unzFile() { return unz; }
+
+  Unz(unzFile u) : unz(u) {}
+  ~Unz() { unzClose(unz); }
+
+  Unz(const Unz&) = delete;
+  Unz& operator=(const Unz&) = delete;
+  Unz(Unz&& rhs) { *this = std::move(rhs); }
+  Unz& operator=(Unz&& rhs) {
+    unz = rhs.unz;
+    rhs.unz = nullptr;
+    std::swap(unz, rhs.unz);
+    return *this;
+  }
+};
+
+scoped_refptr<Unz> OpenUnz(const kiwi::base::FilePath& file) {
+#if KIWI_ANDROID
+  // Android uses AssetManager, so we put the contents into memory first.
+  SDL_RWops ops;
+  Android_JNI_FileOpen(&ops, file.AsUTF8Unsafe().c_str(), "o");
+  size_t size = Android_JNI_FileSize(&ops);
+  Android_JNI_FileSeek(&ops, 0, SEEK_SET);
+  kiwi::nes::Bytes data;
+  data.resize(size);
+  Android_JNI_FileRead(&ops, data.data(), size, size);
+  Android_JNI_FileClose(&ops);
+
+  scoped_refptr<Unz> unz = kiwi::base::MakeRefCounted<Unz>(nullptr);
+  unz->data = std::move(data);
+  unz->unz = unzOpenFromMemory(unz->data.data(), unz->data.size());
+  return unz;
+#else
+  return kiwi::base::MakeRefCounted<Unz>(unzOpen(file.AsUTF8Unsafe().c_str()));
+#endif
 }
 
 std::vector<preset_roms::Package*> g_packages;
@@ -303,25 +349,25 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             kiwi::nes::Bytes& icon,
                             kiwi::nes::Bytes& icon_highlight,
                             const kiwi::base::FilePath& package) {
-  unzFile pak = unzOpen(package.AsUTF8Unsafe().c_str());
+  scoped_refptr<Unz> pak = OpenUnz(package);
   SDL_assert(pak);
 
-  int located = unzGoToFirstFile(pak);
+  int located = unzGoToFirstFile(*pak);
   std::string filename;
   filename.resize(kFileNameMaxLength);
   while (located == UNZ_OK) {
     unz_file_info fi;
-    unzGetCurrentFileInfo(pak, &fi, filename.data(), filename.size(), nullptr,
+    unzGetCurrentFileInfo(*pak, &fi, filename.data(), filename.size(), nullptr,
                           0, nullptr, 0);
 
     if (strcmp(filename.data(), "manifest.json") == 0) {
       kiwi::nes::Bytes manifest_data;
       manifest_data.resize(fi.uncompressed_size);
-      unzOpenCurrentFile(pak);
-      unzReadCurrentFile(pak, manifest_data.data(), manifest_data.size());
+      unzOpenCurrentFile(*pak);
+      unzReadCurrentFile(*pak, manifest_data.data(), manifest_data.size());
       manifest_data.push_back(0);  // String terminator
       manifest_data.push_back(0);  // String terminator
-      unzCloseCurrentFile(pak);
+      unzCloseCurrentFile(*pak);
 
       nlohmann::json manifest_json =
           nlohmann::json::parse(manifest_data.data());
@@ -335,11 +381,11 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
       std::string highlight = to_string(icon_data.at("highlight"));
       icon = kiwi::nes::Bytes(normal.begin(), normal.end());
       icon_highlight = kiwi::nes::Bytes(highlight.begin(), highlight.end());
-      unzGoToNextFile(pak);
+      unzGoToNextFile(*pak);
       continue;
     }
 
-    unzOpenCurrentFile(pak);
+    unzOpenCurrentFile(*pak);
 
     preset_roms::PresetROM rom;
     kiwi::base::FilePath filepath =
@@ -347,51 +393,45 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
     std::string name = filepath.RemoveExtension().AsUTF8Unsafe();
 
     unz_file_pos file_pos;
-    unzGetFilePos(pak, &file_pos);
+    unzGetFilePos(*pak, &file_pos);
     rom.file_pos = file_pos;
     rom.zip_data_loader = kiwi::base::BindRepeating(
-        [](const kiwi::base::FilePath& package, unz_file_pos file_pos) {
+        [](scoped_refptr<Unz> f, unz_file_pos file_pos) {
           kiwi::nes::Bytes data;
-          unzFile f = unzOpen(package.AsUTF8Unsafe().c_str());
-          if (f) {
-            int found = unzGoToFilePos(f, &file_pos);
-            if (found == UNZ_OK) {
-              std::string filename;
-              filename.resize(kFileNameMaxLength);
-              unz_file_info fi;
-              unzGetCurrentFileInfo(f, &fi, filename.data(), filename.size(),
-                                    nullptr, 0, nullptr, 0);
-              data.resize(fi.uncompressed_size);
-              unzOpenCurrentFile(f);
-              int read = unzReadCurrentFile(f, data.data(), data.size());
-              unzCloseCurrentFile(f);
-              if (read <= 0) {
-                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                            "Read current file error: %d", read);
-              }
-
-            } else {
+          int found = unzGoToFilePos(*f, &file_pos);
+          if (found == UNZ_OK) {
+            std::string filename;
+            filename.resize(kFileNameMaxLength);
+            unz_file_info fi;
+            unzGetCurrentFileInfo(*f, &fi, filename.data(), filename.size(),
+                                  nullptr, 0, nullptr, 0);
+            data.resize(fi.uncompressed_size);
+            unzOpenCurrentFile(*f);
+            int read = unzReadCurrentFile(*f, data.data(), data.size());
+            unzCloseCurrentFile(*f);
+            if (read <= 0) {
               SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                          "Can't goto file pos: %lu, %lu", file_pos.num_of_file,
-                          file_pos.pos_in_zip_directory);
+                          "Read current file error: %d", read);
             }
-            unzClose(f);
+
           } else {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Open file error: %s",
-                        package.AsUTF8Unsafe().c_str());
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Can't goto file pos: %lu, %lu", file_pos.num_of_file,
+                        file_pos.pos_in_zip_directory);
           }
           return data;
         },
-        package);
+        // TODO RetainedRef will keep unzFile opened, especially in Android, it
+        // will hold package's content. Try to cleanup these repeating callbacks
+        // when it won't be used anymore.
+        kiwi::base::RetainedRef(pak));
 
     rom.name = new char[name.size() + 1];
     strncpy(const_cast<char*>(rom.name), name.data(), name.size() + 1);
-    unzCloseCurrentFile(pak);
+    unzCloseCurrentFile(*pak);
     roms.push_back(std::move(rom));
-    located = unzGoToNextFile(pak);
+    located = unzGoToNextFile(*pak);
   }
-
-  unzClose(pak);
 }
 
 preset_roms::Package* CreatePackageFromFile(

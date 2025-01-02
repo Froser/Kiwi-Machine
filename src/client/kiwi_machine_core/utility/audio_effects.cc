@@ -116,6 +116,8 @@ void PlayEffect(audio_resources::AudioID aid) {
 }
 
 void SetEffectEnabled(bool enabled) {
+#if !KIWI_MOBILE && !KIWI_WASM
   g_effect_disabled = !enabled;
+#endif
 }
 #endif

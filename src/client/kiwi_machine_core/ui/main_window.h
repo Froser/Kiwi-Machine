@@ -161,6 +161,7 @@ class MainWindow : public WindowBase,
       FlexItemsWidget* items_widget);
   void SwitchToWidgetForSideMenu(int menu_index);
   void SwitchToSideMenuByCurrentFlexItemWidget();
+  void ChangeFocusToCurrentSideMenuAndShowFilter();
 
   // Splash screen
   void ShowSplash(kiwi::base::OnceClosure callback);

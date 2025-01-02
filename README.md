@@ -30,21 +30,23 @@ Kiwi Machine是一个简单的任天堂红白机(NES/FC)模拟器引擎。里面
 今天的`Kiwi Machine`。
 
 开发红白机模拟器并不是那么顺利，一方面是因为我工作本身很忙，第二个是其实资料并不多。DevNes是一个非常全面的红白机Wiki，我绝大部分红白机的知识
-都是从上面掌握的，此外，我参考了许多开源的红白机工程，如FCEUX，并且对着FCEUX的调试器一行一行调试ROM，为自己的`Kiwi Machine`增加调试能力。
+都是从上面掌握的，此外，我参考了许多开源的红白机工程，如FCEUX，并且对着FCEUX的调试器一行一行调试ROM，为自己的`Kiwi Machine`
+增加调试能力。
 
 红白机本身的游戏存储在卡带中，不同的卡带有不同的硬件，被成为Mapper，不同Mapper之间的工作方式也各不一样，这为各种游戏的适配带来一定的困难。另
 外，有些游戏可能用了一些不寻常的方式来实现，这不得不在模拟器中需要硬编码一些特殊情况（如特殊的IRQ时机），来适配这些游戏。
 
 例如：
+
 - 星之卡比、忍者龙剑传3中，IRQ的触发周期为dot 280，而不是NesDev中说的260。我把所有的IRQ都改成了dot 280。
 - 踢王 (Kick Master)需要在一个扫描行中出发两次IRQ，否则会出现画面闪烁。
 - 人间兵器、加纳战机、Jackel、古巴战士等游戏通过轮询$2002来看是否进入VBL，而读$2002本身会清除VBL标记，因此IRQ需要在VBL产生后延迟15个PPU
-周期再执行。
+  周期再执行。
 - Tengen发行的俄罗斯方块（我的童年回忆）会选择一个溢出的CHR Bank，因此需要为取余，否则会花屏。
 - 塞尔达2：林克的冒险中，不能同时触发左键和右键，否则人物会飘。
 
 除此之外，有一些游戏使用的Mapper比较冷门，例如日版马里奥使用Mapper 40，Solistice使用Mapper 7，台湾的厂商汉化的重装机甲等游戏使用的Mapper
- 74等，我都对着Wiki和FCEUX做了自己的实现。还有一些游戏可能用了一些专门的技巧，比如写到了一个非法的地址来做等待CPU的工作，也都需要一一进行适
+74等，我都对着Wiki和FCEUX做了自己的实现。还有一些游戏可能用了一些专门的技巧，比如写到了一个非法的地址来做等待CPU的工作，也都需要一一进行适
 配。
 
 虽然核心是自己实现，不过我还是用到了一些第三方库：
@@ -72,6 +74,22 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 - Android
 - iOS
 
+```
+**由于目前ROM资源和代码本身是分离的，因此需要手动拷贝ROM资源文件(*.pak)**
+**如果你希望构建系统自动拷贝，则需要在CMake构建时手动指定`-DKIWI_PACKAGE_DIR={你的pak存放路径}`**
+```
+
+### 构建前准备
+如果你想要用Kiwi-Machine为你准备好的ROM资源，而不是自己手动打包，你需要进行如下操作：
+
+1. 选择一个路径，以`~/Documents/Kiwi-Machine-Workspace`为例，在目录下
+   拉取代码`git clone https://github.com/Froser/Kiwi-Machine-Workspace.git`
+2. 按照接下来描述的方式先编译`package_manager`，通过命令行`--workspace=~/Documents/Kiwi-Machine-Workspace`运行并打包ROM为pak文件
+3. 构建KiwiMachine主体，在CMake中指定`-DKIWI_PACKAGE_DIR=~/Documents/Kiwi-Machine-Workspace/out/output`，这样它将会把你生成的pak文件自动拷贝
+到资源目录中。
+
+如果你是编译的Android系统，需要手动将pak文件拷贝到asset目录中。
+
 ### MacOS, Windows, Linux构建方式
 
 直接使用CMake可进行构建。主要的产物有`kiwi`和`kiwi_machine`。
@@ -83,6 +101,7 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 ### iOS 构建方式
 
 通过CMake进行构建：
+
 ```
 -G Xcode -DCMAKE_TOOLCHAIN_FILE=build/cmake/ios.toolchain.cmake -DPLATFORM=SIMULATORARM64 -DENABLE_ARC=OFF -DSDL2IMAGE_BACKEND_IMAGEIO=OFF
 ```
@@ -90,25 +109,32 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 你可以将PLATFORM替换为自己的iOS平台，详见`build/ios.toolchain.cmake`
 
 ### WebAssembly (WASM) 构建方式
+
 你需要先下载`Emscripten`的SDK(`emsdk`)，然后在CMake中将工具链设置成它，例如：
+
 ```
 -DCMAKE_TOOLCHAIN_FILE=/Users/user/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
 ```
 
 有几点需要注意：
+
 1. Kiwi Machine需要在WASM环境中使用多进程，因此`SDL_THREADS`和`SDL_PTHREADS`开关默认已经开启。如果出现线程问题，
-请检查者两个开关的状态。
+   请检查者两个开关的状态。
 2. 由于使用多线程，在部署服务的时候，需要启用`SharedArrayBuffer`，因此需要下面两个`headers`：
+
 ```
 Cross-Origin-Opener-Policy : same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
+
 如果浏览器中显示了`SharedArrayBuffer is not defined`错误，请检查响应头是否设置正确。
 
 ### 前端页面构建方式
+
 本工程中包含了前端工程，位于`src/client/kiwi_machine_wasm/kiwi-machine`
 
 构建方法：
+
 1. 先按照`WebAssembly (WASM) 构建方式`构建WebAssembly产物
 2. 参考调用`src/client/kiwi_machine_wasm/update.py 你的WebAssembly工程目录`，将wasm产物拷贝过来
 3. 使用npm进行前端构建、部署
@@ -128,6 +154,7 @@ Kiwi Machine被设计成了一个游戏机厅模式，它拥有大量预设的�
 `src/client/kiwi_machine/build/nes`下的每一个游戏都存放在一个`.zip`压缩包中，需包含同名的`nes`文件和`jpg`文件。例如：
 
 `Bomber Man II (Japan).zip`中拥有两个文件：
+
 - `Bomber Man II (Japan).nes`是ROM的主文件。
 - `Bomber Man II (Japan).jpg`是ROM的封面文件。
 
@@ -136,7 +163,8 @@ Kiwi Machine被设计成了一个游戏机厅模式，它拥有大量预设的�
 例如，我整理了许多游戏的日版和英文版，甚至是中文版，它们被选中时，上面有一个标记，你可以通过按`SELECT`键来切换它的版本：
 > ![](docs/multi_version.png)
 
-此外，你还可以往zip中放入其他类似成套的文件，它表示这个游戏的另外一个版本，例如`Rock Man`的美版叫做`Mega Man`，那么就可以放入相同的zip文件中。
+此外，你还可以往zip中放入其他类似成套的文件，它表示这个游戏的另外一个版本，例如`Rock Man`的美版叫做`Mega Man`
+，那么就可以放入相同的zip文件中。
 
 ### 构建调试ROMs
 
@@ -235,18 +263,22 @@ Emulator类中有一个LoadFromXXX系列函数，可以从文件或者内存读�
 回`true`，则调用`Render()`，将帧的高宽以及具体的内容传递过来。
 
 ### 运行虚拟机
+
 当NES文件被加载后，即可让模拟器开始工作了，我们需要在读取NES文件的`LoadCallback`中调用`Emulator::Run()`让它开始工作。
 
 为了简化调用，模拟器也提供了一个快捷方法：
+
 ```C++
   virtual void LoadAndRun(const base::FilePath& rom_path,
                           base::OnceClosure callback = base::DoNothing()) = 0;
   virtual void LoadAndRun(const Bytes& data,
                           base::OnceClosure callback = base::DoNothing()) = 0;
 ```
+
 它表示当读取某个ROM成功后，调用`Emulator::Run()`，然后再调用`callback`。
 
 ## 资源打包
+
 Kiwi-Machine 提供了一个nes打包工具，位于`src/tools/package_manager`。你可以将自己喜欢的nes打包成资源，就如本文档封面所示。
 
 本仓库不包含nes资源，如果需要获取nes资源，可以用git来clone `https://github.com/Froser/kiwi-machine-workspace`

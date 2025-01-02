@@ -32,12 +32,6 @@ namespace kiwi::base {
 // then implemented as inline calls to the platform-specific equivalents in the
 // platform-specific headers.
 
-// Wrapper for vsnprintf that always null-terminates and always returns the
-// number of characters that would be in an untruncated formatted
-// string, even when truncation occurs.
-int vsnprintf(char* buffer, size_t size, const char* format, va_list arguments)
-    PRINTF_FORMAT(3, 0);
-
 // Some of these implementations need to be inlined.
 
 // We separate the declaration from the implementation of this inline

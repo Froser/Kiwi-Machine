@@ -14,8 +14,6 @@ project(kiwi_machine_core CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
-OPTION(KIWI_EMBEDDED_ROMS "Embed roms data in code" ON)
-
 FIND_PACKAGE(Python3 REQUIRED)
 
 include_directories(
@@ -77,6 +75,8 @@ set(Sources
         ui/widgets/disassembly_widget.h
         ui/widgets/demo_widget.cc
         ui/widgets/demo_widget.h
+        ui/widgets/filter_widget.cc
+        ui/widgets/filter_widget.h
         ui/widgets/flex_item_widget.cc
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
@@ -123,6 +123,8 @@ set(Sources
         ui/styles.h
         ui/window_base.cc
         ui/window_base.h
+        utility/algorithm.cc
+        utility/algorithm.h
         utility/audio_effects.cc
         utility/audio_effects.h
         utility/fonts.cc
@@ -165,6 +167,13 @@ if (EMSCRIPTEN)
     list(APPEND Sources
             utility/emscripten/bridge_api.cc
             utility/emscripten/bridge_api.h
+    )
+endif ()
+
+if (ANDROID)
+    list(APPEND Sources
+            utility/android/asset.cc
+            utility/android/asset.h
     )
 endif ()
 
