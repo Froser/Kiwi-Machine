@@ -1420,10 +1420,12 @@ void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
 }
 
 void MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter() {
-  ChangeFocus(MainFocus::kContents);
-  SDL_assert(flex_items_map_.find(side_menu_->current_index()) !=
-             flex_items_map_.end());
-  flex_items_map_[side_menu_->current_index()]->ShowFilterWidget();
+  // A test-rom commandline will have no side menu items.
+  if (flex_items_map_.find(side_menu_->current_index()) !=
+      flex_items_map_.end()) {
+    ChangeFocus(MainFocus::kContents);
+    flex_items_map_[side_menu_->current_index()]->ShowFilterWidget();
+  }
 }
 
 void MainWindow::OnRomLoaded(const std::string& name,
