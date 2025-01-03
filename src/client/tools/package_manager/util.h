@@ -127,4 +127,11 @@ void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
 void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
                          std::vector<Explorer::File>& files);
 
+// Some roms may have special naming rules:
+// XXX, The (USA).nes, XXX, A (USA).nes will be adjusted into two possible
+// names: The XXX (USA).nes, A XXX (USA).nes
+// Returns the suggested normalized rom title. Always use the first one if
+// possible.
+std::vector<std::string> NormalizeROMTitle(const std::string& title);
+
 #endif  // UTIL_H_

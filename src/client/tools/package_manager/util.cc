@@ -286,26 +286,13 @@ struct ExplorerFileAndZipFileComparer {
   const ROM& rom;
 
   bool operator()(const Explorer::File& rhs) {
-    // Special rules:
-    // XXX, The (USA).nes will be adjusted into two possible
-    // names: The XXX (USA).nes
-    // XXX (USA).nes
-    constexpr char kReplaceKey[] = ", The";
-    if (auto pos = rhs.title.find(kReplaceKey); pos != std::string::npos) {
-      std::string replacement = rhs.title;
-      replacement.replace(pos, sizeof(kReplaceKey) - 1, "");
-
-      bool found_alternative =
-          (kiwi::base::CompareCaseInsensitiveASCII(
-               rom.nes_file_name, "The " + replacement) == 0) ||
-          (kiwi::base::CompareCaseInsensitiveASCII(rom.nes_file_name,
-                                                   replacement) == 0);
-      if (found_alternative)
+    std::vector<std::string> normalized_titles = NormalizeROMTitle(rhs.title);
+    for (const auto& title : normalized_titles) {
+      if (kiwi::base::CompareCaseInsensitiveASCII(rom.nes_file_name, title) ==
+          0)
         return true;
     }
-
-    return kiwi::base::CompareCaseInsensitiveASCII(rom.nes_file_name,
-                                                   rhs.title) == 0;
+    return false;
   }
 };
 
@@ -494,11 +481,15 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
       titles["ja"] = rom.ja;
     if (strlen(rom.ja_hint) > 0)
       titles["ja-hint"] = rom.ja_hint;
-    json["titles"][rom.key] = titles;
+    json["titles"][NormalizeROMTitle(rom.key)[0]] = titles;
 
+    std::vector<std::string> normalized_nes_filenames =
+        NormalizeROMTitle(rom.nes_file_name);
+    std::string normalized_nes_filename = normalized_nes_filenames[0];
     if (kiwi::base::CompareCaseInsensitiveASCII("default", rom.key) == 0) {
       package_name = kiwi::base::FilePath::FromUTF8Unsafe(
-          kiwi::base::FilePath::FromUTF8Unsafe(std::string(rom.nes_file_name))
+          kiwi::base::FilePath::FromUTF8Unsafe(
+              std::string(normalized_nes_filename))
               .RemoveExtension()
               .AsUTF8Unsafe() +
           ".zip");
@@ -534,10 +525,10 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
 
   // Writes images, and roms.
   for (const auto& rom : roms) {
-    std::string base_name =
-        kiwi::base::FilePath::FromUTF8Unsafe(rom.nes_file_name)
-            .RemoveExtension()
-            .AsUTF8Unsafe();
+    std::string base_name = kiwi::base::FilePath::FromUTF8Unsafe(
+                                NormalizeROMTitle(rom.nes_file_name)[0])
+                                .RemoveExtension()
+                                .AsUTF8Unsafe();
 
     if (!WriteToZip(zf, (base_name + ".nes").c_str(),
                     reinterpret_cast<const char*>(rom.nes_data.data()),
@@ -992,4 +983,28 @@ void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
       break;
     }
   }
+}
+
+std::vector<std::string> NormalizeROMTitle(const std::string& title) {
+  std::vector<std::string> result;
+  constexpr char kSearchKey[] = ", The (";
+  constexpr char kReplaceKey[] = ", The";
+  constexpr char kSearchKey2[] = ", A (";
+  constexpr char kReplaceKey2[] = ", A";
+  size_t pos;
+  if (pos = title.find(kSearchKey); pos != std::string::npos) {
+    std::string replacement = title;
+    replacement.replace(pos, sizeof(kReplaceKey) - 1, "");
+    result.push_back("The " + replacement);
+    result.push_back(replacement);
+  } else if (pos = title.find(kSearchKey2); pos != std::string::npos) {
+    std::string replacement = title;
+    replacement.replace(pos, sizeof(kReplaceKey2) - 1, "");
+    result.push_back("A " + replacement);
+    result.push_back(replacement);
+  }
+
+  result.push_back(title);
+  SDL_assert(!result.empty());
+  return result;
 }
