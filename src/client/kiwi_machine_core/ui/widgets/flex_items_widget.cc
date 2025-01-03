@@ -345,6 +345,16 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   if (!activate_)
     return false;
 
+  if (k->keysym.sym == SDLK_f) {
+    ShowFilterWidget();
+    return true;
+  } else if (k->keysym.sym == SDLK_ESCAPE) {
+    if (!filter_contents_.empty()) {
+      OnFilter(std::string());
+      return true;
+    }
+  }
+
   constexpr Uint16 kCtrlAltShiftGuiMod =
       KMOD_CTRL | KMOD_ALT | KMOD_SHIFT | KMOD_GUI;
   if (k && (k->keysym.mod & kCtrlAltShiftGuiMod)) {
@@ -426,13 +436,6 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
       SwapCurrentItemToNextSubItem();
     }
     return true;
-  }
-
-  if (k->keysym.sym == SDLK_f) {
-    ShowFilterWidget();
-    return true;
-  } else if (k->keysym.sym == SDLK_ESCAPE) {
-    OnFilter(std::string());
   }
 
   return false;
