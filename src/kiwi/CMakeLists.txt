@@ -38,6 +38,7 @@ set(base_sources
         base/containers/adapters.h
         base/cxx20_to_address.h
         base/dcheck_is_on.h
+        base/immediate_crash.h
         base/location.cc
         base/location.h
         base/logging.h

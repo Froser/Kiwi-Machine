@@ -14,6 +14,7 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/immediate_crash.h"
 #include "base/platform/platform_factory.h"
 #include "base/runloop.h"
 #include "base/strings/string_number_conversions.h"
