@@ -50,6 +50,10 @@ bool IsZipExtension(const std::string& filename);
 bool IsJPEGExtension(const std::string& filename);
 bool IsNESExtension(const std::string& filename);
 
+void ReplaceAndAppendUnsafe(char* original_string,
+                            const std::vector<const char*>& replacements,
+                            const char* append_string);
+
 [[nodiscard]] ROMS ReadZipFromFile(const kiwi::base::FilePath& path);
 kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
                               const ROMS& roms);

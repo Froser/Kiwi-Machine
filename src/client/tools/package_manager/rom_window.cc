@@ -95,26 +95,22 @@ void ROMWindow::Paint() {
       }
 
       ImGui::SameLine();
+      static std::vector<const char*> kVersions = {
+          u8"（日）", u8" (ri)",  u8"（日）", u8"（にち）",
+          u8"（美）", u8" (mei)", u8"（米）", u8"（べい）"};
+
       if (ImGui::Button(GetUniqueName(u8"日版", id).c_str())) {
-        if (!kiwi::base::EndsWith(rom.zh, u8"（日）"))
-          strcat(rom.zh, u8"（日）");
-        if (!kiwi::base::EndsWith(rom.zh_hint, u8" (ri)"))
-          strcat(rom.zh_hint, u8" (ri)");
-        if (!kiwi::base::EndsWith(rom.ja, u8"（日）"))
-          strcat(rom.ja, u8"（日）");
-        if (!kiwi::base::EndsWith(rom.ja_hint, u8"（にち）"))
-          strcat(rom.ja_hint, u8"（にち）");
+        ReplaceAndAppendUnsafe(rom.zh, kVersions, kVersions[0]);
+        ReplaceAndAppendUnsafe(rom.zh_hint, kVersions, kVersions[1]);
+        ReplaceAndAppendUnsafe(rom.ja, kVersions, kVersions[2]);
+        ReplaceAndAppendUnsafe(rom.ja_hint, kVersions, kVersions[3]);
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"美版", id).c_str())) {
-        if (!kiwi::base::EndsWith(rom.zh, u8"（美）"))
-          strcat(rom.zh, u8"（美）");
-        if (!kiwi::base::EndsWith(rom.zh_hint, u8" (mei)"))
-          strcat(rom.zh_hint, u8" (mei)");
-        if (!kiwi::base::EndsWith(rom.ja, u8"（米）"))
-          strcat(rom.ja, u8"（米）");
-        if (!kiwi::base::EndsWith(rom.ja_hint, u8"（べい）"))
-          strcat(rom.ja_hint, u8"（べい）");
+        ReplaceAndAppendUnsafe(rom.zh, kVersions, kVersions[4]);
+        ReplaceAndAppendUnsafe(rom.zh_hint, kVersions, kVersions[5]);
+        ReplaceAndAppendUnsafe(rom.ja, kVersions, kVersions[6]);
+        ReplaceAndAppendUnsafe(rom.ja_hint, kVersions, kVersions[7]);
       }
       ImGui::SameLine();
       if (ImGui::Button(GetUniqueName(u8"补全中文提示", id).c_str())) {

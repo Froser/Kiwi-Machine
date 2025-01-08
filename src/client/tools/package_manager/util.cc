@@ -367,6 +367,21 @@ bool IsNESExtension(const std::string& filename) {
   return file_path.Extension() == FILE_PATH_LITERAL(".nes");
 }
 
+void ReplaceAndAppendUnsafe(char* original_string,
+                            const std::vector<const char*>& replacements,
+                            const char* append_string) {
+  for (const char* replacement : replacements) {
+    if (kiwi::base::EndsWith(original_string, replacement)) {
+      size_t pos = std::string_view(original_string).find_last_of(replacement);
+      SDL_assert(pos != std::string_view::npos);
+      strcpy(original_string + pos - (size_t)strlen(replacement) + 1,
+             append_string);
+      return;
+    }
+  }
+  strcat(original_string, append_string);
+}
+
 ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
   static const std::vector<ROM> g_no_result;
   std::vector<ROM> result;
@@ -843,8 +858,9 @@ std::vector<uint8_t> RotateJPEG(std::vector<uint8_t> input_data) {
     jpeg_read_scanlines(&cinfo, buffer, 1);
     for (int src_x = 0; src_x < width; ++src_x) {
       for (int c = 0; c < num_components; ++c) {
-        rotated_buffer.data(width - src_x - 1,
-                            current_scanline * num_components + c) =
+        rotated_buffer.data(
+            src_x,
+            (cinfo.output_height - current_scanline - 1) * num_components + c) =
             buffer[0][src_x * num_components + c];
       }
     }
