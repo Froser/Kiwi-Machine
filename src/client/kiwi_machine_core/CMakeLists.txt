@@ -12,7 +12,7 @@
 
 project(kiwi_machine_core CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 FIND_PACKAGE(Python3 REQUIRED)
 

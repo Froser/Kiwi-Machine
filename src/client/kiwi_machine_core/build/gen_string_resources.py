@@ -50,7 +50,7 @@ const StringMap& GetGlobalStringMap();
                 all_idrs += '  ' + idr + ',\n'
                 all_strings += '  { ' + idr + ' , { \n'
                 for lang in data[idr]:
-                    all_strings += '{ "' + lang + '", u8R"(' + data[idr][lang] + ')" },\n'
+                    all_strings += '{ "' + lang + '", R"(' + data[idr][lang] + ')" },\n'
                 all_strings += '  }},\n'
 
     header_file = output_dir + '/string_resources.h'
