@@ -34,6 +34,21 @@ DECLARE_string(km_path);
 #endif
 
 constexpr int kMaxLevenshteinDistance = 10;
+kiwi::base::FilePath::StringPieceType kMarksFileName =
+    FILE_PATH_LITERAL("marks.json");
+
+namespace nlohmann {
+void from_json(const json& j, std::map<std::string, Explorer::Mark>& obj) {
+  if (j.contains("marks")) {
+    const json& marks = j["marks"];
+    for (const auto& mark : marks.items()) {
+      for (const auto& item : mark.value().items()) {
+        obj[item.key()] = item.value();
+      }
+    }
+  }
+}
+}  // namespace nlohmann
 
 namespace {
 #if BUILDFLAG(IS_WIN)
@@ -47,8 +62,7 @@ std::wstring StringToWString(const std::string& str) {
 }
 #endif
 
-static const std::string g_package_manifest_template =
-    u8R"({
+static const std::string g_package_manifest_template = U8(R"({
 "titles": {
   "en": "Package Test",
   "zh": "包测试",
@@ -59,10 +73,9 @@ static const std::string g_package_manifest_template =
   "highlight": "<?xml version=\"1.0\" encoding=\"utf-8\"?><svg fill=\"#159505\" width=\"800px\" height=\"800px\" viewBox=\"0 0 24 24\" role=\"img\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M21.809 5.524 12.806.179l-.013-.007.078-.045h-.166a1.282 1.282 0 0 0-1.196.043l-.699.403-8.604 4.954a1.285 1.285 0 0 0-.644 1.113v10.718c0 .46.245.884.644 1.113l9.304 5.357c.402.232.898.228 1.297-.009l9.002-5.345c.39-.231.629-.651.629-1.105V6.628c0-.453-.239-.873-.629-1.104zm-19.282.559L11.843.719a.642.642 0 0 1 .636.012l9.002 5.345a.638.638 0 0 1 .207.203l-4.543 2.555-4.498-2.7a.963.963 0 0 0-.968-.014L6.83 8.848 2.287 6.329a.644.644 0 0 1 .24-.246zm14.13 8.293-4.496-2.492V6.641a.32.32 0 0 1 .155.045l4.341 2.605v5.085zm-4.763-1.906 4.692 2.601-4.431 2.659-4.648-2.615a.317.317 0 0 1-.115-.112l4.502-2.533zm-.064 10.802-9.304-5.357a.643.643 0 0 1-.322-.557V7.018L6.7 9.51v5.324c0 .348.188.669.491.84l4.811 2.706.157.088v4.887a.637.637 0 0 1-.329-.083z\"/></svg>"
 }
 }
-)";
+)");
 
-static const std::string g_py3_pinyin_code =
-    u8R"(import pinyin, sys
+static const std::string g_py3_pinyin_code = U8(R"(import pinyin, sys
 def getpinyin(text):
     pinyin_result = pinyin.get(text, format='strip')
     pinyin_result = pinyin_result.replace('（', ' (')
@@ -71,10 +84,9 @@ def getpinyin(text):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        getpinyin(sys.argv[1]))";
+        getpinyin(sys.argv[1]))");
 
-static const std::string g_py3_kana_code =
-    u8R"(import pykakasi, sys
+static const std::string g_py3_kana_code = U8(R"(import pykakasi, sys
 def getkana(text):
     kakasi = pykakasi.kakasi()
     kakasi.setMode(fr="J", to="H")
@@ -85,7 +97,7 @@ def getkana(text):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        getkana(sys.argv[1]))";
+        getkana(sys.argv[1]))");
 
 bool ReadCurrentFileFromZip(unzFile file, std::vector<uint8_t>& data) {
   unzOpenCurrentFile(file);
@@ -311,6 +323,35 @@ void FetchFileNames(const kiwi::base::FilePath& dir,
   std::sort(out.begin(), out.end(), [](const auto& lhs, const auto& rhs) {
     return lhs.title < rhs.title;
   });
+
+  // Gets marks.
+  kiwi::base::FilePath marks_file_path = dir.Append(kMarksFileName);
+  auto marks_contents = kiwi::base::ReadFileToBytes(marks_file_path);
+  if (marks_contents) {
+    marks_contents->push_back(0);
+    marks_contents->push_back(0);
+
+    std::map<std::string, Explorer::Mark> marks =
+        nlohmann::json::parse(marks_contents->data());
+
+    class ExplorerFileComparator {
+     public:
+      ExplorerFileComparator(const std::string& s) : target_(s) {}
+      bool operator()(const Explorer::File& f) const {
+        return kiwi::base::CompareCaseInsensitiveASCII(f.title, target_) == 0;
+      }
+
+     private:
+      std::string target_;
+    };
+    for (const auto& mark : marks) {
+      auto search_result = std::find_if(out.begin(), out.end(),
+                                        ExplorerFileComparator(mark.first));
+      if (search_result != out.end()) {
+        search_result->mark = mark.second;
+      }
+    }
+  }
 }
 
 void FetchFileMapperSupported(std::vector<Explorer::File>& nes_files) {
@@ -790,9 +831,9 @@ std::string TryGetJaTitle(const std::string& en_name) {
         game["$"].contains("altname") ? to_string(game["$"]["altname"]) : "";
     std::string region = RemoveQuote(to_string(game["$"]["region"]));
     if (kiwi::base::CompareCaseInsensitiveASCII(region, "japan") == 0) {
-      alter_name = RemoveQuote(alter_name) + u8"（日）";
+      alter_name = RemoveQuote(alter_name) + U8("（日）");
     } else if (kiwi::base::CompareCaseInsensitiveASCII(region, "usa") == 0) {
-      alter_name = RemoveQuote(alter_name) + u8"（米）";
+      alter_name = RemoveQuote(alter_name) + U8("（米）");
     }
     int dis = LevenshteinDistance(rom_name, en_name);
     result.insert({dis, {RemoveQuote(rom_name), alter_name}});
@@ -999,6 +1040,23 @@ void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
       break;
     }
   }
+}
+
+void UpdateMarks(const kiwi::base::FilePath& save_dir,
+                 const std::vector<Explorer::File>& files) {
+  nlohmann::json root;
+  nlohmann::json& marks = root["marks"];
+  for (const auto& file : files) {
+    if (file.mark != Explorer::Mark::kNoMark) {
+      nlohmann::json value;
+      value[file.title] = file.mark;
+      marks.push_back(value);
+    }
+  }
+
+  std::string contents = root.dump(2);
+  kiwi::base::WriteFile(save_dir.Append(kMarksFileName), contents.data(),
+                        contents.size());
 }
 
 std::vector<std::string> NormalizeROMTitle(const std::string& title) {

@@ -17,10 +17,12 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "base/base_export.h"
 #include "base/files/file.h"
+#include "base/strings/string_piece.h"
 
 #if defined(CreateDirectory)
 #undef CreateDirectory
@@ -71,6 +73,28 @@ BASE_EXPORT FILE* OpenFile(const FilePath& filename, const char* mode);
 
 // Closes file opened by OpenFile. Returns true on success.
 BASE_EXPORT bool CloseFile(FILE* file);
+
+// Writes |data| into the file, overwriting any data that was previously there.
+// Returns true if and only if all of |data| was written. If the file does not
+// exist, it gets created with read/write permissions for all.
+BASE_EXPORT bool WriteFile(const FilePath& filename,
+                           std::span<const uint8_t> data);
+
+// Writes the given buffer into the file, overwriting any data that was
+// previously there.  Returns the number of bytes written, or -1 on error.
+// If file doesn't exist, it gets created with read/write permissions for all.
+// Note that the other variants of WriteFile() below may be easier to use.
+BASE_EXPORT int WriteFile(const FilePath& filename, const char* data, int size);
+
+#if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+// Appends |data| to |fd|. Does not close |fd| when done.  Returns true iff all
+// of |data| were written to |fd|.
+BASE_EXPORT bool WriteFileDescriptor(int fd, std::span<const uint8_t> data);
+
+// WriteFileDescriptor() variant that takes a StringPiece so callers don't have
+// to do manual conversions from a char span to a uint8_t span.
+BASE_EXPORT bool WriteFileDescriptor(int fd, StringPiece data);
+#endif
 
 // Returns information about the given file path. Also see |File::GetInfo|.
 BASE_EXPORT bool GetFileInfo(const FilePath& file_path, File::Info* info);

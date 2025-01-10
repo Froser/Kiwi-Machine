@@ -21,6 +21,8 @@
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 
+#define U8(x) (reinterpret_cast<const char*>(u8##x))
+
 class ROMWindow;
 struct ROM {
   friend class ROMWindow;
@@ -113,6 +115,12 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
 
 // Explorer
 struct Explorer {
+  enum class Mark {
+    kNoMark,
+    kUninterested,
+    kImprefect,
+  };
+
   struct File {
     std::string title;
     bool selected;
@@ -121,6 +129,7 @@ struct Explorer {
     bool supported;
     std::string mapper;
     kiwi::base::FilePath compared_zip_path;
+    Mark mark = Mark::kNoMark;
   };
   std::vector<File> explorer_files;
 };
@@ -130,6 +139,8 @@ void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
                              std::vector<Explorer::File>& out);
 void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
                          std::vector<Explorer::File>& files);
+void UpdateMarks(const kiwi::base::FilePath& save_dir,
+                 const std::vector<Explorer::File>& files);
 
 // Some roms may have special naming rules:
 // XXX, The (USA).nes, XXX, A (USA).nes will be adjusted into two possible

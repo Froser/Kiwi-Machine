@@ -83,7 +83,7 @@ void ROMWindow::Paint() {
       ImGui::TextUnformatted(rom.key.c_str());
 
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"自动填充", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("自动填充"), id).c_str())) {
         if (!FillRomDetailsAutomatically(rom, rom_base_name)) {
           ShellOpen(kiwi::base::FilePath::FromUTF8Unsafe(
               "https://google.com/search?q=" +
@@ -96,42 +96,42 @@ void ROMWindow::Paint() {
 
       ImGui::SameLine();
       static std::vector<const char*> kVersions = {
-          u8"（日）", u8" (ri)",  u8"（日）", u8"（にち）",
-          u8"（美）", u8" (mei)", u8"（米）", u8"（べい）"};
+          U8("（日）"), U8(" (ri)"),  U8("（日）"), U8("（にち）"),
+          U8("（美）"), U8(" (mei)"), U8("（米）"), U8("（べい）")};
 
-      if (ImGui::Button(GetUniqueName(u8"日版", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("日版"), id).c_str())) {
         ReplaceAndAppendUnsafe(rom.zh, kVersions, kVersions[0]);
         ReplaceAndAppendUnsafe(rom.zh_hint, kVersions, kVersions[1]);
         ReplaceAndAppendUnsafe(rom.ja, kVersions, kVersions[2]);
         ReplaceAndAppendUnsafe(rom.ja_hint, kVersions, kVersions[3]);
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"美版", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("美版"), id).c_str())) {
         ReplaceAndAppendUnsafe(rom.zh, kVersions, kVersions[4]);
         ReplaceAndAppendUnsafe(rom.zh_hint, kVersions, kVersions[5]);
         ReplaceAndAppendUnsafe(rom.ja, kVersions, kVersions[6]);
         ReplaceAndAppendUnsafe(rom.ja_hint, kVersions, kVersions[7]);
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"补全中文提示", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("补全中文提示"), id).c_str())) {
         std::string r = TryGetPinyin(rom.zh);
         if (!r.empty())
           strcpy(rom.zh_hint, r.c_str());
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"补全日文提示", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("补全日文提示"), id).c_str())) {
         std::string r = TryGetKana(rom.ja);
         if (!r.empty())
           strcpy(rom.ja_hint, r.c_str());
       }
 
-      ImGui::InputText(GetUniqueName(u8"中文标题", id).c_str(), rom.zh,
+      ImGui::InputText(GetUniqueName(U8("中文标题"), id).c_str(), rom.zh,
                        rom.MAX);
-      ImGui::InputText(GetUniqueName(u8"中文提示", id).c_str(), rom.zh_hint,
+      ImGui::InputText(GetUniqueName(U8("中文提示"), id).c_str(), rom.zh_hint,
                        rom.MAX);
-      ImGui::InputText(GetUniqueName(u8"日文标题", id).c_str(), rom.ja,
+      ImGui::InputText(GetUniqueName(U8("日文标题"), id).c_str(), rom.ja,
                        rom.MAX);
-      ImGui::InputText(GetUniqueName(u8"日文提示", id).c_str(), rom.ja_hint,
+      ImGui::InputText(GetUniqueName(U8("日文提示"), id).c_str(), rom.ja_hint,
                        rom.MAX);
       ImGui::EndGroup();
       ImGui::SameLine();
@@ -171,21 +171,21 @@ void ROMWindow::Paint() {
         }
       }
 
-      if (ImGui::Button(GetUniqueName(u8"尝试获取封面", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("尝试获取封面"), id).c_str())) {
         kiwi::base::FilePath suggested_url =
             TryFetchCoverByName(rom, rom_base_name);
         if (!suggested_url.empty())
           ShellOpen(suggested_url);
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"旋转", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("旋转"), id).c_str())) {
         std::vector<uint8_t> rotated_data = RotateJPEG(rom.boxart_data);
         if (!rotated_data.empty()) {
           UpdateCover(rom, rotated_data);
           FillCoverData(rom, rom.boxart_data);
         }
       }
-      if (ImGui::Button(u8"从剪贴板粘贴")) {
+      if (ImGui::Button(U8("从剪贴板粘贴"))) {
         std::vector<uint8_t> paste_image = ReadImageAsJPGFromClipboard();
         if (!paste_image.empty())
           FillCoverData(rom, paste_image);
@@ -194,8 +194,8 @@ void ROMWindow::Paint() {
       ImGui::EndGroup();
 
       ImGui::BeginGroup();
-      ImGui::TextUnformatted(u8"将nes拖拽到此处进行增加/修改");
-      ImGui::InputText(GetUniqueName(u8"ROM名称", id).c_str(),
+      ImGui::TextUnformatted(U8("将nes拖拽到此处进行增加/修改"));
+      ImGui::InputText(GetUniqueName(U8("ROM名称"), id).c_str(),
                        rom.nes_file_name, rom.MAX);
       if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNone)) {
         kiwi::base::FilePath path = GetDroppedROM();
@@ -213,7 +213,7 @@ void ROMWindow::Paint() {
       }
 
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"测试", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("测试"), id).c_str())) {
         kiwi::base::FilePath kiwi_machine_path_from_cmdline;
         if (!FLAGS_km_path.empty()) {
           kiwi_machine_path_from_cmdline =
@@ -251,11 +251,11 @@ void ROMWindow::Paint() {
 
       std::string mapper;
       bool supported = IsMapperSupported(rom.nes_data, mapper);
-      ImGui::Text(u8"Mapper: %s", mapper.c_str());
-      ImGui::Text(u8"KiwiMachine是否支持打开: %s", supported ? u8"是" : u8"否");
+      ImGui::Text(U8("Mapper: %s"), mapper.c_str());
+      ImGui::Text(U8("KiwiMachine是否支持打开: %s"), supported ? U8("是") : U8("否"));
       ImGui::EndGroup();
 
-      if (ImGui::Button(GetUniqueName(u8"删除此ROM", id).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("删除此ROM"), id).c_str())) {
         to_be_deleted_ = id;
       }
 
@@ -264,51 +264,51 @@ void ROMWindow::Paint() {
     }
   }
 
-  if (ImGui::Button(GetUniqueName(u8"增加一个ROM", 0).c_str())) {
+  if (ImGui::Button(GetUniqueName(U8("增加一个ROM"), 0).c_str())) {
     NewRom();
   }
 
-  ImGui::TextUnformatted(u8"保存路径");
+  ImGui::TextUnformatted(U8("保存路径"));
   ImGui::TextUnformatted(GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
-  if (ImGui::Button(GetUniqueName(u8"保存", 0).c_str())) {
+  if (ImGui::Button(GetUniqueName(U8("保存"), 0).c_str())) {
     generated_packaged_path_ = SaveROMs(GetWorkspace().GetZippedPath(), roms_);
     show_message_box_ = true;
     NotifySaved(generated_packaged_path_);  // Update explorer's item.
   }
 
   ImGui::SameLine();
-  if (ImGui::Button(GetUniqueName(u8"打包并测试", 0).c_str())) {
+  if (ImGui::Button(GetUniqueName(U8("打包并测试"), 0).c_str())) {
     generated_packaged_path_ = SaveROMs(GetWorkspace().GetTestPath(), roms_);
     PackSingleZipAndRun(generated_packaged_path_, GetWorkspace().GetTestPath());
   }
 
   ImGui::SameLine();
-  if (ImGui::Button(GetUniqueName(u8"关闭", 0).c_str())) {
+  if (ImGui::Button(GetUniqueName(U8("关闭"), 0).c_str())) {
     Close();
   }
 
   ImGui::End();
 
   if (show_message_box_) {
-    ImGui::Begin(u8"提示", &show_message_box_,
+    ImGui::Begin(U8("提示"), &show_message_box_,
                  ImGuiWindowFlags_AlwaysAutoResize);
     if (!generated_packaged_path_.empty()) {
-      ImGui::Text(u8"保存文件成功：%s",
+      ImGui::Text(U8("保存文件成功：%s"),
                   generated_packaged_path_.AsUTF8Unsafe().c_str());
-      if (ImGui::Button(GetUniqueName(u8"打开zip", 0).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("打开zip"), 0).c_str())) {
         ShellOpen(generated_packaged_path_);
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"打开zip所在文件夹", 0).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("打开zip所在文件夹"), 0).c_str())) {
         ShellOpenDirectory(generated_packaged_path_);
       }
       ImGui::SameLine();
-      if (ImGui::Button(GetUniqueName(u8"测试包", 0).c_str())) {
+      if (ImGui::Button(GetUniqueName(U8("测试包"), 0).c_str())) {
         PackSingleZipAndRun(generated_packaged_path_,
                             GetWorkspace().GetTestPath());
       }
     } else {
-      ImGui::TextUnformatted(u8"保存文件失败");
+      ImGui::TextUnformatted(U8("保存文件失败"));
     }
     ImGui::End();
   }

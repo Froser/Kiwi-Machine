@@ -17,6 +17,7 @@
 
 #include "base/files/file_path.h"
 #include "base/files/scoped_file.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/posix/eintr_wrapper.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -154,6 +155,17 @@ bool CloseFile(FILE* file) {
     return true;
   }
   return fclose(file) == 0;
+}
+
+bool WriteFile(const FilePath& filename, std::span<const uint8_t> data) {
+  int size = checked_cast<int>(data.size());
+  return WriteFile(filename, reinterpret_cast<const char*>(data.data()),
+                   size) == size;
+}
+
+bool WriteFile(const FilePath& filename, StringPiece data) {
+  int size = checked_cast<int>(data.size());
+  return WriteFile(filename, data.data(), size) == size;
 }
 
 }  // namespace kiwi::base

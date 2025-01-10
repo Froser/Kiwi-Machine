@@ -16,6 +16,8 @@
 #include "base/containers/adapters.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/numerics/safe_conversions.h"
+#include "base/posix/eintr_wrapper.h"
 
 namespace kiwi::base {
 
@@ -158,6 +160,46 @@ FILE* OpenFile(const FilePath& filename, const char* mode) {
   }
 #endif
   return result;
+}
+
+int WriteFile(const FilePath& filename, const char* data, int size) {
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+  if (size < 0)
+    return -1;
+  int fd = HANDLE_EINTR(creat(filename.value().c_str(), 0666));
+  if (fd < 0)
+    return -1;
+
+  int bytes_written =
+      WriteFileDescriptor(fd, StringPiece(data, static_cast<size_t>(size)))
+          ? size
+          : -1;
+  if (IGNORE_EINTR(close(fd)) < 0)
+    return -1;
+  return bytes_written;
+}
+
+bool WriteFileDescriptor(int fd, std::span<const uint8_t> data) {
+  // Allow for partial writes.
+  ssize_t bytes_written_total = 0;
+  ssize_t size = checked_cast<ssize_t>(data.size());
+  for (ssize_t bytes_written_partial = 0; bytes_written_total < size;
+       bytes_written_total += bytes_written_partial) {
+    bytes_written_partial =
+        HANDLE_EINTR(write(fd, data.data() + bytes_written_total,
+                           static_cast<size_t>(size - bytes_written_total)));
+    if (bytes_written_partial < 0)
+      return false;
+  }
+
+  return true;
+}
+
+bool WriteFileDescriptor(int fd, StringPiece data) {
+  return WriteFileDescriptor(
+      fd,
+      std::span(reinterpret_cast<const uint8_t*>(data.data()), data.size()));
 }
 
 bool SetCloseOnExec(int fd) {

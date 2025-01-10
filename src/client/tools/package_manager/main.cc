@@ -41,6 +41,7 @@ struct {
   Explorer explorer;
   bool first_open = true;
   bool explorer_opened = false;
+  bool ignore_marked = false;
   Explorer::File* selected_item = nullptr;
 } g_explorer;
 
@@ -91,7 +92,7 @@ void CreateROMFromNES(const kiwi::base::FilePath& rom_path) {
 
 SDL_Window* CreateMainWindow() {
   SDL_Window* window =
-      SDL_CreateWindow(u8"KiwiMachine 资源包管理器", SDL_WINDOWPOS_UNDEFINED,
+      SDL_CreateWindow(U8("KiwiMachine 资源包管理器"), SDL_WINDOWPOS_UNDEFINED,
                        SDL_WINDOWPOS_UNDEFINED, 1024, 768, SDL_WINDOW_SHOWN);
   return window;
 }
@@ -179,18 +180,18 @@ bool HandleEvents() {
 }
 
 void PaintGlobal() {
-  ImGui::Begin(u8"全局设置");
-  ImGui::TextUnformatted(u8"包管理器，方便轻松打包NES资源。");
-  ImGui::TextUnformatted(u8"准备工作：");
+  ImGui::Begin(U8("全局设置"));
+  ImGui::TextUnformatted(U8("包管理器，方便轻松打包NES资源。"));
+  ImGui::TextUnformatted(U8("准备工作："));
 
   ImGui::Bullet();
   ImGui::SameLine();
-  ImGui::TextUnformatted(u8"将KiwiMachine的非内嵌版拷贝到本程序路径下");
+  ImGui::TextUnformatted(U8("将KiwiMachine的非内嵌版拷贝到本程序路径下"));
 
   ImGui::Bullet();
   ImGui::SameLine();
   ImGui::TextUnformatted(
-      u8"为了能够自动注音，需要安装Python3，并通过pip3安装pinyin依赖：");
+      U8("为了能够自动注音，需要安装Python3，并通过pip3安装pinyin依赖："));
   ImGui::TextUnformatted("\t");
   ImGui::SameLine();
   ImGui::Bullet();
@@ -201,11 +202,11 @@ void PaintGlobal() {
   ImGui::TextUnformatted("pip3 install pykakasi");
 
   ImGui::NewLine();
-  ImGui::TextUnformatted(u8"工作空间 (--workspace)");
+  ImGui::TextUnformatted(U8("工作空间 (--workspace)"));
   ImGui::InputText("##Workspace", GetWorkspace().workspace_dir,
                    sizeof(GetWorkspace().workspace_dir));
   ImGui::SameLine();
-  if (ImGui::Button(u8"加载工作空间")) {
+  if (ImGui::Button(U8("加载工作空间"))) {
     kiwi::base::FilePath manifest_path =
         kiwi::base::FilePath::FromUTF8Unsafe(GetWorkspace().workspace_dir)
             .Append(FILE_PATH_LITERAL("manifest.json"));
@@ -214,17 +215,17 @@ void PaintGlobal() {
 
   ImGui::Bullet();
   ImGui::SameLine();
-  ImGui::Text(u8"Zip包路径: %s",
+  ImGui::Text(U8("Zip包路径: %s"),
               GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
 
   ImGui::Bullet();
   ImGui::SameLine();
-  ImGui::Text(u8"最终包输出路径: %s",
+  ImGui::Text(U8("最终包输出路径: %s"),
               GetWorkspace().GetPackageOutputPath().AsUTF8Unsafe().c_str());
 
   ImGui::Bullet();
   ImGui::SameLine();
-  ImGui::Text(u8"封面数据库: %s",
+  ImGui::Text(U8("封面数据库: %s"),
               GetWorkspace().GetNESBoxartsPath().AsUTF8Unsafe().c_str());
   ImGui::End();
 }
@@ -233,32 +234,47 @@ std::string g_last_pack_result_str;
 kiwi::base::FilePath g_last_pack_dir;
 void PaintExplorer() {
   if (g_explorer.explorer_opened) {
-    ImGui::Begin(u8"目录浏览器##Explorer", &g_explorer.explorer_opened);
-    ImGui::Text(u8"NES Roms 路径: %s",
+    ImGui::Begin(U8("目录浏览器##Explorer"), &g_explorer.explorer_opened);
+    ImGui::Text(U8("NES Roms 路径: %s"),
                 GetWorkspace().GetNESRomsPath().AsUTF8Unsafe().c_str());
     ImGui::SameLine();
-    if (ImGui::Button(u8"与打包路径对比") || g_explorer.first_open) {
+    if (ImGui::Button(U8("与打包路径对比")) || g_explorer.first_open) {
       InitializeExplorerFiles(GetWorkspace().GetNESRomsPath(),
                               GetWorkspace().GetZippedPath(),
                               g_explorer.explorer.explorer_files);
       g_explorer.first_open = false;
     }
 
-    ImGui::Text(u8"打包路径: %s",
+    ImGui::Text(U8("打包路径: %s"),
                 GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
 
     constexpr int kItemCount = 20;
+    static const char* kPrefix[] = {U8("(不支持) "), U8("(不关心) "),
+                                    U8("(不完美) ")};
+
     if (ImGui::BeginListBox(
-            u8"文件##Files",
+            U8("文件##Files"),
             ImVec2(-FLT_MIN,
                    kItemCount * ImGui::GetTextLineHeightWithSpacing()))) {
       for (auto& item : g_explorer.explorer.explorer_files) {
-        ImGui::PushStyleColor(ImGuiCol_Text,
-                              item.supported
-                                  ? (item.matched ? ImColor(0, 255, 0).Value
-                                                  : ImColor(255, 0, 0).Value)
-                                  : ImColor(127, 127, 127).Value);
-        if (ImGui::Selectable(item.title.c_str(), &item.selected,
+        if (g_explorer.ignore_marked && item.mark != Explorer::Mark::kNoMark)
+          continue;
+
+        const char* prefix =
+            !item.supported
+                ? (!g_explorer.ignore_marked ? kPrefix[0] : "")
+                : (item.mark == Explorer::Mark::kUninterested
+                       ? kPrefix[1]
+                       : (item.mark == Explorer::Mark::kImprefect ? kPrefix[2]
+                                                                  : ""));
+        ImGui::PushStyleColor(
+            ImGuiCol_Text,
+            (item.supported && item.mark != Explorer::Mark::kUninterested &&
+             item.mark != Explorer::Mark::kImprefect)
+                ? (item.matched ? ImColor(0, 255, 0).Value
+                                : ImColor(255, 0, 0).Value)
+                : ImColor(127, 127, 127).Value);
+        if (ImGui::Selectable((prefix + item.title).c_str(), &item.selected,
                               ImGuiSelectableFlags_AllowDoubleClick)) {
           for (auto& i : g_explorer.explorer.explorer_files) {
             if (&i != &item)
@@ -273,18 +289,19 @@ void PaintExplorer() {
         }
         ImGui::PopStyleColor();
       }
+
       ImGui::EndListBox();
 
       if (g_explorer.selected_item) {
-        ImGui::Text(u8"Mapper: %s, 是否支持：%s",
+        ImGui::Text(U8("Mapper: %s, 是否支持：%s"),
                     g_explorer.selected_item->mapper.c_str(),
-                    g_explorer.selected_item->supported ? u8"是" : u8"否");
+                    g_explorer.selected_item->supported ? U8("是") : U8("否"));
       }
 
       {
         if (!g_explorer.selected_item)
           ImGui::BeginDisabled();
-        if (ImGui::Button(u8"以此NES开始制作压缩包")) {
+        if (ImGui::Button(U8("以此NES开始制作压缩包"))) {
           kiwi::base::FilePath nes_file = g_explorer.selected_item->dir.Append(
               kiwi::base::FilePath::FromUTF8Unsafe(
                   g_explorer.selected_item->title));
@@ -298,7 +315,7 @@ void PaintExplorer() {
       {
         if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
           ImGui::BeginDisabled();
-        if (ImGui::Button(u8"打开对应的压缩包")) {
+        if (ImGui::Button(U8("打开对应的压缩包"))) {
           const kiwi::base::FilePath& file =
               g_explorer.selected_item->compared_zip_path;
           if (IsZipExtension(
@@ -311,25 +328,88 @@ void PaintExplorer() {
       }
 
       ImGui::SameLine();
-      if (ImGui::Button(u8"对文件夹打包")) {
+      if (ImGui::Button(U8("对文件夹打包"))) {
         auto result =
             PackEntireDirectory(GetWorkspace().GetZippedPath(),
                                 GetWorkspace().GetPackageOutputPath());
         if (!result.empty()) {
-          g_last_pack_result_str = u8"打包成功。生成文件：\n";
+          g_last_pack_result_str = U8("打包成功。生成文件：\n");
           g_last_pack_dir = GetWorkspace().GetPackageOutputPath();
           for (const auto& path : result) {
             g_last_pack_result_str += path.AsUTF8Unsafe() + "\n";
           }
         } else {
-          g_last_pack_result_str = u8"打包失败。";
+          g_last_pack_result_str = U8("打包失败。");
           g_last_pack_dir.clear();
         }
       }
 
+      {
+        static const char* kMarkedList[]{
+            U8("没有标记"),
+            U8("标记为忽略-不感兴趣的游戏"),
+            U8("标记为忽略-未完全模拟的游戏"),
+        };
+
+        const char* marked_desc = U8("未选择");
+        if (g_explorer.selected_item) {
+          switch (g_explorer.selected_item->mark) {
+            case Explorer::Mark::kNoMark:
+              marked_desc = kMarkedList[0];
+              break;
+            case Explorer::Mark::kUninterested:
+              marked_desc = kMarkedList[1];
+              break;
+            case Explorer::Mark::kImprefect:
+              marked_desc = kMarkedList[2];
+              break;
+            default:
+              SDL_assert(false);
+              break;
+          }
+        } else {
+          ImGui::BeginDisabled();
+        }
+
+        if (ImGui::BeginCombo(U8("##Marked"), marked_desc)) {
+          if (ImGui::Selectable(
+                  kMarkedList[0],
+                  g_explorer.selected_item && g_explorer.selected_item->mark ==
+                                                  Explorer::Mark::kNoMark)) {
+            g_explorer.selected_item->mark = Explorer::Mark::kNoMark;
+            UpdateMarks(GetWorkspace().GetNESRomsPath(),
+                        g_explorer.explorer.explorer_files);
+          }
+          if (ImGui::Selectable(kMarkedList[1],
+                                g_explorer.selected_item &&
+                                    g_explorer.selected_item->mark ==
+                                        Explorer::Mark::kUninterested)) {
+            g_explorer.selected_item->mark = Explorer::Mark::kUninterested;
+            UpdateMarks(GetWorkspace().GetNESRomsPath(),
+                        g_explorer.explorer.explorer_files);
+          }
+          if (ImGui::Selectable(
+                  kMarkedList[2],
+                  g_explorer.selected_item && g_explorer.selected_item->mark ==
+                                                  Explorer::Mark::kImprefect)) {
+            g_explorer.selected_item->mark = Explorer::Mark::kImprefect;
+            UpdateMarks(GetWorkspace().GetNESRomsPath(),
+                        g_explorer.explorer.explorer_files);
+          }
+          ImGui::EndCombo();
+        }
+
+        if (!g_explorer.selected_item) {
+          ImGui::EndDisabled();
+        }
+
+        ImGui::SameLine();
+        ImGui::Checkbox(U8("忽略被标记的项"), &g_explorer.ignore_marked);
+      }
+
       if (!g_last_pack_dir.empty()) {
         ImGui::TextUnformatted(g_last_pack_result_str.c_str());
-        if (ImGui::Button(u8"测试包##TestPackage")) {
+        if (ImGui::Button(U8("测试包##TestPackage"))) {
           kiwi::base::FilePath kiwi_machine_path_from_cmdline;
           if (!FLAGS_km_path.empty()) {
             kiwi_machine_path_from_cmdline =
@@ -363,17 +443,17 @@ void PaintExplorer() {
       }
 
       ImGui::NewLine();
-      ImGui::TextUnformatted(u8"颜色说明：");
+      ImGui::TextUnformatted(U8("颜色说明："));
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(255, 0, 0).Value);
-      ImGui::TextUnformatted(u8"红色表示文件在目标路径中不存在");
+      ImGui::TextUnformatted(U8("红色表示文件在目标路径中不存在"));
       ImGui::PopStyleColor();
 
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(0, 255, 0).Value);
-      ImGui::TextUnformatted(u8"绿色表示文件在目标路径中已存在");
+      ImGui::TextUnformatted(U8("绿色表示文件在目标路径中已存在"));
       ImGui::PopStyleColor();
 
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
-      ImGui::TextUnformatted(u8"灰色表示文件不支持被打开");
+      ImGui::TextUnformatted(U8("灰色表示文件不支持被打开"));
       ImGui::PopStyleColor();
     }
     ImGui::End();
@@ -388,11 +468,11 @@ void Render() {
   ImGui::NewFrame();
 
   if (ImGui::BeginMainMenuBar()) {
-    if (ImGui::BeginMenu(u8"资源包")) {
-      if (ImGui::MenuItem(u8"新建压缩包")) {
+    if (ImGui::BeginMenu(U8("资源包"))) {
+      if (ImGui::MenuItem(U8("新建压缩包"))) {
         CreateROMWindow(ROMS(), kiwi::base::FilePath(), true, false);
       }
-      if (ImGui::MenuItem(u8"目录浏览器")) {
+      if (ImGui::MenuItem(U8("目录浏览器"))) {
         g_explorer.explorer_opened = true;
       }
 
