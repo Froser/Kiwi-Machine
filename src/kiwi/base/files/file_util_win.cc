@@ -303,19 +303,20 @@ FILE* OpenFile(const FilePath& filename, const char* mode) {
 int WriteFile(const FilePath& filename, const char* data, int size) {
   // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
   // BlockingType::MAY_BLOCK);
-  win::ScopedHandle file(CreateFile(filename.value().c_str(), GENERIC_WRITE, 0,
-                                    NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
-                                    NULL));
-  if (!file.is_valid() || size < 0) {
+  HANDLE file(CreateFile(filename.value().c_str(), GENERIC_WRITE, 0, NULL,
+                         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL));
+  if (!file || size < 0) {
     // DPLOG(WARNING) << "WriteFile failed for path " << filename.value();
     return -1;
   }
 
   DWORD written;
   BOOL result =
-      ::WriteFile(file.get(), data, static_cast<DWORD>(size), &written, NULL);
-  if (result && static_cast<int>(written) == size)
+      ::WriteFile(file, data, static_cast<DWORD>(size), &written, NULL);
+  if (result && static_cast<int>(written) == size) {
+    CloseHandle(file);
     return static_cast<int>(written);
+  }
 
   if (!result) {
     // WriteFile failed.
@@ -325,6 +326,7 @@ int WriteFile(const FilePath& filename, const char* data, int size) {
     // DLOG(WARNING) << "wrote" << written << " bytes to " << filename.value()
     //               << " expected " << size;
   }
+  CloseHandle(file);
   return -1;
 }
 
