@@ -50,7 +50,7 @@ const StringMap& GetGlobalStringMap();
                 all_idrs += '  ' + idr + ',\n'
                 all_strings += '  { ' + idr + ' , { \n'
                 for lang in data[idr]:
-                    all_strings += '{ "' + lang + '", R"(' + data[idr][lang] + ')" },\n'
+                    all_strings += '{ "' + lang + '", reinterpret_cast<const char*>(u8R"(' + data[idr][lang] + ')") },\n'
                 all_strings += '  }},\n'
 
     header_file = output_dir + '/string_resources.h'
@@ -77,11 +77,11 @@ const StringMap& GetGlobalStringMap();
         o.write('\n')
         o.write('namespace string_resources {\n')
         o.write('\n')
-        o.write('StringMap g_global_strings = {')
+        o.write('const StringMap kGlobalStrings = {')
         o.write(all_strings)
         o.write('};\n')
         o.write('const StringMap& GetGlobalStringMap() {\n')
-        o.write('  return g_global_strings;\n')
+        o.write('  return kGlobalStrings;\n')
         o.write('}\n\n')
         o.write('} // namespace string_resources\n')
     print("Generated: ", cc_file)
