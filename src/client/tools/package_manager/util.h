@@ -119,6 +119,7 @@ struct Explorer {
     kNoMark,
     kUninterested,
     kImprefect,
+    kDuplicated,
   };
 
   struct File {

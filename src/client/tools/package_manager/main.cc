@@ -250,7 +250,7 @@ void PaintExplorer() {
 
     constexpr int kItemCount = 20;
     static const char* kPrefix[] = {U8("(不支持) "), U8("(不关心) "),
-                                    U8("(不完美) ")};
+                                    U8("(不完美) "), U8("(重复) ")};
 
     if (ImGui::BeginListBox(
             U8("文件##Files"),
@@ -265,12 +265,16 @@ void PaintExplorer() {
                 ? (!g_explorer.ignore_marked ? kPrefix[0] : "")
                 : (item.mark == Explorer::Mark::kUninterested
                        ? kPrefix[1]
-                       : (item.mark == Explorer::Mark::kImprefect ? kPrefix[2]
-                                                                  : ""));
+                       : (item.mark == Explorer::Mark::kImprefect
+                              ? kPrefix[2]
+                              : (item.mark == Explorer::Mark::kDuplicated
+                                     ? kPrefix[3]
+                                     : "")));
         ImGui::PushStyleColor(
             ImGuiCol_Text,
             (item.supported && item.mark != Explorer::Mark::kUninterested &&
-             item.mark != Explorer::Mark::kImprefect)
+             item.mark != Explorer::Mark::kImprefect &&
+             item.mark != Explorer::Mark::kDuplicated)
                 ? (item.matched ? ImColor(0, 255, 0).Value
                                 : ImColor(255, 0, 0).Value)
                 : ImColor(127, 127, 127).Value);
@@ -349,6 +353,7 @@ void PaintExplorer() {
             U8("没有标记"),
             U8("标记为忽略-不感兴趣的游戏"),
             U8("标记为忽略-未完全模拟的游戏"),
+            U8("标记位忽略-重复的游戏"),
         };
 
         const char* marked_desc = U8("未选择");
@@ -363,6 +368,8 @@ void PaintExplorer() {
             case Explorer::Mark::kImprefect:
               marked_desc = kMarkedList[2];
               break;
+            case Explorer::Mark::kDuplicated:
+              marked_desc = kMarkedList[3];
             default:
               SDL_assert(false);
               break;
@@ -393,6 +400,14 @@ void PaintExplorer() {
                   g_explorer.selected_item && g_explorer.selected_item->mark ==
                                                   Explorer::Mark::kImprefect)) {
             g_explorer.selected_item->mark = Explorer::Mark::kImprefect;
+            UpdateMarks(GetWorkspace().GetNESRomsPath(),
+                        g_explorer.explorer.explorer_files);
+          }
+          if (ImGui::Selectable(kMarkedList[3],
+                                g_explorer.selected_item &&
+                                    g_explorer.selected_item->mark ==
+                                        Explorer::Mark::kDuplicated)) {
+            g_explorer.selected_item->mark = Explorer::Mark::kDuplicated;
             UpdateMarks(GetWorkspace().GetNESRomsPath(),
                         g_explorer.explorer.explorer_files);
           }
