@@ -1037,7 +1037,9 @@ void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
     if (input_file_iter != files.end()) {
       input_file_iter->matched = true;
       input_file_iter->compared_zip_path = updated_zip_file;
-      break;
+    } else {
+      input_file_iter->matched = false;
+      input_file_iter->compared_zip_path = kiwi::base::FilePath();
     }
   }
 }
