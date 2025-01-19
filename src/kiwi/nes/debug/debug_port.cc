@@ -46,10 +46,55 @@ Sprite::Sprite(Sprite&& sprite) {
   is_8x8 = std::move(sprite.is_8x8);
 }
 
+void PerformanceCounter::Start() {
+  cpu_ms_per_frame_ = std::chrono::milliseconds(0);
+  ppu_ms_per_frame_ = std::chrono::milliseconds(0);
+  started_ = true;
+}
+
+void PerformanceCounter::End() {
+  started_ = false;
+}
+
+void PerformanceCounter::PPUStart() {
+  if (started_) {
+    ppu_timestamp_ = std::chrono::high_resolution_clock::now();
+  }
+}
+
+void PerformanceCounter::PPUEnd() {
+  if (started_) {
+    ppu_ms_per_frame_ +=
+        std::chrono::high_resolution_clock::now() - ppu_timestamp_;
+  }
+}
+
+void PerformanceCounter::CPUStart() {
+  if (started_) {
+    cpu_timestamp_ = std::chrono::high_resolution_clock::now();
+  }
+}
+
+void PerformanceCounter::CPUEnd() {
+  if (started_) {
+    cpu_ms_per_frame_ +=
+        std::chrono::high_resolution_clock::now() - cpu_timestamp_;
+  }
+}
+
+int PerformanceCounter::PPUDurationPerFrameInMilliseconds() {
+  return static_cast<float>(ppu_ms_per_frame_.count());
+}
+
+int PerformanceCounter::CPUDurationPerFrameInMilliseconds() {
+  return static_cast<float>(cpu_ms_per_frame_.count());
+}
+
 DebugPort::DebugPort(Emulator* emulator) : emulator_(emulator) {
   DCHECK(emulator_);
   main_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
 }
+
 DebugPort::~DebugPort() = default;
 
 void DebugPort::OnNametableRenderReady() {

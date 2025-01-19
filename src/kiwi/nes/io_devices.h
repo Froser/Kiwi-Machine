@@ -56,6 +56,8 @@ class NES_EXPORT IODevices {
       kBufferMS = 0,
 #elif BUILDFLAG(IS_WASM)
       kBufferMS = 1250,
+#elif BUILDFLAG(IS_ANDROID)
+      kBufferMS = 1000,
 #else
       kBufferMS = 65000,
 #endif

@@ -22,19 +22,19 @@
 
 // A demo widget shows IMGui's demo.
 class DebugPort;
-class FrameRateWidget : public Widget,
-                        public NESFrameObserver,
-                        public ApplicationObserver,
-                        public DebugPortObserver {
+class PerformanceWidget : public Widget,
+                          public NESFrameObserver,
+                          public ApplicationObserver,
+                          public DebugPortObserver {
  public:
   enum {
     kSampleCount = 60,
   };
 
-  explicit FrameRateWidget(WindowBase* window_base,
-                           scoped_refptr<NESFrame> frame,
-                           DebugPort* debug_port);
-  ~FrameRateWidget() override;
+  explicit PerformanceWidget(WindowBase* window_base,
+                             scoped_refptr<NESFrame> frame,
+                             DebugPort* debug_port);
+  ~PerformanceWidget() override;
 
  protected:
   // Widget:
@@ -47,7 +47,9 @@ class FrameRateWidget : public Widget,
   void OnPreRender(int since_last_frame_ms) override;
 
   // DebugPortObserver:
-  void OnFrameEnd(int since_last_frame_end_ms) override;
+  void OnFrameEnd(int since_last_frame_duration_ms,
+                  int cpu_last_frame_duration_ms,
+                  int ppu_last_frame_duration_ms) override;
 
  private:
   struct Plot {
@@ -65,6 +67,9 @@ class FrameRateWidget : public Widget,
   Plot app_frame_since_last_;
   Plot nes_frame_generate_;
   Plot nes_frame_present_;
+  Plot nes_cpu_ppu_total_ms_costs_per_frame_;
+  Plot nes_cpu_ms_costs_per_frame_;
+  Plot nes_ppu_ms_costs_per_frame_;
 };
 
 #endif  // UI_WIDGETS_FRAME_RATE_WIDGET_H_

@@ -94,6 +94,30 @@ struct NES_EXPORT Sprite {
   bool is_8x8;
 };
 
+class PerformanceCounter {
+ public:
+  PerformanceCounter() = default;
+  ~PerformanceCounter() = default;
+
+  void Start();
+  void End();
+
+  void PPUStart();
+  void PPUEnd();
+  void CPUStart();
+  void CPUEnd();
+
+  int PPUDurationPerFrameInMilliseconds();
+  int CPUDurationPerFrameInMilliseconds();
+
+ private:
+  bool started_ = false;
+  std::chrono::duration<float, std::milli> ppu_ms_per_frame_;
+  std::chrono::high_resolution_clock::time_point ppu_timestamp_;
+  std::chrono::duration<float, std::milli> cpu_ms_per_frame_;
+  std::chrono::high_resolution_clock::time_point cpu_timestamp_;
+};
+
 class NES_EXPORT DebugPort {
  public:
   DebugPort(Emulator* emulator);
@@ -121,6 +145,7 @@ class NES_EXPORT DebugPort {
   // Accesses to CPU/PPU
  public:
   Emulator* emulator() { return emulator_; }
+  PerformanceCounter& performance_counter() { return performance_counter_; }
   PPUContext GetPPUContext();
   CPUContext GetCPUContext();
   Byte CPUReadByte(Address address, bool* can_read = nullptr);
@@ -154,6 +179,10 @@ class NES_EXPORT DebugPort {
   // Set PPU subtle behaviour:
   void SetScanlineIRQCycle(int cycles);
 
+  // Controls whether screen buffers will be painted
+  void set_render_paused(bool disabled) { render_disabled_ = disabled; }
+  bool render_paused() { return render_disabled_; }
+
  private:
   Attributes GetNametableAttributes(Address nametable_start);
 
@@ -172,6 +201,8 @@ class NES_EXPORT DebugPort {
   IODevices::RenderDevice* nametable_render_device_ = nullptr;
   scoped_refptr<base::SingleThreadTaskRunner> main_task_runner_;
   Emulator* emulator_ = nullptr;
+  bool render_disabled_ = false;
+  PerformanceCounter performance_counter_;
 };
 }  // namespace nes
 }  // namespace kiwi

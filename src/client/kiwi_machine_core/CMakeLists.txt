@@ -81,8 +81,8 @@ set(Sources
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
         ui/widgets/flex_items_widget.h
-        ui/widgets/frame_rate_widget.cc
-        ui/widgets/frame_rate_widget.h
+        ui/widgets/performance_widget.cc
+        ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc
         ui/widgets/in_game_menu.h
         ui/widgets/joystick_button.cc

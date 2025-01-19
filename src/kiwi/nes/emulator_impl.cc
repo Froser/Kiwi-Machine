@@ -128,12 +128,13 @@ EmulatorImpl::~EmulatorImpl() = default;
 
 void EmulatorImpl::PowerOn() {
   emulator_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
-  if (!working_thread_)
+  if (!working_thread_ && emulate_on_working_thread_) {
     working_thread_ = std::make_unique<base::Thread>("NES Working thread");
-  base::Thread::Options options;
-  options.message_pump_type = base::MessagePumpType::IO;
-  if (!working_thread_->StartWithOptions(std::move(options))) {
-    LOG(FATAL) << "Failed to start working thread.";
+    base::Thread::Options options;
+    options.message_pump_type = base::MessagePumpType::IO;
+    if (!working_thread_->StartWithOptions(std::move(options))) {
+      LOG(FATAL) << "Failed to start working thread.";
+    }
   }
   working_task_runner_ = emulate_on_working_thread_
                              ? working_thread_->task_runner()
@@ -225,7 +226,6 @@ void EmulatorImpl::Run() {
     return;
   }
 
-  cpu_cycle_timestamp_ = std::chrono::high_resolution_clock::now();
   running_state_ = RunningState::kRunning;
 }
 
@@ -319,25 +319,21 @@ void EmulatorImpl::RunOneFrameOnProperThread() {
     return;
   }
 
-  cpu_cycle_elapsed_ +=
-      (std::chrono::high_resolution_clock::now() - cpu_cycle_timestamp_);
-  cpu_cycle_timestamp_ = std::chrono::high_resolution_clock::now();
+  if (debug_port_)
+    debug_port_->performance_counter().Start();
 
-  if (cpu_cycle_elapsed_ > kNanoPerCycle * 1000000) {
-    // If we stuck too long, it might be in a debug mode. Just treats it as one
-    // frame.
-    cpu_cycle_elapsed_ = kNanoPerCycle + std::chrono::nanoseconds(1);
-  }
-
-  while (cpu_cycle_elapsed_ > kNanoPerCycle) {
+  // A frame has about 29781 CPU loops.
+  constexpr int kLoopsPerFrame = 29781;
+  for (int loop = 0; loop < kLoopsPerFrame; ++loop) {
     if (running_state_ != RunningState::kRunning)
       break;
     StepInternal();
-    cpu_cycle_elapsed_ -= kNanoPerCycle;
-
-    EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
-        ->RunAllTasks();
   }
+  if (debug_port_)
+    debug_port_->performance_counter().End();
+
+  EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
+      ->RunAllTasks();
 }
 
 void EmulatorImpl::PowerOffOnProperThread() {
@@ -381,7 +377,6 @@ bool EmulatorImpl::LoadStateOnProperThread(const Bytes& data) {
 void EmulatorImpl::ResetOnProperThread() {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   DCHECK(cpu_ && ppu_);
-  cpu_cycle_elapsed_ = std::chrono::nanoseconds(0);
   if (cartridge_ && cartridge_->is_loaded()) {
     cpu_->Reset();
     ppu_->Reset();
@@ -408,7 +403,7 @@ void EmulatorImpl::PostReset(RunningState last_state) {
 
 void EmulatorImpl::OnIRQFromAPU() {
   // TODO Handle APU IRQ
-  LOG(INFO) << "OnIRQFromAPU() is unhandled yet.";
+  DLOG(INFO) << "OnIRQFromAPU() is unhandled yet.";
 }
 
 void EmulatorImpl::OnPPUStepped() {
@@ -470,12 +465,20 @@ void EmulatorImpl::StepInternal() {
 
   // https://www.nesdev.org/wiki/Cycle_reference_chart
   // PPU
+  if (debug_port_)
+    debug_port_->performance_counter().PPUStart();
   ppu_->Step();
   ppu_->Step();
   ppu_->Step();
+  if (debug_port_)
+    debug_port_->performance_counter().PPUEnd();
 
   // CPU
+  if (debug_port_)
+    debug_port_->performance_counter().CPUStart();
   cpu_->Step();
+  if (debug_port_)
+    debug_port_->performance_counter().CPUEnd();
 
   if (debug_port_)
     debug_port_->OnEmulatorStepped(GetCPUContext(), GetPPUContext());
@@ -605,7 +608,11 @@ void EmulatorImpl::OnPPUFrameEnd() {
 void EmulatorImpl::OnRenderReady(const Colors& swapbuffer) {
   DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
   // Render is ready, update APU state here.
+
   apu_->StepFrame();
+
+  if (debug_port_ && debug_port_->render_paused())
+    return;
 
   if (debug_port_) {
     debug_port_->OnNametableRenderReady();
