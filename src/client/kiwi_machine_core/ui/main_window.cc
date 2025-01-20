@@ -566,13 +566,6 @@ void MainWindow::HandleResizedEvent() {
   WindowBase::HandleResizedEvent();
 }
 
-void MainWindow::HandlePostEvent() {
-  if (runtime_data_ && render_done_) {
-    render_done_ = false;
-    runtime_data_->emulator->RunOneFrame();
-  }
-}
-
 void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
   // Display event changing treats as resizing.
   if (event->type == SDL_DISPLAYEVENT_ORIENTATION)

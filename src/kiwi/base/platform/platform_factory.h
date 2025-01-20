@@ -95,8 +95,6 @@ BASE_EXPORT void SetPreEventHandlerForSDL2(SDL2EventHandler handler);
 BASE_EXPORT SDL2EventHandler GetPreEventHandlerForSDL2();
 BASE_EXPORT void SetEventHandlerForSDL2(SDL2EventHandler handler);
 BASE_EXPORT SDL2EventHandler GetEventHandlerForSDL2();
-BASE_EXPORT void SetPostEventHandlerForSDL2(SDL2PostEventHandler handler);
-BASE_EXPORT SDL2PostEventHandler GetPostEventHandlerForSDL2();
 BASE_EXPORT void SetRenderHandlerForSDL2(SDL2RenderHandler handler);
 BASE_EXPORT SDL2RenderHandler GetRenderHandlerForSDL2();
 

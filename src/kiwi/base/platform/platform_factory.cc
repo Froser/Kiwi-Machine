@@ -132,18 +132,6 @@ SDL2EventHandler GetEventHandlerForSDL2() {
   return platform::g_sdl2_event_handler;
 }
 
-void SetPostEventHandlerForSDL2(SDL2PostEventHandler handler) {
-  DCHECK(GetPlatformFactoryBackend() == PlatformFactoryBackend::kSDL2)
-      << "Only backend with SDL2 should use this function.";
-  platform::g_sdl2_post_event_handler = handler;
-}
-
-SDL2PostEventHandler GetPostEventHandlerForSDL2() {
-  DCHECK(GetPlatformFactoryBackend() == PlatformFactoryBackend::kSDL2)
-      << "Only backend with SDL2 should use this function.";
-  return platform::g_sdl2_post_event_handler;
-}
-
 void SetRenderHandlerForSDL2(SDL2RenderHandler handler) {
   DCHECK(GetPlatformFactoryBackend() == PlatformFactoryBackend::kSDL2)
       << "Only backend with SDL2 should use this function.";

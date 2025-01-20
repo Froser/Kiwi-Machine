@@ -92,7 +92,6 @@ Application::~Application() {
   UninitializeAudioEffects();
   UninitializeImageResources();
   kiwi::base::SetEventHandlerForSDL2(kiwi::base::DoNothing());
-  kiwi::base::SetPostEventHandlerForSDL2(kiwi::base::DoNothing());
   g_app_instance = nullptr;
 }
 
@@ -211,6 +210,14 @@ uint32_t Application::FindIDFromWindow(WindowBase* window) {
 }
 
 void Application::Render() {
+  // Logical frame
+  NESRuntime::Data* runtime_data =
+      NESRuntime::GetInstance()->GetDataById(runtime_id_);
+  if (runtime_data) {
+    runtime_data->emulator->RunOneFrame();
+  }
+
+  // Render frame
   int elapsed_ms_ = frame_elapsed_counter_.ElapsedInMillisecondsAndReset();
   render_counter_.Start();
 
@@ -237,12 +244,6 @@ void Application::LocaleChanged() {
 void Application::FontChanged() {
   for (const auto& w : windows_) {
     w.second->HandleFontChanged();
-  }
-}
-
-void Application::HandlePostEvent() {
-  for (const auto& w : windows_) {
-    w.second->HandlePostEvent();
   }
 }
 
@@ -338,11 +339,8 @@ void Application::InitializeApplication(int& argc, char** argv) {
                                              kiwi::base::Unretained(this));
   render_handler_ = kiwi::base::BindRepeating(&Application::Render,
                                               kiwi::base::Unretained(this));
-  post_event_handler_ = kiwi::base::BindRepeating(&Application::HandlePostEvent,
-                                                  kiwi::base::Unretained(this));
   kiwi::base::SetEventHandlerForSDL2(event_handler_);
   kiwi::base::SetRenderHandlerForSDL2(render_handler_);
-  kiwi::base::SetPostEventHandlerForSDL2(post_event_handler_);
 }
 
 void Application::UninitializeGameControllers() {

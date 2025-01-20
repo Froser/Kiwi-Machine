@@ -29,9 +29,11 @@ void NESFrame::Render(int width, int height, const Buffer& buffer) {
   render_width_ = width;
   render_height_ = height;
 
-  int elapsed_ms = frame_elapsed_counter_.ElapsedInMillisecondsAndReset();
-  for (NESFrameObserver* observer : observers_) {
-    observer->OnShouldRender(elapsed_ms);
+  if (!observers_.empty()) {
+    int elapsed_ms = frame_elapsed_counter_.ElapsedInMillisecondsAndReset();
+    for (NESFrameObserver* observer : observers_) {
+      observer->OnShouldRender(elapsed_ms);
+    }
   }
 }
 

@@ -113,7 +113,6 @@ class MainWindow : public WindowBase,
   void OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) override;
   void OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) override;
   void HandleResizedEvent() override;
-  void HandlePostEvent() override;
   void HandleDisplayEvent(SDL_DisplayEvent* event) override;
   void HandleDropFileEvent(SDL_DropEvent* event) override;
   void Render() override;

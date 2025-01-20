@@ -63,7 +63,6 @@ class WindowBase {
   virtual void HandleTextInputEvent(SDL_TextInputEvent* event);
   virtual void HandleResizedEvent();
   virtual void HandleDisplayEvent(SDL_DisplayEvent* event);
-  virtual void HandlePostEvent();
   virtual void HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
   virtual void HandleDropFileEvent(SDL_DropEvent* event);
   virtual void HandleLocaleChanged();
