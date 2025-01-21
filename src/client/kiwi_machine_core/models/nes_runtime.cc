@@ -429,21 +429,30 @@ kiwi::base::RepeatingClosure NESRuntime::Data::CreateAutoSaveClosure(
               [](NESRuntime::Data* runtime_data, int crc,
                  kiwi::base::TimeDelta delta, GetThumbnailCallback thumbnail,
                  kiwi::nes::Bytes data) {
-                SDL_assert(Application::Get()
-                               ->GetIOTaskRunner()
-                               ->RunsTasksInCurrentSequence());
+                Application::Get()
+                    ->GetIOTaskRunner()
+                    ->PostTaskAndReplyWithResult(
+                        FROM_HERE,
+                        kiwi::base::BindOnce(
+                            &SaveAutoSavedStateOnIOThread,
+                            std::chrono::system_clock::to_time_t(
+                                std::chrono::system_clock::now()),
+                            runtime_data->profile_path, crc, data,
+                            thumbnail.Run()),
+                        kiwi::base::BindOnce(
+                            [](NESRuntime::Data* runtime_data,
+                               kiwi::base::TimeDelta delta,
+                               GetThumbnailCallback thumbnail, bool success) {
+                              if (!success) {
+                                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                                            "Can't auto save state.");
+                              }
 
-                bool success = SaveAutoSavedStateOnIOThread(
-                    std::chrono::system_clock::to_time_t(
-                        std::chrono::system_clock::now()),
-                    runtime_data->profile_path, crc, data, thumbnail.Run());
-                if (!success) {
-                  SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                              "Can't auto save state.");
-                }
-
-                // Invoke it again if auto start.
-                runtime_data->TriggerDelayedAutoSave(delta, thumbnail);
+                              // Invoke it again if auto start.
+                              runtime_data->TriggerDelayedAutoSave(delta,
+                                                                   thumbnail);
+                            },
+                            runtime_data, delta, thumbnail));
               },
               runtime_data, rom_data->crc, delta, thumbnail));
         } else {
@@ -456,7 +465,7 @@ kiwi::base::RepeatingClosure NESRuntime::Data::CreateAutoSaveClosure(
 void NESRuntime::Data::TriggerDelayedAutoSave(kiwi::base::TimeDelta delta,
                                               GetThumbnailCallback thumbnail) {
   if (auto_save_started_) {
-    Application::Get()->GetIOTaskRunner()->PostDelayedTask(
+    kiwi::base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE, CreateAutoSaveClosure(delta, thumbnail), delta);
   }
 }

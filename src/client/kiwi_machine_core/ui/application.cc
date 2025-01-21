@@ -394,7 +394,7 @@ void Application::InitializeRuntimeAndConfigs() {
   NESRuntimeID runtime_id = NESRuntime::GetInstance()->CreateData("Default");
   NESRuntime::Data* runtime_data =
       NESRuntime::GetInstance()->GetDataById(runtime_id);
-  runtime_data->emulator = kiwi::nes::CreateEmulator(false);
+  runtime_data->emulator = kiwi::nes::CreateEmulator();
   runtime_data->debug_port =
       std::make_unique<DebugPort>(runtime_data->emulator.get());
   runtime_id_ = runtime_id;

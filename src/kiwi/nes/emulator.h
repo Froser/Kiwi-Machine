@@ -113,6 +113,9 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual void SetVolume(float volume) = 0;
   virtual float GetVolume() = 0;
 
+  // Gets last rendered frame.
+  virtual const Colors& GetLastFrame() = 0;
+
  public:
   virtual void SetDebugPort(DebugPort* debug_port) = 0;
 
@@ -129,11 +132,8 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual int GetAudioChannelMasks() = 0;
 };
 
-// Creates an emulator. If |emulate_on_working_thread| is true, emulation will
-// be run on a dedicate thread. If |emulate_on_working_thread| is false,
-// emulation will be run on UI thread.
-NES_EXPORT scoped_refptr<Emulator> CreateEmulator(
-    bool emulate_on_working_thread = true);
+// Creates an emulator.
+NES_EXPORT scoped_refptr<Emulator> CreateEmulator();
 
 }  // namespace nes
 }  // namespace kiwi

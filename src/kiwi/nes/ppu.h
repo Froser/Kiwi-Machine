@@ -53,7 +53,12 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   Address sprite_data_address() { return sprite_data_address_; }
   Palette* palette() { return palette_.get(); }
   bool write_toggle() { return write_toggle_; }
-  const Colors& current_frame() { return screenbuffer_; }
+  const Colors& last_frame() {
+    return screenbuffers_[(current_buffer_index_ - 1) % kMaxBufferSize];
+  }
+  const Colors& current_frame() {
+    return screenbuffers_[current_buffer_index_];
+  }
   int pixel() { return cycles_; }
   int scanline() {
     return pipeline_state_ == PipelineState::kPreRender ? 261 : scanline_;
@@ -137,8 +142,10 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   int scanline_ = 0;
   bool is_even_frame_ = false;
   std::unique_ptr<Palette> palette_;
-  // |screenbuffer_| is the current framebuffer that PPU is writing to.
-  Colors screenbuffer_;
+
+  enum { kMaxBufferSize = 2 };
+  size_t current_buffer_index_ = 0;
+  Colors screenbuffers_[kMaxBufferSize];
 
   PPUPatch patch_;
   uint32_t crc_;

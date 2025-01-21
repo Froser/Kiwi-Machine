@@ -36,15 +36,14 @@ class NES_EXPORT IODevices {
 
   class NES_EXPORT RenderDevice {
    public:
-    using BGRA = uint32_t;
-    using Buffer = std::vector<BGRA>;
+    using Buffer = Colors;
 
    public:
     RenderDevice();
     virtual ~RenderDevice();
 
    public:
-    virtual void Render(int width, int height, const Buffer& buffer) = 0;
+    virtual void Render(int width, int height, const Colors& buffer) = 0;
     virtual bool NeedRender() = 0;
   };
 

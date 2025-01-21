@@ -39,7 +39,7 @@ class EmulatorStates;
 // Emulator stands for the virtual machine of NES.
 class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
  public:
-  EmulatorImpl(bool emulate_on_working_thread);
+  EmulatorImpl();
 
  protected:
   ~EmulatorImpl() override;
@@ -68,6 +68,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void LoadState(const Bytes& data, LoadCallback callback) override;
   void SetVolume(float volume) override;
   float GetVolume() override;
+  const Colors& GetLastFrame() override;
 
   // Device:
   Byte Read(Address address) override;
@@ -125,10 +126,8 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   friend class EmulatorStates;
 
  private:
-  bool emulate_on_working_thread_ = true;
   bool is_power_on_ = false;
   // NTSC NES: 1.789773 MHz (~559 ns per cycle)
-  std::unique_ptr<base::Thread> working_thread_;
   std::unique_ptr<CPU> cpu_;
   std::unique_ptr<CPUBus> cpu_bus_;
   std::unique_ptr<PPU> ppu_;
@@ -142,7 +141,6 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
 
   DebugPort* debug_port_ = nullptr;
   scoped_refptr<base::SequencedTaskRunner> emulator_task_runner_;
-  scoped_refptr<base::SequencedTaskRunner> working_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> render_coroutine_;
 };
 

@@ -979,8 +979,7 @@ void MainWindow::StartAutoSave() {
   constexpr int kAutoSaveTimeDelta = 5000;
   runtime_data_->StartAutoSave(
       kiwi::base::Milliseconds(kAutoSaveTimeDelta),
-      kiwi::base::BindRepeating(
-          [](Canvas* canvas) { return canvas->frame()->buffer(); }, canvas_));
+      kiwi::base::BindRepeating(&NESFrame::GetLastFrame, canvas_->frame()));
 }
 
 void MainWindow::StopAutoSave() {
@@ -1491,7 +1490,7 @@ void MainWindow::OnSaveState(int which_state) {
         if (!data.empty()) {
           runtime_data->SaveState(
               rom_data->crc, which_state, data,
-              window->canvas_->frame()->buffer(),
+              window->canvas_->frame()->GetLastFrame(),
               kiwi::base::BindOnce(&MainWindow::OnStateSaved,
                                    kiwi::base::Unretained(window)));
         } else {
