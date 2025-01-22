@@ -20,6 +20,10 @@
 #include "ui/widgets/touch_button.h"
 #include "ui/widgets/virtual_joystick.h"
 
+#if KIWI_ANDROID
+#include "third_party/SDL2/src/core/android/SDL_android.h"
+#endif
+
 namespace {
 constexpr int kDefaultWindowWidth = Canvas::kNESFrameDefaultWidth;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
@@ -31,6 +35,12 @@ bool MainWindow::IsLandscape() {
 }
 
 void MainWindow::CreateVirtualTouchButtons() {
+#if KIWI_ANDROID
+  // TV applications uses joysticks or remote controller.
+  if (SDL_IsAndroidTV())
+    return;
+#endif
+
   {
     std::unique_ptr<VirtualJoystick> vtb_joystick =
         std::make_unique<VirtualJoystick>(this);
@@ -161,6 +171,12 @@ void MainWindow::CreateVirtualTouchButtons() {
 
 void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
                                               bool visible) {
+#if KIWI_ANDROID
+  // TV applications uses joysticks or remote controller.
+  if (SDL_IsAndroidTV())
+    return;
+#endif
+
   switch (button) {
     case VirtualTouchButton::kStart:
       if (vtb_start_)
@@ -197,6 +213,12 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
 }
 
 void MainWindow::LayoutVirtualTouchButtons() {
+#if KIWI_ANDROID
+  // TV applications uses joysticks or remote controller.
+  if (SDL_IsAndroidTV())
+    return;
+#endif
+
   const SDL_Rect kClientBounds = GetClientBounds();
   bool is_landscape = IsLandscape();
 
@@ -283,6 +305,12 @@ void MainWindow::LayoutVirtualTouchButtons() {
 }
 
 void MainWindow::OnVirtualJoystickChanged(int state) {
+#if KIWI_ANDROID
+  // TV applications uses joysticks or remote controller.
+  if (SDL_IsAndroidTV())
+    return;
+#endif
+
   SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kLeft, false);
   SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kRight, false);
   SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kUp, false);
@@ -417,9 +445,15 @@ void MainWindow::OnJoystickButtonsMatched() {
 // The window is touched and canvas is appeared, restore all virtual joystick
 // buttons.
 bool MainWindow::HandleWindowFingerDown() {
+#if KIWI_ANDROID
+  // TV applications uses joysticks or remote controller.
+  if (SDL_IsAndroidTV())
+    return false;
+#endif
+
   // Tests one joystick's visibility, to know whether all virtual buttons are
   // visible or not.
-  if (canvas_->visible() && !vtb_joystick_->visible()) {
+  if (canvas_->visible() && vtb_joystick_ && !vtb_joystick_->visible()) {
     SetVirtualButtonsVisible(true);
     return true;
   }
@@ -428,10 +462,22 @@ bool MainWindow::HandleWindowFingerDown() {
 }
 
 void MainWindow::StashVirtualButtonsVisible() {
+#if KIWI_ANDROID
+  // TV applications uses joysticks or remote controller.
+  if (SDL_IsAndroidTV())
+    return;
+#endif
+
   stashed_virtual_joysticks_visible_state_ =
       vtb_joystick_ && vtb_joystick_->visible();
 }
 
 void MainWindow::PopVirtualButtonsVisible() {
+#if KIWI_ANDROID
+  // TV applications uses joysticks or remote controller.
+  if (SDL_IsAndroidTV())
+    return;
+#endif
+
   SetVirtualButtonsVisible(stashed_virtual_joysticks_visible_state_);
 }

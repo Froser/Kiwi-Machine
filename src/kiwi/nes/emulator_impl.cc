@@ -118,27 +118,15 @@ base::OnceClosure EmulatorRenderTaskRunner::PopTask() {
 
 }  // namespace
 
-EmulatorImpl::EmulatorImpl(bool emulate_on_working_thread)
+EmulatorImpl::EmulatorImpl()
     : controller1_(0),
       controller2_(1),
-      emulate_on_working_thread_(emulate_on_working_thread),
       render_coroutine_(base::MakeRefCounted<EmulatorRenderTaskRunner>()) {}
 
 EmulatorImpl::~EmulatorImpl() = default;
 
 void EmulatorImpl::PowerOn() {
   emulator_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
-  if (!working_thread_)
-    working_thread_ = std::make_unique<base::Thread>("NES Working thread");
-  base::Thread::Options options;
-  options.message_pump_type = base::MessagePumpType::IO;
-  if (!working_thread_->StartWithOptions(std::move(options))) {
-    LOG(FATAL) << "Failed to start working thread.";
-  }
-  working_task_runner_ = emulate_on_working_thread_
-                             ? working_thread_->task_runner()
-                             : base::SequencedTaskRunner::GetCurrentDefault();
-
   controller1_.set_emulator(this);
   controller2_.set_emulator(this);
 
@@ -176,11 +164,11 @@ void EmulatorImpl::PowerOff() {
     if (GetRunningState() == RunningState::kRunning)
       running_state_ = Emulator::RunningState::kStopped;
 
-    if (working_task_runner_->RunsTasksInCurrentSequence()) {
+    if (emulator_task_runner_->RunsTasksInCurrentSequence()) {
       RunOneFrameOnProperThread();
       PowerOffOnProperThread();
     } else {
-      working_task_runner_->PostTask(
+      emulator_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(&EmulatorImpl::RunOneFrameOnProperThread,
                          base::RetainedRef(this))
@@ -225,15 +213,14 @@ void EmulatorImpl::Run() {
     return;
   }
 
-  cpu_cycle_timestamp_ = std::chrono::high_resolution_clock::now();
   running_state_ = RunningState::kRunning;
 }
 
 void EmulatorImpl::RunOneFrame() {
-  if (working_task_runner_->RunsTasksInCurrentSequence()) {
+  if (emulator_task_runner_->RunsTasksInCurrentSequence()) {
     RunOneFrameOnProperThread();
   } else {
-    working_task_runner_->PostTask(
+    emulator_task_runner_->PostTask(
         FROM_HERE, base::BindOnce(&EmulatorImpl::RunOneFrameOnProperThread,
                                   base::RetainedRef(this)));
   }
@@ -312,36 +299,32 @@ void EmulatorImpl::Strobe(Byte strobe) {
 }
 
 void EmulatorImpl::RunOneFrameOnProperThread() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (running_state_ != RunningState::kRunning) {
     EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
         ->RunAllTasks();
     return;
   }
 
-  cpu_cycle_elapsed_ +=
-      (std::chrono::high_resolution_clock::now() - cpu_cycle_timestamp_);
-  cpu_cycle_timestamp_ = std::chrono::high_resolution_clock::now();
+  if (debug_port_)
+    debug_port_->performance_counter().Start();
 
-  if (cpu_cycle_elapsed_ > kNanoPerCycle * 1000000) {
-    // If we stuck too long, it might be in a debug mode. Just treats it as one
-    // frame.
-    cpu_cycle_elapsed_ = kNanoPerCycle + std::chrono::nanoseconds(1);
-  }
-
-  while (cpu_cycle_elapsed_ > kNanoPerCycle) {
+  // A frame has about 29781 CPU loops.
+  constexpr int kLoopsPerFrame = 29781;
+  for (int loop = 0; loop < kLoopsPerFrame; ++loop) {
     if (running_state_ != RunningState::kRunning)
       break;
     StepInternal();
-    cpu_cycle_elapsed_ -= kNanoPerCycle;
-
-    EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
-        ->RunAllTasks();
   }
+  if (debug_port_)
+    debug_port_->performance_counter().End();
+
+  EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
+      ->RunAllTasks();
 }
 
 void EmulatorImpl::PowerOffOnProperThread() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   SetDebugPort(nullptr);
   cpu_.reset();
   ppu_.reset();
@@ -354,7 +337,7 @@ void EmulatorImpl::PowerOffOnProperThread() {
 }
 
 Bytes EmulatorImpl::SaveStateOnProperThread() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
 
   if (running_state_ != Emulator::RunningState::kStopped) {
     return EmulatorStates::CreateStateForVersion(this, 1).Build();
@@ -364,7 +347,7 @@ Bytes EmulatorImpl::SaveStateOnProperThread() {
 }
 
 bool EmulatorImpl::LoadStateOnProperThread(const Bytes& data) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
 
   bool success;
   if (running_state_ != Emulator::RunningState::kStopped) {
@@ -379,9 +362,8 @@ bool EmulatorImpl::LoadStateOnProperThread(const Bytes& data) {
 }
 
 void EmulatorImpl::ResetOnProperThread() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   DCHECK(cpu_ && ppu_);
-  cpu_cycle_elapsed_ = std::chrono::nanoseconds(0);
   if (cartridge_ && cartridge_->is_loaded()) {
     cpu_->Reset();
     ppu_->Reset();
@@ -390,7 +372,7 @@ void EmulatorImpl::ResetOnProperThread() {
 }
 
 void EmulatorImpl::UnloadOnProperThread() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   CHECK(is_power_on()) << "Make sure Emulator is power on.";
   running_state_ = RunningState::kStopped;
   ResetOnProperThread();
@@ -408,7 +390,7 @@ void EmulatorImpl::PostReset(RunningState last_state) {
 
 void EmulatorImpl::OnIRQFromAPU() {
   // TODO Handle APU IRQ
-  LOG(INFO) << "OnIRQFromAPU() is unhandled yet.";
+  DLOG(INFO) << "OnIRQFromAPU() is unhandled yet.";
 }
 
 void EmulatorImpl::OnPPUStepped() {
@@ -424,20 +406,20 @@ void EmulatorImpl::Step() {
 }
 
 bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
   return HandleLoadedResult(cartridge->Load(rom_path), cartridge);
 }
 
 bool EmulatorImpl::LoadFromBinaryOnProperThread(const Bytes& data) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
   return HandleLoadedResult(cartridge->Load(data), cartridge);
 }
 
 bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
                                       scoped_refptr<Cartridge> cartridge) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (!load_result.success)
     return false;
 
@@ -470,12 +452,20 @@ void EmulatorImpl::StepInternal() {
 
   // https://www.nesdev.org/wiki/Cycle_reference_chart
   // PPU
+  if (debug_port_)
+    debug_port_->performance_counter().PPUStart();
   ppu_->Step();
   ppu_->Step();
   ppu_->Step();
+  if (debug_port_)
+    debug_port_->performance_counter().PPUEnd();
 
   // CPU
+  if (debug_port_)
+    debug_port_->performance_counter().CPUStart();
   cpu_->Step();
+  if (debug_port_)
+    debug_port_->performance_counter().CPUEnd();
 
   if (debug_port_)
     debug_port_->OnEmulatorStepped(GetCPUContext(), GetPPUContext());
@@ -521,8 +511,13 @@ float EmulatorImpl::GetVolume() {
   return apu_->GetVolume();
 }
 
+const Colors& EmulatorImpl::GetLastFrame() {
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
+  return ppu_->last_frame();
+}
+
 Byte EmulatorImpl::Read(Address address) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   switch (static_cast<IORegister>(address)) {
     case IORegister::OAMDMA:
       return address & 0xff;
@@ -545,7 +540,7 @@ Byte EmulatorImpl::Read(Address address) {
 }
 
 void EmulatorImpl::Write(Address address, Byte value) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   switch (static_cast<IORegister>(address)) {
     case IORegister::OAMDMA:
       return DMA(value);
@@ -568,46 +563,50 @@ void EmulatorImpl::Write(Address address, Byte value) {
 }
 
 void EmulatorImpl::OnPPUADDR(Address address) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnPPUADDR(address);
   }
 }
 
 void EmulatorImpl::OnPPUScanlineStart(int scanline) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnScanlineStart(scanline);
   }
 }
 
 void EmulatorImpl::OnPPUScanlineEnd(int scanline) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnScanlineEnd(scanline);
   }
 }
 
 void EmulatorImpl::OnPPUFrameStart() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnFrameStart();
   }
 }
 
 void EmulatorImpl::OnPPUFrameEnd() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_) {
     debug_port_->OnFrameEnd();
   }
 }
 
 void EmulatorImpl::OnRenderReady(const Colors& swapbuffer) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   // Render is ready, update APU state here.
+
   apu_->StepFrame();
 
   if (debug_port_) {
+    if (debug_port_->render_paused())
+      return;
+
     debug_port_->OnNametableRenderReady();
   }
 
@@ -616,33 +615,26 @@ void EmulatorImpl::OnRenderReady(const Colors& swapbuffer) {
          io_devices_->render_devices()) {
       CHECK(render_device);
       if (render_device->NeedRender()) {
-        if (working_task_runner_->RunsTasksInCurrentSequence()) {
-          render_device->Render(256, 240, swapbuffer);
-        } else {
-          emulator_task_runner_->PostTask(
-              FROM_HERE, base::BindOnce(&IODevices::RenderDevice::Render,
-                                        base::Unretained(render_device), 256,
-                                        240, swapbuffer));
-        }
+        render_device->Render(256, 240, swapbuffer);
       }
     }
   }
 }
 
 void EmulatorImpl::OnCPUNMI() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_)
     debug_port_->OnCPUNMI();
 }
 
 void EmulatorImpl::OnCPUBeforeStep(CPUDebugState& state) {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_)
     debug_port_->OnCPUBeforeStep(state);
 }
 
 void EmulatorImpl::OnCPUStepped() {
-  DCHECK(working_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (debug_port_)
     debug_port_->OnCPUStepped(GetCPUContext());
 }

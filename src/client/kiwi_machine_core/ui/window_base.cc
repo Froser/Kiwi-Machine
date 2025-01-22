@@ -280,8 +280,6 @@ void WindowBase::Render() {
   RemovePendingWidgets();
 }
 
-void WindowBase::HandlePostEvent() {}
-
 void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {
   for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
     Widget* widget = iter->get();

@@ -36,15 +36,14 @@ class NES_EXPORT IODevices {
 
   class NES_EXPORT RenderDevice {
    public:
-    using BGRA = uint32_t;
-    using Buffer = std::vector<BGRA>;
+    using Buffer = Colors;
 
    public:
     RenderDevice();
     virtual ~RenderDevice();
 
    public:
-    virtual void Render(int width, int height, const Buffer& buffer) = 0;
+    virtual void Render(int width, int height, const Colors& buffer) = 0;
     virtual bool NeedRender() = 0;
   };
 
@@ -56,6 +55,8 @@ class NES_EXPORT IODevices {
       kBufferMS = 0,
 #elif BUILDFLAG(IS_WASM)
       kBufferMS = 1250,
+#elif BUILDFLAG(IS_ANDROID)
+      kBufferMS = 1000,
 #else
       kBufferMS = 65000,
 #endif

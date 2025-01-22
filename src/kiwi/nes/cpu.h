@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 
+#include "base/compiler_specific.h"
 #include "nes/cpu_observer.h"
 #include "nes/emulator_states.h"
 #include "nes/opcodes.h"
@@ -43,7 +44,7 @@ class CPU : public EmulatorStates::SerializableState {
 
  public:
   explicit CPU(Bus* cpu_bus);
-  ~CPU();
+  ~CPU() override;
 
  public:
   // Power up and reset states:
@@ -73,44 +74,44 @@ class CPU : public EmulatorStates::SerializableState {
 
  private:
   // Stack Operation.
-  void Push(Byte value);
-  Byte Pop();
+  ALWAYS_INLINE void Push(Byte value);
+  ALWAYS_INLINE Byte Pop();
 
   // Push next PC onto stack.
-  void PushNextPC();
+  ALWAYS_INLINE void PushNextPC();
   // Push current PC onto stack.
-  void PushPC();
+  ALWAYS_INLINE void PushPC();
   // Pop an address from the top of the stack, which takes 2 bytes, and write to
   // PC.
-  void PopPC();
+  ALWAYS_INLINE void PopPC();
 
   // Set Z flag and N flag indicated by |value|. |opcode| just check whether ZN
   // flags should be set.
-  void SetZN(Byte value);
+  ALWAYS_INLINE void SetZN(Byte value);
 
   // Run Opcode.
   // See http://www.oxyron.de/html/opcodes02.html,
   // https://www.nesdev.org/6502_cpu.txt, and
   // https://www.nesdev.org/wiki/CPU_addressing_modes for more details.
-  bool Execute(Opcode opcode);
+  ALWAYS_INLINE bool Execute(Opcode opcode);
 
   // Devides opcodes into move, arithmetic, jump flag, and 4-blocks parts.
-  bool ExecuteMove(Opcode opcode);
-  bool ExecuteArithmetic(Opcode opcode);
-  bool ExecuteJumpFlags(Opcode opcode);
+  ALWAYS_INLINE bool ExecuteMove(Opcode opcode);
+  ALWAYS_INLINE bool ExecuteArithmetic(Opcode opcode);
+  ALWAYS_INLINE bool ExecuteJumpFlags(Opcode opcode);
 
   // There are four blocks in
   // https://www.nesdev.org/wiki/CPU_unofficial_opcodes. Each instruction has
   // more than one opcode. We handle them by their block.
-  bool ExecuteBlock0(Byte opcode);
-  bool ExecuteBlock1(Byte opcode);
-  bool ExecuteBlock2(Byte opcode);
-  bool ExecuteBlock3(Byte opcode);
+  ALWAYS_INLINE bool ExecuteBlock0(Byte opcode);
+  ALWAYS_INLINE bool ExecuteBlock1(Byte opcode);
+  ALWAYS_INLINE bool ExecuteBlock2(Byte opcode);
+  ALWAYS_INLINE bool ExecuteBlock3(Byte opcode);
 
-  void InterruptSequence(InterruptType type);
+  ALWAYS_INLINE void InterruptSequence(InterruptType type);
 
   // Gets the target address by |mode|, in current context.
-  Address Addressing(AddressingMode mode, bool& is_page_crossed);
+  ALWAYS_INLINE Address Addressing(AddressingMode mode, bool& is_page_crossed);
 
  private:
   Bus* cpu_bus_ = nullptr;

@@ -21,6 +21,8 @@
 #include "models/nes_runtime.h"
 #include "utility/timer.h"
 
+class WindowBase;
+
 class NESFrameObserver {
  public:
   virtual void OnShouldRender(int since_last_frame_ms) {}
@@ -35,23 +37,25 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   ~NESFrame() override;
 
  public:
-  explicit NESFrame(NESRuntimeID runtime_id);
+  explicit NESFrame(WindowBase* window, NESRuntimeID runtime_id);
 
   void AddObserver(NESFrameObserver* observer);
   void RemoveObserver(NESFrameObserver* observer);
 
   // RenderDevice:
-  void Render(int width, int height, const Buffer& buffer) override;
+  void Render(int width, int height, const kiwi::nes::Colors& buffer) override;
   bool NeedRender() override;
-
-  const Buffer& buffer() { return buffer_; }
 
   int width() { return render_width_; }
   int height() { return render_height_; }
+  SDL_Texture* texture() { return screen_texture_; }
+  Buffer GetLastFrame();
 
  private:
-  NESRuntimeID runtime_id_ = 0;
-  Buffer buffer_;          // UI thread access only
+  WindowBase* window_ = nullptr;
+  NESRuntime::Data* runtime_data_ = nullptr;
+
+  SDL_Texture* screen_texture_ = nullptr;
   int render_width_ = 0;   // UI thread access only
   int render_height_ = 0;  // UI thread access only
   Timer frame_elapsed_counter_;

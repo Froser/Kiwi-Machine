@@ -25,13 +25,14 @@ class DebugPortObserver {
   virtual ~DebugPortObserver();
 
  public:
-  virtual void OnFrameEnd(int since_last_frame_end_ms);
+  virtual void OnFrameEnd(int since_last_frame_duration_ms,
+                          int cpu_last_frame_duration_ms,
+                          int ppu_last_frame_duration_ms);
 };
 
 class DebugPort : public kiwi::nes::DebugPort {
  public:
   using Base = kiwi::nes::DebugPort;
-
   explicit DebugPort(kiwi::nes::Emulator* emulator);
   ~DebugPort() override;
 

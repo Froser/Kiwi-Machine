@@ -64,16 +64,22 @@ std::ostream& operator<<(std::ostream& s, const Hex<w>& h) {
 
 DebugPortObserver::DebugPortObserver() = default;
 DebugPortObserver::~DebugPortObserver() = default;
-void DebugPortObserver::OnFrameEnd(int since_last_frame_end_ms) {}
+void DebugPortObserver::OnFrameEnd(int since_last_frame_duration_ms,
+                                   int cpu_last_frame_duration_ms,
+                                   int ppu_last_frame_duration_ms) {}
 
 DebugPort::DebugPort(kiwi::nes::Emulator* emulator) : Base(emulator) {}
 DebugPort::~DebugPort() = default;
 
 void DebugPort::OnFrameEnd() {
   ++frame_counter_;
-  int ms = frame_generation_timer_.ElapsedInMillisecondsAndReset();
+  int frame_duration_ms =
+      frame_generation_timer_.ElapsedInMillisecondsAndReset();
   for (DebugPortObserver* observer : observers_) {
-    observer->OnFrameEnd(ms);
+    observer->OnFrameEnd(
+        frame_duration_ms,
+        performance_counter().CPUDurationPerFrameInMilliseconds(),
+        performance_counter().PPUDurationPerFrameInMilliseconds());
   }
 }
 

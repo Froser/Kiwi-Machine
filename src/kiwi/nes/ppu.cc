@@ -25,9 +25,12 @@ constexpr int kScanlineVisibleDots = 256;
 constexpr int kVisibleScanlines = 240;
 
 PPU::PPU(Bus* bus)
-    : ppu_bus_(bus),
-      palette_(CreatePaletteFromPPUModel(PPUModel::k2C02)),
-      screenbuffer_(kVisibleScanlines * kScanlineVisibleDots) {}
+    : ppu_bus_(bus), palette_(CreatePaletteFromPPUModel(PPUModel::k2C02)) {
+  // Initialize buffers
+  for (size_t i = 0; i < kMaxBufferSize; ++i) {
+    screenbuffers_[i].resize(kVisibleScanlines * kScanlineVisibleDots);
+  }
+}
 
 PPU::~PPU() = default;
 
@@ -270,8 +273,9 @@ void PPU::Step() {
             ppu_bus_->Read(static_cast<Address>(palette_index | 0x3f00))));
         DCHECK(static_cast<size_t>(y) * kScanlineVisibleDots +
                    static_cast<size_t>(x) <
-               screenbuffer_.size());
-        screenbuffer_[y * kScanlineVisibleDots + x] = bgra;
+               screenbuffers_[current_buffer_index_].size());
+        screenbuffers_[current_buffer_index_][y * kScanlineVisibleDots + x] =
+            bgra;
 
         if (cycles_ == kScanlineVisibleDots &&
             is_render_background()) {  // Dot 256
@@ -344,7 +348,8 @@ void PPU::Step() {
         pipeline_state_ = PipelineState::kVerticalBlank;
 
         if (observer_) {
-          observer_->OnRenderReady(screenbuffer_);
+          observer_->OnRenderReady(screenbuffers_[current_buffer_index_]);
+          current_buffer_index_ = (current_buffer_index_ + 1) % kMaxBufferSize;
         }
       }
     } break;

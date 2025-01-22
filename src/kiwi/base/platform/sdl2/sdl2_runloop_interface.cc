@@ -117,8 +117,6 @@ void SDL2RunLoopInterface::HandleEvents() {
     }
   }
 
-  if (GetPostEventHandlerForSDL2())
-    GetPostEventHandlerForSDL2().Run();
   TryRender();
 }
 

@@ -81,7 +81,6 @@ class Application {
 
  private:
   void HandleEvent(SDL_Event* event);
-  void HandlePostEvent();
   WindowBase* FindWindowFromID(uint32_t id);
   uint32_t FindIDFromWindow(WindowBase* window);
   void Render();
@@ -102,7 +101,6 @@ class Application {
   kiwi::base::RunLoop runloop_;
   kiwi::base::RepeatingCallback<void(SDL_Event*)> event_handler_;
   kiwi::base::RepeatingClosure render_handler_;
-  kiwi::base::RepeatingClosure post_event_handler_;
   std::map<uint32_t, WindowBase*> windows_;
   std::set<SDL_GameController*> game_controllers_;
   std::set<ApplicationObserver*> observers_;

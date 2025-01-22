@@ -29,13 +29,13 @@
 #include "ui/widgets/demo_widget.h"
 #include "ui/widgets/disassembly_widget.h"
 #include "ui/widgets/flex_items_widget.h"
-#include "ui/widgets/frame_rate_widget.h"
 #include "ui/widgets/kiwi_bg_widget.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/memory_widget.h"
 #include "ui/widgets/nametable_widget.h"
 #include "ui/widgets/palette_widget.h"
 #include "ui/widgets/pattern_widget.h"
+#include "ui/widgets/performance_widget.h"
 #include "ui/widgets/side_menu.h"
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
@@ -566,11 +566,6 @@ void MainWindow::HandleResizedEvent() {
   WindowBase::HandleResizedEvent();
 }
 
-void MainWindow::HandlePostEvent() {
-  if (runtime_data_)
-    runtime_data_->emulator->RunOneFrame();
-}
-
 void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
   // Display event changing treats as resizing.
   if (event->type == SDL_DISPLAYEVENT_ORIENTATION)
@@ -605,6 +600,8 @@ void MainWindow::Render() {
       side_menu_->invalidate();
     }
   }
+
+  render_done_ = true;
 }
 
 #if !KIWI_MOBILE
@@ -886,11 +883,11 @@ void MainWindow::InitializeUI() {
     pattern_widget_->set_visible(false);
     AddWidget(std::move(pattern_widget));
 
-    std::unique_ptr<FrameRateWidget> frame_rate_widget =
-        std::make_unique<FrameRateWidget>(this, canvas_->frame(),
-                                          runtime_data_->debug_port.get());
-    frame_rate_widget_ = frame_rate_widget.get();
-    frame_rate_widget_->set_visible(false);
+    std::unique_ptr<PerformanceWidget> frame_rate_widget =
+        std::make_unique<PerformanceWidget>(this, canvas_->frame(),
+                                            runtime_data_->debug_port.get());
+    performance_widget_ = frame_rate_widget.get();
+    performance_widget_->set_visible(false);
     AddWidget(std::move(frame_rate_widget));
 
     std::unique_ptr<MemoryWidget> memory_widget =
@@ -982,8 +979,7 @@ void MainWindow::StartAutoSave() {
   constexpr int kAutoSaveTimeDelta = 5000;
   runtime_data_->StartAutoSave(
       kiwi::base::Milliseconds(kAutoSaveTimeDelta),
-      kiwi::base::BindRepeating(
-          [](Canvas* canvas) { return canvas->frame()->buffer(); }, canvas_));
+      kiwi::base::BindRepeating(&NESFrame::GetLastFrame, canvas_->frame()));
 }
 
 void MainWindow::StopAutoSave() {
@@ -1130,6 +1126,17 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
       debug.menu_items.push_back(std::move(debug_audio));
     }
 
+    {
+      MenuBar::MenuItem disable_render = {
+          "Pause Render",
+          kiwi::base::BindRepeating(&MainWindow::OnToggleRenderPaused,
+                                    kiwi::base::Unretained(this)),
+          kiwi::base::BindRepeating(&MainWindow::IsRenderPaused,
+                                    kiwi::base::Unretained(this)),
+      };
+      debug.menu_items.push_back(std::move(disable_render));
+    }
+
 #if ENABLE_DEBUG_ROMS
     if (!debug_roms_.sub_items.empty())
       debug.menu_items.push_back(std::move(debug_roms_));
@@ -1151,10 +1158,10 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
                                    kiwi::base::Unretained(this))});
 
     debug.menu_items.push_back(
-        {"Frame rate",
-         kiwi::base::BindRepeating(&MainWindow::OnFrameRateWidget,
+        {"Performance",
+         kiwi::base::BindRepeating(&MainWindow::OnPerformanceWidget,
                                    kiwi::base::Unretained(this)),
-         kiwi::base::BindRepeating(&MainWindow::IsFrameRateWidgetShown,
+         kiwi::base::BindRepeating(&MainWindow::IsPerformanceWidgetShown,
                                    kiwi::base::Unretained(this))});
 
     debug.menu_items.push_back(
@@ -1483,7 +1490,7 @@ void MainWindow::OnSaveState(int which_state) {
         if (!data.empty()) {
           runtime_data->SaveState(
               rom_data->crc, which_state, data,
-              window->canvas_->frame()->buffer(),
+              window->canvas_->frame()->GetLastFrame(),
               kiwi::base::BindOnce(&MainWindow::OnStateSaved,
                                    kiwi::base::Unretained(window)));
         } else {
@@ -1654,6 +1661,16 @@ bool MainWindow::IsAudioChannelOn(kiwi::nes::AudioChannel which_mask) {
   return runtime_data_->debug_port->GetAudioChannelMasks() & which_mask;
 }
 
+void MainWindow::OnToggleRenderPaused() {
+  SDL_assert(runtime_data_->debug_port);
+  runtime_data_->debug_port->set_render_paused(!IsRenderPaused());
+}
+
+bool MainWindow::IsRenderPaused() {
+  SDL_assert(runtime_data_->debug_port);
+  return runtime_data_->debug_port->render_paused();
+}
+
 void MainWindow::OnSetScreenScale(float scale) {
   if (config_->data().window_scale != scale) {
     config_->data().window_scale = scale;
@@ -1705,14 +1722,14 @@ bool MainWindow::IsPatternWidgetShown() {
   return pattern_widget_->visible();
 }
 
-void MainWindow::OnFrameRateWidget() {
-  SDL_assert(frame_rate_widget_);
-  frame_rate_widget_->set_visible(!frame_rate_widget_->visible());
+void MainWindow::OnPerformanceWidget() {
+  SDL_assert(performance_widget_);
+  performance_widget_->set_visible(!performance_widget_->visible());
 }
 
-bool MainWindow::IsFrameRateWidgetShown() {
-  SDL_assert(frame_rate_widget_);
-  return frame_rate_widget_->visible();
+bool MainWindow::IsPerformanceWidgetShown() {
+  SDL_assert(performance_widget_);
+  return performance_widget_->visible();
 }
 
 void MainWindow::OnDebugMemory() {

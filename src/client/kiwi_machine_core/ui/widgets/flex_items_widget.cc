@@ -345,13 +345,15 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   if (!activate_)
     return false;
 
-  if (k->keysym.sym == SDLK_f) {
-    ShowFilterWidget();
-    return true;
-  } else if (k->keysym.sym == SDLK_ESCAPE) {
-    if (!filter_contents_.empty()) {
-      OnFilter(std::string());
+  if (k) {
+    if (k->keysym.sym == SDLK_f) {
+      ShowFilterWidget();
       return true;
+    } else if (k->keysym.sym == SDLK_ESCAPE) {
+      if (!filter_contents_.empty()) {
+        OnFilter(std::string());
+        return true;
+      }
     }
   }
 

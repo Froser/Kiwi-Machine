@@ -11,10 +11,18 @@
 // GNU General Public License for more details.
 
 #include "models/nes_frame.h"
+#include "ui/window_base.h"
 
-NESFrame::NESFrame(NESRuntimeID runtime_id) : runtime_id_(runtime_id) {}
+NESFrame::NESFrame(WindowBase* window, NESRuntimeID runtime_id)
+    : window_(window) {
+  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
+  SDL_assert(runtime_data_);
+}
 
-NESFrame::~NESFrame() = default;
+NESFrame::~NESFrame() {
+  if (screen_texture_)
+    SDL_DestroyTexture(screen_texture_);
+}
 
 void NESFrame::AddObserver(NESFrameObserver* observer) {
   observers_.insert(observer);
@@ -24,17 +32,42 @@ void NESFrame::RemoveObserver(NESFrameObserver* observer) {
   observers_.erase(observer);
 }
 
-void NESFrame::Render(int width, int height, const Buffer& buffer) {
-  buffer_ = buffer;
-  render_width_ = width;
-  render_height_ = height;
+void NESFrame::Render(int width, int height, const kiwi::nes::Colors& buffer) {
+  // Creates texture if not exists or size changed
+  if (render_width_ != width || render_height_ != height) {
+    render_width_ = width;
+    render_height_ = height;
+    if (screen_texture_) {
+      SDL_DestroyTexture(screen_texture_);
+      screen_texture_ = nullptr;
+    }
 
-  int elapsed_ms = frame_elapsed_counter_.ElapsedInMillisecondsAndReset();
-  for (NESFrameObserver* observer : observers_) {
-    observer->OnShouldRender(elapsed_ms);
+    if (!screen_texture_) {
+      SDL_assert(render_width_ > 0 && render_height_ > 0);
+      screen_texture_ = SDL_CreateTexture(
+          window_->renderer(), SDL_PIXELFORMAT_ARGB8888,
+          SDL_TEXTUREACCESS_STREAMING, render_width_, render_height_);
+    }
+  }
+
+  // Updates contents
+  int result = SDL_UpdateTexture(screen_texture_, nullptr, buffer.data(),
+                                 render_width_ * sizeof(buffer[0]));
+  SDL_assert(result == 0);
+
+  // Notifies observers
+  if (!observers_.empty()) {
+    int elapsed_ms = frame_elapsed_counter_.ElapsedInMillisecondsAndReset();
+    for (NESFrameObserver* observer : observers_) {
+      observer->OnShouldRender(elapsed_ms);
+    }
   }
 }
 
 bool NESFrame::NeedRender() {
   return true;
+}
+
+NESFrame::Buffer NESFrame::GetLastFrame() {
+  return runtime_data_->emulator->GetLastFrame();
 }

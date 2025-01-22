@@ -22,8 +22,8 @@ namespace nes {
 Emulator::Emulator() = default;
 Emulator::~Emulator() = default;
 
-scoped_refptr<Emulator> CreateEmulator(bool emulate_on_working_thread) {
-  return base::MakeRefCounted<EmulatorImpl>(emulate_on_working_thread);
+scoped_refptr<Emulator> CreateEmulator() {
+  return base::MakeRefCounted<EmulatorImpl>();
 }
 
 }  // namespace nes

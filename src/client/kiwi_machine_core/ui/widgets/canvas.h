@@ -65,7 +65,6 @@ class Canvas : public Widget, public NESFrameObserver {
   float frame_scale_ = 1.f;
   bool nes_frame_is_ready_ = false;
   scoped_refptr<NESFrame> frame_;
-  SDL_Texture* screen_texture_ = nullptr;
   kiwi::base::RepeatingClosure on_menu_trigger_;
   std::set<CanvasObserver*> observers_;
 };

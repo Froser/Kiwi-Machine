@@ -113,7 +113,6 @@ class MainWindow : public WindowBase,
   void OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) override;
   void OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) override;
   void HandleResizedEvent() override;
-  void HandlePostEvent() override;
   void HandleDisplayEvent(SDL_DisplayEvent* event) override;
   void HandleDropFileEvent(SDL_DropEvent* event) override;
   void Render() override;
@@ -192,6 +191,8 @@ class MainWindow : public WindowBase,
   bool IsAudioEnabled();
   void OnToggleAudioChannelMasks(kiwi::nes::AudioChannel which_mask);
   bool IsAudioChannelOn(kiwi::nes::AudioChannel which_mask);
+  void OnToggleRenderPaused();
+  bool IsRenderPaused();
   void OnSetScreenScale(float scale);
   void OnSetFullscreen();
   void OnUnsetFullscreen(float scale);
@@ -200,8 +201,8 @@ class MainWindow : public WindowBase,
   bool IsPaletteWidgetShown();
   void OnTogglePatternWidget();
   bool IsPatternWidgetShown();
-  void OnFrameRateWidget();
-  bool IsFrameRateWidgetShown();
+  void OnPerformanceWidget();
+  bool IsPerformanceWidgetShown();
   void OnDebugMemory();
   void OnDebugDisassembly();
   void OnDebugNametable();
@@ -231,6 +232,12 @@ class MainWindow : public WindowBase,
   // can't go back to main menu. It is used in wasm mode, which the .wasm file
   // shouldn't load all ROMs in a row, but has to load the ROM dynamically.
   bool is_headless_ = false;
+
+  // Frame works with following workflow: RenderFrame, LogicalFrame,
+  // RenderFrame, LogicalFrame, ...
+  // When render_done_ is true, it means a logical frame should be processed.
+  bool render_done_ = false;
+
   std::set<int> pressing_keys_;
   Splash* splash_ = nullptr;
   // Canvas is owned by this window.
@@ -240,7 +247,7 @@ class MainWindow : public WindowBase,
   Widget* menu_bar_ = nullptr;
   Widget* palette_widget_ = nullptr;
   Widget* pattern_widget_ = nullptr;
-  Widget* frame_rate_widget_ = nullptr;
+  Widget* performance_widget_ = nullptr;
   Widget* demo_widget_ = nullptr;
   StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
