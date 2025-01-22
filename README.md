@@ -71,7 +71,7 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 - MacOS
 - Windows
 - Linux
-- Android
+- Android (手机, TV)
 - iOS
 
 ```
@@ -151,7 +151,7 @@ Kiwi Machine被设计成了一个游戏机厅模式，它拥有大量预设的�
 
 在构建的时候，Kiwi Machine将会读取`src/client/kiwi_machine/build/nes`下的所有文件，并将其写入产物二进制文件中。
 
-`src/client/kiwi_machine/build/nes`下的每一个游戏都存放在一个`.zip`压缩包中，需包含同名的`nes`文件和`jpg`文件。例如：
+例如：
 
 `Bomber Man II (Japan).zip`中拥有两个文件：
 
@@ -164,7 +164,7 @@ Kiwi Machine被设计成了一个游戏机厅模式，它拥有大量预设的�
 > ![](docs/multi_version.png)
 
 此外，你还可以往zip中放入其他类似成套的文件，它表示这个游戏的另外一个版本，例如`Rock Man`的美版叫做`Mega Man`
-，那么就可以放入相同的zip文件中。
+，那么就可以放入相同的zip文件中。Kiwi-Machine提供了一个包管理器工具，方便你自己打包资源。
 
 ### 构建调试ROMs
 
@@ -246,15 +246,14 @@ Emulator类中有一个LoadFromXXX系列函数，可以从文件或者内存读�
 ```C++
   class NES_EXPORT RenderDevice {
    public:
-    using BGRA = uint32_t;
-    using Buffer = std::vector<BGRA>;
+    using Buffer = Colors;
 
    public:
     RenderDevice();
     virtual ~RenderDevice();
 
    public:
-    virtual void Render(int width, int height, const Buffer& buffer) = 0;
+    virtual void Render(int width, int height, const Buffer* buffer) = 0;
     virtual bool NeedRender() = 0;
   };
 ```
