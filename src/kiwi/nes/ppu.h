@@ -83,17 +83,17 @@ class PPU : public Device, public EmulatorStates::SerializableState {
                    EmulatorStates::DeserializableStateData& data) override;
 
  private:
-  Byte GetStatus();
-  Byte GetData();
-  Byte GetOAMData();
+  ALWAYS_INLINE Byte GetStatus();
+  ALWAYS_INLINE Byte GetData();
+  ALWAYS_INLINE Byte GetOAMData();
 
-  void SetCtrl(Byte ctrl);
-  void SetMask(Byte mask);
-  void SetDataAddress(Byte address);
-  void SetOAMAddress(Byte address);
-  void SetScroll(Byte scroll);
-  void SetData(Byte data);
-  void SetOAMData(Byte data);
+  ALWAYS_INLINE void SetCtrl(Byte ctrl);
+  ALWAYS_INLINE void SetMask(Byte mask);
+  ALWAYS_INLINE void SetDataAddress(Byte address);
+  ALWAYS_INLINE void SetOAMAddress(Byte address);
+  ALWAYS_INLINE void SetScroll(Byte scroll);
+  ALWAYS_INLINE void SetData(Byte data);
+  ALWAYS_INLINE void SetOAMData(Byte data);
 
   Byte data_address_increment() { return registers_.PPUCTRL.I ? 0x20 : 0x1; }
   bool is_render_background() { return registers_.PPUMASK.b; }
@@ -113,9 +113,9 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   bool is_long_sprite() { return !!registers_.PPUCTRL.H; }
 
   // Increase scanline and notify observers that the scanline has finished.
-  void IncreaseScanline();
+  ALWAYS_INLINE void IncreaseScanline();
 
-  void NMIChange();
+  ALWAYS_INLINE void NMIChange();
 
  private:
   base::RepeatingClosure cpu_nmi_callback_;
