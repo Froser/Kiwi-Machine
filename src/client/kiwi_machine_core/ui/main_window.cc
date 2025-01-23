@@ -883,12 +883,12 @@ void MainWindow::InitializeUI() {
     pattern_widget_->set_visible(false);
     AddWidget(std::move(pattern_widget));
 
-    std::unique_ptr<PerformanceWidget> frame_rate_widget =
+    std::unique_ptr<PerformanceWidget> performance_widget =
         std::make_unique<PerformanceWidget>(this, canvas_->frame(),
                                             runtime_data_->debug_port.get());
-    performance_widget_ = frame_rate_widget.get();
+    performance_widget_ = performance_widget.get();
     performance_widget_->set_visible(false);
-    AddWidget(std::move(frame_rate_widget));
+    AddWidget(std::move(performance_widget));
 
     std::unique_ptr<MemoryWidget> memory_widget =
         std::make_unique<MemoryWidget>(
