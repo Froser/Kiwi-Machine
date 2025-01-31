@@ -103,6 +103,10 @@ void PatternWidget::Paint() {
   kiwi::nes::Palette* palette = debug_port_->GetPPUContext().palette;
   assert(palette);
 
+  // This is not a good way to get window's position. Consider move it to
+  // window's base infra.
+  ImVec2 window_pos = ImGui::GetWindowPos();
+
   for (int i = 0; i < 8; ++i) {
     // Draw each pattern table.
     kiwi::nes::Colors bgra = debug_port_->GetPatternTableBGRA(
@@ -115,8 +119,10 @@ void PatternWidget::Paint() {
     {
       SDL_UpdateTexture(pattern_tables_[i], nullptr, bgra.data(),
                         kPatternTableWidth * sizeof(bgra[0]));
-      SDL_Rect pattern_bounds = MapToWindow(
-          {kMargin, offset_y, kPatternTableWidth, kPatternTableHeight});
+      SDL_Rect pattern_bounds =
+          MapToWindow({static_cast<int>(window_pos.x) + kMargin,
+                       static_cast<int>(window_pos.y) + offset_y,
+                       kPatternTableWidth, kPatternTableHeight});
       draw_list->AddImage(pattern_tables_[i],
                           ImVec2(pattern_bounds.x, pattern_bounds.y),
                           ImVec2(pattern_bounds.x + pattern_bounds.w,
@@ -133,8 +139,10 @@ void PatternWidget::Paint() {
     for (unsigned char index : indices) {
       {
         kiwi::nes::Color palette_bgra = palette->GetColorBGRA(index);
-        SDL_Rect palette_bounds = MapToWindow(
-            {palette_x, palette_y, kPaletteTileSize, kPaletteTileSize});
+        SDL_Rect palette_bounds =
+            MapToWindow({static_cast<int>(window_pos.x) + palette_x,
+                         static_cast<int>(window_pos.y) + palette_y,
+                         kPaletteTileSize, kPaletteTileSize});
         ImU32 color =
             IM_COL32((palette_bgra >> 16) & 0xff, (palette_bgra >> 8) & 0xff,
                      palette_bgra & 0xff, (palette_bgra >> 24) & 0xff);
