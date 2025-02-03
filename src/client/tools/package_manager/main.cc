@@ -287,7 +287,22 @@ void PaintExplorer() {
           if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
             kiwi::base::FilePath nes_file = item.dir.Append(
                 kiwi::base::FilePath::FromUTF8Unsafe(item.title));
-            CreateROMFromNES(nes_file);
+            if (!g_explorer.selected_item ||
+                !g_explorer.selected_item->matched) {
+              // Creates a new one if no zip matched
+              CreateROMFromNES(nes_file);
+            } else {
+              // Creates from a matched path
+              const kiwi::base::FilePath& file =
+                  g_explorer.selected_item->compared_zip_path;
+              if (IsZipExtension(g_explorer.selected_item->compared_zip_path
+                                     .AsUTF8Unsafe())) {
+                CreateROMWindow(ReadZipFromFile(file), file, false, false);
+              } else {
+                // Not a zip file, so we create a new one.
+                CreateROMFromNES(nes_file);
+              }
+            }
           }
           g_explorer.selected_item = &item;
         }
