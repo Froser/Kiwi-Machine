@@ -105,7 +105,6 @@ void CPU::Interrupt(InterruptType type) {
 }
 
 void CPU::Step() {
-  DCHECK(cpu_bus_);
   struct M2CylceIRQNotifier {
     M2CylceIRQNotifier(Bus* cpu_bus) : cpu_bus_(cpu_bus) {}
     ~M2CylceIRQNotifier() { cpu_bus_->GetMapper()->M2CycleIRQ(); }

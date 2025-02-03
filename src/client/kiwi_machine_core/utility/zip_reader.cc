@@ -190,6 +190,20 @@ std::string PackageImpl::GetTitleForLanguage(SupportedLanguage language) {
   return titles_[ToLanguageCode(language)];
 }
 
+preset_roms::Region GuessROMRegion(std::string_view filename) {
+  if (filename.find("(USA)") != std::string_view::npos ||
+      filename.find("(US)") != std::string_view::npos ||
+      filename.find("(U)") != std::string_view::npos) {
+    return preset_roms::Region::kUSA;
+  } else if (filename.find("(Japan)") != std::string_view::npos ||
+             filename.find("(J)") != std::string_view::npos) {
+    return preset_roms::Region::kJapan;
+  } else if (filename.find("(CN)") != std::string_view::npos) {
+    return preset_roms::Region::kCN;
+  }
+  return preset_roms::Region::kUnknown;
+}
+
 }  // namespace
 
 void InitializePresetROM(preset_roms::PresetROM& rom_data) {
@@ -228,6 +242,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
       if (default_i18n_names != i18n_names.end()) {
         // Found the default name, which is the primary ROM's name.
         rom_data.i18n_names = default_i18n_names->second;
+        rom_data.region = GuessROMRegion(rom_data.name);
       }
       rom_data.title_loaded = true;
 
@@ -287,6 +302,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
             alternative_rom.name = new char[rom_name.size() + 1];
             strcpy(const_cast<char*>(alternative_rom.name), rom_name.c_str());
             alternative_rom.i18n_names = names;
+            alternative_rom.region = GuessROMRegion(rom_name);
             rom_data.alternates.push_back(std::move(alternative_rom));
           }
         }

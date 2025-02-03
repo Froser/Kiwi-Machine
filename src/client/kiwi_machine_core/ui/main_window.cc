@@ -735,23 +735,84 @@ void MainWindow::InitializeUI() {
           MainWindow::MainFocus::kSideMenu));
       SDL_assert(package->GetRomsCount() > 0);
       for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-        auto& rom = package->GetRomsByIndex(i);
-        size_t main_item_index = items_widget->AddItem(
-            std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
-            rom.rom_cover.size(),
-            kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                      kiwi::base::Unretained(this),
-                                      std::ref(rom)));
+        std::vector<preset_roms::PresetROM*> roms;
 
+        auto& rom = package->GetRomsByIndex(i);
+        roms.push_back(&rom);
         for (auto& alternative_rom : rom.alternates) {
-          items_widget->AddSubItem(
-              main_item_index,
-              std::make_unique<ROMTitleUpdater>(alternative_rom),
-              alternative_rom.rom_cover.data(),
-              alternative_rom.rom_cover.size(),
+          roms.push_back(&alternative_rom);
+        }
+
+        // Sorts ROMS by current locale
+        auto priority_rom = std::find_if(
+            roms.begin(), roms.end(), [](preset_roms::PresetROM* r) {
+              SupportedLanguage current_language =
+                  GetCurrentSupportedLanguage();
+              if (current_language == SupportedLanguage::kEnglish &&
+                  r->region == preset_roms::Region::kUSA)
+                return true;
+
+#if !DISABLE_JAPANESE_FONT
+              if (current_language == SupportedLanguage::kJapanese &&
+                  r->region == preset_roms::Region::kJapan)
+                return true;
+#endif
+
+#if !DISABLE_CHINESE_FONT
+              if (current_language == SupportedLanguage::kSimplifiedChinese &&
+                  r->region == preset_roms::Region::kCN)
+                return true;
+
+              // Chinese matches USA version .
+              if (current_language == SupportedLanguage::kSimplifiedChinese &&
+                  r->region == preset_roms::Region::kUSA)
+                return true;
+#endif
+
+              return false;
+            });
+
+        if (priority_rom != roms.end()) {
+          preset_roms::PresetROM& target_rom = **priority_rom;
+          size_t main_item_index = items_widget->AddItem(
+              std::make_unique<ROMTitleUpdater>(target_rom),
+              target_rom.rom_cover.data(), target_rom.rom_cover.size(),
               kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                         kiwi::base::Unretained(this),
-                                        std::ref(alternative_rom)));
+                                        std::ref(target_rom)));
+          // Removes the first rom, and puts remaining roms to the alternative
+          // rom's list.
+          roms.erase(priority_rom);
+          for (auto* alternative_rom : roms) {
+            items_widget->AddSubItem(
+                main_item_index,
+                std::make_unique<ROMTitleUpdater>(*alternative_rom),
+                alternative_rom->rom_cover.data(),
+                alternative_rom->rom_cover.size(),
+                kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+                                          kiwi::base::Unretained(this),
+                                          std::ref(*alternative_rom)));
+          }
+
+        } else {
+          // No priority rom found. Uses default order.
+          size_t main_item_index = items_widget->AddItem(
+              std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
+              rom.rom_cover.size(),
+              kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+                                        kiwi::base::Unretained(this),
+                                        std::ref(rom)));
+
+          for (auto& alternative_rom : rom.alternates) {
+            items_widget->AddSubItem(
+                main_item_index,
+                std::make_unique<ROMTitleUpdater>(alternative_rom),
+                alternative_rom.rom_cover.data(),
+                alternative_rom.rom_cover.size(),
+                kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
+                                          kiwi::base::Unretained(this),
+                                          std::ref(alternative_rom)));
+          }
         }
       }
 

@@ -23,6 +23,13 @@
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
 
 namespace preset_roms {
+enum class Region {
+  kUnknown,
+  kJapan,
+  kUSA,
+  kCN, // Rare, almost bootleg
+};
+
 struct PresetROM {
   const char* name;
 
@@ -39,6 +46,9 @@ struct PresetROM {
 
   // Switch ROM version.
   std::vector<PresetROM> alternates;
+
+  // ROM's region
+  Region region = Region::kUnknown;
 
   // Whether its data or cover is loaded
   bool title_loaded = false;
