@@ -37,11 +37,20 @@ std::vector<ROMWindow> g_rom_windows;
 kiwi::base::FilePath g_dropped_jpg;
 kiwi::base::FilePath g_dropped_rom;
 
+enum class FilterOptions {
+  kAll,
+  kIgnoreMarked,
+  kUnsupportedOnly,
+  kUninterestedOnly,
+  kImperfectOnly,
+  kDuplicatedOnly,
+};
+
 struct {
   Explorer explorer;
   bool first_open = true;
   bool explorer_opened = false;
-  bool ignore_marked = false;
+  FilterOptions filter = FilterOptions::kAll;
   Explorer::File* selected_item = nullptr;
 } g_explorer;
 
@@ -186,7 +195,9 @@ void PaintGlobal() {
 
   ImGui::Bullet();
   ImGui::SameLine();
-  ImGui::TextUnformatted(U8("将KiwiMachine的非内嵌版拷贝到本程序路径下"));
+  ImGui::TextUnformatted(U8(
+      "通过--km-path={KiwiMachine程序路径}"
+      "启动管理器，或将KiwiMachine拷贝到当前路径下，可以使用测试包/ROM功能"));
 
   ImGui::Bullet();
   ImGui::SameLine();
@@ -257,12 +268,39 @@ void PaintExplorer() {
             ImVec2(-FLT_MIN,
                    kItemCount * ImGui::GetTextLineHeightWithSpacing()))) {
       for (auto& item : g_explorer.explorer.explorer_files) {
-        if (g_explorer.ignore_marked && item.mark != Explorer::Mark::kNoMark)
-          continue;
+        switch (g_explorer.filter) {
+          case FilterOptions::kIgnoreMarked: {
+            if (item.mark != Explorer::Mark::kNoMark)
+              continue;
+            break;
+          }
+          case FilterOptions::kUnsupportedOnly: {
+            if (item.supported)
+              continue;
+            break;
+          }
+          case FilterOptions::kUninterestedOnly: {
+            if (item.mark != Explorer::Mark::kUninterested)
+              continue;
+            break;
+          }
+          case FilterOptions::kImperfectOnly: {
+            if (item.mark != Explorer::Mark::kImprefect)
+              continue;
+            break;
+          }
+          case FilterOptions::kDuplicatedOnly: {
+            if (item.mark != Explorer::Mark::kDuplicated)
+              continue;
+            break;
+          }
+          default:
+            break;
+        }
 
         const char* prefix =
             !item.supported
-                ? (!g_explorer.ignore_marked ? kPrefix[0] : "")
+                ? (g_explorer.filter == FilterOptions::kAll ? kPrefix[0] : "")
                 : (item.mark == Explorer::Mark::kUninterested
                        ? kPrefix[1]
                        : (item.mark == Explorer::Mark::kImprefect
@@ -385,6 +423,7 @@ void PaintExplorer() {
               break;
             case Explorer::Mark::kDuplicated:
               marked_desc = kMarkedList[3];
+              break;
             default:
               SDL_assert(false);
               break;
@@ -433,8 +472,45 @@ void PaintExplorer() {
           ImGui::EndDisabled();
         }
 
-        ImGui::SameLine();
-        ImGui::Checkbox(U8("忽略被标记的项"), &g_explorer.ignore_marked);
+        ImGui::NewLine();
+        ImGui::TextUnformatted(U8("筛选条件"));
+
+        static const std::map<FilterOptions, const char*> kFilterDesc = {
+            {FilterOptions::kAll, U8("显示所有")},
+            {FilterOptions::kIgnoreMarked, U8("忽略被标记的项")},
+            {FilterOptions::kUnsupportedOnly, U8("只显示不支持的项")},
+            {FilterOptions::kUninterestedOnly, U8("只显示不感兴趣的项")},
+            {FilterOptions::kImperfectOnly, U8("只显示未完全模拟的项")},
+            {FilterOptions::kDuplicatedOnly, U8("只显示重复的项")},
+        };
+        if (ImGui::BeginCombo(U8("##Filter"),
+                              kFilterDesc.at(g_explorer.filter))) {
+          if (ImGui::Selectable(U8("显示所有"),
+                                g_explorer.filter == FilterOptions::kAll)) {
+            g_explorer.filter = FilterOptions::kAll;
+          } else if (ImGui::Selectable(
+                         U8("忽略被标记的项"),
+                         g_explorer.filter == FilterOptions::kIgnoreMarked)) {
+            g_explorer.filter = FilterOptions::kIgnoreMarked;
+          } else if (ImGui::Selectable(U8("只显示不支持的项"),
+                                       g_explorer.filter ==
+                                           FilterOptions::kUnsupportedOnly)) {
+            g_explorer.filter = FilterOptions::kUnsupportedOnly;
+          } else if (ImGui::Selectable(U8("只显示不感兴趣的项"),
+                                       g_explorer.filter ==
+                                           FilterOptions::kUninterestedOnly)) {
+            g_explorer.filter = FilterOptions::kUninterestedOnly;
+          } else if (ImGui::Selectable(
+                         U8("只显示未完全模拟的项"),
+                         g_explorer.filter == FilterOptions::kImperfectOnly)) {
+            g_explorer.filter = FilterOptions::kImperfectOnly;
+          } else if (ImGui::Selectable(
+                         U8("只显示重复的项"),
+                         g_explorer.filter == FilterOptions::kDuplicatedOnly)) {
+            g_explorer.filter = FilterOptions::kDuplicatedOnly;
+          }
+          ImGui::EndCombo();
+        }
       }
 
       if (!g_last_pack_dir.empty()) {
@@ -483,7 +559,7 @@ void PaintExplorer() {
       ImGui::PopStyleColor();
 
       ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
-      ImGui::TextUnformatted(U8("灰色表示文件不支持被打开"));
+      ImGui::TextUnformatted(U8("灰色表示文件不支持被打开或被标记"));
       ImGui::PopStyleColor();
     }
     ImGui::End();
