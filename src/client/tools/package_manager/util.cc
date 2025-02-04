@@ -1002,20 +1002,20 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
     if (!kiwi_machine_path_from_cmdline.empty())
       kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(kiwi_machine,
-                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
+                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--enable_debug"});
 #elif BUILDFLAG(IS_WIN)
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.exe"));
     if (!kiwi_machine_path_from_cmdline.empty())
       kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(
         kiwi_machine,
-        {L"--test-pak=\"" + package_path.value() + L"\"", L"--has_menu"});
+        {L"--test-pak=\"" + package_path.value() + L"\"", L"--enable_debug"});
 #else
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
     if (!kiwi_machine_path_from_cmdline.empty())
       kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(kiwi_machine,
-                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--has_menu"});
+                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--enable_debug"});
 #endif
   }
 }

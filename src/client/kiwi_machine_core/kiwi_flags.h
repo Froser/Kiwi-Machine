@@ -17,7 +17,7 @@
 
 DECLARE_string(test_rom);
 DECLARE_string(test_pak);
-DECLARE_bool(has_menu);
+DECLARE_bool(enable_debug);
 DECLARE_string(debug_roms);
 DECLARE_string(lang);
 DECLARE_string(package_dir);

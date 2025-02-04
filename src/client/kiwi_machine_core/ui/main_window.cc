@@ -47,7 +47,7 @@
 #include "utility/math.h"
 #include "utility/zip_reader.h"
 
-DEFINE_bool(has_menu, false, "Shows a menu bar at the top of the window.");
+DEFINE_bool(enable_debug, false, "Shows a menu bar at the top of the window.");
 
 namespace {
 
@@ -136,7 +136,7 @@ int CalculateWindowWidth(float window_scale) {
 // Calculates window's height. If |menu_bar| is nullptr, use default menu's
 // height if having menu flag.
 int CalculateWindowHeight(float window_scale, Widget* menu_bar = nullptr) {
-  if (FLAGS_has_menu) {
+  if (FLAGS_enable_debug) {
     if (menu_bar && menu_bar->bounds().h > 0) {
       // Menu bar is painted, we can get exact menu height here.
       return kDefaultWindowHeight * window_scale + menu_bar->bounds().h;
@@ -275,7 +275,7 @@ MainWindow::MainWindow(const std::string& title,
 void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   InitializeRuntimeData();
   InitializeAudio();
-  if (!FLAGS_has_menu) {
+  if (!FLAGS_enable_debug) {
     // If the main window has menu, it won't show splash for speeding up.
     ShowSplash(kiwi::base::DoNothing());
   }
@@ -573,7 +573,7 @@ void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
 }
 
 void MainWindow::HandleDropFileEvent(SDL_DropEvent* event) {
-  if (FLAGS_has_menu) {
+  if (FLAGS_enable_debug) {
     SDL_assert(event->file);
     LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(event->file));
   }
@@ -649,7 +649,7 @@ void MainWindow::InitializeRuntimeData() {
   SDL_assert(runtime_id_ >= 0);
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id_);
 
-  if (FLAGS_has_menu) {
+  if (FLAGS_enable_debug) {
     // If menu is visible, debug will be enabled as well. Otherwise, there's no
     // entry to debug namespace, memory, and disassembly. In this scenario,
     // there's no need to set a debug port.
@@ -688,7 +688,7 @@ void MainWindow::InitializeUI() {
   is_headless_ = false;
 #endif
 
-  if (FLAGS_has_menu) {
+  if (FLAGS_enable_debug) {
     // Menu bar
     std::unique_ptr<MenuBar> menu_bar = std::make_unique<MenuBar>(this);
     menu_bar_ = menu_bar.get();
@@ -931,7 +931,7 @@ void MainWindow::InitializeUI() {
   AddWidget(std::move(loading_widget));
 
   // Debug widgets
-  if (FLAGS_has_menu) {
+  if (FLAGS_enable_debug) {
     std::unique_ptr<PaletteWidget> palette_widget =
         std::make_unique<PaletteWidget>(this, runtime_data_->debug_port.get());
     palette_widget_ = palette_widget.get();
@@ -1020,7 +1020,7 @@ void MainWindow::InitializeDebugROMsOnIOThread() {
 
 void MainWindow::LoadTestRomIfSpecified() {
   if (!FLAGS_test_rom.empty()) {
-    if (FLAGS_has_menu) {
+    if (FLAGS_enable_debug) {
       LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_rom));
     }
   }

@@ -452,7 +452,7 @@ void PaintExplorer() {
             kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(kiwi_machine,
                         {"--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
-                         "--has_menu"});
+                         "--enable_debug"});
 #elif BUILDFLAG(IS_WIN)
           kiwi::base::FilePath kiwi_machine(
               FILE_PATH_LITERAL("kiwi_machine.exe"));
@@ -460,14 +460,14 @@ void PaintExplorer() {
             kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(kiwi_machine,
                         {L"--package-dir=\"" + g_last_pack_dir.value() + L"\"",
-                         L"--has_menu"});
+                         L"--enable_debug"});
 #else
           kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
           if (!kiwi_machine_path_from_cmdline.empty())
             kiwi_machine = kiwi_machine_path_from_cmdline;
           RunExecutable(kiwi_machine,
                         {"--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
-                         "--has_menu"});
+                         "--enable_debug"});
 #endif
         }
       }

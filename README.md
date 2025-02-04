@@ -171,7 +171,7 @@ Kiwi Machine被设计成了一个游戏机厅模式，它拥有大量预设的�
 红白机模拟器是一个复杂的工程，为了能测验是否模拟器精准地模拟了物理机，Kiwi Machine支持自定义调试ROMs。
 ![](docs/debug_roms.png)
 
-在启动参数中增加`--has_menu`，唤起菜单栏，同时关闭开屏动画。
+在启动参数中增加`--enable_debug`，唤起菜单栏，同时关闭开屏动画。
 在启动参数中增加`--debug_roms=你的调试DEBUG路径`，Kiwi Machine启动后就可以在调试目录下看到这些ROMs了。
 
 ## 使用说明
