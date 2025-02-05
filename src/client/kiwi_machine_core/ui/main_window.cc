@@ -763,9 +763,9 @@ void MainWindow::InitializeUI() {
                   r->region == preset_roms::Region::kCN)
                 return true;
 
-              // Chinese matches USA version .
+              // Chinese matches Japanese version .
               if (current_language == SupportedLanguage::kSimplifiedChinese &&
-                  r->region == preset_roms::Region::kUSA)
+                  r->region == preset_roms::Region::kJapan)
                 return true;
 #endif
 
