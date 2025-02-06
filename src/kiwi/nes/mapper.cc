@@ -26,6 +26,7 @@
 #include "nes/mappers/mapper066.h"
 #include "nes/mappers/mapper074.h"
 #include "nes/mappers/mapper087.h"
+#include "nes/mappers/mapper185.h"
 
 namespace kiwi {
 namespace nes {
@@ -50,10 +51,10 @@ struct MapperFactoryBuilder : MapperFactory {
 
 // Leaks mappers by purpose.
 std::map<Byte, MapperFactory*> mapper_factories = {
-    MAPPER(0, Mapper000),  MAPPER(1, Mapper001),  MAPPER(2, Mapper002),
-    MAPPER(3, Mapper003),  MAPPER(4, Mapper004),  MAPPER(7, Mapper007),
-    MAPPER(40, Mapper040), MAPPER(66, Mapper066), MAPPER(74, Mapper074),
-    MAPPER(87, Mapper087),
+    MAPPER(0, Mapper000),  MAPPER(1, Mapper001),   MAPPER(2, Mapper002),
+    MAPPER(3, Mapper003),  MAPPER(4, Mapper004),   MAPPER(7, Mapper007),
+    MAPPER(40, Mapper040), MAPPER(66, Mapper066),  MAPPER(74, Mapper074),
+    MAPPER(87, Mapper087), MAPPER(185, Mapper185),
 };
 }  // namespace
 

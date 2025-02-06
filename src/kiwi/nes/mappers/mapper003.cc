@@ -19,6 +19,12 @@
 namespace kiwi {
 namespace nes {
 Mapper003::Mapper003(Cartridge* cartridge) : Mapper(cartridge) {
+  if (cartridge->GetRomData()->submapper != 0) {
+    LOG(WARNING) << "The cartridge's submapper is "
+                 << cartridge->GetRomData()->submapper
+                 << ", which may have subtle problems.";
+  }
+
   if (cartridge->GetRomData()->PRG.size() == 0x4000) {
     is_one_bank_ = true;
   } else {
@@ -28,12 +34,11 @@ Mapper003::Mapper003(Cartridge* cartridge) : Mapper(cartridge) {
 
 Mapper003::~Mapper003() = default;
 
-// 7  bit  0
-//---- ----
-// xxDD xxCC
-//   ||   ||
-//   ||   ++- Select 8 KB CHR ROM bank for PPU $0000-$1FFF
-//   ++------ Security diodes config
+// D~[..DC ..BA] A~[1... .... .... ....]
+//      ||   ||
+//      ||   ++- CHR A14..A13 (8 KiB bank)
+//      |+------ Output to Diode 2 (D2)
+//      +------- Output to Diode 1 (D1)
 void Mapper003::WritePRG(Address address, Byte value) {
   if (address >= 0x8000)
     select_chr_ = value & 0x3;
