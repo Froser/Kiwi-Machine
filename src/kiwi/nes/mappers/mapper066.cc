@@ -43,7 +43,7 @@ Byte Mapper066::ReadPRG(Address address) {
   if (address >= 0x8000) {
     int prg_bank = (select_chr_prg_ >> 4);
     uint32_t base_address = kPRGBankSize * prg_bank;
-    return cartridge()->GetRomData()->PRG[base_address + address - 0x8000];
+    return rom_data()->PRG[base_address + address - 0x8000];
   } else {
     CHECK(false) << "Shouldn't happen.";
     return 0;
@@ -57,7 +57,7 @@ void Mapper066::WriteCHR(Address address, Byte value) {
 Byte Mapper066::ReadCHR(Address address) {
   int chr_bank = (select_chr_prg_ & 0xf);
   uint32_t base_address = kCHRBankSize * chr_bank;
-  return cartridge()->GetRomData()->CHR[base_address + (address % 0x2000)];
+  return rom_data()->CHR[base_address + (address % 0x2000)];
 }
 
 void Mapper066::Serialize(EmulatorStates::SerializableStateData& data) {

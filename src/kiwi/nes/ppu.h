@@ -23,9 +23,9 @@
 
 namespace kiwi {
 namespace nes {
-class Bus;
 class CPU;
 class Palette;
+class PPUBus;
 
 class PPU : public Device, public EmulatorStates::SerializableState {
  public:
@@ -36,7 +36,7 @@ class PPU : public Device, public EmulatorStates::SerializableState {
     kVerticalBlank,
   };
 
-  explicit PPU(Bus* ppu_bus);
+  explicit PPU(PPUBus* ppu_bus);
   ~PPU() override;
 
  public:
@@ -119,7 +119,7 @@ class PPU : public Device, public EmulatorStates::SerializableState {
 
  private:
   base::RepeatingClosure cpu_nmi_callback_;
-  Bus* ppu_bus_ = nullptr;
+  PPUBus* ppu_bus_ = nullptr;
   PPURegisters registers_{};
 
   // Internal registers

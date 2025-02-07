@@ -93,10 +93,10 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   void CheckExtendedRAM();
 
  protected:
-  Cartridge* cartridge() { return cartridge_; }
+  RomData* rom_data() { return rom_data_; }
 
  private:
-  Cartridge* cartridge_;
+  RomData* rom_data_ = nullptr;
   MirroringChangedCallback mirroring_changed_callback_;
   IRQCallback iqr_callback_;
   Bytes extended_ram_;

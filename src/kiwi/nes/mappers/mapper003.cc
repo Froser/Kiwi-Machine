@@ -46,9 +46,9 @@ void Mapper003::WritePRG(Address address, Byte value) {
 
 Byte Mapper003::ReadPRG(Address address) {
   if (!is_one_bank_)
-    return cartridge()->GetRomData()->PRG.at(address - 0x8000);
+    return rom_data()->PRG.at(address - 0x8000);
 
-  return cartridge()->GetRomData()->PRG.at((address - 0x8000) & 0x3fff);
+  return rom_data()->PRG.at((address - 0x8000) & 0x3fff);
 }
 
 void Mapper003::WriteCHR(Address address, Byte value) {
@@ -60,9 +60,8 @@ Byte Mapper003::ReadCHR(Address address) {
 
   // Some games will set a wrong bank (more than banks). For example: Tetris
   // (Tengen). To solve this, the bank should be clamped.
-  uint32_t banks = cartridge()->GetRomData()->CHR.size() / kCHRBankSize;
-  return cartridge()
-      ->GetRomData()
+  uint32_t banks = rom_data()->CHR.size() / kCHRBankSize;
+  return rom_data()
       ->CHR[(kCHRBankSize * (select_chr_ % banks)) | (address & 0x1fff)];
 }
 

@@ -70,30 +70,20 @@ Byte Mapper040::ReadPRG(Address address) {
     return 0;
 
   if (address < 0x8000)
-    return cartridge()
-        ->GetRomData()
-        ->PRG[(kPRGBankSize * 6) | (address & 0x1fff)];
+    return rom_data()->PRG[(kPRGBankSize * 6) | (address & 0x1fff)];
 
   if (address < 0xa000)
-    return cartridge()
-        ->GetRomData()
-        ->PRG[(kPRGBankSize * 4) | (address & 0x1fff)];
+    return rom_data()->PRG[(kPRGBankSize * 4) | (address & 0x1fff)];
 
   if (address < 0xc000)
-    return cartridge()
-        ->GetRomData()
-        ->PRG[(kPRGBankSize * 5) | (address & 0x1fff)];
+    return rom_data()->PRG[(kPRGBankSize * 5) | (address & 0x1fff)];
 
   if (address < 0xe000) {
     // Selectable:
-    return cartridge()
-        ->GetRomData()
-        ->PRG[(kPRGBankSize * select_prg_) | (address & 0x1fff)];
+    return rom_data()->PRG[(kPRGBankSize * select_prg_) | (address & 0x1fff)];
   }
 
-  return cartridge()
-      ->GetRomData()
-      ->PRG[(kPRGBankSize * 7) | (address & 0x1fff)];
+  return rom_data()->PRG[(kPRGBankSize * 7) | (address & 0x1fff)];
 }
 
 void Mapper040::WriteCHR(Address address, Byte value) {
@@ -105,7 +95,7 @@ Byte Mapper040::ReadCHR(Address address) {
   if (uses_character_ram_)
     return character_ram_[address];
 
-  return cartridge()->GetRomData()->CHR[address];
+  return rom_data()->CHR[address];
 }
 
 Byte Mapper040::ReadExtendedRAM(Address address) {

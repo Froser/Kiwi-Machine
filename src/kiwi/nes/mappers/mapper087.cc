@@ -35,7 +35,7 @@ void Mapper087::WritePRG(Address address, Byte value) {
 
 Byte Mapper087::ReadPRG(Address address) {
   if (address >= 0x8000) {
-    return cartridge()->GetRomData()->PRG[address - 0x8000];
+    return rom_data()->PRG[address - 0x8000];
   } else {
     CHECK(false) << "Shouldn't happen.";
     return 0;
@@ -48,7 +48,7 @@ void Mapper087::WriteCHR(Address address, Byte value) {
 
 Byte Mapper087::ReadCHR(Address address) {
   uint32_t base_address = select_chr_ * 0x2000;
-  return cartridge()->GetRomData()->CHR[base_address + address];
+  return rom_data()->CHR[base_address + address];
 }
 
 void Mapper087::Serialize(EmulatorStates::SerializableStateData& data) {

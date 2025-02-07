@@ -153,8 +153,6 @@ endif ()
 set(nes_sources
         nes/apu.cc
         nes/apu.h
-        nes/bus.cc
-        nes/bus.h
         nes/cartridge.cc
         nes/cartridge.h
         nes/controller.cc

@@ -15,6 +15,7 @@
 #include "base/logging.h"
 #include "nes/mapper.h"
 #include "nes/palette.h"
+#include "nes/ppu_bus.h"
 #include "nes/registers.h"
 
 namespace kiwi {
@@ -24,7 +25,7 @@ constexpr int kScanlineVisibleDots = 256;
 // Visible scanlines are from 0 to 239.
 constexpr int kVisibleScanlines = 240;
 
-PPU::PPU(Bus* bus)
+PPU::PPU(PPUBus* bus)
     : ppu_bus_(bus), palette_(CreatePaletteFromPPUModel(PPUModel::k2C02)) {
   // Initialize buffers
   for (size_t i = 0; i < kMaxBufferSize; ++i) {

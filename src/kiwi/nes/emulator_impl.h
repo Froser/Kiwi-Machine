@@ -30,9 +30,9 @@
 
 namespace kiwi {
 namespace nes {
-class CPUBus;
 class CPU;
 class PPUBus;
+class CPUBus;
 class PPU;
 class EmulatorStates;
 

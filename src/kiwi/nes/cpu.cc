@@ -68,7 +68,7 @@ constexpr Byte kOperationShift = 5;
 #define DCHECK_OPCODE_ADDRESSING_MODE(opcode, mode)
 #endif
 
-CPU::CPU(Bus* cpu_bus) : cpu_bus_(cpu_bus) {
+CPU::CPU(CPUBus* cpu_bus) : cpu_bus_(cpu_bus) {
   DCHECK(cpu_bus_);
 }
 
@@ -106,9 +106,9 @@ void CPU::Interrupt(InterruptType type) {
 
 void CPU::Step() {
   struct M2CylceIRQNotifier {
-    M2CylceIRQNotifier(Bus* cpu_bus) : cpu_bus_(cpu_bus) {}
+    M2CylceIRQNotifier(CPUBus* cpu_bus) : cpu_bus_(cpu_bus) {}
     ~M2CylceIRQNotifier() { cpu_bus_->GetMapper()->M2CycleIRQ(); }
-    Bus* cpu_bus_;
+    CPUBus* cpu_bus_;
   } notifier(cpu_bus_);
 
   if (--cycles_to_skip_ >= 0) {

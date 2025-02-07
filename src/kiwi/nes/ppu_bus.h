@@ -15,7 +15,6 @@
 
 #include <array>
 
-#include "nes/bus.h"
 #include "nes/emulator_states.h"
 #include "nes/types.h"
 
@@ -25,17 +24,18 @@ class Mapper;
 
 // PPU Bus is connected to PPU.
 // See https://www.nesdev.org/wiki/PPU_memory_map for more addressing details.
-class PPUBus : public Bus, public EmulatorStates::SerializableState {
+class PPUBus : public EmulatorStates::SerializableState {
  public:
   PPUBus();
   ~PPUBus() override;
 
   // Bus:
-  void SetMapper(Mapper* mapper) override;
-  Mapper* GetMapper() override;
-  Byte Read(Address address) override;
-  void Write(Address address, Byte value) override;
-  Byte* GetPagePointer(Byte page) override;
+  void SetMapper(Mapper* mapper);
+  Mapper* GetMapper();
+  Byte Read(Address address);
+  void Write(Address address, Byte value);
+  Byte* GetPagePointer(Byte page);
+  Word ReadWord(Address address);
 
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;

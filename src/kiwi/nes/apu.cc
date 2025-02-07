@@ -13,7 +13,7 @@
 #include "nes/apu.h"
 
 #include "base/logging.h"
-#include "nes/bus.h"
+#include "nes/cpu_bus.h"
 #include "nes/emulator_impl.h"
 #include "nes/io_devices.h"
 #include "nes/registers.h"
@@ -28,7 +28,7 @@ constexpr auto kAPUFrameDuration =
     std::chrono::milliseconds(1000 / kAPUNTSCFrequency);
 
 int ReadDMC(void* user_data, cpu_addr_t address) {
-  Bus* cpu_bus = reinterpret_cast<Bus*>(user_data);
+  CPUBus* cpu_bus = reinterpret_cast<CPUBus*>(user_data);
   return cpu_bus->Read(address);
 }
 
@@ -39,7 +39,7 @@ void IRQNotifier(void* user_data) {
 }
 }  // namespace
 
-APU::APU(EmulatorImpl* emulator, Bus* cpu_bus)
+APU::APU(EmulatorImpl* emulator, CPUBus* cpu_bus)
     : emulator_(emulator), cpu_bus_(cpu_bus) {
   CHECK(emulator_);
   CHECK(cpu_bus_);

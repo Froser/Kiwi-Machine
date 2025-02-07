@@ -43,9 +43,7 @@ void Mapper002::WritePRG(Address address, Byte value) {
 
 Byte Mapper002::ReadPRG(Address address) {
   if (address < 0xc000)
-    return cartridge()
-        ->GetRomData()
-        ->PRG[((address - 0x8000) & 0x3fff) | (select_prg_ << 14)];
+    return rom_data()->PRG[((address - 0x8000) & 0x3fff) | (select_prg_ << 14)];
 
   return *(last_bank() + (address & 0x3fff));
 }
@@ -60,7 +58,7 @@ Byte Mapper002::ReadCHR(Address address) {
   if (uses_character_ram_)
     return character_ram_[address];
   else
-    return cartridge()->GetRomData()->CHR[address];
+    return rom_data()->CHR[address];
 }
 
 void Mapper002::Serialize(EmulatorStates::SerializableStateData& data) {
@@ -82,7 +80,7 @@ bool Mapper002::Deserialize(const EmulatorStates::Header& header,
 }
 
 Byte* Mapper002::last_bank() {
-  return cartridge()->GetRomData()->PRG.data() + last_bank_offset_;
+  return rom_data()->PRG.data() + last_bank_offset_;
 }
 
 }  // namespace nes

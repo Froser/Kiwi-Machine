@@ -56,7 +56,7 @@ void Mapper004::WritePRG(Address address, Byte value) {
   } else if (address >= 0xa000 && address <= 0xbfff) {
     if (is_even) {
       // Mirroring
-      if (cartridge()->GetRomData()->name_table_mirroring ==
+      if (rom_data()->name_table_mirroring ==
           NametableMirroring::kFourScreen) {
         mirroring_ = NametableMirroring::kFourScreen;
       } else if (value & 0x01) {
@@ -94,32 +94,32 @@ Byte Mapper004::ReadPRG(Address address) {
     int bank = prg_mode_ ? prg_banks_count_ - 2 : bank_register_[6];
     Address offset = address & 0x1fff;
     uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     cartridge()->GetRomData()->PRG.size();
-    return cartridge()->GetRomData()->PRG[index];
+                     rom_data()->PRG.size();
+    return rom_data()->PRG[index];
   }
 
   if (0xa000 <= address && address <= 0xbfff) {
     int bank = bank_register_[7];
     Address offset = address & 0x1fff;
     uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     cartridge()->GetRomData()->PRG.size();
-    return cartridge()->GetRomData()->PRG[index];
+                     rom_data()->PRG.size();
+    return rom_data()->PRG[index];
   }
 
   if (0xc000 <= address && address <= 0xdfff) {
     int bank = prg_mode_ ? bank_register_[6] : prg_banks_count_ - 2;
     Address offset = address & 0x1fff;
     uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     cartridge()->GetRomData()->PRG.size();
-    return cartridge()->GetRomData()->PRG[index];
+                     rom_data()->PRG.size();
+    return rom_data()->PRG[index];
   }
 
   if (0xe000 <= address && address <= 0xffff) {
     int bank = prg_banks_count_ - 1;
     Address offset = address & 0x1fff;
     uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     cartridge()->GetRomData()->PRG.size();
-    return cartridge()->GetRomData()->PRG[index];
+                     rom_data()->PRG.size();
+    return rom_data()->PRG[index];
   }
 
   DCHECK(false);
@@ -184,8 +184,8 @@ Byte Mapper004::ReadCHR(Address address) {
 Byte Mapper004::ReadCHRByBank(int bank, Address address) {
   Address offset = address % 0x0400;
   uint32_t index =
-      ((kCHRBankSize * bank) | offset) % cartridge()->GetRomData()->CHR.size();
-  return cartridge()->GetRomData()->CHR[index];
+      ((kCHRBankSize * bank) | offset) % rom_data()->CHR.size();
+  return rom_data()->CHR[index];
 }
 
 void Mapper004::WriteExtendedRAM(Address address, Byte value) {

@@ -23,7 +23,7 @@
 
 namespace kiwi {
 namespace nes {
-class Bus;
+class CPUBus;
 
 // Class CPU represents 6502 Assembly RP2A03 Model CPU.
 // For registers, see https://www.nesdev.org/wiki/CPU_registers for more
@@ -43,7 +43,7 @@ class CPU : public EmulatorStates::SerializableState {
   };
 
  public:
-  explicit CPU(Bus* cpu_bus);
+  explicit CPU(CPUBus* cpu_bus);
   ~CPU() override;
 
  public:
@@ -114,7 +114,7 @@ class CPU : public EmulatorStates::SerializableState {
   ALWAYS_INLINE Address Addressing(AddressingMode mode, bool& is_page_crossed);
 
  private:
-  Bus* cpu_bus_ = nullptr;
+  CPUBus* cpu_bus_ = nullptr;
   CPURegisters registers_{};
   bool pending_NMI_ = false;
   bool pending_IRQ_ = false;

@@ -10,12 +10,11 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef AHA_COMPONENTS_KIWI_NES_CORE_CPU_BUS_H_
-#define AHA_COMPONENTS_KIWI_NES_CORE_CPU_BUS_H_
+#ifndef NES_CPU_BUS_H_
+#define NES_CPU_BUS_H_
 
 #include <vector>
 
-#include "nes/bus.h"
 #include "nes/emulator.h"
 #include "nes/emulator_states.h"
 #include "nes/registers.h"
@@ -28,17 +27,18 @@ class Device;
 
 // CPU Bus is connected to CPU.
 // See https://www.nesdev.org/wiki/CPU_memory_map for more addressing details.
-class CPUBus : public Bus, public EmulatorStates::SerializableState {
+class CPUBus : public EmulatorStates::SerializableState {
  public:
   CPUBus();
   ~CPUBus() override;
 
   // Bus:
-  void SetMapper(Mapper* mapper) override;
-  Mapper* GetMapper() override;
-  Byte Read(Address address) override;
-  void Write(Address address, Byte value) override;
-  Byte* GetPagePointer(Byte page) override;
+  void SetMapper(Mapper* mapper);
+  Mapper* GetMapper();
+  Byte Read(Address address);
+  void Write(Address address, Byte value);
+  Byte* GetPagePointer(Byte page);
+  Word ReadWord(Address address);
 
   void set_ppu(Device* ppu) { ppu_ = ppu; }
   void set_emulator(Device* emulator) { emulator_ = emulator; }

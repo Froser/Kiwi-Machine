@@ -24,7 +24,8 @@
 namespace kiwi {
 namespace nes {
 class EmulatorImpl;
-class Bus;
+class CPUBus;
+
 class APU : public Device, public EmulatorStates::SerializableState {
  public:
   enum AudioChannels {
@@ -39,7 +40,7 @@ class APU : public Device, public EmulatorStates::SerializableState {
 
   using IRQCallback = base::RepeatingClosure;
 
-  explicit APU(EmulatorImpl* emulator, Bus* cpu_bus);
+  explicit APU(EmulatorImpl* emulator, CPUBus* cpu_bus);
   ~APU() override;
 
   enum {
@@ -75,7 +76,7 @@ class APU : public Device, public EmulatorStates::SerializableState {
   Nes_Apu apu_impl_;
   Blip_Buffer buffer_;
   EmulatorImpl* emulator_ = nullptr;
-  Bus* cpu_bus_ = nullptr;
+  CPUBus* cpu_bus_ = nullptr;
   IRQCallback irq_callback_;
   float volume_ = 1.f;
   blip_sample_t out_buffer_[kOutBufferConstantSize] = {0};

@@ -50,7 +50,7 @@ void Mapper007::WritePRG(Address address, Byte value) {
 
 Byte Mapper007::ReadPRG(Address address) {
   if (address >= 0x8000) {
-    return cartridge()->GetRomData()->PRG.at(select_prg_ * 0x8000 +
+    return rom_data()->PRG.at(select_prg_ * 0x8000 +
                                              (address - 0x8000));
   } else {
     CHECK(false) << "Shouldn't happen.";
@@ -67,7 +67,7 @@ Byte Mapper007::ReadCHR(Address address) {
   if (uses_character_ram_)
     return character_ram_[address];
 
-  return cartridge()->GetRomData()->CHR[address];
+  return rom_data()->CHR[address];
 }
 
 NametableMirroring Mapper007::GetNametableMirroring() {

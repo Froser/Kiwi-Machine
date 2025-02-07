@@ -114,6 +114,10 @@ Byte* PPUBus::GetPagePointer(Byte page) {
   return nullptr;
 }
 
+Word PPUBus::ReadWord(Address address) {
+  return Read(address) | Read(address + 1) << 8;
+}
+
 void PPUBus::Serialize(EmulatorStates::SerializableStateData& data) {
   data.WriteData(nametable_).WriteData(ram_).WriteData(palette_);
 }

@@ -47,9 +47,9 @@ void Mapper000::WritePRG(Address address, Byte value) {
 // (NROM-128).
 Byte Mapper000::ReadPRG(Address address) {
   if (!is_one_bank_)
-    return cartridge()->GetRomData()->PRG[address - 0x8000];
+    return rom_data()->PRG[address - 0x8000];
   else
-    return cartridge()->GetRomData()->PRG[(address - 0x8000) & 0x3fff];
+    return rom_data()->PRG[(address - 0x8000) & 0x3fff];
 }
 
 void Mapper000::WriteCHR(Address address, Byte value) {
@@ -61,7 +61,7 @@ Byte Mapper000::ReadCHR(Address address) {
   if (uses_character_ram_)
     return character_ram_[address];
 
-  return cartridge()->GetRomData()->CHR[address];
+  return rom_data()->CHR[address];
 }
 
 void Mapper000::Serialize(EmulatorStates::SerializableStateData& data) {

@@ -86,27 +86,27 @@ Byte Mapper001::ReadPRG(Address address) {
         return 0;
     }
     uint32_t index = (kPRGBankSize * bank) | (address & 0x3fff);
-    return cartridge()->GetRomData()->PRG[index];
+    return rom_data()->PRG[index];
   } else {
     // $C000-$FFFF
     int bank = 0;
     switch (prg_mode_) {
       case 0:
       case 1:
-        bank = (prg_reg_ & 0xfe) | 1; // Added 16 kb
+        bank = (prg_reg_ & 0xfe) | 1;  // Added 16 kb
         break;
       case 2:
         bank = prg_reg_;
         break;
       case 3:
-        bank = cartridge()->GetRomData()->PRG.size() / kPRGBankSize - 1;
+        bank = rom_data()->PRG.size() / kPRGBankSize - 1;
         break;
       default:
         CHECK(false) << "Shouldn't happen.";
         return 0;
     }
     uint32_t index = (kPRGBankSize * bank) | (address & 0x3fff);
-    return cartridge()->GetRomData()->PRG[index];
+    return rom_data()->PRG[index];
   }
 }
 
@@ -122,11 +122,11 @@ Byte Mapper001::ReadCHR(Address address) {
   constexpr uint32_t kCHRBankSize = 0x1000;
   if (address < 0x1000) {
     uint32_t index = (kCHRBankSize * chr_reg_0_) | (address & 0x3fff);
-    return cartridge()->GetRomData()->CHR[index];
+    return rom_data()->CHR[index];
   } else if (address <= 0x2000) {
     uint32_t bank = (chr_mode_ == 0) ? (chr_reg_0_ + 1) : (chr_reg_1_);
     uint32_t index = (kCHRBankSize * bank) | ((address - 0x1000) & 0x3fff);
-    return cartridge()->GetRomData()->CHR[index];
+    return rom_data()->CHR[index];
   }
 
   CHECK(false) << "Shouldn't happen.";

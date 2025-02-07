@@ -96,5 +96,11 @@ bool CPUBus::Deserialize(const EmulatorStates::Header& header,
   }
   return false;
 }
+
+Word CPUBus::ReadWord(Address address) {
+  return Read(address) | Read(address + 1) << 8;
+}
+
+
 }  // namespace nes
 }  // namespace kiwi

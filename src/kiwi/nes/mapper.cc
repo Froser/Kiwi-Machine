@@ -58,12 +58,15 @@ std::map<Byte, MapperFactory*> mapper_factories = {
 };
 }  // namespace
 
-Mapper::Mapper(Cartridge* cartridge) : cartridge_(cartridge) {}
+Mapper::Mapper(Cartridge* cartridge) {
+  DCHECK(cartridge);
+  rom_data_ = cartridge->GetRomData();
+}
 Mapper::~Mapper() = default;
 
 NametableMirroring Mapper::GetNametableMirroring() {
-  DCHECK(cartridge_ && cartridge_->GetRomData());
-  return cartridge_->GetRomData()->name_table_mirroring;
+  DCHECK(rom_data_);
+  return rom_data_->name_table_mirroring;
 }
 
 void Mapper::ScanlineIRQ() {}
@@ -71,8 +74,8 @@ void Mapper::ScanlineIRQ() {}
 void Mapper::M2CycleIRQ() {}
 
 bool Mapper::HasExtendedRAM() {
-  DCHECK(cartridge_ && cartridge_->GetRomData());
-  return force_use_extended_ram_ || cartridge_->GetRomData()->has_extended_ram;
+  DCHECK(rom_data_);
+  return force_use_extended_ram_ || rom_data_->has_extended_ram;
 }
 
 void Mapper::PPUAddressChanged(Address address) {}
