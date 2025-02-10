@@ -1067,6 +1067,8 @@ std::vector<std::string> NormalizeROMTitle(const std::string& title) {
   constexpr char kReplaceKey[] = ", The";
   constexpr char kSearchKey2[] = ", A (";
   constexpr char kReplaceKey2[] = ", A";
+  constexpr char kSearchKey3[] = ", The -";
+  constexpr char kReplaceKey3[] = ", The";
   size_t pos;
   if (pos = title.find(kSearchKey); pos != std::string::npos) {
     std::string replacement = title;
@@ -1077,6 +1079,12 @@ std::vector<std::string> NormalizeROMTitle(const std::string& title) {
     std::string replacement = title;
     replacement.replace(pos, sizeof(kReplaceKey2) - 1, "");
     result.push_back("A " + replacement);
+    result.push_back(replacement);
+  } else if (pos = title.find(kSearchKey3); pos != std::string::npos) {
+    // e.g. Jetsons, The - Cogswell's Caper (USA)
+    std::string replacement = title;
+    replacement.replace(pos, sizeof(kReplaceKey3) - 1, "");
+    result.push_back("The " + replacement);
     result.push_back(replacement);
   }
 

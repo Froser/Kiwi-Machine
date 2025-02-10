@@ -40,6 +40,7 @@ kiwi::base::FilePath g_dropped_rom;
 enum class FilterOptions {
   kAll,
   kIgnoreMarked,
+  kUnmatchedOnly,
   kUnsupportedOnly,
   kUninterestedOnly,
   kImperfectOnly,
@@ -274,6 +275,14 @@ void PaintExplorer() {
               continue;
             break;
           }
+          case FilterOptions::kUnmatchedOnly: {
+            if (item.mark == Explorer::Mark::kUninterested ||
+                item.mark == Explorer::Mark::kImprefect ||
+                item.mark == Explorer::Mark::kDuplicated || item.matched ||
+                !item.supported)
+              continue;
+            break;
+          }
           case FilterOptions::kUnsupportedOnly: {
             if (item.supported)
               continue;
@@ -478,6 +487,7 @@ void PaintExplorer() {
         static const std::map<FilterOptions, const char*> kFilterDesc = {
             {FilterOptions::kAll, U8("显示所有")},
             {FilterOptions::kIgnoreMarked, U8("忽略被标记的项")},
+            {FilterOptions::kUnmatchedOnly, U8("只显示未被打包的项")},
             {FilterOptions::kUnsupportedOnly, U8("只显示不支持的项")},
             {FilterOptions::kUninterestedOnly, U8("只显示不感兴趣的项")},
             {FilterOptions::kImperfectOnly, U8("只显示未完全模拟的项")},
@@ -492,6 +502,10 @@ void PaintExplorer() {
                          U8("忽略被标记的项"),
                          g_explorer.filter == FilterOptions::kIgnoreMarked)) {
             g_explorer.filter = FilterOptions::kIgnoreMarked;
+          } else if (ImGui::Selectable(
+                         U8("只显示未被打包的项"),
+                         g_explorer.filter == FilterOptions::kUnmatchedOnly)) {
+            g_explorer.filter = FilterOptions::kUnmatchedOnly;
           } else if (ImGui::Selectable(U8("只显示不支持的项"),
                                        g_explorer.filter ==
                                            FilterOptions::kUnsupportedOnly)) {
