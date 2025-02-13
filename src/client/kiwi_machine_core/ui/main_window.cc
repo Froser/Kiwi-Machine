@@ -735,6 +735,7 @@ void MainWindow::InitializeUI() {
           MainWindow::MainFocus::kSideMenu));
       SDL_assert(package->GetRomsCount() > 0);
       for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+        // `roms` is used for sorting.
         std::vector<preset_roms::PresetROM*> roms;
 
         auto& rom = package->GetRomsByIndex(i);
@@ -776,7 +777,9 @@ void MainWindow::InitializeUI() {
           preset_roms::PresetROM& target_rom = **priority_rom;
           size_t main_item_index = items_widget->AddItem(
               std::make_unique<ROMTitleUpdater>(target_rom),
-              target_rom.rom_cover.data(), target_rom.rom_cover.size(),
+              target_rom.boxart_width, target_rom.boxart_height,
+              kiwi::base::BindRepeating(&LoadPresetROM, target_rom,
+                                        RomPart::kBoxArt),
               kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                         kiwi::base::Unretained(this),
                                         std::ref(target_rom)));
@@ -787,8 +790,9 @@ void MainWindow::InitializeUI() {
             items_widget->AddSubItem(
                 main_item_index,
                 std::make_unique<ROMTitleUpdater>(*alternative_rom),
-                alternative_rom->rom_cover.data(),
-                alternative_rom->rom_cover.size(),
+                alternative_rom->boxart_width, alternative_rom->boxart_height,
+                kiwi::base::BindRepeating(&LoadPresetROM, *alternative_rom,
+                                          RomPart::kBoxArt),
                 kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                           kiwi::base::Unretained(this),
                                           std::ref(*alternative_rom)));
@@ -797,8 +801,9 @@ void MainWindow::InitializeUI() {
         } else {
           // No priority rom found. Uses default order.
           size_t main_item_index = items_widget->AddItem(
-              std::make_unique<ROMTitleUpdater>(rom), rom.rom_cover.data(),
-              rom.rom_cover.size(),
+              std::make_unique<ROMTitleUpdater>(rom), rom.boxart_width,
+              rom.boxart_height,
+              kiwi::base::BindRepeating(&LoadPresetROM, rom, RomPart::kBoxArt),
               kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                         kiwi::base::Unretained(this),
                                         std::ref(rom)));
@@ -807,8 +812,9 @@ void MainWindow::InitializeUI() {
             items_widget->AddSubItem(
                 main_item_index,
                 std::make_unique<ROMTitleUpdater>(alternative_rom),
-                alternative_rom.rom_cover.data(),
-                alternative_rom.rom_cover.size(),
+                alternative_rom.boxart_width, alternative_rom.boxart_height,
+                kiwi::base::BindRepeating(&LoadPresetROM, alternative_rom,
+                                          RomPart::kBoxArt),
                 kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
                                           kiwi::base::Unretained(this),
                                           std::ref(alternative_rom)));
@@ -1661,15 +1667,16 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
 
-  Application::Get()->GetIOTaskRunner()->PostTaskAndReply(
+  Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), RomPart::kContent),
       kiwi::base::BindOnce(
           [](MainWindow* this_window,
              scoped_refptr<kiwi::nes::Emulator> emulator,
-             preset_roms::PresetROM& rom, bool load_from_finger_gesture) {
+             preset_roms::PresetROM& rom, bool load_from_finger_gesture,
+             kiwi::nes::Bytes rom_data) {
             emulator->LoadAndRun(
-                ReadFromRawBinary(rom.rom_data.data(), rom.rom_data.size()),
+                ReadFromRawBinary(rom_data.data(), rom_data.size()),
                 kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
                                      kiwi::base::Unretained(this_window),
                                      GetROMLocalizedTitle(rom),

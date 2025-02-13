@@ -15,6 +15,7 @@
 #include <SDL_image.h>
 #include <imgui.h>
 
+#include "ui/application.h"
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "ui/widgets/flex_items_widget.h"
@@ -31,6 +32,9 @@ FlexItemWidget::FlexItemWidget(
     MainWindow* main_window,
     FlexItemsWidget* parent,
     std::unique_ptr<LocalizedStringUpdater> title_updater,
+    int image_width,
+    int image_height,
+    LoadImageCallback image_loader,
     TriggerCallback on_trigger)
     : Widget(main_window), main_window_(main_window), parent_(parent) {
   SDL_assert(parent_);
@@ -39,6 +43,9 @@ FlexItemWidget::FlexItemWidget(
   std::unique_ptr<Data> default_data = std::make_unique<Data>();
   default_data->title_updater = std::move(title_updater);
   default_data->on_trigger_callback = std::move(on_trigger);
+  default_data->image_loader = image_loader;
+  default_data->image_width = image_width;
+  default_data->image_height = image_height;
   current_data_ = default_data.get();
   sub_data_.push_back(std::move(default_data));
 
@@ -52,25 +59,38 @@ FlexItemWidget::FlexItemWidget(
 
 FlexItemWidget::~FlexItemWidget() {
   for (std::unique_ptr<Data>& data : sub_data_) {
-    if (data->cover_texture)
-      SDL_DestroyTexture(data->cover_texture);
+    if (data->image_texture)
+      SDL_DestroyTexture(data->image_texture);
   }
 }
 
 void FlexItemWidget::CreateTextureIfNotExists() {
-  if (!current_data()->cover_texture) {
-    SDL_assert(!current_data()->cover_texture);
-    SDL_RWops* bg_res = SDL_RWFromConstMem(
-        const_cast<unsigned char*>(current_data()->cover_img),
-        current_data()->cover_size);
+  if (!current_data()->image_texture &&
+      !current_data()->requesting_or_requested_texture_) {
+    // Make sure we only request once
+    current_data()->requesting_or_requested_texture_ = true;
 
-    current_data()->cover_texture =
-        IMG_LoadTextureTyped_RW(window()->renderer(), bg_res, 1, nullptr);
-    SDL_SetTextureScaleMode(current_data()->cover_texture, SDL_ScaleModeBest);
-    SDL_QueryTexture(current_data()->cover_texture, nullptr, nullptr,
-                     &current_data()->cover_width,
-                     &current_data()->cover_height);
+    // If there's no texture yet, post a task to request a new one.
+    Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        kiwi::base::BindOnce(&FlexItemWidget::LoadImageAndCreateTexture,
+                             kiwi::base::Unretained(this), current_data()),
+        kiwi::base::BindOnce(
+            [](Data* current_data, SDL_Texture* texture) {
+              current_data->image_texture.exchange(texture);
+            },
+            current_data()));
   }
+}
+
+SDL_Texture* FlexItemWidget::LoadImageAndCreateTexture(Data* current_data) {
+  const kiwi::nes::Bytes& data = current_data->image_loader.Run();
+  SDL_RWops* bg_res =
+      SDL_RWFromConstMem(const_cast<unsigned char*>(data.data()), data.size());
+  SDL_Texture* image_texture =
+      IMG_LoadTextureTyped_RW(window()->renderer(), bg_res, 1, nullptr);
+  SDL_SetTextureScaleMode(image_texture, SDL_ScaleModeBest);
+  return image_texture;
 }
 
 bool FlexItemWidget::MatchFilter(const std::string& filter,
@@ -85,8 +105,7 @@ bool FlexItemWidget::MatchFilter(const std::string& filter,
 SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height) {
   SDL_Rect bs = bounds();
   bs.h = item_height;
-  CreateTextureIfNotExists();
-  bs.w = bs.h * current_data()->cover_width / current_data()->cover_height;
+  bs.w = bs.h * current_data()->image_width / current_data()->image_height;
   return bs;
 }
 
@@ -97,13 +116,15 @@ void FlexItemWidget::Trigger(bool triggered_by_finger) {
 
 void FlexItemWidget::AddSubItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
-    const kiwi::nes::Byte* cover_img_ref,
-    size_t cover_size,
+    int image_width,
+    int image_height,
+    LoadImageCallback image_loader,
     TriggerCallback on_trigger) {
   std::unique_ptr<Data> data = std::make_unique<Data>();
+  data->image_width = image_width;
+  data->image_height = image_height;
+  data->image_loader = image_loader;
   data->title_updater = std::move(title_updater);
-  data->cover_img = cover_img_ref;
-  data->cover_size = cover_size;
   data->on_trigger_callback = on_trigger;
   sub_data_.push_back(std::move(data));
 }
@@ -136,10 +157,18 @@ void FlexItemWidget::Paint() {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
   // Draw stretched image
-  draw_list->AddImage(current_data()->cover_texture,
-                      ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
-                      ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
-                             kBoundsToWindow.y + kBoundsToWindow.h));
+  if (current_data()->image_texture) {
+    draw_list->AddImage(current_data()->image_texture,
+                        ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+                        ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+                               kBoundsToWindow.y + kBoundsToWindow.h));
+  } else {
+    // Texture is not ready yet, fill a gray rectangle
+    draw_list->AddRectFilled(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+                             ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+                                    kBoundsToWindow.y + kBoundsToWindow.h),
+                             ImColor(128, 128, 128));
+  }
 
   if (has_sub_items()) {
     // Draw a badge icon if it has sub items.

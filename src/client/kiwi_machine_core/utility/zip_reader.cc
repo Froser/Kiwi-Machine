@@ -13,6 +13,8 @@
 #include "utility/zip_reader.h"
 
 #include <SDL.h>
+#include <SDL_image.h>
+#include <utility>
 
 #include "preset_roms/preset_roms.h"
 #include "third_party/nlohmann_json/json.hpp"
@@ -204,6 +206,31 @@ preset_roms::Region GuessROMRegion(std::string_view filename) {
   return preset_roms::Region::kUnknown;
 }
 
+kiwi::nes::Bytes LoadZipDataFromFilePos(scoped_refptr<Unz> f,
+                                        unz_file_pos file_pos) {
+  kiwi::nes::Bytes data;
+  int found = unzGoToFilePos(*f, &file_pos);
+  if (found == UNZ_OK) {
+    std::string filename;
+    filename.resize(kFileNameMaxLength);
+    unz_file_info fi;
+    unzGetCurrentFileInfo(*f, &fi, filename.data(), filename.size(), nullptr, 0,
+                          nullptr, 0);
+    data.resize(fi.uncompressed_size);
+    unzOpenCurrentFile(*f);
+    int read = unzReadCurrentFile(*f, data.data(), data.size());
+    unzCloseCurrentFile(*f);
+    if (read <= 0) {
+      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Read current file error: %d",
+                  read);
+    }
+  } else {
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Can't goto file pos: %lu, %lu",
+                file_pos.num_of_file, file_pos.pos_in_zip_directory);
+  }
+  return data;
+}
+
 }  // namespace
 
 void InitializePresetROM(preset_roms::PresetROM& rom_data) {
@@ -220,6 +247,9 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
       // Loads title or i18 names on demand.
       std::map<std::string, std::unordered_map<std::string, std::string>>
           i18n_names;
+      // Boxarts width and height
+      std::map<std::string, std::pair<int, int>> boxarts_sizes;
+
       bool success = ReadFileFromZip(file, "manifest.json", manifest);
       bool has_manifest = !manifest.empty();
       // Parsing manifest file, to extract i18n information, and so on.
@@ -236,6 +266,25 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
             }
           }
         }
+
+        if (manifest_json.contains("boxarts")) {
+          const auto& boxarts = manifest_json.at("boxarts");
+          for (const auto& rom_version : boxarts.items()) {
+            boxarts_sizes[rom_version.key()] = std::make_pair(
+                rom_version.value()["width"], rom_version.value()["height"]);
+          }
+        }
+      } else {
+        // A zip file doesn't have a manifest should load image immediately, to
+        // get its boxart size, and it will only has one rom.
+        kiwi::nes::Bytes boxart_data =
+            LoadPresetROM(rom_data, RomPart::kBoxArt);
+        SDL_RWops* rw =
+            SDL_RWFromConstMem(boxart_data.data(), boxart_data.size());
+        SDL_Surface* surface = IMG_Load_RW(rw, true);
+        rom_data.boxart_width = surface->w;
+        rom_data.boxart_height = surface->h;
+        SDL_FreeSurface(surface);
       }
 
       auto default_i18n_names = i18n_names.find("default");
@@ -245,6 +294,12 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
         rom_data.region = GuessROMRegion(rom_data.name);
       }
       rom_data.title_loaded = true;
+
+      auto default_boxart_size = boxarts_sizes.find("default");
+      if (default_boxart_size != boxarts_sizes.end()) {
+        rom_data.boxart_width = std::get<0>(default_boxart_size->second);
+        rom_data.boxart_height = std::get<1>(default_boxart_size->second);
+      }
 
       if (!success) {
         unzClose(file);
@@ -278,23 +333,39 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
 
         std::string alter_rom_name = alter_rom_path.BaseName().AsUTF8Unsafe();
         if (alter_rom_name != "manifest.json") {
+          std::string alter_name =
+              alter_rom_path.BaseName().RemoveExtension().AsUTF8Unsafe();
+
           // Finds corresponding i18n names, and store these names.
-          auto alter_i18n_names = i18n_names.find(
-              alter_rom_path.BaseName().RemoveExtension().AsUTF8Unsafe());
+          auto alter_i18n_names = i18n_names.find(alter_name);
           std::unordered_map<std::string, std::string> names;
           if (alter_i18n_names != i18n_names.end()) {
             names = alter_i18n_names->second;
           }
 
+          // Finds boxart image size
+          auto alter_boxart_size = boxarts_sizes.find(alter_name);
+          int alter_boxart_width = 0;
+          int alter_boxart_height = 0;
+          if (alter_boxart_size != boxarts_sizes.end()) {
+            alter_boxart_width = std::get<0>(alter_boxart_size->second);
+            alter_boxart_height = std::get<1>(alter_boxart_size->second);
+          }
+
           if (alternative_rom_iter != rom_data.alternates.end()) {
             // Use the existing alternative rom struct.
             alternative_rom_iter->i18n_names = names;
+            alternative_rom_iter->boxart_width = alter_boxart_width;
+            alternative_rom_iter->boxart_height = alter_boxart_height;
           } else {
             preset_roms::PresetROM alternative_rom;
             alternative_rom.title_loaded = true;
-            alternative_rom.owned_zip_data = false;
             alternative_rom.file_pos = rom_data.file_pos;
             alternative_rom.zip_data_loader = rom_data.zip_data_loader;
+
+            // Boxart image size
+            alternative_rom.boxart_width = alter_boxart_width;
+            alternative_rom.boxart_height = alter_boxart_height;
 
             // Leaky name
             std::string rom_name =
@@ -317,17 +388,13 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
   }
 }
 
-void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
+kiwi::nes::Bytes LoadPresetROM(const preset_roms::PresetROM& rom_data,
+                               RomPart part) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();
   SDL_assert(io_task_runner->RunsTasksInCurrentSequence());
-  if (!((HasAnyPart(part & RomPart::kBoxArt) && !rom_data.cover_loaded) ||
-        (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded)))
-    return;
 
-  // Loads cover or ROM contents on demand.
-  RomPart loaded_part = RomPart::kNone;
-
+  kiwi::nes::Bytes result;
   kiwi::nes::Bytes zip_data_container =
       rom_data.zip_data_loader.Run(rom_data.file_pos);
   kiwi::nes::Byte* zip_data = zip_data_container.data();
@@ -336,27 +403,30 @@ void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part) {
   unzFile file =
       unzOpenFromMemory(const_cast<kiwi::nes::Byte*>(zip_data), zip_size);
   if (file) {
-    if (HasAnyPart(part & RomPart::kBoxArt) && !rom_data.cover_loaded) {
-      if (ReadFileFromZip(file, std::string(rom_data.name) + ".jpg",
-                          rom_data.rom_cover)) {
-        rom_data.cover_loaded = true;
-        loaded_part |= RomPart::kBoxArt;
-      } else {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Failed to get boxart cover for name %s", rom_data.name);
-      }
-    }
-
-    if (HasAnyPart(part & RomPart::kContent) && !rom_data.content_loaded) {
-      if (ReadFileFromZip(file, std::string(rom_data.name) + ".nes",
-                          rom_data.rom_data)) {
-        rom_data.content_loaded = true;
-        loaded_part |= RomPart::kContent;
-      }
+    switch (part) {
+      case RomPart::kBoxArt:
+        if (!ReadFileFromZip(file, std::string(rom_data.name) + ".jpg",
+                             result)) {
+          SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                       "Failed to get boxart for name %s", rom_data.name);
+        }
+        break;
+      case RomPart::kContent:
+        if (!ReadFileFromZip(file, std::string(rom_data.name) + ".nes",
+                             result)) {
+          SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                       "Failed to get rom data for name %s", rom_data.name);
+        }
+        break;
+      default:
+        break;
     }
 
     unzClose(file);
+  } else {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to get file pointer");
   }
+  return result;
 }
 
 // Reads all roms' data from package file.
@@ -412,31 +482,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
     unzGetFilePos(*pak, &file_pos);
     rom.file_pos = file_pos;
     rom.zip_data_loader = kiwi::base::BindRepeating(
-        [](scoped_refptr<Unz> f, unz_file_pos file_pos) {
-          kiwi::nes::Bytes data;
-          int found = unzGoToFilePos(*f, &file_pos);
-          if (found == UNZ_OK) {
-            std::string filename;
-            filename.resize(kFileNameMaxLength);
-            unz_file_info fi;
-            unzGetCurrentFileInfo(*f, &fi, filename.data(), filename.size(),
-                                  nullptr, 0, nullptr, 0);
-            data.resize(fi.uncompressed_size);
-            unzOpenCurrentFile(*f);
-            int read = unzReadCurrentFile(*f, data.data(), data.size());
-            unzCloseCurrentFile(*f);
-            if (read <= 0) {
-              SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                          "Read current file error: %d", read);
-            }
-
-          } else {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                        "Can't goto file pos: %lu, %lu", file_pos.num_of_file,
-                        file_pos.pos_in_zip_directory);
-          }
-          return data;
-        },
+        &LoadZipDataFromFilePos,
         // TODO RetainedRef will keep unzFile opened, especially in Android, it
         // will hold package's content. Try to cleanup these repeating callbacks
         // when it won't be used anymore.

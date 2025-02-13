@@ -21,7 +21,7 @@
 
 namespace kiwi {
 namespace nes {
-// https://www.nesdev.org/wiki/INES_Mapper_087
+// https://www.nesdev.org/wiki/INES_Mapper_066
 // Notes:
 // ---------------------------
 // Regs are at $6000-7FFF, so these games have no SRAM.

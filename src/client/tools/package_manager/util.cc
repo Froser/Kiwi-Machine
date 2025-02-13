@@ -464,18 +464,18 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
           }
         }
 
-        // Gets the cover jpg
-        std::string cover_path;
+        // Gets the boxart jpg
+        std::string boxart_path;
         if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") == 0) {
-          cover_path =
+          boxart_path =
               path.RemoveExtension().BaseName().AsUTF8Unsafe() + ".jpg";
         } else {
-          cover_path = rom.key + ".jpg";
+          boxart_path = rom.key + ".jpg";
         }
 
-        err = unzLocateFile(file, cover_path.c_str(), false);
+        err = unzLocateFile(file, boxart_path.c_str(), false);
         if (err != UNZ_OK) {
-          // Bad cover
+          // Bad boxart
           unzClose(file);
           return g_no_result;
         }
@@ -556,26 +556,9 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
     }
   }
 
-  std::string manifest_contents = json.dump(2);
-  // Changes \n into \r\n
-  SDL_assert(manifest_contents.find('\r') == std::string::npos);
-  for (size_t i = 0; i < manifest_contents.length(); ++i) {
-    if (manifest_contents[i] == '\n') {
-      manifest_contents.replace(i, 1, "\r\n");
-      i += 1;
-    }
-  }
-
   std::string output = save_dir.Append(package_name).AsUTF8Unsafe();
   zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
   if (!zf) {
-    return kiwi::base::FilePath();
-  }
-
-  // Writes manifest
-  if (!WriteToZip(zf, "manifest.json", manifest_contents.data(),
-                  manifest_contents.size())) {
-    zipClose(zf, nullptr);
     return kiwi::base::FilePath();
   }
 
@@ -599,6 +582,33 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
       zipClose(zf, nullptr);
       return kiwi::base::FilePath();
     }
+
+    // Gets width and height of boxarts, and append it to manifest:
+    SDL_RWops* rw =
+        SDL_RWFromConstMem(rom.boxart_data.data(), rom.boxart_data.size());
+    SDL_Surface* surface = IMG_Load_RW(rw, true);
+    nlohmann::json boxarts;
+    auto& boxart_node = json["boxarts"][NormalizeROMTitle(rom.key)[0]];
+    boxart_node["width"] = surface->w;
+    boxart_node["height"] = surface->h;
+    SDL_FreeSurface(surface);
+  }
+
+  std::string manifest_contents = json.dump(2);
+  // Changes \n into \r\n
+  SDL_assert(manifest_contents.find('\r') == std::string::npos);
+  for (size_t i = 0; i < manifest_contents.length(); ++i) {
+    if (manifest_contents[i] == '\n') {
+      manifest_contents.replace(i, 1, "\r\n");
+      i += 1;
+    }
+  }
+
+  // Writes manifest
+  if (!WriteToZip(zf, "manifest.json", manifest_contents.data(),
+                  manifest_contents.size())) {
+    zipClose(zf, nullptr);
+    return kiwi::base::FilePath();
   }
 
   zipClose(zf, nullptr);
@@ -1001,8 +1011,8 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.app"));
     if (!kiwi_machine_path_from_cmdline.empty())
       kiwi_machine = kiwi_machine_path_from_cmdline;
-    RunExecutable(kiwi_machine,
-                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--enable_debug"});
+    RunExecutable(kiwi_machine, {"--test-pak=" + package_path.AsUTF8Unsafe(),
+                                 "--enable_debug"});
 #elif BUILDFLAG(IS_WIN)
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.exe"));
     if (!kiwi_machine_path_from_cmdline.empty())
@@ -1014,8 +1024,8 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
     kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
     if (!kiwi_machine_path_from_cmdline.empty())
       kiwi_machine = kiwi_machine_path_from_cmdline;
-    RunExecutable(kiwi_machine,
-                  {"--test-pak=" + package_path.AsUTF8Unsafe(), "--enable_debug"});
+    RunExecutable(kiwi_machine, {"--test-pak=" + package_path.AsUTF8Unsafe(),
+                                 "--enable_debug"});
 #endif
   }
 }

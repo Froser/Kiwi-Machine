@@ -14,6 +14,7 @@
 #define UI_WIDGETS_FLEX_ITEM_WIDGET_H_
 
 #include <kiwi_nes.h>
+#include <atomic>
 
 #include "ui/widgets/widget.h"
 #include "utility/localization.h"
@@ -27,31 +28,28 @@ class FlexItemWidget : public Widget {
   // gesture.
   using TriggerCallback = kiwi::base::RepeatingCallback<void(bool)>;
 
+  using LoadImageCallback = kiwi::base::RepeatingCallback<kiwi::nes::Bytes()>;
+
  private:
   struct Data {
     std::unique_ptr<LocalizedStringUpdater> title_updater;
-    const kiwi::nes::Byte* cover_img = nullptr;
-    size_t cover_size = 0u;
+    LoadImageCallback image_loader;
     TriggerCallback on_trigger_callback;
-    SDL_Texture* cover_texture = nullptr;
-    int cover_width = 0;
-    int cover_height = 0;
+    std::atomic<SDL_Texture*> image_texture = nullptr;
+    bool requesting_or_requested_texture_ = false;
+    int image_width = 0;
+    int image_height = 0;
   };
 
  public:
   explicit FlexItemWidget(MainWindow* main_window,
                           FlexItemsWidget* parent,
                           std::unique_ptr<LocalizedStringUpdater> title_updater,
+                          int image_width,
+                          int image_height,
+                          LoadImageCallback image_loader,
                           TriggerCallback on_trigger);
   ~FlexItemWidget() override;
-
-  // Sets the cover image data, perhaps jpeg raw data or PNG raw data.
-  // Caller must ensure that |cover_img| is never release when KiwiItemWidget is
-  // alive.
-  void set_cover(const kiwi::nes::Byte* cover_img, size_t cover_size) {
-    current_data()->cover_img = cover_img;
-    current_data()->cover_size = cover_size;
-  }
 
   // If an item has been filtered, it won't be displayed, and won't participant
   // in layout.
@@ -70,8 +68,9 @@ class FlexItemWidget : public Widget {
   void Trigger(bool triggered_by_finger);
 
   void AddSubItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
-                  const kiwi::nes::Byte* cover_img_ref,
-                  size_t cover_size,
+                  int image_width,
+                  int image_height,
+                  LoadImageCallback image_loader,
                   TriggerCallback on_trigger);
   bool has_sub_items() { return sub_data_.size() > 1; }
   bool RestoreToDefaultItem();
@@ -79,6 +78,7 @@ class FlexItemWidget : public Widget {
 
  private:
   void CreateTextureIfNotExists();
+  SDL_Texture* LoadImageAndCreateTexture(Data* current_data);
 
  protected:
   void Paint() override;

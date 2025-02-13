@@ -33,13 +33,15 @@ class FlexItemsWidget : public Widget {
   ~FlexItemsWidget() override;
 
   size_t AddItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
-                 const kiwi::nes::Byte* cover_img_ref,
-                 size_t cover_size,
+                 int image_width,
+                 int image_height,
+                 FlexItemWidget::LoadImageCallback image_loader,
                  FlexItemWidget::TriggerCallback on_trigger);
   void AddSubItem(size_t item_index,
                   std::unique_ptr<LocalizedStringUpdater> title_updater,
-                  const kiwi::nes::Byte* cover_img_ref,
-                  size_t cover_size,
+                  int image_width,
+                  int image_height,
+                  FlexItemWidget::LoadImageCallback image_loader,
                   FlexItemWidget::TriggerCallback on_trigger);
 
   void SetIndex(size_t index);

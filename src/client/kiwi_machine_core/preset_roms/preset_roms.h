@@ -13,21 +13,21 @@
 #ifndef PRESET_ROMS_PRESET_ROMS_H
 #define PRESET_ROMS_PRESET_ROMS_H
 
+#include <gflags/gflags.h>
 #include <kiwi_nes.h>
 #include <map>
 #include <unordered_map>
 #include <vector>
-#include <gflags/gflags.h>
 
-#include "utility/localization.h"
 #include "third_party/zlib-1.3/contrib/minizip/unzip.h"
+#include "utility/localization.h"
 
 namespace preset_roms {
 enum class Region {
   kUnknown,
   kJapan,
   kUSA,
-  kCN, // Rare, almost bootleg
+  kCN,  // Rare, almost bootleg
 };
 
 struct PresetROM {
@@ -36,13 +36,12 @@ struct PresetROM {
   unz_file_pos file_pos;
   kiwi::base::RepeatingCallback<kiwi::nes::Bytes(unz_file_pos)> zip_data_loader;
 
-  // Following data will be written when loaded. Do not modify them:
-  // Uncompressed data. Filled by FillRomDataFromZip().
-  kiwi::nes::Bytes rom_data;
-  kiwi::nes::Bytes rom_cover;
-
   // i18 names
   std::unordered_map<std::string, std::string> i18n_names;
+
+  // Boxart image size
+  int boxart_width = 0;
+  int boxart_height = 0;
 
   // Switch ROM version.
   std::vector<PresetROM> alternates;
@@ -52,9 +51,6 @@ struct PresetROM {
 
   // Whether its data or cover is loaded
   bool title_loaded = false;
-  bool cover_loaded = false;
-  bool content_loaded = false;
-  bool owned_zip_data = true;
 };
 
 #define PRESET_ROM(name) name::ROM_NAME, name::ROM_ZIP, name::ROM_ZIP_SIZE

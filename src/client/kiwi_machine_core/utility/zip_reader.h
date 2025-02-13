@@ -18,13 +18,11 @@
 namespace preset_roms {
 struct PresetROM;
 struct Package;
-}
+}  // namespace preset_roms
 
 enum class RomPart {
-  kNone,
-  kBoxArt = 1,
-  kContent = 2,
-  kAll = kBoxArt | kContent,
+  kBoxArt,
+  kContent,
 };
 inline RomPart operator&(RomPart lhs, RomPart rhs) {
   return static_cast<RomPart>(static_cast<int>(lhs) & static_cast<int>(rhs));
@@ -35,9 +33,6 @@ inline RomPart operator|(RomPart lhs, RomPart rhs) {
 inline RomPart& operator|=(RomPart& lhs, RomPart rhs) {
   lhs = static_cast<RomPart>(static_cast<int>(lhs) | static_cast<int>(rhs));
   return lhs;
-}
-inline bool HasAnyPart(RomPart part) {
-  return !!static_cast<int>(part);
 }
 
 // Loads ROM's data from an external package.
@@ -53,8 +48,10 @@ void ClosePackages();
 // should be called before calling LoadPresetROM().
 void InitializePresetROM(preset_roms::PresetROM& rom_data);
 
-// Loads ROM's cover, content, or both. This function will be called on IO
+// Loads ROM's cover, content, or both. This function must be called on IO
 // thread.
-void LoadPresetROM(preset_roms::PresetROM& rom_data, RomPart part);
+[[nodiscard]] kiwi::nes::Bytes LoadPresetROM(
+    const preset_roms::PresetROM& rom_data,
+    RomPart part);
 
 #endif  // UTILITY_ZIP_READER_H_

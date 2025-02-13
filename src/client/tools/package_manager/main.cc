@@ -394,7 +394,7 @@ void PaintExplorer() {
       }
 
       ImGui::SameLine();
-      if (ImGui::Button(U8("对文件夹打包"))) {
+      if (ImGui::Button(U8("打包成pak"))) {
         auto result =
             PackEntireDirectory(GetWorkspace().GetZippedPath(),
                                 GetWorkspace().GetPackageOutputPath());
@@ -407,6 +407,19 @@ void PaintExplorer() {
         } else {
           g_last_pack_result_str = U8("打包失败。");
           g_last_pack_dir.clear();
+        }
+      }
+
+      ImGui::SameLine();
+      if (ImGui::Button(U8("检查并重写所有压缩包"))) {
+        kiwi::base::FilePath zipped_path = GetWorkspace().GetZippedPath();
+        kiwi::base::FileEnumerator d(zipped_path, true,
+                                     kiwi::base::FileEnumerator::FILES,
+                                     FILE_PATH_LITERAL("*.zip"));
+        for (kiwi::base::FilePath current = d.Next(); !current.empty();
+             current = d.Next()) {
+          ROMS roms = ReadZipFromFile(current);
+          WriteZip(zipped_path, roms);
         }
       }
 

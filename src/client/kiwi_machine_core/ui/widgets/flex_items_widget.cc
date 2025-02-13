@@ -21,6 +21,7 @@
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/math.h"
+#include "utility/zip_reader.h"
 
 namespace {
 const int kItemHeightHint = styles::flex_items_widget::GetItemHeightHint();
@@ -72,13 +73,13 @@ FlexItemsWidget::~FlexItemsWidget() = default;
 
 size_t FlexItemsWidget::AddItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
-    const kiwi::nes::Byte* cover_img_ref,
-    size_t cover_size,
+    int image_width,
+    int image_height,
+    FlexItemWidget::LoadImageCallback image_loader,
     FlexItemWidget::TriggerCallback on_trigger) {
   std::unique_ptr<FlexItemWidget> item = std::make_unique<FlexItemWidget>(
-      main_window_, this, std::move(title_updater), on_trigger);
-
-  item->set_cover(cover_img_ref, cover_size);
+      main_window_, this, std::move(title_updater), image_width, image_height,
+      image_loader, on_trigger);
   items_.push_back(item.get());
   all_items_.push_back(item.get());
   AddWidget(std::move(item));
@@ -89,12 +90,13 @@ size_t FlexItemsWidget::AddItem(
 void FlexItemsWidget::AddSubItem(
     size_t item_index,
     std::unique_ptr<LocalizedStringUpdater> title_updater,
-    const kiwi::nes::Byte* cover_img_ref,
-    size_t cover_size,
+    int image_width,
+    int image_height,
+    FlexItemWidget::LoadImageCallback image_loader,
     FlexItemWidget::TriggerCallback on_trigger) {
   SDL_assert(item_index < items_.size());
-  items_[item_index]->AddSubItem(std::move(title_updater), cover_img_ref,
-                                 cover_size, on_trigger);
+  items_[item_index]->AddSubItem(std::move(title_updater), image_width,
+                                 image_height, image_loader, on_trigger);
 }
 
 void FlexItemsWidget::SetIndex(size_t index) {
