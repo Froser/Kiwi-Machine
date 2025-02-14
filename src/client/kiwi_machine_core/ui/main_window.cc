@@ -934,6 +934,7 @@ void MainWindow::InitializeUI() {
       std::make_unique<LoadingWidget>(this);
   loading_widget_ = loading_widget.get();
   loading_widget_->set_visible(false);
+  loading_widget_->set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
   AddWidget(std::move(loading_widget));
 
   // Debug widgets

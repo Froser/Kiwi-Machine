@@ -459,11 +459,20 @@ void FlexItemsWidget::ApplyScrolling(int scrolling) {
   if (SDL_RectEmpty(&kLocalBounds))
     return;
 
+  // Extends the view's bounds, make more item to be painted, even if them are
+  // not in the FlexItemsWidget view.
+  // By doing this, we can make sure items which recently be painted will
+  // request its image as soon as possible.
+  constexpr int kExtended = 200;
+  SDL_Rect extended_local_bounds = kLocalBounds;
+  extended_local_bounds.x -= kExtended;
+  extended_local_bounds.h += kExtended;
+
   for (auto* item : items_) {
     SDL_Rect bounds = bounds_map_without_scrolling_[item];
     bounds.y += scrolling;
     item->set_bounds(bounds);
-    item->set_visible(SDL_HasIntersection(&bounds, &kLocalBounds));
+    item->set_visible(SDL_HasIntersection(&bounds, &extended_local_bounds));
   }
 }
 

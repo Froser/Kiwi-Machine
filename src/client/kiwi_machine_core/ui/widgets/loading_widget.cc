@@ -53,10 +53,8 @@ SDL_Rect LoadingWidget::CalculateCircleAABB(int* indicator_radius_out) {
 }
 
 void LoadingWidget::Paint() {
-  SDL_Rect client_bounds = window()->GetClientBounds();
   if (first_paint_) {
     timer_.Start();
-    set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
     first_paint_ = false;
   }
 
@@ -77,9 +75,9 @@ void LoadingWidget::Paint() {
     color.y = color_.g * growth + backdrop_color_.g * (1.0f - growth);
     color.z = color_.b * growth + backdrop_color_.b * (1.0f - growth);
     color.w = color_.a * growth + backdrop_color_.a * (1.0f - growth);
-    draw_list->AddCircleFilled(ImVec2(circle_aabb.x + indicator_radius + x,
-                                      circle_aabb.y + indicator_radius - y),
-                               kCircleRadius + growth * kCircleRadius,
-                               ImGui::GetColorU32(color));
+    draw_list->AddCircleFilled(
+        ImVec2(bounds().x + circle_aabb.x + indicator_radius + x,
+               bounds().y + circle_aabb.y + indicator_radius - y),
+        kCircleRadius + growth * kCircleRadius, ImGui::GetColorU32(color));
   }
 }

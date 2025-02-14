@@ -16,6 +16,7 @@
 #include <kiwi_nes.h>
 #include <atomic>
 
+#include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
 #include "utility/localization.h"
 #include "utility/timer.h"
@@ -88,6 +89,7 @@ class FlexItemWidget : public Widget {
   FlexItemsWidget* parent_ = nullptr;
   Data* current_data_ = nullptr;
   SDL_Texture* badge_texture_ = nullptr;
+  LoadingWidget loading_widget_;
 
   // Location
   int row_index_ = 0;

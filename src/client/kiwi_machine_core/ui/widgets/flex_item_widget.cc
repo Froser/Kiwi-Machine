@@ -20,6 +20,7 @@
 #include "ui/styles.h"
 #include "ui/widgets/flex_items_widget.h"
 #include "utility/algorithm.h"
+#include "utility/math.h"
 
 namespace {
 constexpr float kCoverHWRatio = 250.f / 200;
@@ -36,7 +37,10 @@ FlexItemWidget::FlexItemWidget(
     int image_height,
     LoadImageCallback image_loader,
     TriggerCallback on_trigger)
-    : Widget(main_window), main_window_(main_window), parent_(parent) {
+    : Widget(main_window),
+      main_window_(main_window),
+      parent_(parent),
+      loading_widget_(main_window_) {
   SDL_assert(parent_);
 
   // Initialize the default data
@@ -163,11 +167,18 @@ void FlexItemWidget::Paint() {
                         ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
                                kBoundsToWindow.y + kBoundsToWindow.h));
   } else {
-    // Texture is not ready yet, fill a gray rectangle
-    draw_list->AddRectFilled(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
-                             ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
-                                    kBoundsToWindow.y + kBoundsToWindow.h),
-                             ImColor(128, 128, 128));
+    // Texture is not ready yet, so draw a loading spin and a rectangle
+    SDL_Rect loading_widget_bounds =
+        Center(SDL_Rect{kBoundsToWindow.x, kBoundsToWindow.y, kBoundsToWindow.w,
+                        kBoundsToWindow.h},
+               loading_widget_.CalculateCircleAABB(nullptr));
+    loading_widget_.set_bounds(loading_widget_bounds);
+    loading_widget_.Paint();
+
+    draw_list->AddRect(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+                       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+                              kBoundsToWindow.y + kBoundsToWindow.h),
+                       ImColor(255, 255, 255), 0, 0, .3f);
   }
 
   if (has_sub_items()) {
