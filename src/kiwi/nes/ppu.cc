@@ -143,6 +143,11 @@ void PPU::Step() {
           //  +--------------- 0: Pattern table is at $0000-$1FFF
           auto x_fine = (fine_scroll_pos_x_ + x) % 8;
           if (!is_hide_edge_background() || x >= 8) {
+            // Punch-out or other games has to adjust its data address to make
+            // sure PPU works correctly.
+            if (patch_.data_address_patch)
+              patch_.data_address_patch(&data_address_);
+
             // Fetch tile (nametable byte).
             Address pixel_address = 0x2000 | (data_address_ & 0x0fff);
             Byte tile = ppu_bus_->Read(pixel_address);

@@ -152,25 +152,20 @@ void PPUBus::UpdateMirroring() {
     case NametableMirroring::kHorizontal:
       nametable_[0] = nametable_[1] = 0;
       nametable_[2] = nametable_[3] = 0x400;
-      LOG(INFO) << "Horizontal Name Table mirroring set. (Vertical Scrolling)";
       break;
     case NametableMirroring::kVertical:
       nametable_[0] = nametable_[2] = 0;
       nametable_[1] = nametable_[3] = 0x400;
-      LOG(INFO) << "Vertical Name Table mirroring set. (Horizontal Scrolling)";
       break;
     case NametableMirroring::kOneScreenLower:
       nametable_[0] = nametable_[1] = nametable_[2] = nametable_[3] = 0;
-      LOG(INFO) << "Single Screen mirroring set with lower bank.";
       break;
     case NametableMirroring::kOneScreenHigher:
       nametable_[0] = nametable_[1] = nametable_[2] = nametable_[3] = 0x400;
-      LOG(INFO) << "Single Screen mirroring set with higher bank.";
       break;
     case NametableMirroring::kFourScreen:
       // the cartridge contains additional VRAM used for all nametables
       nametable_[0] = RAM_SIZE;
-      LOG(INFO) << "FourScreen mirroring.";
       break;
     default:
       nametable_[0] = nametable_[1] = nametable_[2] = nametable_[3] = 0;

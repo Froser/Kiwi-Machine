@@ -26,7 +26,6 @@ Canvas::Canvas(WindowBase* window_base, NESRuntimeID runtime_id)
 Canvas::~Canvas() = default;
 
 void Canvas::Clear() {
-  nes_frame_is_ready_ = false;
   SDL_RenderClear(window()->renderer());
 }
 
@@ -39,19 +38,15 @@ void Canvas::RemoveObserver(CanvasObserver* observer) {
 }
 
 void Canvas::Paint() {
-  if (nes_frame_is_ready_) {
-    // Notify all observers
-    for (CanvasObserver* observer : observers_) {
-      observer->OnAboutToRenderFrame(this, frame_.get());
-    }
-
-    SDL_Rect src_rect = {0, 0, frame_->width(), frame_->height()};
-    SDL_Rect dest_rect = bounds();
-    SDL_RenderCopy(window()->renderer(), frame_->texture(), &src_rect,
-                   &dest_rect);
-
-    nes_frame_is_ready_ = false;
+  // Notify all observers
+  for (CanvasObserver* observer : observers_) {
+    observer->OnAboutToRenderFrame(this, frame_.get());
   }
+
+  SDL_Rect src_rect = {0, 0, frame_->width(), frame_->height()};
+  SDL_Rect dest_rect = bounds();
+  SDL_RenderCopy(window()->renderer(), frame_->texture(), &src_rect,
+                 &dest_rect);
 }
 
 bool Canvas::IsWindowless() {
@@ -79,9 +74,7 @@ bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
   return false;
 }
 
-void Canvas::OnShouldRender(int since_last_frame_ms) {
-  nes_frame_is_ready_ = true;
-}
+void Canvas::OnShouldRender(int since_last_frame_ms) {}
 
 void Canvas::InvokeInGameMenu() {
   if (on_menu_trigger_)

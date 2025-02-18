@@ -15,6 +15,7 @@
 
 #include <stdint.h>
 #include "nes/nes_export.h"
+#include "nes/types.h"
 
 namespace kiwi {
 namespace nes {
@@ -33,7 +34,17 @@ class NES_EXPORT PPUPatch {
   void Reset();
   void Set(uint32_t rom_crc);
 
+  // Many games assume IRQ starts at the scanline 280, while according to wiki,
+  // it should happen on 260.
+  // IRQ on 280 has no side-effects for supported games currently, so if there's
+  // any game needs a 260-scanline-IRQ, put its CRC32 to Set() and set the
+  // expected IRQ scanline.
   int scanline_irq_dot;
+
+  // Give a changes to adjust data address while in rendering pipeline.
+  // Punch-out needs this to adjust its data address, to fetch 0xfe tile to
+  // switch its CHR bank!
+  void (*data_address_patch)(Address* data_address) = nullptr;
 };
 
 }  // namespace nes

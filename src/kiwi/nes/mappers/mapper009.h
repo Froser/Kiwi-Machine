@@ -10,9 +10,10 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef NES_MAPPERS_MAPPER003_H_
-#define NES_MAPPERS_MAPPER003_H_
+#ifndef NES_MAPPERS_MAPPER009_H_
+#define NES_MAPPERS_MAPPER009_H_
 
+#include "nes/emulator_states.h"
 #include "nes/mapper.h"
 #include "nes/types.h"
 
@@ -20,12 +21,11 @@
 
 namespace kiwi {
 namespace nes {
-// https://www.nesdev.org/wiki/INES_Mapper_003
-// https://www.nesdev.org/wiki/CNROM
-class Mapper003 : public Mapper {
+// https://www.nesdev.org/wiki/MMC2
+class Mapper009 : public Mapper {
  public:
-  explicit Mapper003(Cartridge* cartridge);
-  ~Mapper003() override;
+  explicit Mapper009(Cartridge* cartridge);
+  ~Mapper009() override;
 
  public:
   void WritePRG(Address address, Byte value) override;
@@ -34,15 +34,23 @@ class Mapper003 : public Mapper {
   void WriteCHR(Address address, Byte value) override;
   Byte ReadCHR(Address address) override;
 
+  NametableMirroring GetNametableMirroring() override;
+
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;
   bool Deserialize(const EmulatorStates::Header& header,
                    EmulatorStates::DeserializableStateData& data) override;
+
  private:
-  bool is_one_bank_ = false;
-  Address select_chr_ = 0;
+  Address latch_0_ = 0xfe;
+  Address latch_1_ = 0xfe;
+  Address select_chr_first_ = 0;
+  Address select_chr_second_ = 0;
+  Address chr_regs_[4]{0, 4, 0, 0};
+  Address select_prg_ = 0;
+  NametableMirroring mirroring_ = NametableMirroring::kHorizontal;
 };
-}  // namespace core
+}  // namespace nes
 }  // namespace kiwi
 
-#endif  // NES_MAPPERS_MAPPER003_H_
+#endif  // NES_MAPPERS_MAPPER009_H_
