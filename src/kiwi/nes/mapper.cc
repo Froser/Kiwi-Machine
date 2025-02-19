@@ -23,6 +23,7 @@
 #include "nes/mappers/mapper004.h"
 #include "nes/mappers/mapper007.h"
 #include "nes/mappers/mapper009.h"
+#include "nes/mappers/mapper010.h"
 #include "nes/mappers/mapper040.h"
 #include "nes/mappers/mapper066.h"
 #include "nes/mappers/mapper074.h"
@@ -56,6 +57,7 @@ std::map<Byte, MapperFactory*> mapper_factories = {
     MAPPER(3, Mapper003),  MAPPER(4, Mapper004),   MAPPER(7, Mapper007),
     MAPPER(40, Mapper040), MAPPER(66, Mapper066),  MAPPER(74, Mapper074),
     MAPPER(87, Mapper087), MAPPER(185, Mapper185), MAPPER(9, Mapper009),
+    MAPPER(10, Mapper010),
 };
 }  // namespace
 
@@ -124,15 +126,19 @@ Byte Mapper::ReadExtendedRAM(Address address) {
 
 void Mapper::Serialize(EmulatorStates::SerializableStateData& data) {
   data.WriteData(force_use_extended_ram_);
-  if (HasExtendedRAM())
+  if (HasExtendedRAM()) {
+    CheckExtendedRAM();
     data.WriteData(extended_ram_);
+  }
 }
 
 bool Mapper::Deserialize(const EmulatorStates::Header& header,
                          EmulatorStates::DeserializableStateData& data) {
   data.ReadData(&force_use_extended_ram_);
-  if (HasExtendedRAM())
+  if (HasExtendedRAM()) {
+    CheckExtendedRAM();
     data.ReadData(&extended_ram_);
+  }
 
   return true;
 }
