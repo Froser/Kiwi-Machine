@@ -91,7 +91,7 @@ class NESRuntime {
         kiwi::base::OnceCallback<void(const StateResult&)> load_callback);
 
     using GetThumbnailCallback = kiwi::base::RepeatingCallback<
-        kiwi::nes::IODevices::RenderDevice::Buffer()>;
+        const kiwi::nes::IODevices::RenderDevice::Buffer&()>;
     void StartAutoSave(kiwi::base::TimeDelta delta,
                        GetThumbnailCallback thumbnail);
     void StopAutoSave();

@@ -31,7 +31,19 @@ class NES_EXPORT IODevices {
     virtual ~InputDevice();
 
    public:
+    // Bit OR combination
+    enum ZapperState {
+      kNone,
+      kLightSensed,
+      kTriggered,
+    };
+
+   public:
     virtual bool IsKeyDown(int controller_id, ControllerButton button) = 0;
+
+    // Method for getting Zapper lightgun state.
+    // Return value is the OR bit combination of ZapperState.
+    virtual int GetZapperState() = 0;
   };
 
   class NES_EXPORT RenderDevice {

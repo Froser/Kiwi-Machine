@@ -115,6 +115,7 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
 
   // Gets last rendered frame.
   virtual const Colors& GetLastFrame() = 0;
+  virtual const Colors& GetCurrentFrame() = 0;
 
  public:
   virtual void SetDebugPort(DebugPort* debug_port) = 0;
@@ -127,9 +128,10 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual Byte GetCPUMemory(Address address) = 0;
   virtual Byte GetPPUMemory(Address address) = 0;
   virtual Byte GetOAMMemory(Byte address) = 0;
-  virtual Colors GetCurrentFrame() = 0;
   virtual void SetAudioChannelMasks(int audio_channels) = 0;
   virtual int GetAudioChannelMasks() = 0;
+  virtual Controller::Type GetControllerType(int id) = 0;
+  virtual void SetControllerType(int id, Controller::Type type) = 0;
 };
 
 // Creates an emulator.

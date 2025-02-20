@@ -49,7 +49,8 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   int width() { return render_width_; }
   int height() { return render_height_; }
   SDL_Texture* texture() { return screen_texture_; }
-  Buffer GetLastFrame();
+  const Buffer& GetLastFrame();
+  const Buffer& GetCurrentFrame();
 
  private:
   WindowBase* window_ = nullptr;

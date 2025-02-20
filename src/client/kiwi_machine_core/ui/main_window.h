@@ -17,6 +17,7 @@
 #include <gflags/gflags.h>
 
 #include "build/kiwi_defines.h"
+#include "kiwi/nes/controller.h"
 #include "models/nes_audio.h"
 #include "models/nes_frame.h"
 #include "models/nes_runtime.h"
@@ -106,6 +107,7 @@ class MainWindow : public WindowBase,
   // InputDevice:
   bool IsKeyDown(int controller_id,
                  kiwi::nes::ControllerButton button) override;
+  int GetZapperState() override;
 
   // WindowBase:
   SDL_Rect GetClientBounds() override;
@@ -218,6 +220,8 @@ class MainWindow : public WindowBase,
   void OnVirtualJoystickChanged(int state);
   void OnKeyboardMatched();
   void OnJoystickButtonsMatched();
+  void OnSetJoystickType(int id, kiwi::nes::Controller::Type type);
+  bool IsJoystickType(int id, kiwi::nes::Controller::Type type);
 
   // FullscreenMask will call HandleWindowFingerDown()
   friend class FullscreenMask;

@@ -94,9 +94,11 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   Byte GetCPUMemory(Address address) override;
   Byte GetPPUMemory(Address address) override;
   Byte GetOAMMemory(Byte address) override;
-  Colors GetCurrentFrame() override;
+  const Colors& GetCurrentFrame() override;
   void SetAudioChannelMasks(int audio_channels) override;
   int GetAudioChannelMasks() override;
+  Controller::Type GetControllerType(int id) override;
+  void SetControllerType(int id, Controller::Type type) override;
 
   // Operate direct memory access, copy |page| from CPU to PPU.
   // That is, copy 256 bytes from $xx00-$xxFF into OAM via OAMDATA ($2004).
@@ -122,6 +124,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void UnloadOnProperThread();
   void PostReset(RunningState last_state);
   void OnIRQFromAPU();
+  void SetControllerTypes(uint32_t crc32);
   // EmulatorStates will dump states from emulator, it can access all members.
   friend class EmulatorStates;
 

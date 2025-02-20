@@ -68,6 +68,11 @@ bool NESFrame::NeedRender() {
   return true;
 }
 
-NESFrame::Buffer NESFrame::GetLastFrame() {
+const NESFrame::Buffer& NESFrame::GetLastFrame() {
   return runtime_data_->emulator->GetLastFrame();
+}
+
+
+const NESFrame::Buffer& NESFrame::GetCurrentFrame() {
+  return runtime_data_->emulator->GetCurrentFrame();
 }

@@ -231,6 +231,8 @@ class FullscreenMask : public Widget {
   ~FullscreenMask() override = default;
 
  protected:
+  bool OnMousePressed(SDL_MouseButtonEvent* event) override;
+  bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool IsWindowless() override;
 
@@ -240,6 +242,14 @@ class FullscreenMask : public Widget {
 
 FullscreenMask::FullscreenMask(MainWindow* main_window)
     : Widget(main_window), main_window_(main_window) {}
+
+bool FullscreenMask::OnMousePressed(SDL_MouseButtonEvent* event) {
+  return false;
+}
+
+bool FullscreenMask::OnMouseReleased(SDL_MouseButtonEvent* event) {
+  return false;
+}
 
 bool FullscreenMask::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   return main_window_->HandleWindowFingerDown();
@@ -494,6 +504,13 @@ bool MainWindow::IsKeyDown(int controller_id,
   }
 
   return matched;
+}
+
+int MainWindow::GetZapperState() {
+  if (canvas_)
+    return canvas_->GetZapperState();
+
+  return ZapperState::kNone;
 }
 
 SDL_Rect MainWindow::GetClientBounds() {
@@ -1111,6 +1128,38 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
       emulator.menu_items.push_back(std::move(screen_size));
     }
 
+    // Controllers
+    {
+      MenuBar::MenuItem controllers;
+      controllers.title = "Controllers";
+      {
+        // Joy1
+        constexpr const char* kJoys[] = {"Joy1", "Joy2"};
+        constexpr const char* kTypeName[] = {
+            "Standard",
+            "Zapper",
+        };
+        for (int id = 0; id < 2; ++id) {
+          MenuBar::MenuItem joy;
+          joy.title = kJoys[id];
+          for (int i = 0;
+               i <= static_cast<int>(kiwi::nes::Controller::Type::kLast); ++i) {
+            joy.sub_items.push_back(
+                {kTypeName[i],
+                 kiwi::base::BindRepeating(
+                     &MainWindow::OnSetJoystickType,
+                     kiwi::base::Unretained(this), id,
+                     static_cast<kiwi::nes::Controller::Type>(i)),
+                 kiwi::base::BindRepeating(
+                     &MainWindow::IsJoystickType, kiwi::base::Unretained(this),
+                     id, static_cast<kiwi::nes::Controller::Type>(i))});
+          }
+          controllers.sub_items.push_back(std::move(joy));
+        }
+      }
+      emulator.menu_items.push_back(std::move(controllers));
+    }
+
     // Save and load menu
     {
       MenuBar::MenuItem states;
@@ -1341,6 +1390,20 @@ void MainWindow::StashVirtualButtonsVisible() {}
 void MainWindow::PopVirtualButtonsVisible() {}
 
 #endif
+
+void MainWindow::OnSetJoystickType(int id, kiwi::nes::Controller::Type type) {
+  if (runtime_data_ && runtime_data_->debug_port) {
+    runtime_data_->debug_port->SetControllerType(id, type);
+  }
+}
+
+bool MainWindow::IsJoystickType(int id, kiwi::nes::Controller::Type type) {
+  if (runtime_data_ && runtime_data_->debug_port) {
+    return runtime_data_->debug_port->GetControllerType(id) == type;
+  }
+
+  return type == kiwi::nes::Controller::Type::kStandard;
+}
 
 void MainWindow::SetVirtualButtonsVisible(bool visible) {
   SetVirtualTouchButtonVisible(VirtualTouchButton::kJoystick, visible);

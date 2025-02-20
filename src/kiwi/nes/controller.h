@@ -20,22 +20,44 @@ namespace nes {
 class Emulator;
 class Controller {
  public:
+  enum class Type {
+    kStandard,
+    kZapper,  // lightgun
+
+    kLast = kZapper,
+  };
+
+  class Implementation {
+   public:
+    Implementation(Emulator* emulator, int id);
+    virtual ~Implementation() = 0;
+
+   public:
+    virtual void Strobe(Byte b) = 0;
+    virtual Byte Read() = 0;
+
+   protected:
+    Emulator* emulator() { return emulator_; }
+    int id() { return id_; }
+
+   private:
+    Emulator* emulator_;
+    int id_;
+  };
+
+ public:
   Controller(int id);
   ~Controller();
 
-  void set_emulator(Emulator* emulator) { emulator_ = emulator; }
-
+  void SetType(Emulator* emulator, Type type);
+  Type type() { return type_; }
   void Strobe(Byte b);
   Byte Read();
 
  private:
-  int IsKeyPressed(ControllerButton button);
-
- private:
-  int id_ = 0;
-  bool strobe_ = false;
-  unsigned int key_states_ = 0;
-  Emulator* emulator_ = nullptr;
+  int id_;
+  Type type_ = Type::kStandard;
+  std::unique_ptr<Implementation> impl_;
 };
 }  // namespace nes
 }  // namespace kiwi

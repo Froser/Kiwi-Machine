@@ -126,8 +126,6 @@ EmulatorImpl::~EmulatorImpl() = default;
 
 void EmulatorImpl::PowerOn() {
   emulator_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
-  controller1_.set_emulator(this);
-  controller2_.set_emulator(this);
 
   ppu_bus_ = std::make_unique<PPUBus>();
   ppu_ = std::make_unique<PPU>(ppu_bus_.get());
@@ -392,6 +390,24 @@ void EmulatorImpl::OnIRQFromAPU() {
   DLOG(INFO) << "OnIRQFromAPU() is unhandled yet.";
 }
 
+void EmulatorImpl::SetControllerTypes(uint32_t crc32) {
+  switch (crc32) {
+    case 0x24598791:  // Duck Hunt
+    case 0xB8B9ACA3:  // Wild Gunman (Japan, USA)
+    case 0x5112dc21:  // Wild Gunman (World) (Rev A)
+    case 0xff24d794:  // Hogan's Alley (World)
+    case 0x3e58a87e:  // Freedom Force (USA)
+    case 0xde8fd935:  // To the Earth (USA)
+      controller1_.SetType(this, Controller::Type::kStandard);
+      controller2_.SetType(this, Controller::Type::kZapper);
+      break;
+    default:
+      controller1_.SetType(this, Controller::Type::kStandard);
+      controller2_.SetType(this, Controller::Type::kStandard);
+      break;
+  }
+}
+
 void EmulatorImpl::OnPPUStepped() {
   if (debug_port_) {
     debug_port_->OnPPUStepped(GetPPUContext());
@@ -432,6 +448,8 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
 
   // Set patch config for PPU
   ppu_->SetPatch(cartridge->crc32());
+
+  SetControllerTypes(cartridge->crc32());
 
   // Set mapper for buses.
   cpu_bus_->SetMapper(cartridge->mapper());
@@ -666,7 +684,7 @@ Byte EmulatorImpl::GetOAMMemory(Byte address) {
   return ppu_->ReadOAMData(address);
 }
 
-Colors EmulatorImpl::GetCurrentFrame() {
+const Colors& EmulatorImpl::GetCurrentFrame() {
   DCHECK(ppu_);
   return ppu_->current_frame();
 }
@@ -679,6 +697,24 @@ void EmulatorImpl::SetAudioChannelMasks(int audio_channels) {
 int EmulatorImpl::GetAudioChannelMasks() {
   DCHECK(apu_);
   return apu_->GetAudioChannels();
+}
+
+Controller::Type EmulatorImpl::GetControllerType(int id) {
+  DCHECK(id == 0 || id == 1);
+  if (id == 0) {
+    return controller1_.type();
+  } else {
+    return controller2_.type();
+  }
+}
+
+void EmulatorImpl::SetControllerType(int id, Controller::Type type) {
+  DCHECK(id == 0 || id == 1);
+  if (id == 0) {
+    return controller1_.SetType(this, type);
+  } else {
+    return controller2_.SetType(this, type);
+  }
 }
 
 }  // namespace nes

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "base/task/single_thread_task_runner.h"
+#include "nes/controller.h"
 #include "nes/cpu.h"
 #include "nes/io_devices.h"
 #include "nes/nes_export.h"
@@ -155,8 +156,8 @@ class NES_EXPORT DebugPort {
 
   // Returns the pattern table of the ROM, in RGBA.
   // The pattern table is divided into two 256-tile sections: $0000-$0FFF,
-  // nicknamed "left", and $1000-$1FFF, nicknamed "right". The nicknames come
-  // from how emulators with a debugger display the pattern table.
+  // nicknamed "left", and $1000-$1FFF, nicknamed "right". The nicknames
+  // come from how emulators with a debugger display the pattern table.
   // Traditionally, they are displayed as two side-by-side 128x128 pixel
   // sections, each representing 16x16 tiles from the pattern table, with
   // $0000-$0FFF on the left and $1000-$1FFF on the right.
@@ -178,6 +179,10 @@ class NES_EXPORT DebugPort {
 
   // Set PPU subtle behaviour:
   void SetScanlineIRQCycle(int cycles);
+
+  // Sets and gets joy's type:
+  Controller::Type GetControllerType(int id);
+  void SetControllerType(int id, Controller::Type type);
 
   // Controls whether screen buffers will be painted
   void set_render_paused(bool disabled) { render_disabled_ = disabled; }

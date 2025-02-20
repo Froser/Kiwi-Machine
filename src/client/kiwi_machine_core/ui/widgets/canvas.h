@@ -13,6 +13,7 @@
 #ifndef UI_WIDGETS_CANVAS_H_
 #define UI_WIDGETS_CANVAS_H_
 
+#include <optional>
 #include <set>
 
 #include "models/nes_frame.h"
@@ -32,10 +33,9 @@ class Canvas : public Widget, public NESFrameObserver {
   ~Canvas() override;
 
   void Clear();
+  int GetZapperState();
 
-  void set_frame_scale(float scale) {
-    frame_scale_ = scale;
-  }
+  void set_frame_scale(float scale) { frame_scale_ = scale; }
 
   void set_in_menu_trigger_callback(kiwi::base::RepeatingClosure callback) {
     on_menu_trigger_ = callback;
@@ -54,6 +54,10 @@ class Canvas : public Widget, public NESFrameObserver {
   bool IsWindowless() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
+  bool OnMousePressed(SDL_MouseButtonEvent* event) override;
+  bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
+  bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
+  bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
 
   // NESFrameObserver:
   void OnShouldRender(int since_last_frame_ms) override;
@@ -61,8 +65,22 @@ class Canvas : public Widget, public NESFrameObserver {
  private:
   void InvokeInGameMenu();
 
+  struct ZapperDetails {
+    int original_x;
+    int original_y;
+  };
+  // x and y are relative to the window
+  ZapperDetails CreateZapperDetailsByMouseOrFingerPosition(int x, int y);
+  enum class Input {
+    kMouse,
+    kFinger,
+  };
+  bool ZapperTest(Input input);
+
  private:
   float frame_scale_ = 1.f;
+  bool mouse_or_finger_down_ = false;
+  std::optional<std::pair<int, int>> touch_point_;
   scoped_refptr<NESFrame> frame_;
   kiwi::base::RepeatingClosure on_menu_trigger_;
   std::set<CanvasObserver*> observers_;

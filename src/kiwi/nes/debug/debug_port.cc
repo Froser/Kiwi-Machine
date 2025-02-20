@@ -446,6 +446,14 @@ void DebugPort::SetScanlineIRQCycle(int cycles) {
   emulator_->GetPPUContext().patch_->scanline_irq_dot = cycles;
 }
 
+Controller::Type DebugPort::GetControllerType(int id) {
+  return emulator_->GetControllerType(id);
+}
+
+void DebugPort::SetControllerType(int id, Controller::Type type) {
+  return emulator_->SetControllerType(id, type);
+}
+
 // A nametable is a 1024 byte area of memory used by the PPU to lay out
 // backgrounds. Each byte in the nametable controls one 8x8 pixel character
 // cell, and each nametable has 30 rows of 32 tiles each, for 960 ($3C0) bytes;
