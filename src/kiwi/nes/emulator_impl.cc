@@ -398,6 +398,7 @@ void EmulatorImpl::SetControllerTypes(uint32_t crc32) {
     case 0xff24d794:  // Hogan's Alley (World)
     case 0x3e58a87e:  // Freedom Force (USA)
     case 0xde8fd935:  // To the Earth (USA)
+    case 0xbbe40dc4:  // Baby Boomer (USA) (Unl)
       controller1_.SetType(this, Controller::Type::kStandard);
       controller2_.SetType(this, Controller::Type::kZapper);
       break;
