@@ -99,9 +99,9 @@ void PPU::Step() {
           observer_->OnPPUScanlineEnd(261);
         cycles_ = -1;
         scanline_ = 0;
-      } else if (cycles_ == patch_.scanline_irq_dot && is_render_enabled()) {
-        // add IRQ support for MMC3
-        ppu_bus_->GetMapper()->ScanlineIRQ();
+      } else if (cycles_ == patch_.scanline_irq_dot) {
+        // add IRQ support for MMC
+        ppu_bus_->GetMapper()->ScanlineIRQ(scanline_, is_render_enabled());
       }
     } break;
     case PipelineState::kRender: {
@@ -309,8 +309,8 @@ void PPU::Step() {
         data_address_ |= temp_address_ & 0x41f;
       }
 
-      if (cycles_ == patch_.scanline_irq_dot && is_render_enabled()) {
-        ppu_bus_->GetMapper()->ScanlineIRQ();
+      if (cycles_ == patch_.scanline_irq_dot) {
+        ppu_bus_->GetMapper()->ScanlineIRQ(scanline_, is_render_enabled());
       }
 
       if (cycles_ >= kScanlineEndCycle) {
@@ -393,13 +393,6 @@ void PPU::Step() {
   ++cycles_;
   if (observer_) {
     observer_->OnPPUStepped();
-  }
-}
-
-void PPU::StepScanline() {
-  int s = scanline_;
-  while (scanline_ == s) {
-    Step();
   }
 }
 

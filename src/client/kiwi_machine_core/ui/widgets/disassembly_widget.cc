@@ -199,5 +199,9 @@ void DisassemblyWidget::Paint() {
       runtime_data_->debug_port->SetScanlineIRQCycle(delay);
   }
 
+  ImGui::TextUnformatted("If this widget is visible");
+  ImGui::TextUnformatted(
+      "the rom will be paused automatically when loaded or reset");
+
   ImGui::EndGroup();
 }

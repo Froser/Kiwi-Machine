@@ -43,9 +43,13 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
     mirroring_changed_callback_ = callback;
   }
 
-  void set_scanline_irq_callback(IRQCallback callback) {
-    iqr_callback_ = callback;
+  void set_irq_callback(IRQCallback callback) { iqr_callback_ = callback; }
+
+  void set_irq_clear_callback(IRQCallback callback) {
+    iqr_clear_callback_ = callback;
   }
+
+  virtual void Reset();
 
   // CPU: $8000-$FFFF
   virtual void WritePRG(Address addr, Byte value) = 0;
@@ -56,7 +60,7 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual Byte ReadCHR(Address addr) = 0;
 
   virtual NametableMirroring GetNametableMirroring();
-  virtual void ScanlineIRQ();
+  virtual void ScanlineIRQ(int scanline, bool render_enabled);
   virtual void M2CycleIRQ();
 
   // MMC3 uses this.
@@ -87,7 +91,10 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
     return mirroring_changed_callback_;
   }
 
+  // A callback set CPU's irq.
   IRQCallback irq_callback() { return iqr_callback_; }
+  // A callback clear's CPU's irq pending flag
+  IRQCallback irq_clear_callback() { return iqr_clear_callback_; }
 
  private:
   void CheckExtendedRAM();
@@ -99,6 +106,7 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   RomData* rom_data_ = nullptr;
   MirroringChangedCallback mirroring_changed_callback_;
   IRQCallback iqr_callback_;
+  IRQCallback iqr_clear_callback_;
   Bytes extended_ram_;
   bool force_use_extended_ram_ = false;
 };

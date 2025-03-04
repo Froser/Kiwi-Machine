@@ -46,7 +46,6 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   void PowerUp();
   void Reset();
   void Step();
-  void StepScanline();
   void DMA(Byte* source);
   PPURegisters registers() { return registers_; }
   Address data_address() { return data_address_; }

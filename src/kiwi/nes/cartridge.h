@@ -68,6 +68,8 @@ class Cartridge : public base::RefCountedThreadSafe<Cartridge>,
   // nullptr will be returned.
   Mapper* mapper() { return mapper_.get(); }
 
+  void Reset();
+
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;
   bool Deserialize(const EmulatorStates::Header& header,
