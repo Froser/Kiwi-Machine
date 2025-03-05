@@ -168,7 +168,6 @@ void PPU::Step() {
             // If |background_color| is not 0, it is opaque.
             is_background_opaque = (background_color != 0);
 
-            // todo mmc5 fill-mode color here:
             //  Fetch attribute table and calculate higher two bits of palette:
             //  https://www.nesdev.org/wiki/PPU_scrolling#Tile_and_attribute_fetching
             Address attribute_address = 0x23c0 | (data_address_ & 0x0c00) |

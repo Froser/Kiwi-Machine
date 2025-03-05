@@ -21,6 +21,8 @@ namespace nes {
 
 constexpr Byte kOpenBus = 8;
 constexpr size_t k1KBank = 1 * 1024;
+constexpr size_t k2KBank = 4 * 1024;
+constexpr size_t k4KBank = 4 * 1024;
 constexpr size_t k8KBank = 8 * 1024;
 constexpr size_t k16KBank = 16 * 1024;
 constexpr size_t k32KBank = 32 * 1024;
@@ -224,20 +226,33 @@ Byte Mapper005::ReadCHR(Address address) {
   switch (chr_mode_) {
     case 0:
       // PPU $0000-$1FFF: 8 KB switchable CHR bank
-      // todo
-      break;
+      if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
+        return rom_data()->CHR.at(k8KBank * chr_regs_[7] + (address));
+      } else {
+        return rom_data()->CHR[k8KBank * chr_regs_[0xb] + (address)];
+      }
     case 1:
       // PPU $0000-$0FFF: 4 KB switchable CHR bank
       // PPU $1000-$1FFF: 4 KB switchable CHR bank
-      // todo
-      break;
+      if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
+        return rom_data()->CHR.at(k4KBank * chr_regs_[(address >> 12) * 4 + 3] +
+                                  (address & 0xfff));
+      } else {
+        return rom_data()->CHR[k4KBank * chr_regs_[0xb] + (address & 0xfff)];
+      }
     case 2:
       // PPU $0000-$07FF: 2 KB switchable CHR bank
       // PPU $0800-$0FFF: 2 KB switchable CHR bank
       // PPU $1000-$17FF: 2 KB switchable CHR bank
       // PPU $1800-$1FFF: 2 KB switchable CHR bank
-      // todo
-      break;
+      if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
+        return rom_data()->CHR.at(k2KBank * chr_regs_[(address >> 11) * 2 + 1] +
+                                  (address & 0x7ff));
+      } else {
+        return rom_data()
+            ->CHR[k2KBank * chr_regs_[((address & 0xfff) >> 11) * 2 + 9] +
+                  (address & 0x7ff)];
+      }
     case 3: {
       // PPU $0000-$03FF: 1 KB switchable CHR bank
       // PPU $0400-$07FF: 1 KB switchable CHR bank
@@ -247,18 +262,13 @@ Byte Mapper005::ReadCHR(Address address) {
       // PPU $1400-$17FF: 1 KB switchable CHR bank
       // PPU $1800-$1BFF: 1 KB switchable CHR bank
       // PPU $1C00-$1FFF: 1 KB switchable CHR bank
-      if (!current_pattern_is_8x16_sprite_) {
+      if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
         return rom_data()->CHR.at(k1KBank * chr_regs_[address >> 10] +
                                   (address & 0x3ff));
       } else {
-        if (!current_pattern_is_background_) {
-          return rom_data()
-              ->CHR[k1KBank * chr_regs_[address >> 10] + (address & 0x3ff)];
-        } else {
-          return rom_data()
-              ->CHR[k1KBank * chr_regs_[((address & 0xfff) >> 10) + 8] +
-                    (address & 0x3ff)];
-        }
+        return rom_data()
+            ->CHR[k1KBank * chr_regs_[((address & 0xfff) >> 10) + 8] +
+                  (address & 0x3ff)];
       }
     }
     default:
@@ -529,8 +539,19 @@ Byte Mapper005::ReadNametableByte(Byte* ram, Address address) {
       if (graphic_mode_ >= 2)
         return 0;
       return internal_vram_[address & 0x3ff];
-    case 3:  // 3 - Fill-mode data
-      return fill_mode_tile_;
+    case 3: {  // 3 - Fill-mode data
+      // Is nametable or attribute table
+      bool is_nametable = nt_address < 0x3c0;
+      if (is_nametable)
+        return fill_mode_tile_;
+
+      if (graphic_mode_ != 1)
+        return fill_mode_color_;
+
+      // todo Extended attributes
+
+      break;
+    }
     default:
       CHECK(false) << "Shouldn't be here";
   }
@@ -559,7 +580,6 @@ void Mapper005::WriteNametableByte(Byte* ram, Address address, Byte value) {
       }
       break;
     case 3:  // 3 - Fill-mode data
-      // todo
       break;
     default:
       CHECK(false) << "Shouldn't be here";
