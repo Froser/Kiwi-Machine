@@ -47,6 +47,12 @@ class Mapper005 : public Mapper {
   bool Deserialize(const EmulatorStates::Header& header,
                    EmulatorStates::DeserializableStateData& data) override;
 
+  // MMC5
+  bool IsMMC5() override;
+  Byte ReadNametableByte(Byte* ram, Address address) override;
+  void WriteNametableByte(Byte* ram, Address address, Byte value) override;
+  void SetCurrentPatternType(bool is_background, bool is_8x16_sprite) override;
+
  private:
   void ResetRegisters();
   Byte SelectSRAM(Byte data);
@@ -60,15 +66,19 @@ class Mapper005 : public Mapper {
   void PRGBankSwitch(Address address);
 
  private:
-  // This variable should not be serialized or deserialized.
-  int banks_in_8k_ = 0;
+  // These variable should not be serialized or deserialized.
+  int banks_in_8k_;
+  // Whether is fetching a background tile
+  bool current_pattern_is_background_ = true;
+  // Whether is fetching a sprite tile
+  bool current_pattern_is_8x16_sprite_ = false;
 
   // Castlevania III uses mode 2, which is similar to VRC6 PRG banking. All
   // other games use mode 3. The Koei games never write to this register,
   // apparently relying on the MMC5 defaulting to mode 3 at power on.
-  Byte chr_mode_ = 3;
-  Byte prg_mode_ = 3;
-  Byte prg_mode_pending_ = prg_mode_;
+  Byte chr_mode_;
+  Byte prg_mode_;
+  Byte prg_mode_pending_;
 
   // Bank won't switch immediately when $5113-$5117 is written.
   // It will have at least one instruction to run, then switch.
@@ -85,15 +95,28 @@ class Mapper005 : public Mapper {
   // $FFF4:8D 17 51  STA $5117 = #$10
   // $FFF7:4C 00 80  JMP $8000         ; Switch bank after these instructions
   // Stores the last regs from $5133-$5117. If it has changed, switch the bank.
-  bool rom_seL_ = false;
-  Byte last_prg_reg_ = 0;
+  bool rom_sel_;
+  Byte last_prg_reg_;
 
   // Registers for PRG bank switching
-  Byte reg_5113_ = 0;
-  Byte reg_5114_ = 0;
-  Byte reg_5115_ = 0;
-  Byte reg_5116_ = 0;
-  Byte reg_5117_ = 0;
+  Byte reg_5113_;
+  Byte reg_5114_;
+  Byte reg_5115_;
+  Byte reg_5116_;
+  Byte reg_5117_;
+
+  // CHR
+  Byte chr_regs_[0xc];
+  Byte nametable_sel_[4];
+  Byte fill_mode_tile_;
+  Byte fill_mode_color_;
+
+  Byte split_mode_;
+  Byte split_scroll_;
+  Byte split_bank_;
+
+  // Extended VRAM
+  Bytes internal_vram_;
 
   // MMC5 has its own SRAM
   enum class SRAMConfiguration {
@@ -102,8 +125,9 @@ class Mapper005 : public Mapper {
     kEWROM_32k,     // 32K
     kSuperset_64k,  // 2x32K
   };
-  SRAMConfiguration sram_config_ = SRAMConfiguration::kEKROM_8K;
+  SRAMConfiguration sram_config_;
 
+  // SRAM and multiplier
   Byte sram_protect_[2]{0};
   Byte graphic_mode_ = 0;
   Bytes sram_;

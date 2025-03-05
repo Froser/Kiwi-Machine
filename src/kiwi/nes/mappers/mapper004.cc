@@ -214,7 +214,7 @@ void Mapper004::PPUAddressChanged(Address address) {
 }
 
 void Mapper004::ScanlineIRQ(int scanline, bool render_enabled) {
-  if (render_enabled)
+  if (render_enabled && scanline < 240)
     StepIRQCounter();
 }
 

@@ -150,11 +150,15 @@ void PPU::Step() {
 
             // Fetch tile (nametable byte).
             Address pixel_address = 0x2000 | (data_address_ & 0x0fff);
+
             Byte tile = ppu_bus_->Read(pixel_address);
             // Gets tile address with fine Y scroll
             pixel_address = (tile << 4) + ((data_address_ >> 12) & 0x7);
             pixel_address += background_pattern_table_base_address();
 
+            ppu_bus_->set_current_pattern_state(
+                PPUBus::CurrentPatternType::kBackground,
+                registers_.PPUCTRL.H && is_render_enabled());
             Byte pattern = ppu_bus_->Read(pixel_address);
             // Combines the tile and get background color index.
             background_color = (pattern >> (7 ^ x_fine)) & 1;
@@ -164,8 +168,9 @@ void PPU::Step() {
             // If |background_color| is not 0, it is opaque.
             is_background_opaque = (background_color != 0);
 
-            // Fetch attribute table and calculate higher two bits of palette:
-            // https://www.nesdev.org/wiki/PPU_scrolling#Tile_and_attribute_fetching
+            // todo mmc5 fill-mode color here:
+            //  Fetch attribute table and calculate higher two bits of palette:
+            //  https://www.nesdev.org/wiki/PPU_scrolling#Tile_and_attribute_fetching
             Address attribute_address = 0x23c0 | (data_address_ & 0x0c00) |
                                         ((data_address_ >> 4) & 0x38) |
                                         ((data_address_ >> 2) & 0x07);
@@ -236,6 +241,9 @@ void PPU::Step() {
               pattern_address |= (tile & 1) << 12;
             }
 
+            ppu_bus_->set_current_pattern_state(
+                PPUBus::CurrentPatternType::kSprite,
+                registers_.PPUCTRL.H && is_render_enabled());
             sprite_color = (ppu_bus_->Read(pattern_address) >> (x_shift)) & 1;
             sprite_color |=
                 ((ppu_bus_->Read(pattern_address + 8) >> (x_shift)) & 1) << 1;
@@ -349,6 +357,11 @@ void PPU::Step() {
         pipeline_state_ = PipelineState::kPostRender;
     } break;
     case PipelineState::kPostRender: {
+      if (cycles_ == patch_.scanline_irq_dot) {
+        DCHECK(scanline_ >= 240);
+        ppu_bus_->GetMapper()->ScanlineIRQ(scanline_, is_render_enabled());
+      }
+
       if (cycles_ >= kScanlineEndCycle) {
         IncreaseScanline();
         pipeline_state_ = PipelineState::kVerticalBlank;
@@ -360,6 +373,11 @@ void PPU::Step() {
       }
     } break;
     case PipelineState::kVerticalBlank: {
+      if (cycles_ == patch_.scanline_irq_dot) {
+        DCHECK(scanline_ >= 240);
+        ppu_bus_->GetMapper()->ScanlineIRQ(scanline_, is_render_enabled());
+      }
+
       // The VBlank flag of the PPU is set at tick 1 (the second tick) of
       // scanline 241, where the VBlank NMI also occurs. The PPU makes no memory
       // accesses during these scanlines, so PPU memory can be freely accessed

@@ -26,6 +26,11 @@ class Mapper;
 // See https://www.nesdev.org/wiki/PPU_memory_map for more addressing details.
 class PPUBus : public EmulatorStates::SerializableState {
  public:
+  enum class CurrentPatternType {
+    kBackground,
+    kSprite,
+  };
+
   PPUBus();
   ~PPUBus() override;
 
@@ -34,8 +39,6 @@ class PPUBus : public EmulatorStates::SerializableState {
   Mapper* GetMapper();
   Byte Read(Address address);
   void Write(Address address, Byte value);
-  Byte* GetPagePointer(Byte page);
-  Word ReadWord(Address address);
 
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;
@@ -43,6 +46,13 @@ class PPUBus : public EmulatorStates::SerializableState {
                    EmulatorStates::DeserializableStateData& data) override;
 
   void UpdateMirroring();
+
+  // Providing extra information for MMC5
+  void set_current_pattern_state(CurrentPatternType pattern_type,
+                                 bool is_8x16_sprite) {
+    current_pattern_type_ = pattern_type;
+    current_is_8x16_sprite_ = is_8x16_sprite;
+  }
 
  private:
   void SetDefaultPalettes();
@@ -59,6 +69,11 @@ class PPUBus : public EmulatorStates::SerializableState {
   // Palette RAM takes 32 bytes.
   // See https://www.nesdev.org/wiki/PPU_palettes for more details.
   std::array<Byte, 0x20> palette_{0};
+
+  // For MMC5
+  CurrentPatternType current_pattern_type_ = CurrentPatternType::kBackground;
+  bool current_is_8x16_sprite_ = false;
+  bool is_mmc5_ = false;
 };
 
 }  // namespace nes

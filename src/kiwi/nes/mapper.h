@@ -86,6 +86,12 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   bool Deserialize(const EmulatorStates::Header& header,
                    EmulatorStates::DeserializableStateData& data) override;
 
+  // For MMC5 only
+  virtual bool IsMMC5() { return false; }
+  virtual Byte ReadNametableByte(Byte* ram, Address address) { return 0; }
+  virtual void WriteNametableByte(Byte* ram, Address address, Byte value) {}
+  virtual void SetCurrentPatternType(bool is_background, bool is_8x16_sprite) {}
+
  protected:
   MirroringChangedCallback mirroring_changed_callback() {
     return mirroring_changed_callback_;
