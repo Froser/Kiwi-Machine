@@ -67,7 +67,11 @@ class DeserializableStateDataImpl
 DeserializableStateDataImpl::DeserializableStateDataImpl(const Bytes& data)
     : data_ref_(data) {}
 
-DeserializableStateDataImpl::~DeserializableStateDataImpl() = default;
+DeserializableStateDataImpl::~DeserializableStateDataImpl() {
+  DCHECK(index_ == data_ref_.size() || index_ == 0)
+      << "Data reading is not matching writing. Please check your Read/Write "
+         "method in EmulatorStates::SerializableStateData";
+}
 
 Bytes DeserializableStateDataImpl::ReadData(size_t size) {
   Bytes read;

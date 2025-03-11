@@ -78,14 +78,6 @@ class EmulatorStates {
       *data = std::move(t);
       return *this;
     }
-
-    template <typename T, size_t N>
-    DeserializableStateData& ReadData(const T (&data)[N]) {
-      static_assert(sizeof(data) == N * sizeof(T));
-      Bytes t = ReadData(sizeof(data));
-      *data = std::move(t);
-      return *this;
-    }
   };
 
   class SerializableState {
