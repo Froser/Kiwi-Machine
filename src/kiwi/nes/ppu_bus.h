@@ -29,6 +29,7 @@ class PPUBus : public EmulatorStates::SerializableState {
   enum class CurrentPatternType {
     kBackground,
     kSprite,
+    kNotRendering,  // Fetching nametable not during rendering
   };
 
   PPUBus();
@@ -48,11 +49,13 @@ class PPUBus : public EmulatorStates::SerializableState {
   void UpdateMirroring();
 
   // Providing extra information for MMC5
-  void set_current_pattern_state(CurrentPatternType pattern_type,
-                                 bool is_8x16_sprite) {
-    current_pattern_type_ = pattern_type;
-    current_is_8x16_sprite_ = is_8x16_sprite;
-  }
+  void SetCurrentPatternState(CurrentPatternType pattern_type,
+                              bool is_8x16_sprite,
+                              int current_dot_in_scanline);
+
+  // MMC5 will use its own x_fine and data address when rendering split region.
+  Byte GetAdjustedXFine(Byte x_fine_in);
+  Address GetAdjustedDataAddress(Address data_address_in);
 
  private:
   void SetDefaultPalettes();
@@ -71,8 +74,6 @@ class PPUBus : public EmulatorStates::SerializableState {
   std::array<Byte, 0x20> palette_{0};
 
   // For MMC5
-  CurrentPatternType current_pattern_type_ = CurrentPatternType::kBackground;
-  bool current_is_8x16_sprite_ = false;
   bool is_mmc5_ = false;
 };
 

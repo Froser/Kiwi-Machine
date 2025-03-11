@@ -90,7 +90,13 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual bool IsMMC5() { return false; }
   virtual Byte ReadNametableByte(Byte* ram, Address address) { return 0; }
   virtual void WriteNametableByte(Byte* ram, Address address, Byte value) {}
-  virtual void SetCurrentPatternType(bool is_background, bool is_8x16_sprite) {}
+  virtual void SetCurrentRenderState(bool is_background,
+                                     bool is_8x16_sprite,
+                                     int current_dot_in_scanline) {}
+  virtual Byte GetFineXInSplitRegion(Byte ppu_x_fine) { return ppu_x_fine; }
+  virtual Address GetDataAddressInSplitRegion(Address ppu_data_address) {
+    return ppu_data_address;
+  }
 
  protected:
   MirroringChangedCallback mirroring_changed_callback() {

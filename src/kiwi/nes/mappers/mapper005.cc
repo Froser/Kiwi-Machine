@@ -36,26 +36,13 @@ Mapper005::~Mapper005() = default;
 
 void Mapper005::Reset() {
   ResetRegisters();
-
-  // CRC check
-  switch (sram_config_) {
-    case SRAMConfiguration::kEKROM_8K:
-      sram_.resize(8 * 1024);
-      break;
-    case SRAMConfiguration::kETROM_16K:
-      sram_.resize(16 * 1024);
-      break;
-    case SRAMConfiguration::kEWROM_32k:
-      sram_.resize(32 * 1024);
-      break;
-    case SRAMConfiguration::kSuperset_64k:
-      sram_.resize(64 * 1024);
-      break;
-  }
 }
 
 void Mapper005::ResetRegisters() {
   DCHECK_GT(banks_in_8k_, 0);
+  current_pattern_is_background_ = true;
+  current_pattern_is_8x16_sprite_ = false;
+  current_dot_in_scanline_ = 0;
 
   chr_mode_ = 3;
   prg_mode_ = 3;
@@ -70,6 +57,7 @@ void Mapper005::ResetRegisters() {
   last_prg_reg_ = 0;
 
   split_mode_ = split_scroll_ = split_bank_ = 0;
+  split_data_address_ = split_fine_y_ = 0;
 
   // CHR registers
   memset(chr_regs_, 0, sizeof(chr_regs_));
@@ -77,19 +65,33 @@ void Mapper005::ResetRegisters() {
   fill_mode_tile_ = fill_mode_color_ = 0;
 
   // Internal VRAM
-  internal_vram_.resize(1024);
   internal_vram_.clear();
+  internal_vram_.resize(1024);
 
   // Because no ExROM game is known to write PRG-RAM with one bank value and
   // then attempt to read back the same data with a different bank value,
   // emulating the PRG-RAM as 64K at all times can be used as a compatible
   // superset for all games.
   sram_config_ = SRAMConfiguration::kSuperset_64k;
+  sram_.clear();
+  switch (sram_config_) {
+    case SRAMConfiguration::kEKROM_8K:
+      sram_.resize(8 * 1024);
+      break;
+    case SRAMConfiguration::kETROM_16K:
+      sram_.resize(16 * 1024);
+      break;
+    case SRAMConfiguration::kEWROM_32k:
+      sram_.resize(32 * 1024);
+      break;
+    case SRAMConfiguration::kSuperset_64k:
+      sram_.resize(64 * 1024);
+      break;
+  }
 
   sram_protect_[0] = 0;
   sram_protect_[1] = 0;
   graphic_mode_ = 0;
-  sram_.clear();
   mul_[0] = 0;
   mul_[1] = 0;
 
@@ -119,6 +121,23 @@ Byte Mapper005::SelectSRAM(kiwi::nes::Byte data) {
       CHECK(false) << "Shouldn't be here";
       return kOpenBus;
   }
+}
+
+bool Mapper005::SplitIsOn() {
+  return ((split_mode_ & 0x80) && graphic_mode_ <= 1);
+}
+
+bool Mapper005::InSplitRegion() {
+  if (SplitIsOn()) {
+    bool is_left_side = !(split_mode_ & 0x40);
+    Byte threshold_tile = split_mode_ & 0x1f;
+    if (is_left_side) {
+      return (current_dot_in_scanline_ / 8) < threshold_tile;
+    }
+
+    return (current_dot_in_scanline_ / 8) >= threshold_tile;
+  }
+  return false;
 }
 
 std::pair<bool, Byte> Mapper005::GetBank(ControlledBankSize cbs, Byte data) {
@@ -220,14 +239,26 @@ Byte Mapper005::ReadPRG(Address address) {
   }
 }
 
-void Mapper005::WriteCHR(Address address, Byte value) {}
+void Mapper005::WriteCHR(Address address, Byte value) {
+  if (!(irq_status_ & 0x40)) {
+    // Blanking
+    internal_vram_[address & 0x3ff] = value;
+  }
+}
 
 Byte Mapper005::ReadCHR(Address address) {
+  // Split mode always uses 4K CHR bank by $5202
+  if (InSplitRegion()) {
+    // todo graphic mode ==1
+
+    return rom_data()->CHR[k4KBank * split_bank_ + (address & 0xfff)];
+  }
+
   switch (chr_mode_) {
     case 0:
       // PPU $0000-$1FFF: 8 KB switchable CHR bank
       if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
-        return rom_data()->CHR.at(k8KBank * chr_regs_[7] + (address));
+        return rom_data()->CHR[k8KBank * chr_regs_[7] + (address)];
       } else {
         return rom_data()->CHR[k8KBank * chr_regs_[0xb] + (address)];
       }
@@ -235,8 +266,8 @@ Byte Mapper005::ReadCHR(Address address) {
       // PPU $0000-$0FFF: 4 KB switchable CHR bank
       // PPU $1000-$1FFF: 4 KB switchable CHR bank
       if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
-        return rom_data()->CHR.at(k4KBank * chr_regs_[(address >> 12) * 4 + 3] +
-                                  (address & 0xfff));
+        return rom_data()->CHR[k4KBank * chr_regs_[(address >> 12) * 4 + 3] +
+                               (address & 0xfff)];
       } else {
         return rom_data()->CHR[k4KBank * chr_regs_[0xb] + (address & 0xfff)];
       }
@@ -246,8 +277,8 @@ Byte Mapper005::ReadCHR(Address address) {
       // PPU $1000-$17FF: 2 KB switchable CHR bank
       // PPU $1800-$1FFF: 2 KB switchable CHR bank
       if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
-        return rom_data()->CHR.at(k2KBank * chr_regs_[(address >> 11) * 2 + 1] +
-                                  (address & 0x7ff));
+        return rom_data()->CHR[k2KBank * chr_regs_[(address >> 11) * 2 + 1] +
+                               (address & 0x7ff)];
       } else {
         return rom_data()
             ->CHR[k2KBank * chr_regs_[((address & 0xfff) >> 11) * 2 + 9] +
@@ -263,8 +294,8 @@ Byte Mapper005::ReadCHR(Address address) {
       // PPU $1800-$1BFF: 1 KB switchable CHR bank
       // PPU $1C00-$1FFF: 1 KB switchable CHR bank
       if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
-        return rom_data()->CHR.at(k1KBank * chr_regs_[address >> 10] +
-                                  (address & 0x3ff));
+        return rom_data()
+            ->CHR[k1KBank * chr_regs_[address >> 10] + (address & 0x3ff)];
       } else {
         return rom_data()
             ->CHR[k1KBank * chr_regs_[((address & 0xfff) >> 10) + 8] +
@@ -420,14 +451,12 @@ void Mapper005::WriteExtendedRAM(Address address, Byte value) {
     if (graphic_mode_ == 2) {
       internal_vram_[address & 0x3ff] = value;
     } else {
-      if (/*todo not split */ true) {
-        if (irq_status_ & 0x40) {
-          // In frame, rendering
-          internal_vram_[address & 0x3ff] = value;
-        } else {
-          // Not allowed, bus open
-          internal_vram_[address & 0x3ff] = 0;
-        }
+      if (irq_status_ & 0x40) {
+        // In frame, rendering
+        internal_vram_[address & 0x3ff] = value;
+      } else {
+        // Not allowed, bus open
+        internal_vram_[address & 0x3ff] = 0;
       }
     }
   } else if (address >= 0x6000) {
@@ -511,15 +540,112 @@ void Mapper005::ScanlineIRQ(int scanline, bool render_enabled) {
 
   if (irq_enabled_ && (irq_status_ & 0x80) && (irq_status_ & 0x40))
     irq_callback().Run();
+
+  // Split mode:
+  // The MMC5 keeps track of the scanline count and adds this to the vertical
+  // scrolling value in $5201 in order to know what nametable data to substitute
+  // in the split region on each scanline.
+  // Though the PPU continues requesting nametable data corresponding to its
+  // normal vertical scrolling in the split region, the MMC5 is ignoring the
+  // nametable address requested in this case and directly substituting its own
+  // nametable data.
+  bool is_left_side = !(split_mode_ & 0x40);
+  Byte threshold_tile = split_mode_ & 0x1f;
+
+  if (SplitIsOn()) {
+    if (scanline == -1) {
+      split_fine_y_ = split_scroll_ & 0x7;
+      // This represents coarse Y scroll in data address
+      if (is_left_side)
+        split_data_address_ = (split_scroll_ & 0xf8) << 2;
+      else
+        split_data_address_ = ((split_scroll_ & 0xf8) << 2) | (threshold_tile);
+    } else {
+      // For each scanline, adjust fine y and coarse y
+      if (split_fine_y_ == 7) {
+        split_fine_y_ = 0;
+        // Increase split_y_address_ or wrap
+        if ((split_data_address_ & 0x03a0) == 0x03a0) {
+          // Wrap to the top nametable byte
+          split_data_address_ &= 0x001f;
+        } else {
+          // Increase coarse y
+          split_data_address_ += 0x0020;
+          split_data_address_ |= (threshold_tile);
+        }
+      } else {
+        ++split_fine_y_;
+      }
+    }
+  }
 }
 
 void Mapper005::Serialize(EmulatorStates::SerializableStateData& data) {
-  Mapper::Serialize(data);
+  data.WriteData(chr_mode_)
+      .WriteData(prg_mode_)
+      .WriteData(prg_mode_pending_)
+      .WriteData(rom_sel_)
+      .WriteData(last_prg_reg_)
+      .WriteData(reg_5113_)
+      .WriteData(reg_5114_)
+      .WriteData(reg_5115_)
+      .WriteData(reg_5116_)
+      .WriteData(reg_5117_)
+      .WriteData(chr_regs_)
+      .WriteData(nametable_sel_)
+      .WriteData(fill_mode_tile_)
+      .WriteData(fill_mode_color_)
+      .WriteData(split_mode_)
+      .WriteData(split_scroll_)
+      .WriteData(split_bank_)
+      .WriteData(split_fine_y_)
+      .WriteData(split_data_address_)
+      .WriteData(internal_vram_)
+      .WriteData(sram_config_)
+      .WriteData(sram_protect_)
+      .WriteData(graphic_mode_)
+      .WriteData(sram_)
+      .WriteData(mul_)
+      .WriteData(irq_line_)
+      .WriteData(irq_enabled_)
+      .WriteData(irq_status_)
+      .WriteData(irq_scanline_)
+      .WriteData(irq_clear_flag_);
 }
 
 bool Mapper005::Deserialize(const EmulatorStates::Header& header,
                             EmulatorStates::DeserializableStateData& data) {
-  return Mapper::Deserialize(header, data);
+  data.ReadData(&chr_mode_)
+      .ReadData(&prg_mode_)
+      .ReadData(&prg_mode_pending_)
+      .ReadData(&rom_sel_)
+      .ReadData(&last_prg_reg_)
+      .ReadData(&reg_5113_)
+      .ReadData(&reg_5114_)
+      .ReadData(&reg_5115_)
+      .ReadData(&reg_5116_)
+      .ReadData(&reg_5117_)
+      .ReadData(&chr_regs_)
+      .ReadData(&nametable_sel_)
+      .ReadData(&fill_mode_tile_)
+      .ReadData(&fill_mode_color_)
+      .ReadData(&split_mode_)
+      .ReadData(&split_scroll_)
+      .ReadData(&split_bank_)
+      .ReadData(&split_fine_y_)
+      .ReadData(&split_data_address_)
+      .ReadData(&internal_vram_)
+      .ReadData(&sram_config_)
+      .ReadData(&sram_protect_)
+      .ReadData(&graphic_mode_)
+      .ReadData(&sram_)
+      .ReadData(&mul_)
+      .ReadData(&irq_line_)
+      .ReadData(&irq_enabled_)
+      .ReadData(&irq_status_)
+      .ReadData(&irq_scanline_)
+      .ReadData(&irq_clear_flag_);
+  return true;
 }
 
 bool Mapper005::IsMMC5() {
@@ -527,8 +653,19 @@ bool Mapper005::IsMMC5() {
 }
 
 Byte Mapper005::ReadNametableByte(Byte* ram, Address address) {
-  Byte nt_reg_index = (address & 0x0f00) >> 10;
+  if (InSplitRegion()) {
+    // Ignoring PPU's data address, scrolling registers because this mapper
+    // has its own
+    bool is_fetching_attribute = (address & 0x3ff) >= 0x3c0;
+    if (!is_fetching_attribute) {
+      return internal_vram_[address & 0x3ff];
+    }
+
+    return internal_vram_[address & 0x3ff];
+  }
+
   Address nt_address = address & 0x3ff;
+  Byte nt_reg_index = (address & 0x0f00) >> 10;
   switch (nametable_sel_[nt_reg_index]) {
     case 0:  // 0 - CIRAM page 0
       return ram[nt_address];
@@ -586,9 +723,29 @@ void Mapper005::WriteNametableByte(Byte* ram, Address address, Byte value) {
   }
 }
 
-void Mapper005::SetCurrentPatternType(bool is_background, bool is_8x16_sprite) {
+void Mapper005::SetCurrentRenderState(bool is_background,
+                                      bool is_8x16_sprite,
+                                      int current_dot_in_scanline) {
   current_pattern_is_background_ = is_background;
   current_pattern_is_8x16_sprite_ = is_8x16_sprite;
+  current_dot_in_scanline_ = current_dot_in_scanline;
+
+  split_data_address_ =
+      (split_data_address_ & 0xffe0) | ((current_dot_in_scanline_ / 8) & 0x1f);
+}
+
+Byte Mapper005::GetFineXInSplitRegion(Byte ppu_x_fine) {
+  if (InSplitRegion())
+    return current_dot_in_scanline_ % 8;
+
+  return ppu_x_fine;
+}
+
+Address Mapper005::GetDataAddressInSplitRegion(Address ppu_data_address) {
+  if (InSplitRegion())
+    return ((split_data_address_ & 0xfff) | (split_fine_y_ << 12));
+
+  return ppu_data_address;
 }
 
 }  // namespace nes

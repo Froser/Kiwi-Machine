@@ -31,6 +31,35 @@ void PPUBus::SetMapper(Mapper* mapper) {
   SetDefaultPalettes();
 }
 
+void PPUBus::SetCurrentPatternState(CurrentPatternType pattern_type,
+                                    bool is_8x16_sprite,
+                                    int current_dot_in_scanline) {
+  if (is_mmc5_) {
+    // MMC5 needs know whether is fetching background tile or sprite tile.
+    // Uchuu Keibitai SDF (Japan) will fetch nametable and write bytes before
+    // rendering, so the current pattern type will be kNotRendering, and it
+    // will be treated as kBackground.
+    mapper_->SetCurrentRenderState(
+        pattern_type == CurrentPatternType::kBackground ||
+            pattern_type == CurrentPatternType::kNotRendering,
+        is_8x16_sprite, current_dot_in_scanline);
+  }
+}
+
+Byte PPUBus::GetAdjustedXFine(Byte x_fine_in) {
+  if (is_mmc5_)
+    return mapper_->GetFineXInSplitRegion(x_fine_in);
+
+  return x_fine_in;
+}
+
+Address PPUBus::GetAdjustedDataAddress(Address data_address_in) {
+  if (is_mmc5_)
+    return mapper_->GetDataAddressInSplitRegion(data_address_in);
+
+  return data_address_in;
+}
+
 void PPUBus::SetDefaultPalettes() {
   // By default, the palettes are set to background=black (0x3f), other=white
   // (0x30).
@@ -52,12 +81,6 @@ Byte PPUBus::Read(Address address) {
   // nametable address space from $2000-2FFF, but this can be rerouted through
   // custom cartridge wiring.
   if (address < 0x2000) {
-    if (is_mmc5_) {
-      // MMC5 needs know whether is fetching background tile or sprite tile
-      mapper_->SetCurrentPatternType(
-          current_pattern_type_ == CurrentPatternType::kBackground,
-          current_is_8x16_sprite_);
-    }
     return mapper_->ReadCHR(address);
   } else if (address < 0x3eff) {
     const auto index = address & 0x3ff;

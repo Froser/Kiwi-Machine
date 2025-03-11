@@ -49,6 +49,12 @@ class EmulatorStates {
     SerializableStateData& WriteData(const std::vector<T>& data) {
       return WriteData(data.data(), data.size());
     }
+
+    template <typename T, size_t N>
+    SerializableStateData& WriteData(const T (&data)[N]) {
+      static_assert(sizeof(data) == N * sizeof(T));
+      return WriteData(data, sizeof(data));
+    }
   };
 
   class DeserializableStateData {
@@ -69,6 +75,14 @@ class EmulatorStates {
     template <typename T>
     DeserializableStateData& ReadData(std::vector<T>* data) {
       Bytes t = ReadData(data->size());
+      *data = std::move(t);
+      return *this;
+    }
+
+    template <typename T, size_t N>
+    DeserializableStateData& ReadData(const T (&data)[N]) {
+      static_assert(sizeof(data) == N * sizeof(T));
+      Bytes t = ReadData(sizeof(data));
       *data = std::move(t);
       return *this;
     }

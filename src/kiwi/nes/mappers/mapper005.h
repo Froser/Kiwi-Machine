@@ -51,11 +51,17 @@ class Mapper005 : public Mapper {
   bool IsMMC5() override;
   Byte ReadNametableByte(Byte* ram, Address address) override;
   void WriteNametableByte(Byte* ram, Address address, Byte value) override;
-  void SetCurrentPatternType(bool is_background, bool is_8x16_sprite) override;
+  void SetCurrentRenderState(bool is_background,
+                             bool is_8x16_sprite,
+                             int current_dot_in_scanline) override;
+  Byte GetFineXInSplitRegion(Byte ppu_x_fine) override;
+  Address GetDataAddressInSplitRegion(Address ppu_data_address) override;
 
  private:
   void ResetRegisters();
   Byte SelectSRAM(Byte data);
+  bool SplitIsOn();
+  bool InSplitRegion();
 
   // Gets bank index from $5113-$5117's data.
   enum class ControlledBankSize {
@@ -66,16 +72,15 @@ class Mapper005 : public Mapper {
   void PRGBankSwitch(Address address);
 
  private:
-  // These variable should not be serialized or deserialized.
+  // These variables should not be serialized or deserialized.
   int banks_in_8k_;
   // Whether is fetching a background tile
   bool current_pattern_is_background_ = true;
   // Whether is fetching a sprite tile
   bool current_pattern_is_8x16_sprite_ = false;
+  int current_dot_in_scanline_ = 0;
 
-  // Castlevania III uses mode 2, which is similar to VRC6 PRG banking. All
-  // other games use mode 3. The Koei games never write to this register,
-  // apparently relying on the MMC5 defaulting to mode 3 at power on.
+  // These variables should store their states
   Byte chr_mode_;
   Byte prg_mode_;
   Byte prg_mode_pending_;
@@ -114,6 +119,8 @@ class Mapper005 : public Mapper {
   Byte split_mode_;
   Byte split_scroll_;
   Byte split_bank_;
+  Byte split_fine_y_;           // Fine y for current frame
+  Address split_data_address_;  // Split tile address for current frame
 
   // Extended VRAM
   Bytes internal_vram_;
@@ -134,11 +141,11 @@ class Mapper005 : public Mapper {
   Byte mul_[2]{0};
 
   // IRQ
-  Byte irq_line_ = 0;
-  bool irq_enabled_ = false;
-  Byte irq_status_ = 0;
-  int irq_scanline_ = 0;
-  int irq_clear_flag_ = 0;
+  Byte irq_line_;
+  bool irq_enabled_;
+  Byte irq_status_;
+  int irq_scanline_;
+  int irq_clear_flag_;
 };
 }  // namespace nes
 }  // namespace kiwi
