@@ -29,6 +29,7 @@ constexpr size_t k32KBank = 32 * 1024;
 
 Mapper005::Mapper005(Cartridge* cartridge) : Mapper(cartridge) {
   banks_in_8k_ = rom_data()->PRG.size() / k8KBank;
+  banks_in_16k_ = rom_data()->PRG.size() / k16KBank;
   ResetRegisters();
 }
 
@@ -146,10 +147,10 @@ std::pair<bool, Byte> Mapper005::GetBank(ControlledBankSize cbs, Byte data) {
     Byte index;
     switch (cbs) {
       case ControlledBankSize::k8k:
-        index = data & 0x7f;
+        index = (data & 0x7f) % banks_in_8k_;
         break;
       case ControlledBankSize::k16k:
-        index = (data & 0x7f) >> 1;
+        index = ((data & 0x7f) >> 1) % banks_in_16k_;
         break;
       default:
         CHECK(false) << "Shouldn't be here";
@@ -195,7 +196,8 @@ Byte Mapper005::ReadPRG(Address address) {
                       : sram_[k16KBank * bank + (address - 0x8000)];
       }
       return rom_data()
-          ->PRG[k16KBank * ((reg_5117_ & 0x7f) >> 1) + (address - 0xc000)];
+          ->PRG[k16KBank * ((reg_5117_ & 0x7f) >> 1) % (banks_in_16k_) +
+                (address - 0xc000)];
     case 2:
       // CPU $8000-$BFFF: 16 KB switchable PRG ROM/RAM bank
       // CPU $C000-$DFFF: 8 KB switchable PRG ROM/RAM bank
@@ -210,8 +212,8 @@ Byte Mapper005::ReadPRG(Address address) {
         return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0xc000)]
                       : sram_[k8KBank * bank + (address - 0xc000)];
       }
-      return rom_data()
-          ->PRG[k8KBank * ((reg_5117_ & 0x7f)) + (address - 0xe000)];
+      return rom_data()->PRG[k8KBank * ((reg_5117_ & 0x7f) % (banks_in_8k_)) +
+                             (address - 0xe000)];
     case 3:
       // CPU $8000-$9FFF: 8 KB switchable PRG ROM/RAM bank
       // CPU $A000-$BFFF: 8 KB switchable PRG ROM/RAM bank
@@ -232,8 +234,8 @@ Byte Mapper005::ReadPRG(Address address) {
         return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0xc000)]
                       : sram_[k8KBank * bank + (address - 0xc000)];
       }
-      return rom_data()
-          ->PRG[k8KBank * ((reg_5117_ & 0x7f)) + (address - 0xe000)];
+      return rom_data()->PRG[k8KBank * ((reg_5117_ & 0x7f) % (banks_in_8k_)) +
+                             (address - 0xe000)];
     default:
       CHECK(false) << "Shouldn't be here";
   }
