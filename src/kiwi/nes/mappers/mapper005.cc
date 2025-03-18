@@ -61,13 +61,21 @@ void Mapper005::ResetRegisters() {
   split_data_address_ = split_fine_y_ = 0;
 
   // CHR registers
-  memset(chr_regs_, 0, sizeof(chr_regs_));
+  for (Byte i = 0; i < 8; ++i) {
+    chr_regs_[i] = i;
+  }
+  chr_regs_[8] = 4;
+  chr_regs_[9] = 5;
+  chr_regs_[0xa] = 6;
+  chr_regs_[0xb] = 7;
+
   memset(nametable_sel_, 0, sizeof(nametable_sel_));
   fill_mode_tile_ = fill_mode_color_ = 0;
 
   // Internal VRAM
   internal_vram_.clear();
   internal_vram_.resize(1024);
+  extended_attribute_ = 0;
 
   // Because no ExROM game is known to write PRG-RAM with one bank value and
   // then attempt to read back the same data with a different bank value,
@@ -139,6 +147,10 @@ bool Mapper005::InSplitRegion() {
     return (current_dot_in_scanline_ / 8) >= threshold_tile;
   }
   return false;
+}
+
+bool Mapper005::IsInExtendedGraphicMode() {
+  return graphic_mode_ == 1 && current_pattern_is_background_;
 }
 
 std::pair<bool, Byte> Mapper005::GetBank(ControlledBankSize cbs, Byte data) {
@@ -249,10 +261,13 @@ void Mapper005::WriteCHR(Address address, Byte value) {
 }
 
 Byte Mapper005::ReadCHR(Address address) {
+  if (IsInExtendedGraphicMode()) {
+    Byte bank_index = extended_attribute_ & 0x3f;
+    return rom_data()->CHR[k4KBank * bank_index + (address & 0xfff)];
+  }
+
   // Split mode always uses 4K CHR bank by $5202
   if (InSplitRegion()) {
-    // todo graphic mode ==1
-
     return rom_data()->CHR[k4KBank * split_bank_ + (address & 0xfff)];
   }
 
@@ -463,7 +478,7 @@ void Mapper005::WriteExtendedRAM(Address address, Byte value) {
     }
   } else if (address >= 0x6000) {
     if (sram_protect_[0] == 0x02 && sram_protect_[1] == 0x01) {
-      sram_[address - 0x6000] = value;
+      sram_[k8KBank * reg_5113_ + (address - 0x6000)] = value;
     }
   }
 }
@@ -532,6 +547,9 @@ void Mapper005::ScanlineIRQ(int scanline, bool render_enabled) {
     irq_status_ |= 0x80;
   }
 
+  // The "in-frame" flag is cleared when the PPU is no longer rendering. This is
+  // detected when 3 CPU cycles pass without a PPU read having occurred (PPU /RD
+  // has not been low during the last 3 M2 rises).
   if (++irq_clear_flag_ > 2) {
     irq_scanline_ = 0;
     irq_status_ &= ~0x80;
@@ -603,6 +621,7 @@ void Mapper005::Serialize(EmulatorStates::SerializableStateData& data) {
       .WriteData(split_fine_y_)
       .WriteData(split_data_address_)
       .WriteData(internal_vram_)
+      .WriteData(extended_attribute_)
       .WriteData(sram_config_)
       .WriteData(sram_protect_)
       .WriteData(graphic_mode_)
@@ -637,6 +656,7 @@ bool Mapper005::Deserialize(const EmulatorStates::Header& header,
       .ReadData(&split_fine_y_)
       .ReadData(&split_data_address_)
       .ReadData(&internal_vram_)
+      .ReadData(&extended_attribute_)
       .ReadData(&sram_config_)
       .ReadData(&sram_protect_)
       .ReadData(&graphic_mode_)
@@ -655,10 +675,22 @@ bool Mapper005::IsMMC5() {
 }
 
 Byte Mapper005::ReadNametableByte(Byte* ram, Address address) {
+  bool is_fetching_attribute = (address & 0x3ff) >= 0x3c0;
+  if (IsInExtendedGraphicMode()) {
+    if (!is_fetching_attribute) {
+      // When fetching background tile in extended graphic mode, Gets the
+      // attribute for background rendering and palette.
+      extended_attribute_ = internal_vram_[address & 0x3ff];
+    } else {
+      // Applies palette for current tile
+      Byte palette = extended_attribute_ >> 6;
+      return (palette) | (palette << 2) | (palette << 4) | (palette << 6);
+    }
+  }
+
   if (InSplitRegion()) {
     // Ignoring PPU's data address, scrolling registers because this mapper
     // has its own
-    bool is_fetching_attribute = (address & 0x3ff) >= 0x3c0;
     if (!is_fetching_attribute) {
       return internal_vram_[address & 0x3ff];
     }
@@ -684,12 +716,8 @@ Byte Mapper005::ReadNametableByte(Byte* ram, Address address) {
       if (is_nametable)
         return fill_mode_tile_;
 
-      if (graphic_mode_ != 1)
+      if (!IsInExtendedGraphicMode())
         return fill_mode_color_;
-
-      // todo Extended attributes
-
-      break;
     }
     default:
       CHECK(false) << "Shouldn't be here";

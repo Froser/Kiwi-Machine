@@ -77,10 +77,11 @@ void DisassemblyWidget::Paint() {
   // Registers - CPU
   ImGui::BeginGroup();
   ImGui::Text(
-      "A:  %s\nX:  %s\nY:  %s\nS:  %s\nPC: %s",
+      "A:  %s\nX:  %s\nY:  %s\nS:  %s\nPC: %s\nP:  %s",
       NumberToHexString(2, cpu.A).c_str(), NumberToHexString(2, cpu.X).c_str(),
       NumberToHexString(2, cpu.Y).c_str(), NumberToHexString(2, cpu.S).c_str(),
-      NumberToHexString(4, cpu.PC).c_str());
+      NumberToHexString(4, cpu.PC).c_str(),
+      NumberToHexString(2, cpu.P.value).c_str());
   ImGui::EndGroup();
   ImGui::SameLine();
   // Registers - PPU

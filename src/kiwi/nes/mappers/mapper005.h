@@ -63,6 +63,10 @@ class Mapper005 : public Mapper {
   bool SplitIsOn();
   bool InSplitRegion();
 
+  // Returns whether it is in extended graphic mode and it is rendering a
+  // background tile
+  bool IsInExtendedGraphicMode();
+
   // Gets bank index from $5113-$5117's data.
   enum class ControlledBankSize {
     k8k,
@@ -126,6 +130,9 @@ class Mapper005 : public Mapper {
   // Extended VRAM
   Bytes internal_vram_;
 
+  // Extended attribute
+  Byte extended_attribute_;
+
   // MMC5 has its own SRAM
   enum class SRAMConfiguration {
     kEKROM_8K,      // 8K
@@ -142,7 +149,7 @@ class Mapper005 : public Mapper {
   Byte mul_[2]{0};
 
   // IRQ
-  Byte irq_line_;
+  int irq_line_;
   bool irq_enabled_;
   Byte irq_status_;
   int irq_scanline_;
