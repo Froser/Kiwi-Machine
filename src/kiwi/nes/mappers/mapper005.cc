@@ -106,7 +106,7 @@ void Mapper005::ResetRegisters() {
 
   // IRQ
   irq_line_ = 0;
-  irq_enabled_ = false;
+  irq_enabled_ = true;
   irq_status_ = 0;
   irq_scanline_ = 0;
   irq_clear_flag_ = 0;
@@ -450,7 +450,6 @@ void Mapper005::WriteExtendedRAM(Address address, Byte value) {
       // |
       // +--------- Scanline IRQ Enable flag (1=enabled)
       irq_enabled_ = value >> 7;
-      irq_clear_callback().Run();
       break;
     case 0x5205:
       mul_[0] = value;
@@ -495,7 +494,6 @@ Byte Mapper005::ReadExtendedRAM(Address address) {
       // +--------- Scanline IRQ Pending flag
       Byte ret = irq_status_;
       irq_status_ &= ~0x80;
-      irq_clear_callback().Run();
       return ret;
     }
     case 0x5205:
@@ -536,30 +534,31 @@ Byte Mapper005::ReadExtendedRAM(Address address) {
 // visible scanlines. When pin 92 is driven low, this flag remains low at all
 // times. Additionally, scanline IRQs no longer occur when pin 92 is driven
 // low.
+// Not follow nesdev strictly, but in a simple way
 void Mapper005::ScanlineIRQ(int scanline, bool render_enabled) {
-  if (render_enabled && scanline < 240) {
-    irq_scanline_++;
-    irq_status_ |= 0x40;
-    irq_clear_flag_ = 0;
+  if (render_enabled) {
+    if (scanline == 0)
+      irq_scanline_ = 1;
+    else
+      irq_scanline_++;
+
+    if (scanline < 240) {
+      irq_status_ |= 0x40;
+      irq_clear_flag_ = 0;
+    }
   }
 
-  if (irq_scanline_ == irq_line_ + 1) {
+  if (irq_line_ != 0 && irq_scanline_ == irq_line_) {
     irq_status_ |= 0x80;
   }
 
-  // The "in-frame" flag is cleared when the PPU is no longer rendering. This is
-  // detected when 3 CPU cycles pass without a PPU read having occurred (PPU /RD
-  // has not been low during the last 3 M2 rises).
+  if (irq_enabled_ && (irq_status_ & 0x80))
+    irq_callback().Run();
+
   if (++irq_clear_flag_ > 2) {
-    irq_scanline_ = 0;
     irq_status_ &= ~0x80;
     irq_status_ &= ~0x40;
-
-    irq_clear_callback().Run();
   }
-
-  if (irq_enabled_ && (irq_status_ & 0x80) && (irq_status_ & 0x40))
-    irq_callback().Run();
 
   // Split mode:
   // The MMC5 keeps track of the scanline count and adds this to the vertical

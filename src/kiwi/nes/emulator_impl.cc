@@ -460,8 +460,6 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
       &PPUBus::UpdateMirroring, base::Unretained(ppu_bus_.get())));
   cartridge->mapper()->set_irq_callback(base::BindRepeating(
       &CPU::Interrupt, base::Unretained(cpu_.get()), CPU::InterruptType::IRQ));
-  cartridge->mapper()->set_irq_clear_callback(
-      base::BindRepeating(&CPU::ClearIRQ, base::Unretained(cpu_.get())));
 
   // Reset CPU and PPU.
   ResetOnProperThread();

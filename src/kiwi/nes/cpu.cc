@@ -104,10 +104,6 @@ void CPU::Interrupt(InterruptType type) {
   }
 }
 
-void CPU::ClearIRQ() {
-  pending_IRQ_ = false;
-}
-
 void CPU::Step() {
   struct M2CylceIRQNotifier {
     M2CylceIRQNotifier(CPUBus* cpu_bus) : cpu_bus_(cpu_bus) {}

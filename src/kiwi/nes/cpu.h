@@ -52,7 +52,6 @@ class CPU : public EmulatorStates::SerializableState {
   void PowerUp();
   void Reset();
   void Interrupt(InterruptType type);
-  void ClearIRQ();
   // Step() should be called every cycle.
   void Step();
   void Step(int64_t cycles);
