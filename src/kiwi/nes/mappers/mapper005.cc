@@ -28,6 +28,7 @@ constexpr size_t k16KBank = 16 * 1024;
 constexpr size_t k32KBank = 32 * 1024;
 
 Mapper005::Mapper005(Cartridge* cartridge) : Mapper(cartridge) {
+  is_metal_slader_glory_ = rom_data()->crc == 0xb4735fac;
   banks_in_8k_ = rom_data()->PRG.size() / k8KBank;
   banks_in_16k_ = rom_data()->PRG.size() / k16KBank;
   ResetRegisters();
@@ -552,8 +553,18 @@ void Mapper005::ScanlineIRQ(int scanline, bool render_enabled) {
     irq_status_ |= 0x80;
   }
 
-  if (irq_enabled_ && (irq_status_ & 0x80))
-    irq_callback().Run();
+  if (irq_enabled_ && (irq_status_ & 0x80)) {
+    if (is_metal_slader_glory_) {
+      // A patch for Metal Slader Glory.
+      // It will set a 0xff irq line, and shouldn't call an IRQ when it is not
+      // in frame. But other KOEI games relies on IRQ, for example:
+      // Shin 4 Nin Uchi Mahjong - Yakuman Tengoku (Japan)
+      if (irq_status_ & 0x40)
+        irq_callback().Run();
+    } else {
+      irq_callback().Run();
+    }
+  }
 
   if (++irq_clear_flag_ > 2) {
     irq_status_ &= ~0x80;

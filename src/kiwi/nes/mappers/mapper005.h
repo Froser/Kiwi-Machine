@@ -77,6 +77,7 @@ class Mapper005 : public Mapper {
 
  private:
   // These variables should not be serialized or deserialized.
+  bool is_metal_slader_glory_;
   int banks_in_8k_;
   int banks_in_16k_;
   // Whether is fetching a background tile
