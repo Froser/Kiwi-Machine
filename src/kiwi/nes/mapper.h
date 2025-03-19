@@ -43,9 +43,9 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
     mirroring_changed_callback_ = callback;
   }
 
-  void set_scanline_irq_callback(IRQCallback callback) {
-    iqr_callback_ = callback;
-  }
+  void set_irq_callback(IRQCallback callback) { iqr_callback_ = callback; }
+
+  virtual void Reset();
 
   // CPU: $8000-$FFFF
   virtual void WritePRG(Address addr, Byte value) = 0;
@@ -56,7 +56,7 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual Byte ReadCHR(Address addr) = 0;
 
   virtual NametableMirroring GetNametableMirroring();
-  virtual void ScanlineIRQ();
+  virtual void ScanlineIRQ(int scanline, bool render_enabled);
   virtual void M2CycleIRQ();
 
   // MMC3 uses this.
@@ -82,11 +82,24 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   bool Deserialize(const EmulatorStates::Header& header,
                    EmulatorStates::DeserializableStateData& data) override;
 
+  // For MMC5 only
+  virtual bool IsMMC5() { return false; }
+  virtual Byte ReadNametableByte(Byte* ram, Address address) { return 0; }
+  virtual void WriteNametableByte(Byte* ram, Address address, Byte value) {}
+  virtual void SetCurrentRenderState(bool is_background,
+                                     bool is_8x16_sprite,
+                                     int current_dot_in_scanline) {}
+  virtual Byte GetFineXInSplitRegion(Byte ppu_x_fine) { return ppu_x_fine; }
+  virtual Address GetDataAddressInSplitRegion(Address ppu_data_address) {
+    return ppu_data_address;
+  }
+
  protected:
   MirroringChangedCallback mirroring_changed_callback() {
     return mirroring_changed_callback_;
   }
 
+  // A callback set CPU's irq.
   IRQCallback irq_callback() { return iqr_callback_; }
 
  private:

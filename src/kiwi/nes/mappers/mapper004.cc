@@ -56,8 +56,7 @@ void Mapper004::WritePRG(Address address, Byte value) {
   } else if (address >= 0xa000 && address <= 0xbfff) {
     if (is_even) {
       // Mirroring
-      if (rom_data()->name_table_mirroring ==
-          NametableMirroring::kFourScreen) {
+      if (rom_data()->name_table_mirroring == NametableMirroring::kFourScreen) {
         mirroring_ = NametableMirroring::kFourScreen;
       } else if (value & 0x01) {
         mirroring_ = NametableMirroring::kHorizontal;
@@ -93,32 +92,28 @@ Byte Mapper004::ReadPRG(Address address) {
   if (0x8000 <= address && address <= 0x9fff) {
     int bank = prg_mode_ ? prg_banks_count_ - 2 : bank_register_[6];
     Address offset = address & 0x1fff;
-    uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     rom_data()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) % rom_data()->PRG.size();
     return rom_data()->PRG[index];
   }
 
   if (0xa000 <= address && address <= 0xbfff) {
     int bank = bank_register_[7];
     Address offset = address & 0x1fff;
-    uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     rom_data()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) % rom_data()->PRG.size();
     return rom_data()->PRG[index];
   }
 
   if (0xc000 <= address && address <= 0xdfff) {
     int bank = prg_mode_ ? bank_register_[6] : prg_banks_count_ - 2;
     Address offset = address & 0x1fff;
-    uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     rom_data()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) % rom_data()->PRG.size();
     return rom_data()->PRG[index];
   }
 
   if (0xe000 <= address && address <= 0xffff) {
     int bank = prg_banks_count_ - 1;
     Address offset = address & 0x1fff;
-    uint32_t index = ((kPRGBankSize * bank) | offset) %
-                     rom_data()->PRG.size();
+    uint32_t index = ((kPRGBankSize * bank) | offset) % rom_data()->PRG.size();
     return rom_data()->PRG[index];
   }
 
@@ -183,8 +178,7 @@ Byte Mapper004::ReadCHR(Address address) {
 
 Byte Mapper004::ReadCHRByBank(int bank, Address address) {
   Address offset = address % 0x0400;
-  uint32_t index =
-      ((kCHRBankSize * bank) | offset) % rom_data()->CHR.size();
+  uint32_t index = ((kCHRBankSize * bank) | offset) % rom_data()->CHR.size();
   return rom_data()->CHR[index];
 }
 
@@ -219,8 +213,9 @@ void Mapper004::PPUAddressChanged(Address address) {
   last_vram_address_ = address;
 }
 
-void Mapper004::ScanlineIRQ() {
-  StepIRQCounter();
+void Mapper004::ScanlineIRQ(int scanline, bool render_enabled) {
+  if (render_enabled && scanline < 240)
+    StepIRQCounter();
 }
 
 void Mapper004::Serialize(EmulatorStates::SerializableStateData& data) {

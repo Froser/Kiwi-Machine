@@ -59,6 +59,12 @@ RomData* Cartridge::GetRomData() {
   return rom_data_.get();
 }
 
+void Cartridge::Reset() {
+  if (mapper_) {
+    mapper_->Reset();
+  }
+}
+
 void Cartridge::Serialize(EmulatorStates::SerializableStateData& data) {
   data.WriteData(crc_);
   mapper()->Serialize(data);

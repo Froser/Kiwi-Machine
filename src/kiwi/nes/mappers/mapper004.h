@@ -40,7 +40,7 @@ class Mapper004 : public Mapper {
   Byte ReadExtendedRAM(Address address) override;
 
   NametableMirroring GetNametableMirroring() override;
-  void ScanlineIRQ() override;
+  void ScanlineIRQ(int scanline, bool render_enabled) override;
   void PPUAddressChanged(Address address) override;
 
   // EmulatorStates::SerializableState:

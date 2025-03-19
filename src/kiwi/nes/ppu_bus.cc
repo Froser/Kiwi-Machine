@@ -25,9 +25,39 @@ void PPUBus::SetMapper(Mapper* mapper) {
   DCHECK(mapper);
 
   mapper_ = mapper;
+  is_mmc5_ = mapper_->IsMMC5();
 
   UpdateMirroring();
   SetDefaultPalettes();
+}
+
+void PPUBus::SetCurrentPatternState(CurrentPatternType pattern_type,
+                                    bool is_8x16_sprite,
+                                    int current_dot_in_scanline) {
+  if (is_mmc5_) {
+    // MMC5 needs know whether is fetching background tile or sprite tile.
+    // Uchuu Keibitai SDF (Japan) will fetch nametable and write bytes before
+    // rendering, so the current pattern type will be kNotRendering, and it
+    // will be treated as kBackground.
+    mapper_->SetCurrentRenderState(
+        pattern_type == CurrentPatternType::kBackground ||
+            pattern_type == CurrentPatternType::kNotRendering,
+        is_8x16_sprite, current_dot_in_scanline);
+  }
+}
+
+Byte PPUBus::GetAdjustedXFine(Byte x_fine_in) {
+  if (is_mmc5_)
+    return mapper_->GetFineXInSplitRegion(x_fine_in);
+
+  return x_fine_in;
+}
+
+Address PPUBus::GetAdjustedDataAddress(Address data_address_in) {
+  if (is_mmc5_)
+    return mapper_->GetDataAddressInSplitRegion(data_address_in);
+
+  return data_address_in;
 }
 
 void PPUBus::SetDefaultPalettes() {
@@ -60,16 +90,23 @@ Byte PPUBus::Read(Address address) {
       normalized_address -= 0x1000;
     }
 
-    if (nametable_[0] >= RAM_SIZE)
+    if (nametable_[0] >= RAM_SIZE) {
       return mapper_->ReadCHR(normalized_address);
-    else if (normalized_address < 0x2400)  // NT0
-      return ram_[nametable_[0] + index];
-    else if (normalized_address < 0x2800)  // NT1
-      return ram_[nametable_[1] + index];
-    else if (normalized_address < 0x2c00)  // NT2
-      return ram_[nametable_[2] + index];
-    else /* if (normalized_address < 0x3000)*/  // NT3
-      return ram_[nametable_[3] + index];
+    } else {
+      if (!is_mmc5_) {
+        if (normalized_address < 0x2400)  // NT0
+          return ram_[nametable_[0] + index];
+        else if (normalized_address < 0x2800)  // NT1
+          return ram_[nametable_[1] + index];
+        else if (normalized_address < 0x2c00)  // NT2
+          return ram_[nametable_[2] + index];
+        else /* if (normalized_address < 0x3000)*/  // NT3
+          return ram_[nametable_[3] + index];
+      } else {
+        // mmc5 has its own nametable routine
+        return mapper_->ReadNametableByte(ram_.data(), normalized_address);
+      }
+    }
   } else if (address < 0x3fff) {
     auto palette_address = address & 0x1f;
     return ReadPalette(palette_address);
@@ -90,14 +127,21 @@ void PPUBus::Write(Address address, Byte value) {
 
     if (nametable_[0] >= RAM_SIZE)
       mapper_->WriteCHR(normalized_address, value);
-    else if (normalized_address < 0x2400)  // Nametable 0
-      ram_[nametable_[0] + index] = value;
-    else if (normalized_address < 0x2800)  // Nametable 1
-      ram_[nametable_[1] + index] = value;
-    else if (normalized_address < 0x2c00)  // Nametable 2
-      ram_[nametable_[2] + index] = value;
-    else  // Nametable 3
-      ram_[nametable_[3] + index] = value;
+    else {
+      if (!is_mmc5_) {
+        if (normalized_address < 0x2400)  // Nametable 0
+          ram_[nametable_[0] + index] = value;
+        else if (normalized_address < 0x2800)  // Nametable 1
+          ram_[nametable_[1] + index] = value;
+        else if (normalized_address < 0x2c00)  // Nametable 2
+          ram_[nametable_[2] + index] = value;
+        else  // Nametable 3
+          ram_[nametable_[3] + index] = value;
+      } else {
+        // mmc5 has its own nametable routine
+        mapper_->WriteNametableByte(ram_.data(), normalized_address, value);
+      }
+    }
   } else if (address < 0x3fff) {
     auto palette = address & 0x1f;
     // Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C
@@ -107,15 +151,6 @@ void PPUBus::Write(Address address, Byte value) {
 
     palette_[palette] = value;
   }
-}
-
-Byte* PPUBus::GetPagePointer(Byte page) {
-  LOG(ERROR) << "Shouldn't get PPU page pointer.";
-  return nullptr;
-}
-
-Word PPUBus::ReadWord(Address address) {
-  return Read(address) | Read(address + 1) << 8;
 }
 
 void PPUBus::Serialize(EmulatorStates::SerializableStateData& data) {

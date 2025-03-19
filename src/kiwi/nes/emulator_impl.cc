@@ -362,6 +362,7 @@ void EmulatorImpl::ResetOnProperThread() {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   DCHECK(cpu_ && ppu_);
   if (cartridge_ && cartridge_->is_loaded()) {
+    cartridge_->Reset();
     cpu_->Reset();
     ppu_->Reset();
     apu_->Reset();
@@ -457,7 +458,7 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
   ppu_bus_->SetMapper(cartridge->mapper());
   cartridge->mapper()->set_mirroring_changed_callback(base::BindRepeating(
       &PPUBus::UpdateMirroring, base::Unretained(ppu_bus_.get())));
-  cartridge->mapper()->set_scanline_irq_callback(base::BindRepeating(
+  cartridge->mapper()->set_irq_callback(base::BindRepeating(
       &CPU::Interrupt, base::Unretained(cpu_.get()), CPU::InterruptType::IRQ));
 
   // Reset CPU and PPU.

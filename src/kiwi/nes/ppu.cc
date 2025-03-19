@@ -99,9 +99,10 @@ void PPU::Step() {
           observer_->OnPPUScanlineEnd(261);
         cycles_ = -1;
         scanline_ = 0;
-      } else if (cycles_ == patch_.scanline_irq_dot && is_render_enabled()) {
-        // add IRQ support for MMC3
-        ppu_bus_->GetMapper()->ScanlineIRQ();
+      } else if (cycles_ == patch_.scanline_irq_dot) {
+        // add IRQ support for MMC
+        // -1 means pre-render state
+        ppu_bus_->GetMapper()->ScanlineIRQ(-1, is_render_enabled());
       }
     } break;
     case PipelineState::kRender: {
@@ -117,8 +118,8 @@ void PPU::Step() {
         // https://www.nesdev.org/wiki/PPU_rendering#Cycles_1-256
         Byte background_color = 0, sprite_color = 0;
         // The first cycle is the idle cycle, thus |x| equals to |cycles_| - 1.
-        int x = cycles_ - 1;
-        int y = scanline_;
+        const int x = cycles_ - 1;
+        const int y = scanline_;
         bool is_background_opaque = false;
         bool is_sprite_opaque = false;
 
@@ -149,28 +150,35 @@ void PPU::Step() {
               patch_.data_address_patch(&data_address_);
 
             // Fetch tile (nametable byte).
-            Address pixel_address = 0x2000 | (data_address_ & 0x0fff);
+            ppu_bus_->SetCurrentPatternState(
+                PPUBus::CurrentPatternType::kBackground,
+                registers_.PPUCTRL.H && is_render_enabled(), x);
+            const Address data_address =
+                ppu_bus_->GetAdjustedDataAddress(data_address_);
+            Address pixel_address = 0x2000 | (data_address & 0x0fff);
             Byte tile = ppu_bus_->Read(pixel_address);
             // Gets tile address with fine Y scroll
-            pixel_address = (tile << 4) + ((data_address_ >> 12) & 0x7);
+            pixel_address = (tile << 4) + ((data_address >> 12) & 0x7);
             pixel_address += background_pattern_table_base_address();
 
             Byte pattern = ppu_bus_->Read(pixel_address);
             // Combines the tile and get background color index.
-            background_color = (pattern >> (7 ^ x_fine)) & 1;
+            const Byte temp_x_fine = ppu_bus_->GetAdjustedXFine(x_fine);
+            background_color = (pattern >> (7 ^ temp_x_fine)) & 1;
             background_color |=
-                ((ppu_bus_->Read(pixel_address + 8) >> (7 ^ x_fine)) & 1) << 1;
+                ((ppu_bus_->Read(pixel_address + 8) >> (7 ^ temp_x_fine)) & 1)
+                << 1;
 
             // If |background_color| is not 0, it is opaque.
             is_background_opaque = (background_color != 0);
 
-            // Fetch attribute table and calculate higher two bits of palette:
-            // https://www.nesdev.org/wiki/PPU_scrolling#Tile_and_attribute_fetching
-            Address attribute_address = 0x23c0 | (data_address_ & 0x0c00) |
-                                        ((data_address_ >> 4) & 0x38) |
-                                        ((data_address_ >> 2) & 0x07);
+            //  Fetch attribute table and calculate higher two bits of palette:
+            //  https://www.nesdev.org/wiki/PPU_scrolling#Tile_and_attribute_fetching
+            Address attribute_address = 0x23c0 | (data_address & 0x0c00) |
+                                        ((data_address >> 4) & 0x38) |
+                                        ((data_address >> 2) & 0x07);
             Byte attribute = ppu_bus_->Read(attribute_address);
-            int shift = ((data_address_ >> 4) & 4) | (data_address_ & 2);
+            int shift = ((data_address >> 4) & 4) | (data_address & 2);
             // Extract and set the upper two bits for the color
             background_color |= ((attribute >> shift) & 0x3) << 2;
           }
@@ -236,6 +244,9 @@ void PPU::Step() {
               pattern_address |= (tile & 1) << 12;
             }
 
+            ppu_bus_->SetCurrentPatternState(
+                PPUBus::CurrentPatternType::kSprite,
+                registers_.PPUCTRL.H && is_render_enabled(), x);
             sprite_color = (ppu_bus_->Read(pattern_address) >> (x_shift)) & 1;
             sprite_color |=
                 ((ppu_bus_->Read(pattern_address + 8) >> (x_shift)) & 1) << 1;
@@ -304,13 +315,18 @@ void PPU::Step() {
             data_address_ = (data_address_ & ~0x03e0) | (new_y << 5);
           }
         }
+
+        // Rendering is done, restore the pattern state
+        ppu_bus_->SetCurrentPatternState(
+            PPUBus::CurrentPatternType::kNotRendering,
+            registers_.PPUCTRL.H && is_render_enabled(), x);
       } else if (cycles_ == 257 && is_render_background()) {  // Dot 257
         data_address_ &= ~0x41f;
         data_address_ |= temp_address_ & 0x41f;
       }
 
-      if (cycles_ == patch_.scanline_irq_dot && is_render_enabled()) {
-        ppu_bus_->GetMapper()->ScanlineIRQ();
+      if (cycles_ == patch_.scanline_irq_dot) {
+        ppu_bus_->GetMapper()->ScanlineIRQ(scanline_, is_render_enabled());
       }
 
       if (cycles_ >= kScanlineEndCycle) {
@@ -349,6 +365,11 @@ void PPU::Step() {
         pipeline_state_ = PipelineState::kPostRender;
     } break;
     case PipelineState::kPostRender: {
+      if (cycles_ == patch_.scanline_irq_dot) {
+        DCHECK(scanline_ >= 240);
+        ppu_bus_->GetMapper()->ScanlineIRQ(scanline_, is_render_enabled());
+      }
+
       if (cycles_ >= kScanlineEndCycle) {
         IncreaseScanline();
         pipeline_state_ = PipelineState::kVerticalBlank;
@@ -360,6 +381,11 @@ void PPU::Step() {
       }
     } break;
     case PipelineState::kVerticalBlank: {
+      if (cycles_ == patch_.scanline_irq_dot) {
+        DCHECK(scanline_ >= 240);
+        ppu_bus_->GetMapper()->ScanlineIRQ(scanline_, is_render_enabled());
+      }
+
       // The VBlank flag of the PPU is set at tick 1 (the second tick) of
       // scanline 241, where the VBlank NMI also occurs. The PPU makes no memory
       // accesses during these scanlines, so PPU memory can be freely accessed
@@ -393,13 +419,6 @@ void PPU::Step() {
   ++cycles_;
   if (observer_) {
     observer_->OnPPUStepped();
-  }
-}
-
-void PPU::StepScanline() {
-  int s = scanline_;
-  while (scanline_ == s) {
-    Step();
   }
 }
 
@@ -527,7 +546,7 @@ Byte PPU::GetData() {
 
   data_address_ += data_address_increment();
 
-  // Notify VRAM address changed, typically for MMC3.
+  // Notify VRAM address changed, typically for MMC
   ppu_bus_->GetMapper()->PPUAddressChanged(data_address_);
 
   // Reading palette data from $3F00-$3FFF works differently. The palette data
@@ -585,7 +604,7 @@ void PPU::SetDataAddress(Byte address) {
     data_address_ = temp_address_;
     write_toggle_ = false;
 
-    // Notify VRAM address changed, typically for MMC3.
+    // Notify VRAM address changed, typically for MMC
     ppu_bus_->GetMapper()->PPUAddressChanged(data_address_);
 
     if (observer_)
@@ -628,7 +647,7 @@ void PPU::SetData(Byte data) {
   ppu_bus_->Write(data_address_, data);
   data_address_ += data_address_increment();
 
-  // Notify VRAM address changed, typically for MMC3.
+  // Notify VRAM address changed, typically for MMC
   ppu_bus_->GetMapper()->PPUAddressChanged(data_address_);
 }
 

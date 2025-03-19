@@ -1385,6 +1385,12 @@ bool MainWindow::HandleWindowFingerDown() {
   return false;
 }
 
+void MainWindow::PauseGameIfDisassemblyVisible() {
+  // Give a chance to pause the emulator
+  if (disassembly_widget_ && disassembly_widget_->visible())
+    OnPause();
+}
+
 void MainWindow::StashVirtualButtonsVisible() {}
 
 void MainWindow::PopVirtualButtonsVisible() {}
@@ -1573,6 +1579,7 @@ void MainWindow::OnRomLoaded(const std::string& name,
   ShowMainMenu(false, load_from_finger_gesture);
   SetTitle(name);
   StartAutoSave();
+  PauseGameIfDisassemblyVisible();
 
   if (!success) {
     Toast::ShowToast(this,
@@ -1589,8 +1596,11 @@ void MainWindow::OnQuit() {
 
 void MainWindow::OnResetROM() {
   SDL_assert(runtime_data_->emulator);
-  runtime_data_->emulator->Reset(kiwi::base::BindOnce(
-      &MainWindow::ResetAudio, kiwi::base::Unretained(this)));
+  runtime_data_->emulator->Reset(
+      kiwi::base::BindOnce(&MainWindow::ResetAudio,
+                           kiwi::base::Unretained(this))
+          .Then(kiwi::base::BindOnce(&MainWindow::PauseGameIfDisassemblyVisible,
+                                     kiwi::base::Unretained(this))));
 }
 
 void MainWindow::OnBackToMainMenu() {

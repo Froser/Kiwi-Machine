@@ -227,6 +227,9 @@ class MainWindow : public WindowBase,
   friend class FullscreenMask;
   bool HandleWindowFingerDown();
 
+  // Give a chance to pause the game, to view disassembly widget.
+  void PauseGameIfDisassemblyVisible();
+
 #if KIWI_MOBILE
   void OnScaleModeChanged();
 #endif

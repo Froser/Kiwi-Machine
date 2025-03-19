@@ -21,6 +21,7 @@
 #include "nes/mappers/mapper002.h"
 #include "nes/mappers/mapper003.h"
 #include "nes/mappers/mapper004.h"
+#include "nes/mappers/mapper005.h"
 #include "nes/mappers/mapper007.h"
 #include "nes/mappers/mapper009.h"
 #include "nes/mappers/mapper010.h"
@@ -55,11 +56,12 @@ struct MapperFactoryBuilder : MapperFactory {
 
 // Leaks mappers by purpose.
 std::map<Byte, MapperFactory*> mapper_factories = {
-    MAPPER(0, Mapper000),  MAPPER(1, Mapper001),  MAPPER(2, Mapper002),
-    MAPPER(3, Mapper003),  MAPPER(4, Mapper004),  MAPPER(7, Mapper007),
-    MAPPER(9, Mapper009),  MAPPER(10, Mapper010), MAPPER(11, Mapper011),
-    MAPPER(40, Mapper040), MAPPER(66, Mapper066), MAPPER(74, Mapper074),
-    MAPPER(75, Mapper075), MAPPER(87, Mapper087), MAPPER(185, Mapper185),
+    MAPPER(0, Mapper000),   MAPPER(1, Mapper001),  MAPPER(2, Mapper002),
+    MAPPER(3, Mapper003),   MAPPER(4, Mapper004),  MAPPER(5, Mapper005),
+    MAPPER(7, Mapper007),   MAPPER(9, Mapper009),  MAPPER(10, Mapper010),
+    MAPPER(11, Mapper011),  MAPPER(40, Mapper040), MAPPER(66, Mapper066),
+    MAPPER(74, Mapper074),  MAPPER(75, Mapper075), MAPPER(87, Mapper087),
+    MAPPER(185, Mapper185),
 };
 }  // namespace
 
@@ -74,7 +76,9 @@ NametableMirroring Mapper::GetNametableMirroring() {
   return rom_data_->name_table_mirroring;
 }
 
-void Mapper::ScanlineIRQ() {}
+void Mapper::Reset() {}
+
+void Mapper::ScanlineIRQ(int scanline, bool render_enabled) {}
 
 void Mapper::M2CycleIRQ() {}
 
@@ -104,7 +108,7 @@ bool Mapper::IsMapperSupported(Byte mapper) {
 
 void Mapper::WriteExtendedRAM(Address address, Byte value) {
   if (HasExtendedRAM()) {
-    if (address >= 0x6000 && address <= 0x7fff) {
+    if (address >= 0x6000) {
       CheckExtendedRAM();
       extended_ram_[address - 0x6000] = value;
     }
