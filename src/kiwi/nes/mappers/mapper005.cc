@@ -29,8 +29,9 @@ constexpr size_t k32KBank = 32 * 1024;
 
 Mapper005::Mapper005(Cartridge* cartridge) : Mapper(cartridge) {
   is_metal_slader_glory_ = rom_data()->crc == 0xb4735fac;
-  banks_in_8k_ = rom_data()->PRG.size() / k8KBank;
-  banks_in_16k_ = rom_data()->PRG.size() / k16KBank;
+  banks_in_8k_ = std::max(1ul, rom_data()->PRG.size() / k8KBank);
+  banks_in_16k_ = std::max(1ul, rom_data()->PRG.size() / k16KBank);
+  banks_in_32k_ = std::max(1ul, rom_data()->PRG.size() / k32KBank);
   ResetRegisters();
 }
 
@@ -167,7 +168,6 @@ std::pair<bool, Byte> Mapper005::GetBank(ControlledBankSize cbs, Byte data) {
         break;
       default:
         CHECK(false) << "Shouldn't be here";
-        break;
     }
     return std::make_pair(is_rom, index);
   }
@@ -184,7 +184,65 @@ void Mapper005::PRGBankSwitch(kiwi::nes::Address address) {
   last_prg_reg_ = i;
 }
 
-void Mapper005::WritePRG(Address address, Byte value) {}
+void Mapper005::WritePRG(Address address, Byte value) {
+  PRGBankSwitch(address);
+  if (sram_protect_[0] == 0x02 && sram_protect_[1] == 0x01) {
+    DCHECK(address >= 0x8000);
+    switch (prg_mode_) {
+      case 0: {
+        // CPU $8000-$FFFF: 32 KB switchable PRG ROM bank
+        break;
+      }
+      case 1:
+        // CPU $8000-$BFFF: 16 KB switchable PRG ROM/RAM bank
+        // CPU $C000-$FFFF: 16 KB switchable PRG ROM bank
+        if (address < 0xc000) {
+          auto [is_rom, bank] = GetBank(ControlledBankSize::k16k, reg_5115_);
+          if (!is_rom)
+            sram_[k16KBank * bank + (address - 0x8000)] = value;
+        }
+        break;
+      case 2:
+        // CPU $8000-$BFFF: 16 KB switchable PRG ROM/RAM bank
+        // CPU $C000-$DFFF: 8 KB switchable PRG ROM/RAM bank
+        // CPU $E000-$FFFF: 8 KB switchable PRG ROM bank
+        if (address < 0xc000) {
+          auto [is_rom, bank] = GetBank(ControlledBankSize::k16k, reg_5115_);
+          if (!is_rom)
+            sram_[k16KBank * bank + (address - 0x8000)] = value;
+        }
+        if (address < 0xe000) {
+          auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
+          if (!is_rom)
+            sram_[k8KBank * bank + (address - 0xc000)] = value;
+        }
+        break;
+      case 3:
+        // CPU $8000-$9FFF: 8 KB switchable PRG ROM/RAM bank
+        // CPU $A000-$BFFF: 8 KB switchable PRG ROM/RAM bank
+        // CPU $C000-$DFFF: 8 KB switchable PRG ROM/RAM bank
+        // CPU $E000-$FFFF: 8 KB switchable PRG ROM bank
+        if (address < 0xa000) {
+          auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5114_);
+          if (!is_rom)
+            sram_[k8KBank * bank + (address - 0x8000)] = value;
+        }
+        if (address < 0xc000) {
+          auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5115_);
+          if (!is_rom)
+            sram_[k8KBank * bank + (address - 0xa000)] = value;
+        }
+        if (address < 0xe000) {
+          auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
+          if (!is_rom)
+            sram_[k8KBank * bank + (address - 0xc000)] = value;
+        }
+        break;
+      default:
+        CHECK(false) << "Shouldn't be here";
+    }
+  }
+}
 
 Byte Mapper005::ReadPRG(Address address) {
   PRGBankSwitch(address);
@@ -195,10 +253,9 @@ Byte Mapper005::ReadPRG(Address address) {
   switch (prg_mode_) {
     case 0: {
       // CPU $8000-$FFFF: 32 KB switchable PRG ROM bank
-      const size_t k32BankCount = rom_data()->PRG.size() / k32KBank;
       return rom_data()
-          ->PRG[(k32KBank * (((reg_5117_ & 0x7f) >> 2)) + (address - 0x8000)) %
-                k32BankCount];
+          ->PRG[(k32KBank * (((reg_5117_ & 0x7f) >> 2) % banks_in_32k_) +
+                 (address - 0x8000))];
     }
     case 1:
       // CPU $8000-$BFFF: 16 KB switchable PRG ROM/RAM bank
@@ -209,7 +266,7 @@ Byte Mapper005::ReadPRG(Address address) {
                       : sram_[k16KBank * bank + (address - 0x8000)];
       }
       return rom_data()
-          ->PRG[k16KBank * ((reg_5117_ & 0x7f) >> 1) % (banks_in_16k_) +
+          ->PRG[k16KBank * (((reg_5117_ & 0x7f) >> 1) % (banks_in_16k_)) +
                 (address - 0xc000)];
     case 2:
       // CPU $8000-$BFFF: 16 KB switchable PRG ROM/RAM bank
@@ -225,7 +282,7 @@ Byte Mapper005::ReadPRG(Address address) {
         return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0xc000)]
                       : sram_[k8KBank * bank + (address - 0xc000)];
       }
-      return rom_data()->PRG[k8KBank * ((reg_5117_ & 0x7f) % (banks_in_8k_)) +
+      return rom_data()->PRG[k8KBank * (((reg_5117_ & 0x7f) % (banks_in_8k_))) +
                              (address - 0xe000)];
     case 3:
       // CPU $8000-$9FFF: 8 KB switchable PRG ROM/RAM bank
@@ -247,7 +304,7 @@ Byte Mapper005::ReadPRG(Address address) {
         return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0xc000)]
                       : sram_[k8KBank * bank + (address - 0xc000)];
       }
-      return rom_data()->PRG[k8KBank * ((reg_5117_ & 0x7f) % (banks_in_8k_)) +
+      return rom_data()->PRG[k8KBank * (((reg_5117_ & 0x7f) % (banks_in_8k_))) +
                              (address - 0xe000)];
     default:
       CHECK(false) << "Shouldn't be here";

@@ -80,6 +80,7 @@ class Mapper005 : public Mapper {
   bool is_metal_slader_glory_;
   int banks_in_8k_;
   int banks_in_16k_;
+  int banks_in_32k_;
   // Whether is fetching a background tile
   bool current_pattern_is_background_ = true;
   // Whether is fetching a sprite tile
