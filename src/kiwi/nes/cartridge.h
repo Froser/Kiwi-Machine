@@ -84,6 +84,8 @@ class Cartridge : public base::RefCountedThreadSafe<Cartridge>,
   LoadResult LoadFromDataOnIOThread(const Bytes& data);
 
   bool ProcessHeaders(const Byte* headers);
+  // Give a chance to adjust headers
+  void PatchHeaders();
   bool ProcessMapper();
 
  private:

@@ -147,7 +147,9 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
 
   rom_path_ = rom_path;
 
+  PatchHeaders();
   is_loaded_ = true;
+
   // Mapper::Create() may access |rom_data_|, and we have already filled
   // |rom_data_|, so set |is_loaded_| to true.
   return LoadResult{crc_, ProcessMapper()};
@@ -193,6 +195,7 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
   crc_ = crc;
   rom_data_->crc = crc_;
 
+  PatchHeaders();
   is_loaded_ = true;
   // Mapper::Create() may access |rom_data_|, and we have already fill
   // |rom_data_|, so set |is_loaded_| to true.
@@ -285,6 +288,20 @@ bool Cartridge::ProcessHeaders(const Byte* headers) {
   } else {
     LOG(INFO) << "ROM is NTSC compatible.\n";
     return true;
+  }
+}
+
+void Cartridge::PatchHeaders() {
+  switch (crc_) {
+    // Most dumps of mapper 048 games floating around are erroneously labelled
+    // as mapper 033.
+    case 0xaebd6549:  // Bakushou!! Jinsei Gekijou 3 (Japan)
+    case 0xa7b0536c:  // Don Doko Don 2 (Japan)
+    case 0x1500e835:  // The Jetsons - Cogswell's Caper! (Japan)
+    case 0x40c0ad47:  // The Flintstones - The Rescue of Dino & Hoppy (Japan)
+      DCHECK_EQ(rom_data_->mapper, 33);
+      rom_data_->mapper = 48;
+      break;
   }
 }
 
