@@ -52,6 +52,7 @@ struct {
   bool first_open = true;
   bool explorer_opened = false;
   FilterOptions filter = FilterOptions::kAll;
+  bool exclude_unl = true;
   Explorer::File* selected_item = nullptr;
 } g_explorer;
 
@@ -269,6 +270,10 @@ void PaintExplorer() {
             ImVec2(-FLT_MIN,
                    kItemCount * ImGui::GetTextLineHeightWithSpacing()))) {
       for (auto& item : g_explorer.explorer.explorer_files) {
+        if (g_explorer.exclude_unl &&
+            item.title.find("(Unl)") != std::string::npos)
+          continue;
+
         switch (g_explorer.filter) {
           case FilterOptions::kIgnoreMarked: {
             if (item.mark != Explorer::Mark::kNoMark)
@@ -284,7 +289,7 @@ void PaintExplorer() {
             break;
           }
           case FilterOptions::kUnsupportedOnly: {
-            if (item.supported)
+            if (item.supported || item.mark == Explorer::Mark::kUninterested)
               continue;
             break;
           }
@@ -519,7 +524,7 @@ void PaintExplorer() {
                          U8("只显示未被打包的项"),
                          g_explorer.filter == FilterOptions::kUnmatchedOnly)) {
             g_explorer.filter = FilterOptions::kUnmatchedOnly;
-          } else if (ImGui::Selectable(U8("只显示不支持的项"),
+          } else if (ImGui::Selectable(U8("只显示不支持的项（不包含不感兴趣）"),
                                        g_explorer.filter ==
                                            FilterOptions::kUnsupportedOnly)) {
             g_explorer.filter = FilterOptions::kUnsupportedOnly;
@@ -538,6 +543,8 @@ void PaintExplorer() {
           }
           ImGui::EndCombo();
         }
+
+        ImGui::Checkbox(U8("不包含未授权的游戏"), &g_explorer.exclude_unl);
       }
 
       if (!g_last_pack_dir.empty()) {
