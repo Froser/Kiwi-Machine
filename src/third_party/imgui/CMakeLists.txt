@@ -33,5 +33,4 @@ set(Sources
 )
 
 add_library(${PROJECT_NAME} STATIC ${Sources})
-target_include_directories(${PROJECT_NAME} PRIVATE ".")
-target_include_directories(${PROJECT_NAME} PRIVATE "../../kiwi/third_party/SDL2/include")
+target_include_directories(${PROJECT_NAME} PRIVATE "." ${SDL2_SOURCE_DIR}/include)

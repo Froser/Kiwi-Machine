@@ -714,7 +714,8 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_SaveLoad(
       loading_widget_->Paint();
     } else if (currently_has_snapshot_) {
       SDL_assert(snapshot_);
-      ImGui::Image(snapshot_, ImVec2(kThumbnailWidth, kThumbnailHeight));
+      ImGui::Image(reinterpret_cast<ImTextureID>(snapshot_),
+                   ImVec2(kThumbnailWidth, kThumbnailHeight));
 
     } else {
 #if KIWI_IOS

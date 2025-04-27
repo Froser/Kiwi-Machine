@@ -47,7 +47,7 @@ void TouchButton::Paint() {
                     : IM_COL32(255, 255, 255, opacity_ * 128);
   SDL_Rect rect = bounds();
   ImGui::GetBackgroundDrawList()->AddImage(
-      texture_, ImVec2(rect.x, rect.y),
+      reinterpret_cast<ImTextureID>(texture_), ImVec2(rect.x, rect.y),
       ImVec2(rect.x + rect.w, rect.y + rect.h), ImVec2(0, 0), ImVec2(1, 1),
       color);
 }

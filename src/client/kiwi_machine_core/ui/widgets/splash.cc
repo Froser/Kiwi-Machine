@@ -57,7 +57,7 @@ void Splash::Paint() {
   ImGui::SetCursorPos(logo_pos);
 
   // Draws logo
-  ImGui::Image(logo, logo_size);
+  ImGui::Image(reinterpret_cast<ImTextureID>(logo), logo_size);
 
   // Draws background
   ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), kSplashSize,

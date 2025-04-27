@@ -165,12 +165,15 @@ SupportedLanguage GetCurrentSupportedLanguage() {
   return SupportedLanguage::kEnglish;
 }
 
-const char* GetLanguage() {
+std::string GetLanguage() {
   if (!g_global_language.empty())
     return g_global_language.c_str();
 
   SDL_Locale* locale = SDL_GetPreferredLocales();
-  return locale->language;
+  std::string retval =
+      (locale && locale->language) ? locale->language : std::string();
+  SDL_free(locale);
+  return retval;
 }
 
 const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom) {

@@ -97,7 +97,7 @@ void WindowBase::RenderWidgets() {
     ImGuiIO& io = ImGui::GetIO();
     SDL_RenderSetScale(renderer_, io.DisplayFramebufferScale.x,
                        io.DisplayFramebufferScale.y);
-    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer_);
     SDL_RenderPresent(renderer_);
   }
 }

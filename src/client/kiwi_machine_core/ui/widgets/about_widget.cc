@@ -139,7 +139,8 @@ void AboutWidget::DrawTitle() {
   ResetCursorX();
   ImGui::BeginGroup();
   ImGui::Image(
-      GetImage(window()->renderer(), image_resources::ImageID::kKiwiMachine),
+      reinterpret_cast<ImTextureID>(GetImage(
+          window()->renderer(), image_resources::ImageID::kKiwiMachine)),
       ImVec2(80, 80));
   ImGui::EndGroup();
   ImGui::SameLine();
@@ -184,8 +185,8 @@ void AboutWidget::DrawController() {
   ResetCursorX();
   ImGui::BeginGroup();
   ImGui::Image(
-      GetImage(window()->renderer(),
-               image_resources::ImageID::kAboutNesJoysticks),
+      reinterpret_cast<ImTextureID>(GetImage(
+          window()->renderer(), image_resources::ImageID::kAboutNesJoysticks)),
       main_window_->window_scale() > 2.f ? ImVec2(250, 150) : ImVec2(120, 72));
   ImGui::EndGroup();
   ImGui::SameLine(0, main_window_->window_scale() > 2.f ? 40 : 15);
@@ -337,7 +338,8 @@ void AboutWidget::DrawGameSelection() {
         GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0).c_str());
     ImGui::SameLine();
     ImGui::Image(
-        GetImage(window()->renderer(), image_resources::ImageID::kItemBadge),
+        reinterpret_cast<ImTextureID>(GetImage(
+            window()->renderer(), image_resources::ImageID::kItemBadge)),
         ImVec2(font.GetFont()->FontSize, font.GetFont()->FontSize));
     ImGui::SameLine();
     ImGui::TextUnformatted(

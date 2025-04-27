@@ -52,7 +52,7 @@ void NametableWidget::Paint() {
     ImVec2 work_pos = ImGui::GetMainViewport()->WorkPos;
     ImVec2 window_pos = ImGui::GetWindowPos();
     draw_list->AddImage(
-        screen_texture_,
+        reinterpret_cast<ImTextureID>(screen_texture_),
         ImVec2(work_pos.x + window_pos.x + render_bounds.x,
                work_pos.y + window_pos.y + render_bounds.y),
         ImVec2(work_pos.x + window_pos.x + render_bounds.x + render_bounds.w,

@@ -79,7 +79,8 @@ void SideMenu::Paint() {
     SDL_Rect icon_rect_to_window =
         MapToWindow(SDL_Rect{kIconLeft, kIconTop, kIconSize, kIconSize});
     ImGui::GetWindowDrawList()->AddImage(
-        icon_texture, ImVec2(icon_rect_to_window.x, icon_rect_to_window.y),
+        reinterpret_cast<ImTextureID>(icon_texture),
+        ImVec2(icon_rect_to_window.x, icon_rect_to_window.y),
         ImVec2(icon_rect_to_window.x + icon_rect_to_window.w,
                icon_rect_to_window.y + icon_rect_to_window.h));
   }
@@ -158,7 +159,8 @@ void SideMenu::Paint() {
     SDL_Rect icon_rect_to_window =
         MapToWindow(SDL_Rect{kIconLeft, kIconTop, kIconSize, kIconSize});
     ImGui::GetWindowDrawList()->AddImage(
-        icon_texture, ImVec2(icon_rect_to_window.x, icon_rect_to_window.y),
+        reinterpret_cast<ImTextureID>(icon_texture),
+        ImVec2(icon_rect_to_window.x, icon_rect_to_window.y),
         ImVec2(icon_rect_to_window.x + icon_rect_to_window.w,
                icon_rect_to_window.y + icon_rect_to_window.h));
   }

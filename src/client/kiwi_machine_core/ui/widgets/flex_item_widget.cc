@@ -162,10 +162,11 @@ void FlexItemWidget::Paint() {
 
   // Draw stretched image
   if (current_data()->image_texture) {
-    draw_list->AddImage(current_data()->image_texture,
-                        ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
-                        ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
-                               kBoundsToWindow.y + kBoundsToWindow.h));
+    draw_list->AddImage(
+        reinterpret_cast<ImTextureID>(current_data()->image_texture.load()),
+        ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+        ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+               kBoundsToWindow.y + kBoundsToWindow.h));
   } else {
     // Texture is not ready yet, so draw a loading spin and a rectangle
     SDL_Rect loading_widget_bounds =
@@ -184,7 +185,7 @@ void FlexItemWidget::Paint() {
   if (has_sub_items()) {
     // Draw a badge icon if it has sub items.
     draw_list->AddImage(
-        badge_texture_,
+        reinterpret_cast<ImTextureID>(badge_texture_),
         ImVec2(
             kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin - kBadgeSize,
             kBoundsToWindow.y + kBadgeMargin),

@@ -98,12 +98,14 @@ void VirtualJoystick::Paint() {
 
   // Draw joystick pad
   ImGui::GetBackgroundDrawList()->AddImage(
-      texture_pad_, ImVec2(pad_rect.x, pad_rect.y),
+      reinterpret_cast<ImTextureID>(texture_pad_),
+      ImVec2(pad_rect.x, pad_rect.y),
       ImVec2(pad_rect.x + pad_rect.w, pad_rect.y + pad_rect.h));
 
   // Draw joystick ball
   ImGui::GetBackgroundDrawList()->AddImage(
-      texture_ball_, ImVec2(ball_rect.x, ball_rect.y),
+      reinterpret_cast<ImTextureID>(texture_ball_),
+      ImVec2(ball_rect.x, ball_rect.y),
       ImVec2(ball_rect.x + ball_rect.w, ball_rect.y + ball_rect.h));
 }
 

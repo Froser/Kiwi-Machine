@@ -123,7 +123,7 @@ void PatternWidget::Paint() {
           MapToWindow({static_cast<int>(window_pos.x) + kMargin,
                        static_cast<int>(window_pos.y) + offset_y,
                        kPatternTableWidth, kPatternTableHeight});
-      draw_list->AddImage(pattern_tables_[i],
+      draw_list->AddImage(reinterpret_cast<ImTextureID>(pattern_tables_[i]),
                           ImVec2(pattern_bounds.x, pattern_bounds.y),
                           ImVec2(pattern_bounds.x + pattern_bounds.w,
                                  pattern_bounds.y + pattern_bounds.h));

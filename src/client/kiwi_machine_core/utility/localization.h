@@ -59,7 +59,7 @@ void SetLanguage(SupportedLanguage language);
 
 SupportedLanguage GetCurrentSupportedLanguage();
 
-const char* GetLanguage();
+std::string GetLanguage();
 
 const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom);
 
