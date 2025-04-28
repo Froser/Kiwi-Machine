@@ -29,6 +29,26 @@ constexpr char kVisibleChars[] =
 static_assert(sizeof(kVisibleChars) == 95);
 std::string g_global_language;
 
+const std::string& GetLocalizedString(SupportedLanguage language, int id) {
+  const string_resources::StringMap& string_map =
+      string_resources::GetGlobalStringMap();
+
+  auto id_iter = string_map.find(id);
+  SDL_assert(id_iter != string_map.end());
+
+  const auto& i18n_strings = id_iter->second;
+  const char* app_language = ToLanguageCode(language);
+  auto lang_iter = i18n_strings.find(app_language);
+  if (lang_iter == i18n_strings.end()) {
+    lang_iter = i18n_strings.find("default");
+    SDL_assert(lang_iter != i18n_strings.end());
+  }
+
+  return lang_iter->second;
+}
+
+std::set<ImWchar> g_glyph_chars;
+
 using GlyphRangePtr = std::unique_ptr<ImVector<ImWchar>>;
 std::map<SupportedLanguage, GlyphRangePtr> g_glyph_ranges;
 
@@ -56,26 +76,8 @@ const char* GetROMLocalizedCollateStringHint(
   return GetROMLocalizedTitle(language, rom);
 }
 
-const std::string& GetLocalizedString(SupportedLanguage language, int id) {
-  const string_resources::StringMap& string_map =
-      string_resources::GetGlobalStringMap();
-
-  auto id_iter = string_map.find(id);
-  SDL_assert(id_iter != string_map.end());
-
-  const auto& i18n_strings = id_iter->second;
-  const char* app_language = ToLanguageCode(language);
-  auto lang_iter = i18n_strings.find(app_language);
-  if (lang_iter == i18n_strings.end()) {
-    lang_iter = i18n_strings.find("default");
-    SDL_assert(lang_iter != i18n_strings.end());
-  }
-
-  return lang_iter->second;
-}
-
-void BuildGlyphRanges(SupportedLanguage language,
-                      ImVector<ImWchar>& out_ranges) {
+ImVector<ImWchar> BuildGlyphRanges(SupportedLanguage language) {
+  ImVector<ImWchar> out_ranges;
   ImFontGlyphRangesBuilder ranges_builder;
   ranges_builder.AddText(kVisibleChars);
   for (int i = 0; i < string_resources::END_OF_STRINGS; ++i) {
@@ -94,7 +96,13 @@ void BuildGlyphRanges(SupportedLanguage language,
       }
     }
   }
+
+  for (ImWchar c : g_glyph_chars) {
+    ranges_builder.AddChar(c);
+  }
   ranges_builder.BuildRanges(&out_ranges);
+
+  return out_ranges;
 }
 
 }  // namespace
@@ -189,16 +197,12 @@ const std::string& GetLocalizedString(int id) {
   return GetLocalizedString(GetCurrentSupportedLanguage(), id);
 }
 
-const ImVector<ImWchar>& GetGlyphRanges(SupportedLanguage language) {
-  auto iter = g_glyph_ranges.find(language);
-  if (iter == g_glyph_ranges.end()) {
-    GlyphRangePtr range = std::make_unique<ImVector<ImWchar>>();
-    BuildGlyphRanges(language, *range);
-    g_glyph_ranges[language] = std::move(range);
-  }
+bool AddCharToGlyphRanges(ImWchar c) {
+  return g_glyph_chars.insert(c).second;
+}
 
-  SDL_assert(g_glyph_ranges[language]);
-  return *g_glyph_ranges[language];
+ImVector<ImWchar> GetGlyphRanges(SupportedLanguage language) {
+  return BuildGlyphRanges(language);
 }
 
 namespace language_conversion {

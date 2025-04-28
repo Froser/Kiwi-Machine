@@ -67,7 +67,9 @@ const char* GetROMLocalizedCollateStringHint(const preset_roms::PresetROM& rom);
 
 const std::string& GetLocalizedString(int id);
 
-const ImVector<ImWchar>& GetGlyphRanges(SupportedLanguage language);
+bool AddCharToGlyphRanges(ImWchar chars);
+
+ImVector<ImWchar> GetGlyphRanges(SupportedLanguage language);
 
 namespace language_conversion {
 std::string KanaToRomaji(const std::string& kana);

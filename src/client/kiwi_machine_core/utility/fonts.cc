@@ -15,16 +15,18 @@
 #include <SDL.h>
 #include <imgui.h>
 #include <kiwi_nes.h>
+#include <array>
 
 #include "build/kiwi_defines.h"
 #include "preset_roms/preset_roms.h"
 #include "resources/font_resources.h"
 #include "resources/string_resources.h"
+#include "ui/application.h"
 #include "utility/localization.h"
 #include "utility/zip_reader.h"
 
 namespace {
-ImFont* g_fonts[static_cast<int>(FontType::kMax)];
+std::array<ImFont*, static_cast<int>(FontType::kMax)> g_fonts;
 
 ImFont* GetFont(FontType type) {
   return g_fonts[static_cast<int>(type)];
@@ -38,6 +40,31 @@ bool IsASCIIString(const char* str) {
     ++p;
   }
   return true;
+}
+
+int g_frame_count = 0;
+
+std::set<ImWchar> g_chars;
+
+void OnGetFallbackGlyph(ImWchar c) {
+  int frame_count = ImGui::GetFrameCount();
+  g_chars.insert(c);
+
+  bool frame_changed = g_frame_count != frame_count && frame_count != 0;
+  if (frame_changed) {
+    bool has_new_chars = false;
+    for (ImWchar w : g_chars) {
+      if (AddCharToGlyphRanges(w))
+        has_new_chars = true;
+    }
+
+    if (has_new_chars) {
+      auto task_runner = kiwi::base::SequencedTaskRunner::GetCurrentDefault();
+      task_runner->PostTask(FROM_HERE, kiwi::base::BindOnce(&InitializeFonts));
+    }
+    g_chars.clear();
+    g_frame_count = frame_count;
+  }
 }
 
 }  // namespace
@@ -54,55 +81,67 @@ ImFont* ScopedFont::GetFont() {
   return g_fonts[static_cast<int>(type_)];
 }
 
-#define REGISTER_SYS_FONT(enumName, basicSize)                                 \
-  {                                                                            \
-    for (FontType ft = enumName; ft <= enumName##3x;                           \
-         ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {               \
-      int font_size =                                                          \
-          basicSize * (static_cast<int>(ft) - static_cast<int>(enumName) + 1); \
-      ImFontConfig cfg;                                                        \
-      cfg.SizePixels = font_size;                                              \
-      g_fonts[static_cast<int>(ft)] =                                          \
-          ImGui::GetIO().Fonts->AddFontDefault(&cfg);                          \
-    }                                                                          \
+void RegisterSysFont(FontType font_begin, FontType font_end, int basic_size) {
+  for (FontType ft = font_begin; ft <= font_end;
+       ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {
+    int font_size =
+        basic_size * (static_cast<int>(ft) - static_cast<int>(font_begin) + 1);
+    ImFontConfig cfg;
+    cfg.SizePixels = font_size;
+    g_fonts[static_cast<int>(ft)] = ImGui::GetIO().Fonts->AddFontDefault(&cfg);
   }
+}
 
-#define REGISTER_FONT(enumName, fontType, basicSize, glyph_ranges)             \
-  {                                                                            \
-    ImFontConfig font_config;                                                  \
-    font_config.FontDataOwnedByAtlas = false;                                  \
-    for (FontType ft = enumName; ft <= enumName##3x;                           \
-         ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {               \
-      int font_size =                                                          \
-          basicSize * (static_cast<int>(ft) - static_cast<int>(enumName) + 1); \
-      size_t data_size;                                                        \
-      g_fonts[static_cast<int>(ft)] =                                          \
-          ImGui::GetIO().Fonts->AddFontFromMemoryTTF(                          \
-              const_cast<unsigned char*>(                                      \
-                  font_resources::GetData(fontType, &data_size)),              \
-              data_size, font_size, &font_config, (glyph_ranges));             \
-    }                                                                          \
+void RegisterFont(FontType font_begin,
+                  FontType font_end,
+                  font_resources::FontID font_id,
+                  int basic_size,
+                  const ImWchar* glyph_ranges) {
+  ImFontConfig font_config;
+  font_config.FontDataOwnedByAtlas = false;
+  for (FontType ft = font_begin; ft <= font_end;
+       ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {
+    int font_size =
+        basic_size * (static_cast<int>(ft) - static_cast<int>(font_begin) + 1);
+    size_t data_size;
+    const auto* font_data = const_cast<unsigned char*>(
+        font_resources::GetData(font_id, &data_size));
+    g_fonts[static_cast<int>(ft)] = ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
+        const_cast<unsigned char*>(font_data), data_size, font_size,
+        &font_config, glyph_ranges);
+
+    g_fonts[static_cast<int>(ft)]->SetOnGetFallbackGlyph(&OnGetFallbackGlyph);
   }
+}
 
 void InitializeSystemFonts() {
-  REGISTER_SYS_FONT(FontType::kSystemDefault, 13);
+  RegisterSysFont(FontType::kSystemDefault, FontType::kSystemDefault3x, 13);
 }
 
 void InitializeFonts() {
+  ImGui::GetIO().Fonts->Clear();
+  InitializeSystemFonts();
+
 #if !DISABLE_CHINESE_FONT
-  REGISTER_FONT(FontType::kDefaultSimplifiedChinese,
-                font_resources::FontID::kDengb, 16,
-                GetGlyphRanges(SupportedLanguage::kSimplifiedChinese).begin());
+  ImVector<ImWchar> glyph_ranges_zh =
+      GetGlyphRanges(SupportedLanguage::kSimplifiedChinese);
+  RegisterFont(FontType::kDefaultSimplifiedChinese,
+               FontType::kDefaultSimplifiedChinese3x,
+               font_resources::FontID::kDengb, 16, glyph_ranges_zh.begin());
 #endif
 #if !DISABLE_JAPANESE_FONT
-  REGISTER_FONT(FontType::kDefaultJapanese, font_resources::FontID::kYumindb,
-                16, GetGlyphRanges(SupportedLanguage::kJapanese).begin());
+  ImVector<ImWchar> glyph_ranges_ja =
+      GetGlyphRanges(SupportedLanguage::kJapanese);
+  RegisterFont(FontType::kDefaultJapanese, FontType::kDefaultJapanese3x,
+               font_resources::FontID::kYumindb, 16, glyph_ranges_ja.begin());
 #endif
-  REGISTER_FONT(FontType::kDefault, font_resources::FontID::kSupermario256, 16,
-                NULL);
+  RegisterFont(FontType::kDefault, FontType::kDefault3x,
+               font_resources::FontID::kSupermario256, 16, NULL);
 
   bool success = ImGui::GetIO().Fonts->Build();
   SDL_assert(success);
+
+  Application::Get()->FontChanged();
 }
 
 FontType GetPreferredFontType(PreferredFontSize size, FontType default_type) {

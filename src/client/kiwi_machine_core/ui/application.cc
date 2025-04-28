@@ -264,10 +264,7 @@ void Application::Initialize(kiwi::base::OnceClosure other_io_task,
         kiwi::base::BindOnce(&Application::InitializeROMs,
                              kiwi::base::Unretained(this))
             .Then(std::move(other_io_task)),
-        kiwi::base::BindOnce(&InitializeFonts)
-            .Then(kiwi::base::BindOnce(&Application::FontChanged,
-                                       kiwi::base::Unretained(this)))
-            .Then(std::move(callback)));
+        kiwi::base::BindOnce(&InitializeFonts).Then(std::move(callback)));
     initialized_ = true;
   } else {
     std::move(callback).Run();
