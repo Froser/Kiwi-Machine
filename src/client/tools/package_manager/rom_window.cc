@@ -32,10 +32,10 @@ void ClearDroppedJPG();
 kiwi::base::FilePath GetDroppedROM();
 void ClearDroppedROM();
 
-SDL_Texture* EmptyTexture(SDL_Renderer* renderer = nullptr) {
+ImTextureID EmptyTexture(SDL_Renderer* renderer = nullptr) {
   static SDL_Texture* texture = SDL_CreateTexture(
       renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC, 1, 1);
-  return texture;
+  return reinterpret_cast<ImTextureID>(texture);
 }
 
 ROMWindow::ROMWindow(SDL_Renderer* renderer,
@@ -149,7 +149,8 @@ void ROMWindow::Paint() {
           real_w = w / static_cast<float>(h) * kMaxBound;
         }
 
-        ImGui::Image(rom.boxart_texture_, ImVec2(real_w, real_h));
+        ImGui::Image(reinterpret_cast<ImTextureID>(rom.boxart_texture_),
+                     ImVec2(real_w, real_h));
       } else {
         ImGui::Image(EmptyTexture(), ImVec2(100, 100), ImVec2(0, 0),
                      ImVec2(1, 1), ImVec4(1, 1, 1, 1), ImVec4(1, 1, 1, 1));
@@ -165,7 +166,8 @@ void ROMWindow::Paint() {
           if (ImGui::BeginTooltip()) {
             int w, h;
             SDL_QueryTexture(rom.boxart_texture_, nullptr, nullptr, &w, &h);
-            ImGui::Image(rom.boxart_texture_, ImVec2(w, h));
+            ImGui::Image(reinterpret_cast<ImTextureID>(rom.boxart_texture_),
+                         ImVec2(w, h));
             ImGui::EndTooltip();
           }
         }
@@ -235,9 +237,9 @@ void ROMWindow::Paint() {
               FILE_PATH_LITERAL("kiwi_machine.exe"));
           if (!kiwi_machine_path_from_cmdline.empty())
             kiwi_machine = kiwi_machine_path_from_cmdline;
-          RunExecutable(
-              kiwi_machine,
-              {L"--test-rom=\"" + output_rom.value() + L"\"", L"--enable_debug"});
+          RunExecutable(kiwi_machine,
+                        {L"--test-rom=\"" + output_rom.value() + L"\"",
+                         L"--enable_debug"});
 #else
           kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
           if (!kiwi_machine_path_from_cmdline.empty())
@@ -252,7 +254,8 @@ void ROMWindow::Paint() {
       std::string mapper;
       bool supported = IsMapperSupported(rom.nes_data, mapper);
       ImGui::Text(U8("Mapper: %s"), mapper.c_str());
-      ImGui::Text(U8("KiwiMachine是否支持打开: %s"), supported ? U8("是") : U8("否"));
+      ImGui::Text(U8("KiwiMachine是否支持打开: %s"),
+                  supported ? U8("是") : U8("否"));
       ImGui::EndGroup();
 
       if (ImGui::Button(GetUniqueName(U8("删除此ROM"), id).c_str())) {

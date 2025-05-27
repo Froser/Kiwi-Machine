@@ -629,7 +629,7 @@ void Render() {
   }
 
   ImGui::Render();
-  ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData());
+  ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_renderer);
   SDL_RenderSetScale(g_renderer, ImGui::GetIO().DisplayFramebufferScale.x,
                      ImGui::GetIO().DisplayFramebufferScale.y);
   SDL_RenderPresent(g_renderer);
