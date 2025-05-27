@@ -77,13 +77,19 @@ size_t FlexItemsWidget::AddItem(
     int image_height,
     FlexItemWidget::LoadImageCallback image_loader,
     FlexItemWidget::TriggerCallback on_trigger) {
-  std::unique_ptr<FlexItemWidget> item = std::make_unique<FlexItemWidget>(
-      main_window_, this, std::move(title_updater), image_width, image_height,
-      image_loader, on_trigger);
-  items_.push_back(item.get());
-  all_items_.push_back(item.get());
-  AddWidget(std::move(item));
-  need_layout_all_ = true;
+  if (image_width && image_height) {
+    std::unique_ptr<FlexItemWidget> item = std::make_unique<FlexItemWidget>(
+        main_window_, this, std::move(title_updater), image_width, image_height,
+        image_loader, on_trigger);
+    items_.push_back(item.get());
+    all_items_.push_back(item.get());
+    AddWidget(std::move(item));
+    need_layout_all_ = true;
+  } else {
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                "Boxart width or height is zero. Won't added to widget: %s",
+                title_updater->GetLocalizedString().c_str());
+  }
   return items_.size() - 1;
 }
 

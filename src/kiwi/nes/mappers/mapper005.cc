@@ -29,9 +29,12 @@ constexpr size_t k32KBank = 32 * 1024;
 
 Mapper005::Mapper005(Cartridge* cartridge) : Mapper(cartridge) {
   is_metal_slader_glory_ = rom_data()->crc == 0xb4735fac;
-  banks_in_8k_ = std::max(1ul, rom_data()->PRG.size() / k8KBank);
-  banks_in_16k_ = std::max(1ul, rom_data()->PRG.size() / k16KBank);
-  banks_in_32k_ = std::max(1ul, rom_data()->PRG.size() / k32KBank);
+  banks_in_8k_ =
+      std::max(static_cast<size_t>(1), rom_data()->PRG.size() / k8KBank);
+  banks_in_16k_ =
+      std::max(static_cast<size_t>(1), rom_data()->PRG.size() / k16KBank);
+  banks_in_32k_ =
+      std::max(static_cast<size_t>(1), rom_data()->PRG.size() / k32KBank);
   ResetRegisters();
 }
 
