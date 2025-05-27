@@ -424,7 +424,24 @@ void PaintExplorer() {
         for (kiwi::base::FilePath current = d.Next(); !current.empty();
              current = d.Next()) {
           ROMS roms = ReadZipFromFile(current);
-          WriteZip(zipped_path, roms);
+
+          bool missing_boxarts_manifest = false;
+          for (const ROM& rom : roms) {
+            if (!rom.has_boxarts_size_hint) {
+              missing_boxarts_manifest = true;
+              break;
+            }
+          }
+
+          kiwi::base::FilePath output_file = WriteZip(zipped_path, roms);
+          if (missing_boxarts_manifest) {
+            // Remove the file which doesn't have boxart manifest.
+            // Only remove the file if it's not the same as the output file.
+            bool is_same_zip = (current.BaseName() == output_file.BaseName());
+            if (!is_same_zip) {
+              kiwi::base::DeletePathRecursively(current);
+            }
+          }
         }
       }
 

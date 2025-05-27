@@ -447,6 +447,11 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
       const auto& titles = manifest_json.at("titles");
       for (const auto& rom_item : titles.items()) {
         ROM rom;
+        if (manifest_json.contains("boxarts")) {
+          const auto& boxarts = manifest_json.at("boxarts");
+          rom.has_boxarts_size_hint = boxarts.contains(rom_item.key());
+        }
+
         rom.key = rom_item.key();
         for (const auto& title : rom_item.value().items()) {
           if (title.key() == "zh") {
