@@ -76,19 +76,19 @@ void FlexItemWidget::CreateTextureIfNotExists() {
 
     // If there's no texture yet, post a task to request a new one.
     Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
-        FROM_HERE,
-        kiwi::base::BindOnce(&FlexItemWidget::LoadImageAndCreateTexture,
-                             kiwi::base::Unretained(this), current_data()),
+        FROM_HERE, current_data()->image_loader,
         kiwi::base::BindOnce(
-            [](Data* current_data, SDL_Texture* texture) {
-              current_data->image_texture.exchange(texture);
+            [](FlexItemWidget* this_widget, const kiwi::nes::Bytes& data) {
+              SDL_Texture* texture =
+                  this_widget->LoadImageAndCreateTexture(data);
+              this_widget->current_data()->image_texture.exchange(texture);
             },
-            current_data()));
+            this));
   }
 }
 
-SDL_Texture* FlexItemWidget::LoadImageAndCreateTexture(Data* current_data) {
-  const kiwi::nes::Bytes& data = current_data->image_loader.Run();
+SDL_Texture* FlexItemWidget::LoadImageAndCreateTexture(
+    const kiwi::nes::Bytes& data) {
   SDL_RWops* bg_res =
       SDL_RWFromConstMem(const_cast<unsigned char*>(data.data()), data.size());
   SDL_Texture* image_texture =

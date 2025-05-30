@@ -19,6 +19,8 @@
 #include "build/kiwi_defines.h"
 #include "ui/application.h"
 
+DEFINE_string(renderer_backend, "", "Default backend for renderer");
+
 WindowBase::WindowBase(const std::string& title,
                        int window_width,
                        int window_height) {
@@ -40,6 +42,8 @@ WindowBase::WindowBase(const std::string& title,
 #endif
   SDL_assert(window_);
 
+  if (!FLAGS_renderer_backend.empty())
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, FLAGS_renderer_backend.c_str());
   renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
   SDL_assert(renderer_);
 
@@ -242,6 +246,7 @@ void WindowBase::HandleJoystickDeviceEvent(SDL_ControllerDeviceEvent* event) {
       break;
     case SDL_CONTROLLERDEVICEREMOVED:
       OnControllerDeviceRemoved(event);
+      break;
     default:
       break;
   }

@@ -79,7 +79,7 @@ class FlexItemWidget : public Widget {
 
  private:
   void CreateTextureIfNotExists();
-  SDL_Texture* LoadImageAndCreateTexture(Data* current_data);
+  SDL_Texture* LoadImageAndCreateTexture(const kiwi::nes::Bytes& data);
 
  protected:
   void Paint() override;

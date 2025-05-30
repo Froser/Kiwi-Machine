@@ -21,5 +21,6 @@ DECLARE_bool(enable_debug);
 DECLARE_string(debug_roms);
 DECLARE_string(lang);
 DECLARE_string(package_dir);
+DECLARE_string(renderer_backend);
 
 #endif  // KIWI_FLAGS_H_

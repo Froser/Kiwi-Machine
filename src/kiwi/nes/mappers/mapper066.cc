@@ -43,7 +43,8 @@ Byte Mapper066::ReadPRG(Address address) {
   if (address >= 0x8000) {
     int prg_bank = (select_chr_prg_ >> 4);
     uint32_t base_address = kPRGBankSize * prg_bank;
-    return rom_data()->PRG[base_address + address - 0x8000];
+    return rom_data()
+        ->PRG[(base_address + address - 0x8000) % rom_data()->PRG.size()];
   } else {
     CHECK(false) << "Shouldn't happen.";
     return 0;
