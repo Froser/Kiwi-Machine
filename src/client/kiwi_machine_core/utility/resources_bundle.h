@@ -10,8 +10,8 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_RESOURCES_BUNDLE_RESOURCES_BUNDLE_H_
-#define UTILITY_RESOURCES_BUNDLE_RESOURCES_BUNDLE_H_
+#ifndef UTILITY_RESOURCES_BUNDLE_H_
+#define UTILITY_RESOURCES_BUNDLE_H_
 
 #include <cstddef>
 #include <optional>
@@ -19,8 +19,6 @@
 #include <vector>
 
 #include "base/files/file_path.h"
-
-namespace vita::resources_bundle {
 
 bool LoadResourceFromPackage(const kiwi::base::FilePath& package);
 
@@ -34,6 +32,4 @@ std::optional<std::vector<std::byte>> GetResource(T id) {
   return GetResource(static_cast<int>(id));
 }
 
-}  // namespace vita::resources_bundle
-
-#endif  // UTILITY_RESOURCES_BUNDLE_RESOURCES_BUNDLE_H_
+#endif  // UTILITY_RESOURCES_BUNDLE_H_

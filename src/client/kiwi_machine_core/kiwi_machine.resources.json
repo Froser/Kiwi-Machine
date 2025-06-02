@@ -70,5 +70,33 @@
   {
     "id": "IDR_VTB_START",
     "en": "resources/images/vtb_start.png"
+  },
+  {
+    "id": "IDR_BACK",
+    "en": "resources/audio/back.mp3"
+  },
+  {
+    "id": "IDR_SELECT",
+    "en": "resources/audio/select.mp3"
+  },
+  {
+    "id": "IDR_START",
+    "en": "resources/audio/start.mp3"
+  },
+  {
+    "id": "IDR_STARTUP",
+    "en": "resources/audio/startup.mp3"
+  },
+  {
+    "id": "IDR_SUPERMARIO256",
+    "en": "resources/fonts/SuperMario256.ttf"
+  },
+  {
+    "id": "IDR_YUMINDB",
+    "en": "resources/fonts/yumindb.ttf"
+  },
+  {
+    "id": "IDR_DENGB",
+    "en": "resources/fonts/Dengb.ttf"
   }
 ]

@@ -127,8 +127,6 @@ set(Sources
         utility/algorithm.h
         utility/audio_effects.cc
         utility/audio_effects.h
-        utility/resources_bundle/resources_bundle.cc
-        utility/resources_bundle/resources_bundle.h
         utility/fonts.cc
         utility/fonts.h
         utility/images.cc
@@ -139,6 +137,8 @@ set(Sources
         utility/localization.h
         utility/math.cc
         utility/math.h
+        utility/resources_bundle.cc
+        utility/resources_bundle.h
         utility/timer.cc
         utility/timer.h
         utility/zip_reader.cc

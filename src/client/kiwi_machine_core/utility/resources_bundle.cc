@@ -10,7 +10,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "utility/resources_bundle/resources_bundle.h"
+#include "utility/resources_bundle.h"
 
 #include <SDL.h>
 #include <unordered_map>
@@ -23,8 +23,6 @@
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
 #endif
-
-namespace vita::resources_bundle {
 
 namespace {
 constexpr char kManifestFileName[] = "manifest.json";
@@ -166,5 +164,3 @@ void ClosePackage() {
   if (g_package_handle)
     unzClose(g_package_handle);
 }
-
-}  // namespace vita::resources_bundle
