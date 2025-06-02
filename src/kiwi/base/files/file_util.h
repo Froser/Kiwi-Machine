@@ -22,6 +22,7 @@
 
 #include "base/base_export.h"
 #include "base/files/file.h"
+#include "base/files/file_path.h"
 #include "base/strings/string_piece.h"
 
 #if defined(CreateDirectory)
@@ -33,8 +34,28 @@
 #endif
 
 namespace kiwi::base {
+//-----------------------------------------------------------------------------
+// Functions that involve filesystem access or modification:
 
-class FilePath;
+// Returns an absolute version of a relative path. Returns an empty path on
+// error. This function can result in I/O so it can be slow.
+//
+// On POSIX, this function calls realpath(), so:
+// 1) it fails if the path does not exist.
+// 2) it expands all symlink components of the path.
+// 3) it removes "." and ".." directory components.
+BASE_EXPORT FilePath MakeAbsoluteFilePath(const FilePath& input);
+
+// Deletes the given path, whether it's a file or a directory.
+// If it's a directory, it's perfectly happy to delete all of the directory's
+// contents, but it will not recursively delete subdirectories and their
+// contents.
+// Returns true if successful, false otherwise. It is considered successful to
+// attempt to delete a file that does not exist.
+//
+// In POSIX environment and if |path| is a symbolic link, this deletes only
+// the symlink. (even if the symlink points to a non-existent file)
+BASE_EXPORT bool DeleteFile(const FilePath& path);
 
 // Deletes the given path, whether it's a file or a directory.
 // If it's a directory, it's perfectly happy to delete all of the
@@ -58,6 +79,19 @@ BASE_EXPORT bool CreateDirectoryAndGetError(const FilePath& full_path,
 
 // Backward-compatible convenience method for the above.
 BASE_EXPORT bool CreateDirectory(const FilePath& full_path);
+
+// Copies the given path, and optionally all subdirectories and their contents
+// as well.
+//
+// If there are files existing under to_path, always overwrite. Returns true
+// if successful, false otherwise. Wildcards on the names are not supported.
+//
+// This function has the same metadata behavior as CopyFile().
+//
+// If you only need to copy a file use CopyFile, it's faster.
+BASE_EXPORT bool CopyDirectory(const FilePath& from_path,
+                               const FilePath& to_path,
+                               bool recursive);
 
 // Returns true if the given path exists on the local filesystem,
 // false otherwise.
@@ -96,14 +130,48 @@ BASE_EXPORT bool WriteFileDescriptor(int fd, std::span<const uint8_t> data);
 BASE_EXPORT bool WriteFileDescriptor(int fd, StringPiece data);
 #endif
 
+// Gets the current working directory for the process.
+BASE_EXPORT bool GetCurrentDirectory(FilePath* path);
+
+// Sets the current working directory for the process.
+BASE_EXPORT bool SetCurrentDirectory(const FilePath& path);
+
 // Returns information about the given file path. Also see |File::GetInfo|.
 BASE_EXPORT bool GetFileInfo(const FilePath& file_path, File::Info* info);
 
 // Reads the file at |path| and returns a vector of bytes on success, and
 // nullopt on error. For security reasons, a |path| containing path traversal
 // components ('..') is treated as a read error, returning nullopt.
-BASE_EXPORT std::optional<std::vector<uint8_t>> ReadFileToBytes(
+BASE_EXPORT std::optional<std::vector<std::byte>> ReadFileToBytes(
     const FilePath& path);
+
+// Reads the file at |path| into |contents| and returns true on success and
+// false on error.  For security reasons, a |path| containing path traversal
+// components ('..') is treated as a read error and |contents| is set to empty.
+// In case of I/O error, |contents| holds the data that could be read from the
+// file before the error occurred.  When the file size exceeds |max_size|, the
+// function returns false with |contents| holding the file truncated to
+// |max_size|.
+// |contents| may be NULL, in which case this function is useful for its side
+// effect of priming the disk cache (could be used for unit tests).
+BASE_EXPORT bool ReadFileToStringWithMaxSize(const FilePath& path,
+                                             std::string* contents,
+                                             size_t max_size);
+
+// As ReadFileToStringWithMaxSize, but reading from an open stream after seeking
+// to its start (if supported by the stream).
+BASE_EXPORT bool ReadStreamToStringWithMaxSize(FILE* stream,
+                                               size_t max_size,
+                                               std::string* contents);
+
+// Reads the file at |path| into |contents| and returns true on success and
+// false on error.  For security reasons, a |path| containing path traversal
+// components ('..') is treated as a read error and |contents| is set to empty.
+// In case of I/O error, |contents| holds the data that could be read from the
+// file before the error occurred.
+// |contents| may be NULL, in which case this function is useful for its side
+// effect of priming the disk cache (could be used for unit tests).
+BASE_EXPORT bool ReadFileToString(const FilePath& path, std::string* contents);
 
 #if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 // Sets the given |fd| to close-on-exec mode.

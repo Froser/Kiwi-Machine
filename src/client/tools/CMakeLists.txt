@@ -11,4 +11,6 @@
 # GNU General Public License for more details.
 
 add_subdirectory(package_manager)
+add_subdirectory(vrc)
 set_target_properties(package_manager PROPERTIES FOLDER "tools/package_manager")
+set_target_properties(vrc PROPERTIES FOLDER "tools/vrc")

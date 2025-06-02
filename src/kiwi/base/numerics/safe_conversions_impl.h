@@ -830,6 +830,6 @@ constexpr Dst CommonMaxOrMin(bool is_min) {
 }
 
 }  // namespace internal
-}  // namespace base
+}  // namespace kiwi::base
 
 #endif  // BASE_NUMERICS_SAFE_CONVERSIONS_IMPL_H_

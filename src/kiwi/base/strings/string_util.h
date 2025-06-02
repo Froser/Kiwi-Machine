@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include <initializer_list>
+#include <span>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -187,8 +188,21 @@ BASE_EXPORT extern const char16_t
 BASE_EXPORT extern const char kWhitespaceASCII[];
 BASE_EXPORT extern const char16_t kWhitespaceASCIIAs16[];  // No unicode.
 
+// https://infra.spec.whatwg.org/#ascii-whitespace
+BASE_EXPORT extern const char kInfraAsciiWhitespace[];
+
 // Null-terminated string representing the UTF-8 byte order mark.
 BASE_EXPORT extern const char kUtf8ByteOrderMark[];
+
+// Removes characters in |remove_chars| from anywhere in |input|.  Returns true
+// if any characters were removed.  |remove_chars| must be null-terminated.
+// NOTE: Safe to use the same variable for both |input| and |output|.
+BASE_EXPORT bool RemoveChars(StringPiece16 input,
+                             StringPiece16 remove_chars,
+                             std::u16string* output);
+BASE_EXPORT bool RemoveChars(StringPiece input,
+                             StringPiece remove_chars,
+                             std::string* output);
 
 enum TrimPositions {
   TRIM_NONE = 0,
@@ -219,11 +233,44 @@ BASE_EXPORT StringPiece TrimString(StringPiece input,
                                    StringPiece trim_chars,
                                    TrimPositions positions);
 
-// Truncates a string to the nearest UTF-8 character that will leave
-// the string less than or equal to the specified byte size.
-BASE_EXPORT void TruncateUTF8ToByteSize(const std::string& input,
-                                        const size_t byte_size,
-                                        std::string* output);
+// Reserves enough memory in |str| to accommodate |length_with_null| characters,
+// sets the size of |str| to |length_with_null - 1| characters, and returns a
+// pointer to the underlying contiguous array of characters.  This is typically
+// used when calling a function that writes results into a character array, but
+// the caller wants the data to be managed by a string-like object.  It is
+// convenient in that is can be used inline in the call, and fast in that it
+// avoids copying the results of the call from a char* into a string.
+//
+// Internally, this takes linear time because the resize() call 0-fills the
+// underlying array for potentially all
+// (|length_with_null - 1| * sizeof(string_type::value_type)) bytes.  Ideally we
+// could avoid this aspect of the resize() call, as we expect the caller to
+// immediately write over this memory, but there is no other way to set the size
+// of the string, and not doing that will mean people who access |str| rather
+// than str.c_str() will get back a string of whatever size |str| had on entry
+// to this function (probably 0).
+BASE_EXPORT char* WriteInto(std::string* str, size_t length_with_null);
+BASE_EXPORT char16_t* WriteInto(std::u16string* str, size_t length_with_null);
+
+// Joins a list of strings into a single string, inserting |separator| (which
+// may be empty) in between all elements.
+//
+// Note this is inverse of SplitString()/SplitStringPiece() defined in
+// string_split.h.
+//
+// If possible, callers should build a vector of StringPieces and use the
+// StringPiece variant, so that they do not create unnecessary copies of
+// strings. For example, instead of using SplitString, modifying the vector,
+// then using JoinString, use SplitStringPiece followed by JoinString so that no
+// copies of those strings are created until the final join operation.
+//
+// Use StrCat (in base/strings/strcat.h) if you don't need a separator.
+
+BASE_EXPORT std::string JoinString(std::span<const std::string> parts,
+                                   StringPiece separator);
+
+BASE_EXPORT std::u16string JoinString(std::span<const StringPiece16> parts,
+                                      StringPiece16 separator);
 
 // Trims any whitespace from either end of the input string.
 //
@@ -242,6 +289,34 @@ BASE_EXPORT TrimPositions TrimWhitespaceASCII(StringPiece input,
                                               std::string* output);
 BASE_EXPORT StringPiece TrimWhitespaceASCII(StringPiece input,
                                             TrimPositions positions);
+
+// Searches for CR or LF characters.  Removes all contiguous whitespace
+// strings that contain them.  This is useful when trying to deal with text
+// copied from terminals.
+// Returns |text|, with the following three transformations:
+// (1) Leading and trailing whitespace is trimmed.
+// (2) If |trim_sequences_with_line_breaks| is true, any other whitespace
+//     sequences containing a CR or LF are trimmed.
+// (3) All other whitespace sequences are converted to single spaces.
+BASE_EXPORT std::u16string CollapseWhitespace(
+    StringPiece16 text,
+    bool trim_sequences_with_line_breaks);
+BASE_EXPORT std::string CollapseWhitespaceASCII(
+    StringPiece text,
+    bool trim_sequences_with_line_breaks);
+
+// Returns true if |str| contains only valid ASCII character values.
+// Note 1: IsStringASCII executes in time determined solely by the
+// length of the string, not by its contents, so it is robust against
+// timing attacks for all strings of equal length.
+// Note 2: IsStringASCII assumes the input is likely all ASCII, and
+// does not leave early if it is not the case.
+BASE_EXPORT bool IsStringASCII(StringPiece str);
+BASE_EXPORT bool IsStringASCII(StringPiece16 str);
+
+#if defined(WCHAR_T_IS_32_BIT)
+BASE_EXPORT bool IsStringASCII(std::wstring_view str);
+#endif
 
 enum class CompareCase {
   SENSITIVE,

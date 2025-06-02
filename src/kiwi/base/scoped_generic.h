@@ -233,7 +233,7 @@ class ScopedGeneric {
     T value_ = Traits::InvalidValue();
     // We don't support raw_ptr here. Use a raw pointer instead.
     // raw_ptr<ScopedGeneric<T, Traits>> scoped_generic_;
-    T* scoped_generic_;
+    ScopedGeneric<T, Traits>* scoped_generic_;
     bool used_ = false;
   };
 

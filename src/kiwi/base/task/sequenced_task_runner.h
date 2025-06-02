@@ -18,15 +18,52 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
+#include "base/task/delayed_task_handle.h"
 #include "base/task/post_task_and_reply_with_result_internal.h"
 #include "base/time/time.h"
 
 namespace kiwi::base {
 
+namespace internal {
+class DelayTimerBase;
+}
+
+namespace subtle {
+
+// Used to restrict access to PostCancelableDelayedTaskAt() to authorize
+// callers.
+class PostDelayedTaskPassKey {
+ private:
+  // Avoid =default to disallow creation by uniform initialization.
+  PostDelayedTaskPassKey() {}
+
+  friend class base::internal::DelayTimerBase;
+};
+
+}  // namespace subtle
+
 class BASE_EXPORT SequencedTaskRunner
     : public RefCountedThreadSafe<SequencedTaskRunner> {
  public:
   SequencedTaskRunner();
+
+  // Posts the given |task| to be run only after |delay| has passed. Returns a
+  // handle that can be used to cancel the task. This should not be used
+  // directly. Consider using higher level timer primitives in
+  // base/timer/timer.h.
+  //
+  // The handle is only guaranteed valid while the task is pending execution.
+  // This means that it may be invalid if the posting failed, and will be
+  // invalid while the task is executing. Calling CancelTask() on an invalid
+  // handle is a no-op.
+  //
+  // This method and the handle it returns are not thread-safe and can only be
+  // used from the sequence this task runner runs its tasks on.
+  virtual DelayedTaskHandle PostCancelableDelayedTask(
+      subtle::PostDelayedTaskPassKey,
+      const Location& from_here,
+      OnceClosure task,
+      TimeDelta delay);
 
   // Posts the given task to be run.  Returns true if the task may be
   // run at some point in the future, and false if the task definitely

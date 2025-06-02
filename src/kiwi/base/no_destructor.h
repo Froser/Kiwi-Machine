@@ -138,6 +138,6 @@ class NoDestructor {
 #endif  // defined(LEAK_SANITIZER)
 };
 
-}  // namespace base
+}  // namespace kiwi::base
 
 #endif  // BASE_NO_DESTRUCTOR_H_

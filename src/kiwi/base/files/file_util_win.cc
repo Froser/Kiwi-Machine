@@ -16,6 +16,7 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 
 #include <windows.h>
 
@@ -184,7 +185,110 @@ bool DoCopyFile(const FilePath& from_path,
   return true;
 }
 
+bool DoCopyDirectory(const FilePath& from_path,
+                     const FilePath& to_path,
+                     bool recursive,
+                     bool fail_if_exists) {
+  // NOTE(maruel): Previous version of this function used to call
+  // SHFileOperation().  This used to copy the file attributes and extended
+  // attributes, OLE structured storage, NTFS file system alternate data
+  // streams, SECURITY_DESCRIPTOR. In practice, this is not what we want, we
+  // want the containing directory to propagate its SECURITY_DESCRIPTOR.
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+
+  // NOTE: I suspect we could support longer paths, but that would involve
+  // analyzing all our usage of files.
+  if (from_path.value().length() >= MAX_PATH ||
+      to_path.value().length() >= MAX_PATH) {
+    return false;
+  }
+
+  // This function does not properly handle destinations within the source.
+  FilePath real_to_path = to_path;
+  if (PathExists(real_to_path)) {
+    real_to_path = MakeAbsoluteFilePath(real_to_path);
+    if (real_to_path.empty())
+      return false;
+  } else {
+    real_to_path = MakeAbsoluteFilePath(real_to_path.DirName());
+    if (real_to_path.empty())
+      return false;
+  }
+  FilePath real_from_path = MakeAbsoluteFilePath(from_path);
+  if (real_from_path.empty())
+    return false;
+  if (real_to_path == real_from_path || real_from_path.IsParent(real_to_path))
+    return false;
+
+  int traverse_type = FileEnumerator::FILES;
+  if (recursive)
+    traverse_type |= FileEnumerator::DIRECTORIES;
+  FileEnumerator traversal(from_path, recursive, traverse_type);
+
+  if (!PathExists(from_path)) {
+    return false;
+  }
+  // TODO(maruel): This is not necessary anymore.
+  // DCHECK(recursive || DirectoryExists(from_path));
+
+  FilePath current = from_path;
+  bool from_is_dir = DirectoryExists(from_path);
+  bool success = true;
+  FilePath from_path_base = from_path;
+  if (recursive && DirectoryExists(to_path)) {
+    // If the destination already exists and is a directory, then the
+    // top level of source needs to be copied.
+    from_path_base = from_path.DirName();
+  }
+
+  while (success && !current.empty()) {
+    // current is the source path, including from_path, so append
+    // the suffix after from_path to to_path to create the target_path.
+    FilePath target_path(to_path);
+    if (from_path_base != current) {
+      if (!from_path_base.AppendRelativePath(current, &target_path)) {
+        success = false;
+        break;
+      }
+    }
+
+    if (from_is_dir) {
+      if (!DirectoryExists(target_path) &&
+          !::CreateDirectory(target_path.value().c_str(), NULL)) {
+        success = false;
+      }
+    } else if (!DoCopyFile(current, target_path, fail_if_exists)) {
+      success = false;
+    }
+
+    current = traversal.Next();
+    if (!current.empty())
+      from_is_dir = traversal.GetInfo().IsDirectory();
+  }
+
+  return success;
+}
+
 }  // namespace
+
+bool CopyDirectory(const FilePath& from_path,
+                   const FilePath& to_path,
+                   bool recursive) {
+  return DoCopyDirectory(from_path, to_path, recursive, false);
+}
+
+FilePath MakeAbsoluteFilePath(const FilePath& input) {
+  //ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
+  wchar_t file_path[MAX_PATH];
+  if (!_wfullpath(file_path, input.value().c_str(), MAX_PATH))
+    return FilePath();
+  return FilePath(file_path);
+}
+
+bool DeleteFile(const FilePath& path) {
+  return DeleteFileOrSetLastError(path, /*recursive=*/false);
+}
 
 bool DeletePathRecursively(const FilePath& path) {
   return DeleteFileOrSetLastError(path, /*recursive=*/true);
@@ -255,10 +359,6 @@ bool CopyFile(const FilePath& from_path, const FilePath& to_path) {
   return DoCopyFile(from_path, to_path, false);
 }
 
-namespace internal {
-std::wstring UTF8ToWide(const std::string_view& utf8);
-}
-
 bool GetFileInfo(const FilePath& file_path, File::Info* results) {
   // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
   // BlockingType::MAY_BLOCK);
@@ -295,7 +395,7 @@ FILE* OpenFile(const FilePath& filename, const char* mode) {
   // Do not check blocking call because it is not supported.
   // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
   // BlockingType::MAY_BLOCK);
-  std::wstring w_mode = internal::UTF8ToWide(mode);
+  std::wstring w_mode = UTF8ToWide(mode);
   AppendModeCharacter(L'N', &w_mode);
   return _wfsopen(filename.value().c_str(), w_mode.c_str(), _SH_DENYNO);
 }
@@ -328,6 +428,29 @@ int WriteFile(const FilePath& filename, const char* data, int size) {
   }
   CloseHandle(file);
   return -1;
+}
+
+bool GetCurrentDirectory(FilePath* dir) {
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+
+  wchar_t system_buffer[MAX_PATH];
+  system_buffer[0] = 0;
+  DWORD len = ::GetCurrentDirectory(MAX_PATH, system_buffer);
+  if (len == 0 || len > MAX_PATH)
+    return false;
+  // TODO(evanm): the old behavior of this function was to always strip the
+  // trailing slash.  We duplicate this here, but it shouldn't be necessary
+  // when everyone is using the appropriate FilePath APIs.
+  *dir = FilePath(FilePath::StringPieceType(system_buffer))
+             .StripTrailingSeparators();
+  return true;
+}
+
+bool SetCurrentDirectory(const FilePath& directory) {
+  // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+  // BlockingType::MAY_BLOCK);
+  return ::SetCurrentDirectory(directory.value().c_str()) != 0;
 }
 
 }  // namespace kiwi::base

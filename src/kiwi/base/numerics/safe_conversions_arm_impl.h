@@ -46,6 +46,6 @@ struct SaturateFastAsmOp {
 };
 
 }  // namespace internal
-}  // namespace base
+}  // namespace kiwi::base
 
 #endif  // BASE_NUMERICS_SAFE_CONVERSIONS_ARM_IMPL_H_

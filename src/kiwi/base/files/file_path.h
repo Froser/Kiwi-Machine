@@ -140,19 +140,64 @@ class BASE_EXPORT FilePath {
 
   [[nodiscard]] FilePath Append(StringPieceType component) const;
 
+  // Although Windows StringType is std::wstring, since the encoding it uses for
+  // paths is well defined, it can handle ASCII path components as well.
+  // Mac uses UTF8, and since ASCII is a subset of that, it works there as well.
+  // On Linux, although it can use any 8-bit encoding for paths, we assume that
+  // ASCII is a valid subset, regardless of the encoding, since many operating
+  // system paths will always be ASCII.
+  [[nodiscard]] FilePath AppendASCII(StringPiece component) const;
+
  private:
   void StripTrailingSeparatorsInternal();
 
  public:
+  // Returns true if this FilePath is a network path which starts with 2 path
+  // separators. See class documentation for 'Alternate root'.
+  bool IsNetwork() const;
+
+  // Returns true if this FilePath is a parent or ancestor of the |child|.
+  // Absolute and relative paths are accepted i.e. /foo is a parent to /foo/bar,
+  // and foo is a parent to foo/bar. Any ancestor is considered a parent i.e. /a
+  // is a parent to both /a/b and /a/b/c.  Does not convert paths to absolute,
+  // follow symlinks or directory navigation (e.g. ".."). A path is *NOT* its
+  // own parent.
+  bool IsParent(const FilePath& child) const;
+
+  // If IsParent(child) holds, appends to path (if non-NULL) the
+  // relative path to child and returns true.  For example, if parent
+  // holds "/Users/johndoe/Library/Application Support", child holds
+  // "/Users/johndoe/Library/Application Support/Google/Chrome/Default", and
+  // *path holds "/Users/johndoe/Library/Caches", then after
+  // parent.AppendRelativePath(child, path) is called *path will hold
+  // "/Users/johndoe/Library/Caches/Google/Chrome/Default".  Otherwise,
+  // returns false.
+  bool AppendRelativePath(const FilePath& child, FilePath* path) const;
+
+  // Returns true if the patch ends with a path separator character.
+  [[nodiscard]] bool EndsWithSeparator() const;
+
+  // Returns a copy of this FilePath that ends with a trailing separator. If
+  // the input path is empty, an empty FilePath will be returned.
+  [[nodiscard]] FilePath AsEndingWithSeparator() const;
+
   // Returns a copy of this FilePath that does not end with a trailing
   // separator.
   [[nodiscard]] FilePath StripTrailingSeparators() const;
+
+  std::string MaybeAsASCII() const;
 
   std::string AsUTF8Unsafe() const;
 
   static FilePath FromUTF8Unsafe(StringPiece utf8);
 
   [[nodiscard]] FilePath Append(const FilePath& component) const;
+
+  // Returns true if this FilePath contains an absolute path.  On Windows, an
+  // absolute path begins with either a drive letter specification followed by
+  // a separator character, or with two separator characters.  On POSIX
+  // platforms, an absolute path begins with a separator character.
+  bool IsAbsolute() const;
 
   // Returns true if this FilePath contains an attempt to reference a parent
   // directory (e.g. has a path component that is "..").
@@ -195,6 +240,14 @@ class BASE_EXPORT FilePath {
 
   // Returns "C:\pics\jojo" for path "C:\pics\jojo.jpg"
   [[nodiscard]] FilePath RemoveExtension() const;
+
+  // Adds |extension| to |file_name|. Returns the current FilePath if
+  // |extension| is empty. Returns "" if BaseName() == "." or "..".
+  [[nodiscard]] FilePath AddExtension(StringPieceType extension) const;
+
+  // Like above, but takes the extension as an ASCII string. See AppendASCII for
+  // details on how this is handled.
+  [[nodiscard]] FilePath AddExtensionASCII(StringPiece extension) const;
 
  private:
   StringType path_;

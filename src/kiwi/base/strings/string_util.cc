@@ -61,6 +61,26 @@ bool IsWprintfFormatPortable(const wchar_t* format) {
   return true;
 }
 
+bool RemoveChars(StringPiece16 input,
+                 StringPiece16 remove_chars,
+                 std::u16string* output) {
+  return internal::ReplaceCharsT(input, remove_chars, StringPiece16(), output);
+}
+
+bool RemoveChars(StringPiece input,
+                 StringPiece remove_chars,
+                 std::string* output) {
+  return internal::ReplaceCharsT(input, remove_chars, StringPiece(), output);
+}
+
+char* WriteInto(std::string* str, size_t length_with_null) {
+  return internal::WriteIntoT(str, length_with_null);
+}
+
+char16_t* WriteInto(std::u16string* str, size_t length_with_null) {
+  return internal::WriteIntoT(str, length_with_null);
+}
+
 bool TrimString(StringPiece16 input,
                 StringPiece16 trim_chars,
                 std::u16string* output) {
@@ -137,13 +157,19 @@ std::string CollapseWhitespaceASCII(StringPiece text,
   return internal::CollapseWhitespaceT(text, trim_sequences_with_line_breaks);
 }
 
-bool ContainsOnlyChars(StringPiece input, StringPiece characters) {
-  return input.find_first_not_of(characters) == StringPiece::npos;
+bool IsStringASCII(StringPiece str) {
+  return internal::DoIsStringASCII(str.data(), str.length());
 }
 
-bool ContainsOnlyChars(StringPiece16 input, StringPiece16 characters) {
-  return input.find_first_not_of(characters) == StringPiece16::npos;
+bool IsStringASCII(StringPiece16 str) {
+  return internal::DoIsStringASCII(str.data(), str.length());
 }
+
+#if defined(WCHAR_T_IS_32_BIT)
+bool IsStringASCII(std::wstring_view str) {
+  return internal::DoIsStringASCII(str.data(), str.length());
+}
+#endif
 
 bool StartsWith(StringPiece str,
                 StringPiece search_for,
@@ -167,6 +193,16 @@ bool EndsWith(StringPiece16 str,
               StringPiece16 search_for,
               CompareCase case_sensitivity) {
   return internal::EndsWithT(str, search_for, case_sensitivity);
+}
+
+std::string JoinString(std::span<const std::string> parts,
+                       StringPiece separator) {
+  return internal::JoinStringT(parts, separator);
+}
+
+std::u16string JoinString(std::span<const StringPiece16> parts,
+                          StringPiece16 separator) {
+  return internal::JoinStringT(parts, separator);
 }
 
 char HexDigitToInt(char c) {

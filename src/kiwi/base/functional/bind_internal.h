@@ -17,6 +17,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_internal.h"
 #include "base/memory/raw_scoped_refptr_mismatch_checker.h"
+#include "base/memory/weak_ptr.h"
 #include "build/build_config.h"
 
 #if BUILDFLAG(IS_APPLE) && !HAS_FEATURE(objc_arc)
@@ -60,6 +61,10 @@ class ComPtr;
 #endif
 
 namespace kiwi::base {
+
+template <typename T>
+struct IsWeakReceiver;
+
 template <typename>
 struct BindUnwrapTraits;
 
@@ -221,6 +226,9 @@ decltype(auto) Unwrap(T&& o) {
 // the method.
 template <bool is_method, typename... Args>
 struct IsWeakMethod : std::false_type {};
+
+template <typename T, typename... Args>
+struct IsWeakMethod<true, T, Args...> : IsWeakReceiver<T> {};
 
 // Packs a list of types to hold them in a single type.
 template <typename... Types>
@@ -745,8 +753,14 @@ struct InvokeHelper<true, ReturnType, indices...> {
   static inline void MakeItSo(Functor&& functor,
                               BoundArgsTuple&& bound,
                               RunArgs&&... args) {
-    if (!std::get<0>(bound))
+    // Note the validity of the weak pointer should be tested _after_ it is
+    // unwrapped, otherwise it creates a race for weak pointer implementations
+    // that allow cross-thread usage and perform `Lock()` in Unwrap() traits.
+    const auto& target = Unwrap(std::get<0>(bound));
+    if (!target) {
       return;
+    }
+
     using Traits = MakeFunctorTraits<Functor>;
     Traits::Invoke(
         std::forward<Functor>(functor),
@@ -1352,6 +1366,26 @@ RepeatingCallback<Signature> BindImpl(RepeatingCallback<Signature> callback) {
 
 }  // namespace internal
 
+// An injection point to control |this| pointer behavior on a method invocation.
+// If IsWeakReceiver<> is true_type for |T| and |T| is used for a receiver of a
+// method, base::Bind cancels the method invocation if the receiver is tested as
+// false.
+// E.g. Foo::bar() is not called:
+//   struct Foo : base::SupportsWeakPtr<Foo> {
+//     void bar() {}
+//   };
+//
+//   WeakPtr<Foo> oo = nullptr;
+//   base::BindOnce(&Foo::bar, oo).Run();
+template <typename T>
+struct IsWeakReceiver : std::false_type {};
+
+template <typename T>
+struct IsWeakReceiver<std::reference_wrapper<T>> : IsWeakReceiver<T> {};
+
+template <typename T>
+struct IsWeakReceiver<WeakPtr<T>> : std::true_type {};
+
 // An injection point to control how objects are checked for maybe validity,
 // which is an optimistic thread-safe check for full validity.
 template <typename>
@@ -1375,9 +1409,7 @@ struct BindUnwrapTraits {
 
 template <typename T>
 struct BindUnwrapTraits<internal::UnretainedWrapper<T>> {
-  static T* Unwrap(const internal::UnretainedWrapper<T>& o) {
-    return o.get();
-  }
+  static T* Unwrap(const internal::UnretainedWrapper<T>& o) { return o.get(); }
 };
 
 template <typename T>

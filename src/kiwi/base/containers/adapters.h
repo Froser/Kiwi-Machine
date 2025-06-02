@@ -47,6 +47,6 @@ internal::ReversedAdapter<T> Reversed(T& t) {
   return internal::ReversedAdapter<T>(t);
 }
 
-}  // namespace base
+}  // namespace kiwi::base
 
 #endif  // BASE_CONTAINERS_ADAPTERS_H_

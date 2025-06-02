@@ -74,6 +74,6 @@ BASE_EXPORT void StringAppendF(std::string* dst, const char* format, ...)
 BASE_EXPORT void StringAppendV(std::string* dst, const char* format, va_list ap)
     PRINTF_FORMAT(2, 0);
 
-}  // namespace base
+}  // namespace kiwi::base
 
 #endif  // BASE_STRINGS_STRINGPRINTF_H_

@@ -15,4 +15,6 @@
 #undef ERROR
 #endif
 
+#define NOTREACHED() LOG(FATAL)
+
 #include "third_party/glog/glog/logging.h"

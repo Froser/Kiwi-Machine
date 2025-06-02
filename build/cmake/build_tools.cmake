@@ -43,3 +43,18 @@ function(KIWI_ADD_LIBRARY)
     endforeach ()
     add_library(${ARGV})
 endfunction()
+
+macro(VITA_VRC res_package)
+    add_custom_command(
+            OUTPUT ${res_package}.strings.h
+            COMMAND $<TARGET_FILE:vrc> ${CMAKE_CURRENT_SOURCE_DIR}/${res_package}.strings.json ${CMAKE_CURRENT_BINARY_DIR}
+            DEPENDS vrc ${CMAKE_CURRENT_SOURCE_DIR}/${res_package}.strings.json
+            VERBATIM
+    )
+    add_custom_command(
+            OUTPUT ${res_package}.resources.h ${res_package}.resources.pak
+            COMMAND $<TARGET_FILE:vrc> ${CMAKE_CURRENT_SOURCE_DIR}/${res_package}.resources.json ${CMAKE_CURRENT_BINARY_DIR} --pack
+            DEPENDS vrc ${CMAKE_CURRENT_SOURCE_DIR}/${res_package}.strings.json ${CMAKE_CURRENT_SOURCE_DIR}/${res_package}.resources.json
+            VERBATIM
+    )
+endmacro()

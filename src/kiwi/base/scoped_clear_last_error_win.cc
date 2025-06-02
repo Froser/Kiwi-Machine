@@ -17,4 +17,4 @@ ScopedClearLastError::~ScopedClearLastError() {
   SetLastError(last_system_error_);
 }
 
-}  // namespace base
+}  // namespace kiwi::base

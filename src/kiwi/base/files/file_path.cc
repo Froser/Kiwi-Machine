@@ -16,33 +16,16 @@
 
 #include "base/check.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 
 #if BUILDFLAG(IS_WIN)
-#include <codecvt>
+#include "base/strings/string_util_win.h"
 #endif
 
 namespace kiwi::base {
 
 using StringType = FilePath::StringType;
 using StringPieceType = FilePath::StringPieceType;
-
-namespace internal {
-
-#if BUILDFLAG(IS_WIN)
-
-std::string WideToUTF8(const std::wstring_view& wide) {
-  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-  return converter.to_bytes(wide.data());
-}
-
-std::wstring UTF8ToWide(const std::string_view& utf8) {
-  std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-  return converter.from_bytes(utf8.data());
-}
-
-#endif
-
-}
 
 namespace {
 // If this FilePath contains a drive letter specification, returns the
@@ -124,6 +107,17 @@ FilePath::StringType::size_type ExtensionSeparatorPosition(
 
   return last_dot;
 }
+
+// Returns true if path is "", ".", or "..".
+bool IsEmptyOrSpecialCase(const StringType& path) {
+  // Special cases "", ".", and ".."
+  if (path.empty() || path == FilePath::kCurrentDirectory ||
+      path == FilePath::kParentDirectory) {
+    return true;
+  }
+
+  return false;
+}
 }  // namespace
 
 const FilePath::CharType kStringTerminator = FILE_PATH_LITERAL('\0');
@@ -152,6 +146,24 @@ bool FilePath::operator!=(const FilePath& that) const {
   return path_ != that.path_;
 }
 
+bool FilePath::EndsWithSeparator() const {
+  if (empty())
+    return false;
+  return IsSeparator(path_.back());
+}
+
+FilePath FilePath::AsEndingWithSeparator() const {
+  if (EndsWithSeparator() || path_.empty())
+    return *this;
+
+  StringType path_str;
+  path_str.reserve(path_.length() + 1);  // Only allocate string once.
+
+  path_str = path_;
+  path_str.append(&kSeparators[0], 1);
+  return FilePath(path_str);
+}
+
 // Returns a copy of this FilePath that does not end with a trailing
 // separator.
 FilePath FilePath::StripTrailingSeparators() const {
@@ -161,9 +173,15 @@ FilePath FilePath::StripTrailingSeparators() const {
   return new_path;
 }
 
+std::string FilePath::MaybeAsASCII() const {
+  // todo not commit!
+  //  return base::IsStringASCII(path_) ? WideToASCII(path_) : std::string();
+  return AsUTF8Unsafe();
+}
+
 std::string FilePath::AsUTF8Unsafe() const {
 #if BUILDFLAG(IS_WIN)
-  return internal::WideToUTF8(value());
+  return WideToUTF8(value());
 #else
   return value();
 #endif
@@ -272,9 +290,36 @@ FilePath FilePath::RemoveExtension() const {
 
 FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {
 #if BUILDFLAG(IS_WIN)
-  return FilePath(internal::UTF8ToWide(utf8));
+  return FilePath(UTF8ToWide(utf8));
 #else
   return FilePath(utf8);
+#endif
+}
+
+FilePath FilePath::AddExtension(StringPieceType extension) const {
+  if (IsEmptyOrSpecialCase(BaseName().value()))
+    return FilePath();
+
+  // If the new extension is "" or ".", then just return the current FilePath.
+  if (extension.empty() ||
+      (extension.size() == 1 && extension[0] == kExtensionSeparator))
+    return *this;
+
+  StringType str = path_;
+  if (extension[0] != kExtensionSeparator &&
+      *(str.end() - 1) != kExtensionSeparator) {
+    str.append(1, kExtensionSeparator);
+  }
+  str.append(extension);
+  return FilePath(str);
+}
+
+FilePath FilePath::AddExtensionASCII(StringPiece extension) const {
+  DCHECK(IsStringASCII(extension));
+#if BUILDFLAG(IS_WIN)
+  return AddExtension(UTF8ToWide(extension));
+#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+  return AddExtension(extension);
 #endif
 }
 
@@ -322,8 +367,21 @@ FilePath FilePath::FromUTF8Unsafe(StringPiece utf8) {
   return new_path;
 }
 
+FilePath FilePath::AppendASCII(StringPiece component) const {
+  // DCHECK(base::IsStringASCII(component));
+#if BUILDFLAG(IS_WIN)
+  return Append(UTF8ToWide(component));
+#elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+  return Append(component);
+#endif
+}
+
 FilePath FilePath::Append(const FilePath& component) const {
   return Append(component.value());
+}
+
+bool FilePath::IsAbsolute() const {
+  return IsPathAbsolute(path_);
 }
 
 bool FilePath::ReferencesParent() const {
@@ -378,6 +436,65 @@ std::vector<FilePath::StringType> FilePath::GetComponents() const {
   std::reverse(ret_val.begin(), ret_val.end());
 
   return ret_val;
+}
+
+bool FilePath::IsParent(const FilePath& child) const {
+  return AppendRelativePath(child, nullptr);
+}
+
+bool FilePath::IsNetwork() const {
+  return path_.length() > 1 && FilePath::IsSeparator(path_[0]) &&
+         FilePath::IsSeparator(path_[1]);
+}
+
+bool FilePath::AppendRelativePath(const FilePath& child, FilePath* path) const {
+  std::vector<StringType> parent_components = GetComponents();
+  std::vector<StringType> child_components = child.GetComponents();
+
+  if (parent_components.empty() ||
+      parent_components.size() >= child_components.size())
+    return false;
+
+  std::vector<StringType>::const_iterator parent_comp =
+      parent_components.begin();
+  std::vector<StringType>::const_iterator child_comp = child_components.begin();
+
+#if defined(FILE_PATH_USES_DRIVE_LETTERS)
+  // Windows can access case sensitive filesystems, so component
+  // comparisions must be case sensitive, but drive letters are
+  // never case sensitive.
+  if ((FindDriveLetter(*parent_comp) != StringType::npos) &&
+      (FindDriveLetter(*child_comp) != StringType::npos)) {
+    if (!StartsWith(*parent_comp, *child_comp, CompareCase::INSENSITIVE_ASCII))
+      return false;
+    ++parent_comp;
+    ++child_comp;
+  }
+#endif  // defined(FILE_PATH_USES_DRIVE_LETTERS)
+
+  // The first 2 components for network paths are [<2-Separators>, <hostname>].
+  // Use case-insensitive comparison for the hostname.
+  // https://tools.ietf.org/html/rfc3986#section-3.2.2
+  if (IsNetwork() && parent_components.size() > 1) {
+    if (*parent_comp++ != *child_comp++ ||
+        !base::EqualsCaseInsensitiveASCII(*parent_comp++, *child_comp++)) {
+      return false;
+    }
+  }
+
+  while (parent_comp != parent_components.end()) {
+    if (*parent_comp != *child_comp)
+      return false;
+    ++parent_comp;
+    ++child_comp;
+  }
+
+  if (path != nullptr) {
+    for (; child_comp != child_components.end(); ++child_comp) {
+      *path = path->Append(*child_comp);
+    }
+  }
+  return true;
 }
 
 void FilePath::StripTrailingSeparatorsInternal() {

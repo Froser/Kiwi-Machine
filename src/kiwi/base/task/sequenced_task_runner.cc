@@ -12,7 +12,10 @@
 
 #include "base/task/sequenced_task_runner.h"
 
+#include <memory>
+
 #include "base/check.h"
+#include "base/task/default_delayed_task_handle_delegate.h"
 
 namespace kiwi::base {
 namespace {
@@ -23,6 +26,24 @@ SequencedTaskRunner::SequencedTaskRunner() = default;
 bool SequencedTaskRunner::RunsTasksInCurrentSequence() const {
   CHECK(HasCurrentDefault());
   return this == g_task_runner_for_this_thread.get();
+}
+
+DelayedTaskHandle SequencedTaskRunner::PostCancelableDelayedTask(
+    subtle::PostDelayedTaskPassKey,
+    const Location& from_here,
+    OnceClosure task,
+    TimeDelta delay) {
+  auto delayed_task_handle_delegate =
+      std::make_unique<DefaultDelayedTaskHandleDelegate>();
+
+  task = delayed_task_handle_delegate->BindCallback(std::move(task));
+
+  DelayedTaskHandle delayed_task_handle(
+      std::move(delayed_task_handle_delegate));
+
+  PostDelayedTask(from_here, std::move(task), delay);
+
+  return delayed_task_handle;
 }
 
 bool SequencedTaskRunner::PostTask(const Location& from_here,

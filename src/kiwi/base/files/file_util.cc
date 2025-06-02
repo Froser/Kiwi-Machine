@@ -40,7 +40,7 @@ namespace {
 bool ReadStreamToSpanWithMaxSize(
     FILE* stream,
     size_t max_size,
-    std::function<std::span<uint8_t>(size_t)> resize_span) {
+    std::function<std::span<std::byte>(size_t)> resize_span) {
   if (!stream) {
     return false;
   }
@@ -87,7 +87,7 @@ bool ReadStreamToSpanWithMaxSize(
   size_t bytes_read_this_pass;
   size_t bytes_read_so_far = 0;
   bool read_status = true;
-  std::span<uint8_t> bytes_span = resize_span(chunk_size);
+  std::span<std::byte> bytes_span = resize_span(chunk_size);
   DCHECK_EQ(bytes_span.size(), chunk_size);
 
   while ((bytes_read_this_pass = fread(bytes_span.data() + bytes_read_so_far, 1,
@@ -128,7 +128,7 @@ bool CreateDirectory(const FilePath& full_path) {
   return CreateDirectoryAndGetError(full_path, nullptr);
 }
 
-std::optional<std::vector<uint8_t>> ReadFileToBytes(const FilePath& path) {
+std::optional<std::vector<std::byte>> ReadFileToBytes(const FilePath& path) {
   if (path.ReferencesParent()) {
     return std::nullopt;
   }
@@ -138,7 +138,7 @@ std::optional<std::vector<uint8_t>> ReadFileToBytes(const FilePath& path) {
     return std::nullopt;
   }
 
-  std::vector<uint8_t> bytes;
+  std::vector<std::byte> bytes;
   if (!ReadStreamToSpanWithMaxSize(file_stream.get(),
                                    std::numeric_limits<size_t>::max(),
                                    [&bytes](size_t size) {
@@ -148,6 +148,44 @@ std::optional<std::vector<uint8_t>> ReadFileToBytes(const FilePath& path) {
     return std::nullopt;
   }
   return bytes;
+}
+
+bool ReadFileToString(const FilePath& path, std::string* contents) {
+  return ReadFileToStringWithMaxSize(path, contents,
+                                     std::numeric_limits<size_t>::max());
+}
+
+bool ReadFileToStringWithMaxSize(const FilePath& path,
+                                 std::string* contents,
+                                 size_t max_size) {
+  if (contents)
+    contents->clear();
+  if (path.ReferencesParent())
+    return false;
+  ScopedFILE file_stream(OpenFile(path, "rb"));
+  if (!file_stream)
+    return false;
+  return ReadStreamToStringWithMaxSize(file_stream.get(), max_size, contents);
+}
+
+bool ReadStreamToStringWithMaxSize(FILE* stream,
+                                   size_t max_size,
+                                   std::string* contents) {
+  if (contents) {
+    contents->clear();
+  }
+
+  std::string content_string;
+  bool read_success = ReadStreamToSpanWithMaxSize(
+      stream, max_size, [&content_string](size_t size) {
+        content_string.resize(size);
+        return as_writable_bytes(std::span(content_string));
+      });
+
+  if (contents) {
+    contents->swap(content_string);
+  }
+  return read_success;
 }
 
 bool CloseFile(FILE* file) {

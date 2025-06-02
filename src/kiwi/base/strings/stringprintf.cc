@@ -102,4 +102,4 @@ void StringAppendV(std::string* dst, const char* format, va_list ap) {
   }
 }
 
-}  // namespace base
+}  // namespace kiwi::base

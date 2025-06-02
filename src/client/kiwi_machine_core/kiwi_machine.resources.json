@@ -1,0 +1,74 @@
+[
+  {
+    "id": "IDR_ABOUT_NES_JOYSTICKS",
+    "en": "resources/images/about_nes_joysticks.svg"
+  },
+  {
+    "id": "IDR_ITEM_BADGE",
+    "en": "resources/images/item_badge.svg"
+  },
+  {
+    "id": "IDR_KIWI_MACHINE",
+    "en": "resources/images/kiwi_machine.png"
+  },
+  {
+    "id": "IDR_MENU_ABOUT",
+    "en": "resources/images/menu_about.svg"
+  },
+  {
+    "id": "IDR_MENU_ABOUT_HIGHLIGHT",
+    "en": "resources/images/menu_about_highlight.svg"
+  },
+  {
+    "id": "IDR_MENU_QUIT",
+    "en": "resources/images/menu_quit.svg"
+  },
+  {
+    "id": "IDR_MENU_QUIT_HIGHLIGHT",
+    "en": "resources/images/menu_quit_highlight.svg"
+  },
+  {
+    "id": "IDR_MENU_SEARCH",
+    "en": "resources/images/menu_search.svg"
+  },
+  {
+    "id": "IDR_MENU_SETTINGS",
+    "en": "resources/images/menu_settings.svg"
+  },
+  {
+    "id": "IDR_MENU_SETTINGS_HIGHLIGHT",
+    "en": "resources/images/menu_settings_highlight.svg"
+  },
+  {
+    "id": "IDR_VTB_A",
+    "en": "resources/images/vtb_a.png"
+  },
+  {
+    "id": "IDR_VTB_AB",
+    "en": "resources/images/vtb_ab.png"
+  },
+  {
+    "id": "IDR_VTB_B",
+    "en": "resources/images/vtb_b.png"
+  },
+  {
+    "id": "IDR_VTB_JOYSTICK_BALL",
+    "en": "resources/images/vtb_joystick_ball.png"
+  },
+  {
+    "id": "IDR_VTB_JOYSTICK_PAD",
+    "en": "resources/images/vtb_joystick_pad.png"
+  },
+  {
+    "id": "IDR_VTB_PAUSE",
+    "en": "resources/images/vtb_pause.png"
+  },
+  {
+    "id": "IDR_VTB_SELECT",
+    "en": "resources/images/vtb_select.png"
+  },
+  {
+    "id": "IDR_VTB_START",
+    "en": "resources/images/vtb_start.png"
+  }
+]

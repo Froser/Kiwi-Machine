@@ -149,6 +149,6 @@ namespace kiwi::base {
 #endif  // defined(__clang__) || defined(COMPILER_GCC)
 }
 
-}  // namespace base
+}  // namespace kiwi::base
 
 #endif  // BASE_IMMEDIATE_CRASH_H_

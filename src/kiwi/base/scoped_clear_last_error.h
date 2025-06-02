@@ -50,6 +50,6 @@ using ScopedClearLastError = ScopedClearLastErrorBase;
 
 #endif  // BUILDFLAG(IS_WIN)
 
-}  // namespace base
+}  // namespace kiwi::base
 
 #endif  // BASE_SCOPED_CLEAR_LAST_ERROR_H_
