@@ -481,3 +481,5 @@ void MainWindow::PopVirtualButtonsVisible() {
 
   SetVirtualButtonsVisible(stashed_virtual_joysticks_visible_state_);
 }
+
+void MainWindow::PauseGameIfDisassemblyVisible() {}

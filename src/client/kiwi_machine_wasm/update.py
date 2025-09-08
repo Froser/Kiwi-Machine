@@ -17,9 +17,9 @@ from pathlib import Path
 
 # Usage:
 # Copies wasm files to 'public' folder.
-# update.py full-kiwi-build-path-to-the-build-dir
+# update.py full-kiwi-build-path-to-the-build-dir full-path-to-nes-dir
 # Example:
-# python3 update.py /Users/user/Kiwi-Machine/cmake-build-emscripten_debug
+# python3 update.py /Users/user/Kiwi-Machine/cmake-build-emscripten_debug /Users/user/nes
 
 build_dir = sys.argv[1]
 rom_id = 0
@@ -117,15 +117,15 @@ def main():
     CopyFile(build_dir + '/src/client/kiwi_machine/kiwi_machine.html', './kiwi-machine/public')
     CopyFile(build_dir + '/src/client/kiwi_machine/kiwi_machine.js', './kiwi-machine/public')
     CopyFile(build_dir + '/src/client/kiwi_machine/kiwi_machine.wasm', './kiwi-machine/public')
-    CopyFile(build_dir + '/src/client/kiwi_machine/kiwi_machine.worker.js', './kiwi-machine/public')
     print('Done')
 
     # Copy roms
-    shutil.rmtree('./kiwi-machine/public/roms')
-    ExtractAllTo('../kiwi_machine_core/build/nes', './kiwi-machine/public/roms')
+    if len(sys.argv) > 2:
+        shutil.rmtree('./kiwi-machine/public/roms')
+        ExtractAllTo(sys.argv[2], './kiwi-machine/public/roms')
 
-    # Generate database json
-    GenerateDatabase('./kiwi-machine/public/roms')
+        # Generate database json
+        GenerateDatabase('./kiwi-machine/public/roms')
 
 
 if __name__ == "__main__":
