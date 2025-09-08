@@ -35,7 +35,7 @@ int PostTask() {
 
 namespace {
 constexpr int kFPS = 60;
-thread_local std::stack<SDL2RunLoopInterface*> g_thread_run_loops;
+THREAD_LOCAL std::stack<SDL2RunLoopInterface*> g_thread_run_loops;
 
 #if __EMSCRIPTEN__
 void EmscriptenMainLoop() {

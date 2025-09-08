@@ -209,6 +209,7 @@ add_custom_command(
 
 add_custom_command(
         OUTPUT resources/string_resources.h resources/string_resources.cc __always_build3.h
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         VERBATIM

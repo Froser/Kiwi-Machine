@@ -16,7 +16,7 @@
 
 namespace kiwi::base {
 namespace {
-thread_local scoped_refptr<SequencedTaskRunner> g_task_runner_for_this_thread;
+THREAD_LOCAL scoped_refptr<SequencedTaskRunner> g_task_runner_for_this_thread;
 }
 
 SequencedTaskRunner::SequencedTaskRunner() = default;

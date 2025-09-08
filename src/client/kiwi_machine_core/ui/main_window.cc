@@ -1306,18 +1306,18 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
 }
 
 void MainWindow::SetLoading(bool is_loading) {
-  SDL_assert(bg_widget_);
-  SDL_assert(loading_widget_);
-  bg_widget_->SetLoading(is_loading);
-  loading_widget_->set_visible(is_loading);
+  if (bg_widget_ && loading_widget_) {
+    bg_widget_->SetLoading(is_loading);
+    loading_widget_->set_visible(is_loading);
+  }
 }
 
 void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
-  SDL_assert(bg_widget_);
-  SDL_assert(canvas_);
-  canvas_->set_visible(!show);
-  fullscreen_mask_->set_visible(!show);
-  bg_widget_->set_visible(show);
+  if (bg_widget_ && canvas_ && fullscreen_mask_) {
+    canvas_->set_visible(!show);
+    fullscreen_mask_->set_visible(!show);
+    bg_widget_->set_visible(show);
+  }
 
   if (!load_from_finger_gesture) {
     // If the ROM is not loaded by finger events (Finger Up), it means we have

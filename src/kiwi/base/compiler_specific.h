@@ -415,4 +415,10 @@ inline constexpr bool AnalyzerAssumeTrue(bool arg) {
 #define LOGICALLY_CONST
 #endif
 
+#if __EMSCRIPTEN__
+#define THREAD_LOCAL
+#else
+#define THREAD_LOCAL thread_local
+#endif
+
 #endif  // BASE_COMPILER_SPECIFIC_H_

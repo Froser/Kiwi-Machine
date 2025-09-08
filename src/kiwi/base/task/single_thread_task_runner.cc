@@ -16,7 +16,7 @@
 
 namespace kiwi::base {
 namespace {
-thread_local scoped_refptr<SingleThreadTaskRunner>
+THREAD_LOCAL scoped_refptr<SingleThreadTaskRunner>
     g_task_runner_for_this_thread;
 }
 SingleThreadTaskRunner::SingleThreadTaskRunner() = default;
