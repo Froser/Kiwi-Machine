@@ -16,6 +16,8 @@
 #include "base/base_export.h"
 #include "base/strings/string_piece.h"
 
+#include <string>
+
 namespace kiwi::base {
 
 BASE_EXPORT std::string NumberToString(int value);
