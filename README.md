@@ -84,6 +84,7 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 
 1. 选择一个路径，以`~/Documents/Kiwi-Machine-Workspace`为例，在目录下
    拉取代码`git clone https://github.com/Froser/Kiwi-Machine-Workspace.git`
+   你也可以通过运行`build/workspace-sync.py`来完成这个事情
 2. 按照接下来描述的方式先编译`package_manager`，通过命令行`--workspace=~/Documents/Kiwi-Machine-Workspace`运行并打包ROM为pak文件
 3. 构建KiwiMachine主体，在CMake中指定`-DKIWI_PACKAGE_DIR=~/Documents/Kiwi-Machine-Workspace/out/output`，这样它将会把你生成的pak文件自动拷贝
 到资源目录中。

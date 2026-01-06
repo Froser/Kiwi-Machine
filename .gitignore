@@ -8,6 +8,7 @@
 /cmake-build-release-intel/
 /cmake-build-emscripten_debug/
 /cmake-build-emscripten/
+/src/third_party/Kiwi-Machine-Workspace/
 !/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.html
 
 !/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.worker.js
