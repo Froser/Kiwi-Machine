@@ -8,7 +8,7 @@ import subprocess
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # The URL of the repository to clone.
-REPO_URL = "git@github.com:Froser/Kiwi-Machine-Workspace.git"
+REPO_URL = "https://github.com/Froser/Kiwi-Machine-Workspace.git"
 
 # The path to the directory where the repository should be cloned.
 # This is relative to the project root.
