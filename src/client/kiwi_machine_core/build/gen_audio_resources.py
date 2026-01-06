@@ -4,6 +4,8 @@ import shutil
 import sys
 from pathlib import Path
 import os
+import directory_file_checker
+
 
 
 def GenTokenName(filename):
@@ -54,7 +56,7 @@ def main():
     print("Font resources output dir is", output_dir)
     if use_wasm_ignore:
         print("Generated for wasm env.")
-        with open('./resources/audio/wasm_ignore.json', 'r', encoding='utf-8') as f:
+        with open(target_path + '/wasm_ignore.json', 'r', encoding='utf-8') as f:
             wasm_ignores = json.load(f)
 
     if not os.path.isdir(output_dir):
@@ -73,7 +75,14 @@ namespace audio_resources {
     all_tokens = ''
     all_data = ''
     all_switches = ''
-    for f in sorted(Path('./resources/audio').iterdir()):
+        
+    target_path = './resources/audio'
+    cache_file = output_dir + '/audio_resources.cache'
+    if not directory_file_checker.are_inputs_changed(target_path, cache_file):
+        print("Audio resources are not changed. Exit.")
+        return
+
+    for f in sorted(Path(target_path).iterdir()):
         if f.suffix == '.mp3':
             if not f.name in wasm_ignores:
                 data, token = GenCPP(f)

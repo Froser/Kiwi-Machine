@@ -4,6 +4,8 @@ import shutil
 import sys
 from pathlib import Path
 import os
+import directory_file_checker
+
 
 
 def GenTokenName(filename):
@@ -29,10 +31,8 @@ def GenCPP(file):
 
     print("Parsing: ", font_filename)
     raw_data = ''
-    raw_size = ''
     with open(font_filename, 'rb') as f:
         raw_data = f.read()
-        raw_size = f.tell()
 
     output_string = ''
     with (io.StringIO('')) as o:
@@ -53,7 +53,7 @@ def main():
     print("Font resources output dir is", output_dir)
     if use_wasm_ignore:
         print("Generated for wasm env.")
-        with open('./resources/fonts/wasm_ignore.json', 'r', encoding='utf-8') as f:
+        with open(target_path + '/wasm_ignore.json', 'r', encoding='utf-8') as f:
             wasm_ignores = json.load(f)
 
     if not os.path.isdir(output_dir):
@@ -72,7 +72,14 @@ namespace font_resources {
     all_tokens = ''
     all_data = ''
     all_switches = ''
-    for f in sorted(Path('./resources/fonts').iterdir()):
+        
+    target_path = './resources/fonts'
+    cache_file = output_dir + '/font_resources.cache'
+    if not directory_file_checker.are_inputs_changed(target_path, cache_file):
+        print("Font resources are not changed. Exit.")
+        return
+    
+    for f in sorted(Path(target_path).iterdir()):
         if f.suffix == '.ttf' or f.suffix == '.ttc':
             if not f.name in wasm_ignores:
                 data, token = GenCPP(f)

@@ -4,6 +4,7 @@ import shutil
 import sys
 from pathlib import Path
 import os
+import directory_file_checker
 
 
 def GenTokenName(filename):
@@ -29,10 +30,8 @@ def GenCPP(file):
 
     print("Parsing: ", image_filename)
     raw_data = ''
-    raw_size = ''
     with open(image_filename, 'rb') as f:
         raw_data = f.read()
-        raw_size = f.tell()
 
     output_string = ''
     with (io.StringIO('')) as o:
@@ -73,7 +72,14 @@ namespace image_resources {
     all_tokens = ''
     all_data = ''
     all_switches = ''
-    for f in sorted(Path('./resources/images').iterdir()):
+
+    target_path = './resources/images'
+    cache_file = output_dir + '/image_resources.cache'
+    if not directory_file_checker.are_inputs_changed(target_path, cache_file):
+        print("Image resources are not changed. Exit.")
+        return
+
+    for f in sorted(Path(target_path).iterdir()):
         if f.suffix == '.png' or f.suffix == '.jpg' or f.suffix == '.svg':
             if not f.name in wasm_ignores:
                 data, token = GenCPP(f)

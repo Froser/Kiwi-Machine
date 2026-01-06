@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 import os
 import json
-
+import directory_file_checker
 
 def GetData(file):
     with open(file.absolute(), 'r', encoding = 'utf-8') as f:
@@ -43,7 +43,13 @@ const StringMap& GetGlobalStringMap();
     all_idrs = ''
     all_strings = ''
 
-    for f in sorted(Path('./resources/strings').iterdir()):
+    target_path = './resources/strings'
+    cache_file = output_dir + '/string_resources.cache'
+    if not directory_file_checker.are_inputs_changed(target_path, cache_file):
+        print("String resources are not changed. Exit.")
+        return
+
+    for f in sorted(Path(target_path).iterdir()):
         if f.suffix == '.json':
             data = GetData(f)
             for idr in data:
