@@ -116,18 +116,7 @@ Kiwi内核的整个代码与`Chromium`保持兼容，包括：
 -DCMAKE_TOOLCHAIN_FILE=/Users/user/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
 ```
 
-有几点需要注意：
-
-1. Kiwi Machine需要在WASM环境中使用多进程，因此`SDL_THREADS`和`SDL_PTHREADS`开关默认已经开启。如果出现线程问题，
-   请检查者两个开关的状态。
-2. 由于使用多线程，在部署服务的时候，需要启用`SharedArrayBuffer`，因此需要下面两个`headers`：
-
-```
-Cross-Origin-Opener-Policy : same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-如果浏览器中显示了`SharedArrayBuffer is not defined`错误，请检查响应头是否设置正确。
+如果你指定了`KIWI_EMSCRIPTEN_BUILD_DIR`则构建系统将会你构建一个自动部署的工程。
 
 ### 前端页面构建方式
 

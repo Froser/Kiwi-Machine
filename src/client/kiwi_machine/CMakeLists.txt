@@ -113,7 +113,7 @@ endif ()
 if (EMSCRIPTEN)
     # Emscripten needs a larger wasm-ld initial memory.
     set(EM_FLAGS
-            "-s PTHREAD_POOL_SIZE=5 \
+            "-s \
 -s MAXIMUM_MEMORY=1gb \
 -s INITIAL_MEMORY=128MB \
 -s ALLOW_MEMORY_GROWTH \
@@ -128,6 +128,23 @@ if (EMSCRIPTEN)
             LINK_FLAGS ${EM_FLAGS}
     )
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
+
+    if (DEFINED KIWI_EMSCRIPTEN_BUILD_DIR)
+        add_custom_target(
+                kiwi_machine_deploy_all
+                COMMAND ${Python3_EXECUTABLE} "update.py" ${KIWI_EMSCRIPTEN_BUILD_DIR} "${kiwi_machine_core_SOURCE_DIR}/build/nes"
+                WORKING_DIRECTORY ${kiwi_machine_SOURCE_DIR}/../kiwi_machine_wasm
+                VERBATIM
+                DEPENDS kiwi_machine
+        )
+        add_custom_target(
+                kiwi_machine_deploy_without_roms
+                COMMAND ${Python3_EXECUTABLE} "update.py" ${KIWI_EMSCRIPTEN_BUILD_DIR}
+                WORKING_DIRECTORY ${kiwi_machine_SOURCE_DIR}/../kiwi_machine_wasm
+                VERBATIM
+                DEPENDS kiwi_machine
+        )
+    endif ()
 endif ()
 
 target_link_libraries(${PROJECT_NAME}
