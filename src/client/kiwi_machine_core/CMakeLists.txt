@@ -56,13 +56,9 @@ set(Sources
         preset_roms/preset_roms.h
         preset_roms/preset_roms.cc
         resources/audio_resources.cc
-        resources/audio_resources.h
         resources/font_resources.cc
-        resources/font_resources.h
         resources/string_resources.cc
-        resources/string_resources.h
         resources/image_resources.cc
-        resources/image_resources.h
         ui/widgets/about_widget.cc
         ui/widgets/about_widget.h
         ui/widgets/canvas.cc
@@ -184,7 +180,7 @@ if (EMSCRIPTEN)
 endif ()
 
 add_custom_command(
-        OUTPUT resources/image_resources.h resources/image_resources.cc __always_build0.h
+        OUTPUT resources/image_resources.cc __always_build0.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_image_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -200,7 +196,7 @@ add_custom_command(
 )
 
 add_custom_command(
-        OUTPUT resources/font_resources.h resources/font_resources.cc __always_build2.h
+        OUTPUT resources/font_resources.cc __always_build2.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -208,7 +204,7 @@ add_custom_command(
 )
 
 add_custom_command(
-        OUTPUT resources/string_resources.h resources/string_resources.cc __always_build3.h
+        OUTPUT resources/string_resources.cc __always_build3.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

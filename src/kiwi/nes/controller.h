@@ -15,6 +15,8 @@
 
 #include "nes/types.h"
 
+#include <memory>
+
 namespace kiwi {
 namespace nes {
 class Emulator;

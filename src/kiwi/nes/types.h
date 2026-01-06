@@ -31,7 +31,7 @@ struct Point {
   int x;
   int y;
 };
-using Sample = std::int16_t;
+using Sample = int16_t;
 
 // A device is an interface which can read from and write to an address.
 class Device {

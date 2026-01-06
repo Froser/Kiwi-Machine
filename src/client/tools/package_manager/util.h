@@ -90,7 +90,7 @@ kiwi::base::FilePath GetFontsPath();
 
 void ShellOpen(const kiwi::base::FilePath& file);
 void ShellOpenDirectory(const kiwi::base::FilePath& file);
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 void RunExecutable(const kiwi::base::FilePath& bundle,
                    const std::vector<std::string>& args);
 #else

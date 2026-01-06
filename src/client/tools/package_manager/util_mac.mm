@@ -16,7 +16,6 @@
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 
-#include "../third_party/libjpeg-turbo-jpeg-9f/jpeglib.h"
 #include "base/files/file_path.h"
 
 void ShellOpen(const kiwi::base::FilePath& file) {

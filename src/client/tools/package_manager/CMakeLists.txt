@@ -49,12 +49,17 @@ set(Sources
 
 if (APPLE)
     list(APPEND Sources
-            util.mm
+            util_mac.mm
     )
 endif ()
 if (WIN32)
     list(APPEND Sources
             util_win.cc
+    )
+endif()
+if (LINUX)
+    list(APPEND Sources
+            util_linux.cc
     )
 endif()
 

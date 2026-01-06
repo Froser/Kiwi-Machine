@@ -16,6 +16,7 @@
 #include "base/base_export.h"
 #include "base/strings/string_piece.h"
 
+#include <stdint.h>
 #include <string>
 
 namespace kiwi::base {

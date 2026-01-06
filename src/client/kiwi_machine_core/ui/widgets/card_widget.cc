@@ -12,6 +12,8 @@
 
 #include "ui/widgets/card_widget.h"
 
+#include <algorithm>
+
 #include "ui/window_base.h"
 
 CardWidget::CardWidget(WindowBase* window_base) : Widget(window_base) {}
