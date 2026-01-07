@@ -34,7 +34,6 @@
 #endif
 
 namespace {
-constexpr int kInitializeSDLFailed = -1;
 constexpr int kInitializeSDLImageFailed = -2;
 Application* g_app_instance = nullptr;
 }  // namespace

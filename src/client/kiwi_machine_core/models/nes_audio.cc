@@ -68,18 +68,16 @@ void NESAudio::Start() {
 }
 
 void NESAudio::ResetBuffer() {
-  if (audio_device_id_) {
-    SDL_LockAudioDevice(audio_device_id_);
-    if (free_sem_)
-      SDL_DestroySemaphore(free_sem_);
-    free_sem_ = SDL_CreateSemaphore(kBufferCount - 1);
+  SDL_LockAudioDevice(audio_device_id_);
+  if (free_sem_)
+    SDL_DestroySemaphore(free_sem_);
+  free_sem_ = SDL_CreateSemaphore(kBufferCount - 1);
 
-    buffer_.resize(kBufferCount * kBufferSize);
-    write_buf_ = 0;
-    write_pos_ = 0;
-    read_buf_ = 0;
-    SDL_UnlockAudioDevice(audio_device_id_);
-  }
+  buffer_.resize(kBufferCount * kBufferSize);
+  write_buf_ = 0;
+  write_pos_ = 0;
+  read_buf_ = 0;
+  SDL_UnlockAudioDevice(audio_device_id_);
 }
 
 void NESAudio::ReadAudioBuffer(void* userdata, Uint8* stream, int len) {
