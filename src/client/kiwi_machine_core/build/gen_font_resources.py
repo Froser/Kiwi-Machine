@@ -4,7 +4,7 @@ import shutil
 import sys
 from pathlib import Path
 import os
-import directory_file_checker
+import file_list_reader
 
 
 
@@ -72,14 +72,9 @@ namespace font_resources {
     all_tokens = ''
     all_data = ''
     all_switches = ''
-        
-    target_path = './resources/fonts'
-    cache_file = output_dir + '/font_resources.cache'
-    if not directory_file_checker.are_inputs_changed(target_path, cache_file):
-        print("Font resources are not changed. Exit.")
-        return
     
-    for f in sorted(Path(target_path).iterdir()):
+    resource_paths = file_list_reader.read_from_file('./resources/fonts/')
+    for f in resource_paths:
         if f.suffix == '.ttf' or f.suffix == '.ttc':
             if not f.name in wasm_ignores:
                 data, token = GenCPP(f)

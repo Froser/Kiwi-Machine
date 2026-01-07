@@ -174,40 +174,43 @@ if (ANDROID)
 endif ()
 
 # Resources generation:
-# Use '__always_buildx.h' as a fake output, to make the command run every time.
 if (EMSCRIPTEN)
     set(USE_WASM_IGNORE ON)
 endif ()
 
 add_custom_command(
-        OUTPUT resources/image_resources.cc __always_build0.h
+        OUTPUT resources/image_resources.cc
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_image_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS resources/images/files.json
         VERBATIM
 )
 
 add_custom_command(
-        OUTPUT resources/audio_resources.h resources/audio_resources.cc __always_build1.h
+        OUTPUT resources/audio_resources.h resources/audio_resources.cc
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_audio_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS resources/audio/files.json
         VERBATIM
 )
 
 add_custom_command(
-        OUTPUT resources/font_resources.cc __always_build2.h
+        OUTPUT resources/font_resources.cc
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS resources/fonts/files.json
         VERBATIM
 )
 
 add_custom_command(
-        OUTPUT resources/string_resources.cc __always_build3.h
+        OUTPUT resources/string_resources.cc
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        DEPENDS resources/strings/files.json
         VERBATIM
 )
 
