@@ -47,7 +47,11 @@ SDL2SingleThreadTaskExecutorInterface::SDL2SingleThreadTaskExecutorInterface(
   if (type == MessagePumpType::DEFAULT || type == MessagePumpType::UI) {
     int init_result = SDL_Init(SDL_INIT_EVERYTHING);
     if (init_result < 0) {
-      CHECK(false) << SDL_GetError();
+      init_result = SDL_Init(SDL_INIT_EVERYTHING & ~SDL_INIT_AUDIO);
+      LOG(WARNING) << "Failed to init everything. Remove audio and try again.";
+      if (init_result < 0) {
+        CHECK(false) << SDL_GetError();
+      }
     }
   }
   mutex_ = SDL_CreateMutex();

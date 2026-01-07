@@ -23,6 +23,7 @@ namespace {
 #if !KIWI_MOBILE && !KIWI_WASM
 Mix_Music* g_all_effects[static_cast<int>(audio_resources::AudioID::kLast)];
 bool g_effect_disabled = false;
+bool g_audio_failed = false;
 
 void LoadAudioEffectFromMemory(audio_resources::AudioID type,
                                const unsigned char* data,
@@ -58,6 +59,7 @@ void InitializeAudioEffects() {
         0) {
       SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't open audio: %s\n",
                    SDL_GetError());
+      g_audio_failed = true;
       return;
     }
 
@@ -102,7 +104,7 @@ ScopedDisableEffect::~ScopedDisableEffect() {
 #if !DISABLE_SOUND_EFFECTS
 void PlayEffect(audio_resources::AudioID aid) {
 #if !KIWI_MOBILE && !KIWI_WASM
-  if (!g_effect_disabled) {
+  if (!g_effect_disabled && !g_audio_failed) {
     int index = static_cast<int>(aid);
     if (g_all_effects[index]) {
       Mix_PausedMusic();

@@ -322,9 +322,6 @@ void Application::InitializeApplication(int& argc, char** argv) {
   }
 
   kiwi::base::InitializePlatformFactory(argc, argv);
-  if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-    exit(kInitializeSDLFailed);
-  }
 
   InitializeImGui();
   InitializeAudioEffects();

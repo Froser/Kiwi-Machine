@@ -43,20 +43,22 @@ void NESAudio::Initialize() {
 
   free_sem_ = SDL_CreateSemaphore(kBufferCount - 1);
 
-  SDL_AudioSpec as;
-  as.freq = kiwi::nes::IODevices::AudioDevice::kFrequency;
-  as.format = AUDIO_S16SYS;
-  as.channels = 1;
-  as.silence = 0;
-  as.callback = &NESAudio::ReadAudioBuffer;
-  as.samples = kBufferSize;
-  as.userdata = this;
+  if (SDL_WasInit(SDL_INIT_AUDIO)) {
+    SDL_AudioSpec as;
+    as.freq = kiwi::nes::IODevices::AudioDevice::kFrequency;
+    as.format = AUDIO_S16SYS;
+    as.channels = 1;
+    as.silence = 0;
+    as.callback = &NESAudio::ReadAudioBuffer;
+    as.samples = kBufferSize;
+    as.userdata = this;
 
-  audio_device_id_ = SDL_OpenAudioDevice(nullptr, 0, &as, &audio_spec_, 0);
-  SDL_PauseAudioDevice(audio_device_id_, true);
-  if (!audio_device_id_) {
-    SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Error in open audio device: %s",
-                 SDL_GetError());
+    audio_device_id_ = SDL_OpenAudioDevice(nullptr, 0, &as, &audio_spec_, 0);
+    SDL_PauseAudioDevice(audio_device_id_, true);
+    if (!audio_device_id_) {
+      SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Error in open audio device: %s",
+                   SDL_GetError());
+    }
   }
 }
 
@@ -66,16 +68,18 @@ void NESAudio::Start() {
 }
 
 void NESAudio::ResetBuffer() {
-  SDL_LockAudioDevice(audio_device_id_);
-  if (free_sem_)
-    SDL_DestroySemaphore(free_sem_);
-  free_sem_ = SDL_CreateSemaphore(kBufferCount - 1);
+  if (audio_device_id_) {
+    SDL_LockAudioDevice(audio_device_id_);
+    if (free_sem_)
+      SDL_DestroySemaphore(free_sem_);
+    free_sem_ = SDL_CreateSemaphore(kBufferCount - 1);
 
-  buffer_.resize(kBufferCount * kBufferSize);
-  write_buf_ = 0;
-  write_pos_ = 0;
-  read_buf_ = 0;
-  SDL_UnlockAudioDevice(audio_device_id_);
+    buffer_.resize(kBufferCount * kBufferSize);
+    write_buf_ = 0;
+    write_pos_ = 0;
+    read_buf_ = 0;
+    SDL_UnlockAudioDevice(audio_device_id_);
+  }
 }
 
 void NESAudio::ReadAudioBuffer(void* userdata, Uint8* stream, int len) {
@@ -108,9 +112,10 @@ kiwi::nes::Sample* NESAudio::Buffer(size_t index) {
 }
 
 void NESAudio::Write(kiwi::nes::Sample* samples, size_t count) {
-  // int count = static_cast<int>(samples.size());
+  if (!audio_device_id_)
+    return;
+
   const kiwi::nes::Sample* in = samples;
-  // SDL_assert(audio_thread_->task_runner()->RunsTasksInCurrentSequence());
   while (count) {
     int n = static_cast<int>(kBufferSize - write_pos_);
     if (n > count)
