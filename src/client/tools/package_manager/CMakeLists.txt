@@ -47,20 +47,21 @@ set(Sources
         workspace.h
 )
 
-if (APPLE)
-    list(APPEND Sources
-            util_mac.mm
-    )
-endif ()
 if (WIN32)
     list(APPEND Sources
             util_win.cc
     )
 endif()
-if (LINUX)
-    list(APPEND Sources
-            util_linux.cc
-    )
+if (UNIX)
+    if (APPLE)
+        list(APPEND Sources
+                util_mac.mm
+        )
+    else()
+        list(APPEND Sources
+                util_posix.cc
+        )
+    endif ()
 endif()
 
 if (WIN32)
