@@ -12,9 +12,9 @@ Kiwi Machine is a simple Nintendo Entertainment System (NES/FC) emulator engine.
 
 I believe many people, like me, have had a gaming dream since childhood.
 
-When Nintendo first launched the Famicom in 1983, the concept of video game consoles wasn't popular in China yet. By the time the concept reached my surroundings, I was already in elementary school. At that time, Jackie Chan's "Little霸王 is endless fun" commercials were on TV, opening a door to the electronic world for me.
+When Nintendo first launched the Famicom in 1983, the concept of video game consoles wasn't popular in China yet. By the time the concept reached my surroundings, I was already in elementary school. At that time, Jackie Chan's "XiaoBaWang(小霸王) is endless fun" commercials were on TV, opening a door to the electronic world for me.
 
-From today's perspective, although Little霸王 was a knockoff of the Famicom and lagged behind the actual Famicom's development by more than five years — we were playing games that were five years old — it never made me feel these games were boring. On weekends, I would take out my family's Little霸王 console, insert game cartridges I had played hundreds of times like Super Mario, Donkey Kong, and Lode Runner, and play games with my grandparents.
+From today's perspective, although XiaoBaWang was a knockoff of the Famicom and lagged behind the actual Famicom's development by more than five years — we were playing games that were five years old — it never made me feel these games were boring. On weekends, I would take out my family's XiaoBaWang console, insert game cartridges I had played hundreds of times like Super Mario, Donkey Kong, and Lode Runner, and play games with my grandparents.
 
 Now my grandparents have passed away, but I still remember very clearly that my grandmother and grandfather, who almost never played games, had a special fondness for Tetris, Dr. Mario, and Tank Battle respectively. These were among the games we must play on weekends. When implementing the NES emulator, these were the first games I prioritized emulating. Whenever I hear the familiar music, I always think of the times when we played games together as a child.
 
