@@ -128,13 +128,6 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
               <li>为了提高加载效率，Web Kiwi Machine将引擎和游戏分开，以确保您切换游戏的时候能得到极致的速度体验。</li>
               <li><b>玩的时候，请留意音量。</b></li>
             </ul>
-            <h1>客户端版本下载</h1>
-            <p><a href='https://bytedance.larkoffice.com/wiki/AG1Fwd4Tji8LLgkNmuDcEMGlnBb' target='_blank'
-                  rel="noreferrer">Kiwi
-              Machine 1.1.0</a></p>
-            <p><a href='https://bytedance.larkoffice.com/wiki/W1o1wX2eTimtOjkP4CGc16H8nef' target='_blank'
-                  rel="noreferrer">Kiwi
-              Machine 1.0.0</a></p>
             <h1>源码及技术</h1>
             <p>Kiwi Machine在Github上已经开源：
               <a href='https://github.com/froser/kiwi-machine'

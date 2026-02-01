@@ -25,7 +25,7 @@ namespace nes {
 class Mapper;
 class Device;
 
-// CPU Bus is connected to CPU.
+// CPU Bus is connected to the CPU.
 // See https://www.nesdev.org/wiki/CPU_memory_map for more addressing details.
 class CPUBus : public EmulatorStates::SerializableState {
  public:

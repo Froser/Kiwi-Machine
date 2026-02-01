@@ -22,7 +22,7 @@ namespace kiwi {
 namespace nes {
 class Mapper;
 
-// PPU Bus is connected to PPU.
+// PPU Bus is connected to the PPU.
 // See https://www.nesdev.org/wiki/PPU_memory_map for more addressing details.
 class PPUBus : public EmulatorStates::SerializableState {
  public:
