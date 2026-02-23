@@ -21,8 +21,8 @@
 #include "../third_party/nlohmann_json/json.hpp"
 #include "base/strings/string_util.h"
 #include "kiwi_nes.h"
-#include "third_party/zlib-1.3/contrib/minizip/unzip.h"
-#include "third_party/zlib-1.3/contrib/minizip/zip.h"
+#include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
+#include "third_party/zlib-1.3.2/contrib/minizip/zip.h"
 #include "workspace.h"
 
 DECLARE_string(km_path);

@@ -22,7 +22,7 @@
 #include "nes/mapper.h"
 #include "nes/rom_data.h"
 #include "nes/types.h"
-#include "third_party/zlib-1.3/zlib.h"
+#include "third_party/zlib-1.3.2/zlib.h"
 
 namespace kiwi {
 namespace nes {

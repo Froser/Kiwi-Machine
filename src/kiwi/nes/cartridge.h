@@ -94,7 +94,7 @@ class Cartridge : public base::RefCountedThreadSafe<Cartridge>,
   std::atomic_bool is_loaded_ = false;
   std::unique_ptr<RomData> rom_data_;
   std::unique_ptr<Mapper> mapper_;
-  uint32_t crc_;  // crc_ is the combination CRC32 of PRG and CHR
+  uint32_t crc_ = 0;  // crc_ is the combination CRC32 of PRG and CHR
 };
 
 }  // namespace nes

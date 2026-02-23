@@ -222,7 +222,7 @@ target_link_libraries(${PROJECT_NAME}
         gflags_nothreads_static
         SDL2_image
         SDL2_mixer
-        minizip
+        libminizipstatic
 )
 target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
 target_include_directories(${PROJECT_NAME}

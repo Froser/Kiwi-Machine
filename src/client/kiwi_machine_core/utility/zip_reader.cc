@@ -18,7 +18,7 @@
 
 #include "preset_roms/preset_roms.h"
 #include "third_party/nlohmann_json/json.hpp"
-#include "third_party/zlib-1.3/contrib/minizip/unzip.h"
+#include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "ui/application.h"
 #include "utility/localization.h"
 

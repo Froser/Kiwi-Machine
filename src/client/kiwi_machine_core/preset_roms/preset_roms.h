@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "third_party/zlib-1.3/contrib/minizip/unzip.h"
+#include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "utility/localization.h"
 
 namespace preset_roms {
