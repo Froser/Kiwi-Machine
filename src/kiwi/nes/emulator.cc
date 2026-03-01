@@ -26,5 +26,11 @@ scoped_refptr<Emulator> CreateEmulator() {
   return base::MakeRefCounted<EmulatorImpl>();
 }
 
+scoped_refptr<Emulator> CreateEmulatorForTesting() {
+  auto emulator = base::MakeRefCounted<EmulatorImpl>();
+  static_cast<EmulatorImpl*>(emulator.get())->SetForTesting();
+  return emulator;
+}
+
 }  // namespace nes
 }  // namespace kiwi

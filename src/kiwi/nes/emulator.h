@@ -134,8 +134,12 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual void SetControllerType(int id, Controller::Type type) = 0;
 };
 
-// Creates an emulator.
+// Create an emulator.
 NES_EXPORT scoped_refptr<Emulator> CreateEmulator();
+
+// Create an emulator for testing. All async methods will run on the same
+// thread.
+NES_EXPORT scoped_refptr<Emulator> CreateEmulatorForTesting();
 
 }  // namespace nes
 }  // namespace kiwi

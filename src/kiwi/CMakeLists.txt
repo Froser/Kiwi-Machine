@@ -274,7 +274,7 @@ if (NOT EMSCRIPTEN)
     if (MSVC)
         target_compile_options(${PROJECT_NAME} PUBLIC /wd4275 /wd4251 /wd4267 /wd4244)
     endif ()
-endif ()
 
-# Add testing directory
-add_subdirectory(testing)
+    # Add testing directory
+    add_subdirectory(testing)
+endif ()

@@ -111,6 +111,11 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   bool is_power_on() { return is_power_on_; }
 
  private:
+  // Set emulator for testing. All async methods will run on the same thread.
+  void SetForTesting();
+  friend scoped_refptr<Emulator> CreateEmulatorForTesting();
+
+ private:
   bool LoadFromFileOnProperThread(const base::FilePath& rom_path);
   bool LoadFromBinaryOnProperThread(const Bytes& data);
   bool HandleLoadedResult(Cartridge::LoadResult load_result,
@@ -130,6 +135,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
 
  private:
   bool is_power_on_ = false;
+  bool set_for_testing_ = false;
   // NTSC NES: 1.789773 MHz (~559 ns per cycle)
   std::unique_ptr<CPU> cpu_;
   std::unique_ptr<CPUBus> cpu_bus_;

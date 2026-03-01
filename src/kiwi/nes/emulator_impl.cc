@@ -127,6 +127,11 @@ EmulatorImpl::~EmulatorImpl() = default;
 void EmulatorImpl::PowerOn() {
   emulator_task_runner_ = base::SingleThreadTaskRunner::GetCurrentDefault();
 
+  // Check if SetForTesting() was called before PowerOn()
+  if (set_for_testing_) {
+    render_coroutine_ = emulator_task_runner_;
+  }
+
   ppu_bus_ = std::make_unique<PPUBus>();
   ppu_ = std::make_unique<PPU>(ppu_bus_.get());
   ppu_->SetObserver(this);
@@ -177,19 +182,27 @@ void EmulatorImpl::PowerOff() {
 
 void EmulatorImpl::LoadFromFile(const base::FilePath& rom_path,
                                 LoadCallback callback) {
-  render_coroutine_->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      base::BindOnce(&EmulatorImpl::LoadFromFileOnProperThread,
-                     base::RetainedRef(this), rom_path),
-      base::BindOnce(std::move(callback)));
+  if (render_coroutine_ != emulator_task_runner_) {
+    render_coroutine_->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        base::BindOnce(&EmulatorImpl::LoadFromFileOnProperThread,
+                       base::RetainedRef(this), rom_path),
+        base::BindOnce(std::move(callback)));
+  } else {
+    std::move(callback).Run(LoadFromFileOnProperThread(rom_path));
+  }
 }
 
 void EmulatorImpl::LoadFromBinary(const Bytes& data, LoadCallback callback) {
-  render_coroutine_->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      base::BindOnce(&EmulatorImpl::LoadFromBinaryOnProperThread,
-                     base::RetainedRef(this), data),
-      base::BindOnce(std::move(callback)));
+  if (render_coroutine_ != emulator_task_runner_) {
+    render_coroutine_->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        base::BindOnce(&EmulatorImpl::LoadFromBinaryOnProperThread,
+                       base::RetainedRef(this), data),
+        base::BindOnce(std::move(callback)));
+  } else {
+    std::move(callback).Run(LoadFromBinaryOnProperThread(data));
+  }
 }
 
 const RomData* EmulatorImpl::GetRomData() {
@@ -298,9 +311,11 @@ void EmulatorImpl::Strobe(Byte strobe) {
 void EmulatorImpl::RunOneFrameOnProperThread() {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (running_state_ != RunningState::kRunning) {
-    EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
-        ->RunAllTasks();
-    return;
+    if (!set_for_testing_) {
+      EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
+          ->RunAllTasks();
+      return;
+    }
   }
 
   if (debug_port_)
@@ -316,8 +331,10 @@ void EmulatorImpl::RunOneFrameOnProperThread() {
   if (debug_port_)
     debug_port_->performance_counter().End();
 
-  EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
-      ->RunAllTasks();
+  if (!set_for_testing_) {
+    EmulatorRenderTaskRunner::AsEmulatorRenderTaskRunner(render_coroutine_)
+        ->RunAllTasks();
+  }
 }
 
 void EmulatorImpl::PowerOffOnProperThread() {
@@ -407,6 +424,14 @@ void EmulatorImpl::SetControllerTypes(uint32_t crc32) {
       controller1_.SetType(this, Controller::Type::kStandard);
       controller2_.SetType(this, Controller::Type::kStandard);
       break;
+  }
+}
+
+void EmulatorImpl::SetForTesting() {
+  if (emulator_task_runner_) {
+    render_coroutine_ = emulator_task_runner_;
+  } else {
+    set_for_testing_ = true;
   }
 }
 

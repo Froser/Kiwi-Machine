@@ -16,6 +16,9 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 # Add test sources
 set(Sources
     test_main.cc
+    rom_test.cc
+
+    ../nes/cpu_unittest.cc
 )
 
 # Create test executable
