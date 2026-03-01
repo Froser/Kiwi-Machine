@@ -1,13 +1,16 @@
 /cmake-build-debug/
 /cmake-build-release/
+/cmake-build-ios-debug/
+/cmake-build-ios-release/
+/cmake-build-intel-debug/
+/cmake-build-intel-release/
+/cmake-build-emscripten-debug/
+/cmake-build-emscripten-release/
+/emsdk/
+/src/client/kiwi_machine/build/win/*.aps
 /.idea/
 **/.DS_Store
 /venv/
-/src/client/kiwi_machine/build/win/*.aps
-/cmake-build-ios/
-/cmake-build-release-intel/
-/cmake-build-emscripten_debug/
-/cmake-build-emscripten/
 /src/third_party/Kiwi-Machine-Workspace/
 !/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.html
 

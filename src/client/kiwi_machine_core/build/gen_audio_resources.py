@@ -53,6 +53,10 @@ def main():
     wasm_ignores = []
     if use_wasm_ignore:
         print("Generated for wasm env.")
+        # Get the directory of the current script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        # Get the parent directory (kiwi_machine_core)
+        target_path = os.path.dirname(script_dir)
         with open(target_path + '/wasm_ignore.json', 'r', encoding='utf-8') as f:
             wasm_ignores = json.load(f)
 

@@ -225,7 +225,8 @@ if(MINIZIP_INSTALL)
             EXPORT minizipSharedExport
             RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
             ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}")
         install(
             EXPORT minizipSharedExport
             FILE minizip-shared.cmake
@@ -251,7 +252,8 @@ if(MINIZIP_INSTALL)
             EXPORT minizipStaticExport
             RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
             ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}")
         install(
             EXPORT minizipStaticExport
             FILE minizip-static.cmake

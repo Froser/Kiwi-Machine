@@ -69,10 +69,57 @@ Consistent programming style means that the Kiwi kernel uses asynchronous progra
 If you want to use the ROM resources prepared for you by Kiwi-Machine instead of packing them manually, you need to perform the following operations:
 
 1. Choose a path, take `~/Documents/Kiwi-Machine-Workspace` as an example, and pull the code `git clone https://github.com/Froser/Kiwi-Machine-Workspace.git` in the directory. You can also complete this by running `build/workspace-sync.py`.
-2. Compile `package_manager` first according to the method described next, run it with the command line `--workspace=~/Documents/Kiwi-Machine-Workspace`, and package the ROM into a pak file.
-3. Build the main KiwiMachine, and specify `-DKIWI_PACKAGE_DIR=~/Documents/Kiwi-Machine-Workspace/out/output` in CMake, so it will automatically copy the pak files you generated to the resource directory.
+2. Compile `package_manager` first according to the method described next, run it with the command line `--workspace={Path-To-KiwiMachine-Workspace}`, and package the ROM into a pak file.
+3. Build the main KiwiMachine, and specify `-DKIWI_PACKAGE_DIR={Path-To-KiwiMachine-Workspace}/out/output` in CMake, so it will automatically copy the pak files you generated to the resource directory.
 
 If you are compiling for Android, you need to manually copy the pak files to the asset directory.
+
+## Automatic Build
+
+Kiwi-Machine provides an automated build script `build.py` to simplify the build process across different platforms. This script handles the entire build process, including dependency synchronization and platform-specific configurations.
+
+### Usage
+
+```bash
+# Build all platforms and sync dependencies
+python3 build.py
+
+# Build specific platform
+python3 build.py pc        # Build PC platform (Debug and Release)
+python3 build.py ios       # Build iOS platform (Debug and Release, macOS only)
+python3 build.py wasm      # Build WebAssembly platform (Debug and Release)
+python3 build.py workspace # Sync workspace dependencies
+python3 build.py all       # Build all platforms and sync dependencies
+python3 build.py help      # Print help information
+
+# Generate CLion configuration files
+python3 build.py pc --clion        # Generate CLion config for PC platform
+python3 build.py ios --clion       # Generate CLion config for iOS platform
+python3 build.py wasm --clion      # Generate CLion config for WebAssembly platform
+python3 build.py all --clion       # Generate CLion config for all platforms
+```
+
+### Features
+
+- **PC Build**: Automatically builds both Debug and Release configurations for your current platform (Windows, macOS, Linux)
+- **iOS Build**: Creates Xcode projects for iOS devices (only available on macOS)
+- **WebAssembly Build**: Installs Emscripten SDK if needed and builds both Debug and Release configurations
+- **Workspace Sync**: Automatically syncs dependencies using `workspace-sync.py`
+- **Apple Silicon Support**: On Apple Silicon machines, additional Intel architecture builds are created for compatibility
+
+### Build Output
+
+The script creates the following build directories:
+- `cmake-build-debug`: Debug build for current platform
+- `cmake-build-release`: Release build for current platform
+- `cmake-build-intel-debug` (Apple Silicon only): Debug build for Intel architecture
+- `cmake-build-intel-release` (Apple Silicon only): Release build for Intel architecture
+- `cmake-build-ios-debug`: iOS Debug build for real devices
+- `cmake-build-ios-release`: iOS Release build for real devices
+- `cmake-build-emscripten-debug`: WebAssembly Debug build
+- `cmake-build-emscripten-release`: WebAssembly Release build
+
+## Manual Build
 
 ### MacOS, Windows, Linux Build Methods
 
