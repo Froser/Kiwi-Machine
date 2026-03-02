@@ -29,6 +29,7 @@ include_directories(
 
 # Include zlib directory
 include_directories(${zlib_BINARY_DIR})
+include_directories(${zlib_SOURCE_DIR})
 
 list(APPEND
         CMAKE_MODULE_PATH
