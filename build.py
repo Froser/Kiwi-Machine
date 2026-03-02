@@ -138,7 +138,7 @@ def install_emsdk():
     
     # Call install_emsdk.py script
     emsdk_script = os.path.join(PROJECT_ROOT, "build", "install_emsdk.py")
-    run_command(f"python3 {emsdk_script}")
+    return run_command(f"python3 {emsdk_script}")
 
 def find_python310():
     """Find Python 3.10 or higher executable"""
@@ -198,8 +198,8 @@ def build_wasm_config(config):
         sys.exit(1)
     print(f"Using Python: {python_exec}")
     
-    # Get appropriate CMake generator (same as PC build)
-    generator = get_cmake_generator()
+    # Use Ninja generator for WebAssembly builds
+    generator = 'Ninja'
     print(f"Using CMake generator: {generator}")
     
     # Set environment variables to use the correct Python
@@ -214,7 +214,7 @@ def build_wasm_config(config):
     
     # Run cmake with the correct environment
     print(f"\nRunning cmake for {config} configuration...")
-    cmake_cmd = f"cmake -G '{generator}' -DCMAKE_TOOLCHAIN_FILE={emscripten_cmake_path} -DCMAKE_BUILD_TYPE={config.capitalize()} -DBUILD_SHARED_LIBS=OFF -DZLIB_BUILD_SHARED=OFF .."
+    cmake_cmd = f"cmake -G '{generator}' -DCMAKE_TOOLCHAIN_FILE={emscripten_cmake_path} -DCMAKE_BUILD_TYPE={config.capitalize()} -DBUILD_SHARED_LIBS=OFF -DZLIB_BUILD_SHARED=OFF -DGFLAGS_INTTYPES_FORMAT=C99 -DINTTYPES_FORMAT=C99 -DSDL2MIXER_CMD=OFF -DSDL_TEST=OFF -DCMAKE_CXX_FLAGS='-s WASM_BIGINT=1 -s MEMORY64=1' -DCMAKE_C_FLAGS='-s WASM_BIGINT=1 -s MEMORY64=1' -DMINIZIP_BUILD_SHARED=OFF .."
     
     # Run command with modified environment
     print(f"Running: {cmake_cmd}")
@@ -232,7 +232,7 @@ def build_wasm_config(config):
     elif generator == 'Visual Studio 17 2022':
         build_cmd = 'cmake --build . --config Debug' if config == 'debug' else 'cmake --build . --config Release'
     else:
-        build_cmd = 'make'
+        build_cmd = 'ninja'
     print(f"Running: {build_cmd}")
     result = subprocess.run(build_cmd, shell=True, cwd=cmake_build_dir, capture_output=True, text=True, env=env)
     if result.returncode != 0:
@@ -277,7 +277,7 @@ def sync_workspace():
 
 def print_help():
     """Print help information"""
-    print("Usage: build.py [options] [--clion]")
+    print("Usage: build.py [options] [--clion] [--cleanup-clion] [--cleanup]")
     print("Options:")
     print("  pc          Build PC platform projects (Debug and Release)")
     print("  ios         Build iOS platform projects (Debug and Release)")
@@ -286,6 +286,8 @@ def print_help():
     print("  all         Build all platforms and sync dependencies")
     print("  help        Print this help message")
     print("  --clion     Generate CLion configuration files instead of building")
+    print("  --cleanup-clion     Remove CLion configuration directory")
+    print("  --cleanup   Remove all binary output directories")
     print("")
     print("For Apple Silicon machines, additional Intel architecture builds are created.")
 
@@ -293,153 +295,274 @@ def generate_clion_config(platform="all"):
     """Generate CLion configuration files for specified platform"""
     print(f"\n=== Generating CLion configuration files for {platform} platform ===")
     
-    # Check if .idea directory exists
-    idea_dir = os.path.join(PROJECT_ROOT, ".idea")
-    if not os.path.exists(idea_dir):
-        print(f"Creating .idea directory at {idea_dir}")
-        os.makedirs(idea_dir)
-    
     # Get appropriate generator for CLion
     generator = "Ninja"
     
-    # Base configurations
-    configurations = []
+    # Base presets
+    presets = {
+        "version": 6,
+        "cmakeMinimumRequired": {
+            "major": 3,
+            "minor": 21,
+            "patch": 0
+        },
+        "configurePresets": []
+    }
     
     # PC configurations
     if platform == "all" or platform == "pc":
-        configurations.append('''
-      <configuration
-          name="Debug"
-          type="Debug"
-          buildType="Debug"
-          generator="{generator}"
-          path="$PROJECT_DIR$/cmake-build-debug"
-      />
-      <configuration
-          name="Release"
-          type="Release"
-          buildType="Release"
-          generator="{generator}"
-          path="$PROJECT_DIR$/cmake-build-release"
-      />'''.format(generator=generator))
+        # Debug preset
+        presets["configurePresets"].append({
+            "name": "debug",
+            "displayName": "Debug",
+            "description": "Debug build for PC",
+            "generator": generator,
+            "binaryDir": "${sourceDir}/cmake-build-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        })
+        
+        # Release preset
+        presets["configurePresets"].append({
+            "name": "release",
+            "displayName": "Release",
+            "description": "Release build for PC",
+            "generator": generator,
+            "binaryDir": "${sourceDir}/cmake-build-release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        })
+        
+        # For Apple Silicon machines, also generate Intel architecture configurations
+        if is_apple_silicon():
+            # Intel Debug preset
+            presets["configurePresets"].append({
+                "name": "intel-debug",
+                "displayName": "Intel Debug",
+                "description": "Debug build for Intel architecture",
+                "generator": generator,
+                "binaryDir": "${sourceDir}/cmake-build-intel-debug",
+                "cacheVariables": {
+                    "CMAKE_BUILD_TYPE": "Debug",
+                    "CMAKE_OSX_ARCHITECTURES": "x86_64"
+                }
+            })
+            
+            # Intel Release preset
+            presets["configurePresets"].append({
+                "name": "intel-release",
+                "displayName": "Intel Release",
+                "description": "Release build for Intel architecture",
+                "generator": generator,
+                "binaryDir": "${sourceDir}/cmake-build-intel-release",
+                "cacheVariables": {
+                    "CMAKE_BUILD_TYPE": "Release",
+                    "CMAKE_OSX_ARCHITECTURES": "x86_64"
+                }
+            })
     
     # WebAssembly configurations
     if (platform == "all" or platform == "wasm"):
+        # Use Ninja generator for WASM builds
+        wasm_generator = "Ninja"
+        emsdk_dir = os.path.join(PROJECT_ROOT, "emsdk")
+        
+        # Check if Emscripten is installed
+        if not os.path.exists(emsdk_dir):
+            print("Emscripten not found, installing...")
+            install_success = install_emsdk()
+            if not install_success:
+                print("Emscripten installation failed, skipping WASM configurations")
+                return
+        
+        # Check if Emscripten is properly installed
         emscripten_cmake_path = os.path.join(PROJECT_ROOT, "emsdk", "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake")
-        if os.path.exists(emscripten_cmake_path):
-            configurations.append('''
-      <configuration
-          name="WASM Debug"
-          type="Debug"
-          buildType="Debug"
-          generator="{generator}"
-          path="$PROJECT_DIR$/cmake-build-emscripten-debug"
-          toolchainFile="{emscripten_cmake_path}"
-      />
-      <configuration
-          name="WASM Release"
-          type="Release"
-          buildType="Release"
-          generator="{generator}"
-          path="$PROJECT_DIR$/cmake-build-emscripten-release"
-          toolchainFile="{emscripten_cmake_path}"
-      />'''.format(generator=generator, emscripten_cmake_path=emscripten_cmake_path))
-        else:
-            print("Emscripten not found, skipping WASM configurations")
+        if not os.path.exists(emscripten_cmake_path):
+            print("Emscripten directory exists but is not properly installed, skipping WASM configurations")
+            return
+        
+        # Common cache variables for WASM builds
+        wasm_cache_vars = {
+            "BUILD_SHARED_LIBS": "OFF",
+            "ZLIB_BUILD_SHARED": "OFF",
+            "GFLAGS_INTTYPES_FORMAT": "C99",
+            "INTTYPES_FORMAT": "C99",
+            "SDL2MIXER_CMD": "OFF",
+            "SDL_TEST": "OFF",
+            "MINIZIP_BUILD_SHARED": "OFF",
+            "CMAKE_CXX_FLAGS": "-s WASM_BIGINT=1 -s MEMORY64=1",
+            "CMAKE_C_FLAGS": "-s WASM_BIGINT=1 -s MEMORY64=1"
+        }
+        
+        # WASM Debug preset
+        debug_cache_vars = wasm_cache_vars.copy()
+        debug_cache_vars["CMAKE_BUILD_TYPE"] = "Debug"
+        
+        presets["configurePresets"].append({
+            "name": "wasm-debug",
+            "displayName": "WASM Debug",
+            "description": "Debug build for WebAssembly",
+            "generator": wasm_generator,
+            "binaryDir": "${sourceDir}/cmake-build-emscripten-debug",
+            "cacheVariables": debug_cache_vars,
+            "toolchainFile": emscripten_cmake_path
+        })
+        
+        # WASM Release preset
+        release_cache_vars = wasm_cache_vars.copy()
+        release_cache_vars["CMAKE_BUILD_TYPE"] = "Release"
+        
+        presets["configurePresets"].append({
+            "name": "wasm-release",
+            "displayName": "WASM Release",
+            "description": "Release build for WebAssembly",
+            "generator": wasm_generator,
+            "binaryDir": "${sourceDir}/cmake-build-emscripten-release",
+            "cacheVariables": release_cache_vars,
+            "toolchainFile": emscripten_cmake_path
+        })
     
     # iOS configurations (only on macOS)
     if (platform == "all" or platform == "ios") and sys.platform == 'darwin':
         ios_toolchain = os.path.join(PROJECT_ROOT, "build", "cmake", "ios.toolchain.cmake")
         if os.path.exists(ios_toolchain):
-            configurations.append('''
-      <configuration
-          name="iOS Debug"
-          type="Debug"
-          buildType="Debug"
-          generator="Xcode"
-          path="$PROJECT_DIR$/cmake-build-ios-debug"
-          toolchainFile="{ios_toolchain}"
-          variables="{{\"PLATFORM\":\"OS64\"}}"
-      />
-      <configuration
-          name="iOS Release"
-          type="Release"
-          buildType="Release"
-          generator="Xcode"
-          path="$PROJECT_DIR$/cmake-build-ios-release"
-          toolchainFile="{ios_toolchain}"
-          variables="{{\"PLATFORM\":\"OS64\"}}"
-      />'''.format(ios_toolchain=ios_toolchain))
+            # iOS Debug preset
+            presets["configurePresets"].append({
+                "name": "ios-debug",
+                "displayName": "iOS Debug",
+                "description": "Debug build for iOS",
+                "generator": "Xcode",
+                "binaryDir": "${sourceDir}/cmake-build-ios-debug",
+                "cacheVariables": {
+                    "CMAKE_BUILD_TYPE": "Debug",
+                    "PLATFORM": "OS64"
+                },
+                "toolchainFile": ios_toolchain
+            })
+            
+            # iOS Release preset
+            presets["configurePresets"].append({
+                "name": "ios-release",
+                "displayName": "iOS Release",
+                "description": "Release build for iOS",
+                "generator": "Xcode",
+                "binaryDir": "${sourceDir}/cmake-build-ios-release",
+                "cacheVariables": {
+                    "CMAKE_BUILD_TYPE": "Release",
+                    "PLATFORM": "OS64"
+                },
+                "toolchainFile": ios_toolchain
+            })
         else:
             print("iOS toolchain not found, skipping iOS configurations")
+
+    # Create CMakePresets.json file
+    cmake_presets_path = os.path.join(PROJECT_ROOT, "CMakePresets.json")
     
-    # Create CLion workspace configuration
-    workspace_xml_path = os.path.join(idea_dir, "workspace.xml")
-    print("Creating workspace.xml for CLion with configurations")
+    # Remove old CMakePresets.json if it exists
+    if os.path.exists(cmake_presets_path):
+        print(f"Removing old CMakePresets.json at {cmake_presets_path}")
+        os.remove(cmake_presets_path)
     
-    # Combine all configurations
-    workspace_content = '''<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="CMakePresetLoader"><![CDATA[{
-  "useNewFormat": true
-}]]></component>
-  <component name="CMakeProjectFlavorService">
-    <option name="flavorId" value="CMakePlainProjectFlavor" />
-  </component>
-  <component name="CMakeReloadState">
-    <option name="reloaded" value="true" />
-  </component>
-  <component name="CMakeSettings">
-    <configurations>'''
+    print("Creating CMakePresets.json for CLion with configurations")
     
-    for config in configurations:
-        workspace_content += config
+    import json
+    with open(cmake_presets_path, 'w') as f:
+        json.dump(presets, f, indent=2)
     
-    workspace_content += '''
-    </configurations>
-  </component>
-  <component name="ProjectId" id="3ALvpy2W3U6bNN8NeQnRERQBxTs" />
-  <component name="ProjectViewState">
-    <option name="hideEmptyMiddlePackages" value="true" />
-    <option name="showLibraryContents" value="true" />
-  </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.RadMigrateCodeStyle": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "cf.first.check.clang-format": "false",
-    "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "main"
-  }
-}]]></component>
-</project>'''
+    # Track which configurations were actually generated
+    generated_configs = {
+        "pc": False,
+        "intel": False,
+        "wasm": False,
+        "ios": False
+    }
     
-    with open(workspace_xml_path, 'w') as f:
-        f.write(workspace_content)
+    # Check which configurations were generated
+    for preset in presets["configurePresets"]:
+        if preset["name"] in ["debug", "release"]:
+            generated_configs["pc"] = True
+        elif preset["name"] in ["intel-debug", "intel-release"]:
+            generated_configs["intel"] = True
+        elif preset["name"] in ["wasm-debug", "wasm-release"]:
+            generated_configs["wasm"] = True
+        elif preset["name"] in ["ios-debug", "ios-release"]:
+            generated_configs["ios"] = True
     
     print("\nCLion configuration files generated successfully!")
     print("Open the project in CLion to build it")
     print("Available configurations:")
-    if platform == "all" or platform == "pc":
+    if generated_configs["pc"]:
         print("  - Debug/Release: PC platform")
-    if (platform == "all" or platform == "wasm") and os.path.exists(os.path.join(PROJECT_ROOT, "emsdk", "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake")):
+    if generated_configs["intel"]:
+        print("  - Intel Debug/Release: Intel architecture")
+    if generated_configs["wasm"]:
         print("  - WASM Debug/Release: WebAssembly platform")
-    if (platform == "all" or platform == "ios") and sys.platform == 'darwin' and os.path.exists(os.path.join(PROJECT_ROOT, "build", "cmake", "ios.toolchain.cmake")):
+    if generated_configs["ios"]:
         print("  - iOS Debug/Release: iOS platform")
+
+def cleanup_clion():
+    """Remove CLion configuration directory"""
+    print("\n=== Cleaning up CLion configuration ===")
+    
+    # Check if .idea directory exists
+    idea_dir = os.path.join(PROJECT_ROOT, ".idea")
+    if os.path.exists(idea_dir):
+        print(f"Removing .idea directory at {idea_dir}")
+        import shutil
+        shutil.rmtree(idea_dir)
+        print("CLion configuration directory removed successfully!")
+    else:
+        print(".idea directory not found, nothing to clean up.")
+
+
+def cleanup_build():
+    """Remove all binary output directories"""
+    print("\n=== Cleaning up binary output directories ===")
+    
+    # Get all directories starting with cmake-build-
+    import glob
+    build_dirs = glob.glob(os.path.join(PROJECT_ROOT, "cmake-build-*"))
+    
+    if build_dirs:
+        for build_dir in build_dirs:
+            print(f"Removing directory: {build_dir}")
+            import shutil
+            shutil.rmtree(build_dir)
+        print(f"Successfully removed {len(build_dirs)} binary output directories!")
+    else:
+        print("No binary output directories found, nothing to clean up.")
+
 
 def main():
     """Main function"""
     # Check for --clion flag
     clion_mode = "--clion" in sys.argv
     
-    # Remove --clion from arguments if present
+    # Check for --cleanup-clion flag
+    cleanup_clion_mode = "--cleanup-clion" in sys.argv
+    
+    # Check for --cleanup flag
+    cleanup_build_mode = "--cleanup" in sys.argv
+    
+    # Remove flags from arguments if present
     if clion_mode:
         sys.argv.remove("--clion")
+    if cleanup_clion_mode:
+        sys.argv.remove("--cleanup-clion")
+    if cleanup_build_mode:
+        sys.argv.remove("--cleanup")
+    
+    # Handle cleanup modes
+    if cleanup_clion_mode:
+        cleanup_clion()
+        return
+    if cleanup_build_mode:
+        cleanup_build()
+        cleanup_clion()
+        return
     
     # Parse command line arguments
     if len(sys.argv) == 1:

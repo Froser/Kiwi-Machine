@@ -118,7 +118,6 @@ if (EMSCRIPTEN)
 -s INITIAL_MEMORY=128MB \
 -s ALLOW_MEMORY_GROWTH \
 -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=\\\[\\\"\\\$autoResumeAudioContext\\\"\\\,\\\"\\\$dynCall\\\"\\\] \
--s USE_OFFSET_CONVERTER \
 -s EXPORTED_RUNTIME_METHODS=ccall \
 -s EXPORTED_FUNCTIONS=_LoadROMFromTempPath\\\,_SetupCallbacks\\\,_CallMenu\\\,_SetVolume\\\,_main \
 --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/build/web/kiwi_machine.html"

@@ -19,3 +19,4 @@
 !/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.wasm
 
 !/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.js
+/CMakePresets.json

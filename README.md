@@ -99,6 +99,27 @@ python3 build.py wasm --clion      # Generate CLion config for WebAssembly platf
 python3 build.py all --clion       # Generate CLion config for all platforms
 ```
 
+### Important Note for CLion Users
+
+If you are using CLion as your IDE, you **must** use the `--clion` flag when running the build script to generate the necessary CMakePresets.json file. This file is required for CLion to properly recognize and configure the project.
+
+```bash
+# Example: Generate CLion configuration for all platforms
+python3 build.py --clion
+```
+
+### New Cleanup Commands
+
+The build script also provides cleanup commands to remove generated files:
+
+```bash
+# Remove CLion configuration directory
+python3 build.py --cleanup-clion
+
+# Remove all binary output directories
+python3 build.py --cleanup
+```
+
 ### Features
 
 - **PC Build**: Automatically builds both Debug and Release configurations for your current platform (Windows, macOS, Linux)
