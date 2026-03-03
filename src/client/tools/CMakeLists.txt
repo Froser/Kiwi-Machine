@@ -10,7 +10,5 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-if (NOT EMSCRIPTEN)
-    add_subdirectory(package_manager)
-    set_target_properties(package_manager PROPERTIES FOLDER "tools/package_manager")
-endif()
+add_subdirectory(package_manager)
+set_target_properties(package_manager PROPERTIES FOLDER "tools/package_manager")

@@ -115,7 +115,7 @@
         if (romUrl === null || romUrl === '') {
           fetch("roms/db.json").then(response => {
             response.json().then(db => {
-              const name = db[0].name;
+              const name = db[0].dir;
               RemoteMessageHandler.loadROMBinary(`roms/${name}/${name}.nes`);
             })
           })

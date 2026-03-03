@@ -126,6 +126,9 @@ def main():
     parser = argparse.ArgumentParser(description='Build and deploy WebAssembly build of Kiwi Machine')
     parser.add_argument('--debug', action='store_true', help='Deploy from debug build directory')
     parser.add_argument('--release', action='store_true', help='Deploy from release build directory')
+    # --roms flag: When specified, copy ROMs from rom_dir to public directory
+    # This flag must be used with --debug or --release, and optionally with a custom rom_dir
+    parser.add_argument('--roms', action='store_true', help='Copy ROMs from rom_dir to public directory (must be used with --debug or --release)')
     parser.add_argument('build_dir', nargs='?', help='Custom build directory path')
     parser.add_argument('rom_dir', nargs='?', help='ROM directory path (optional)')
     parser.add_argument('--install', action='store_true', help='Install dependencies (npm install)')
@@ -133,6 +136,13 @@ def main():
     parser.add_argument('--build', action='store_true', help='Build production version (npm run build)')
     
     args = parser.parse_args()
+    
+    # Check for ROM directory if --debug or --release is specified and --roms is present
+    if (args.debug or args.release) and args.roms:
+        rom_dir_candidate = os.path.join(PROJECT_ROOT, 'src', 'third_party', 'Kiwi-Machine-Workspace', 'zipped', 'nes')
+        if os.path.exists(rom_dir_candidate):
+            print(f"Found ROM directory: {rom_dir_candidate}")
+            args.rom_dir = rom_dir_candidate
     
     # Handle npm commands
     if args.install:
@@ -194,8 +204,8 @@ def main():
     CopyFile(wasm_src, public_dir)
     print('Done copying frontend files')
 
-    # Copy roms if provided
-    if args.rom_dir:
+    # Copy roms if --roms is specified and rom_dir is provided
+    if args.roms and args.rom_dir:
         roms_dir = os.path.join(public_dir, 'roms')
         if os.path.exists(roms_dir):
             shutil.rmtree(roms_dir)

@@ -204,7 +204,8 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
 
 bool Cartridge::ProcessHeaders(const Byte* headers) {
   if (memcmp(headers, "NES\x1A", 4) != 0) {
-    LOG(ERROR) << "Not a valid iNES image.";
+    LOG(ERROR) << "Not a valid iNES image. Header: " << headers[0] << headers[1]
+               << headers[2] << headers[3];
     return false;
   }
 

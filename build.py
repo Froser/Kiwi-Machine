@@ -214,7 +214,9 @@ def build_wasm_config(config):
     
     # Run cmake with the correct environment
     print(f"\nRunning cmake for {config} configuration...")
-    cmake_cmd = f"cmake -G '{generator}' -DCMAKE_TOOLCHAIN_FILE={emscripten_cmake_path} -DCMAKE_BUILD_TYPE={config.capitalize()} -DBUILD_SHARED_LIBS=OFF -DZLIB_BUILD_SHARED=OFF -DGFLAGS_INTTYPES_FORMAT=C99 -DINTTYPES_FORMAT=C99 -DSDL2MIXER_CMD=OFF -DSDL_TEST=OFF -DMINIZIP_BUILD_SHARED=OFF -DMINIZIP_BUILD_STATIC=ON .."
+    # Add KIWI_WASM_RELEASE=ON for Release configuration
+    wasm_release_flag = "-DKIWI_WASM_RELEASE=ON" if config == "release" else ""
+    cmake_cmd = f"cmake -G '{generator}' -DCMAKE_TOOLCHAIN_FILE={emscripten_cmake_path} -DCMAKE_BUILD_TYPE={config.capitalize()} {wasm_release_flag} -DBUILD_SHARED_LIBS=OFF -DZLIB_BUILD_SHARED=OFF -DGFLAGS_INTTYPES_FORMAT=C99 -DINTTYPES_FORMAT=C99 -DSDL2MIXER_CMD=OFF -DSDL_TEST=OFF -DMINIZIP_BUILD_SHARED=OFF -DMINIZIP_BUILD_STATIC=ON .."
     
     # Run command with modified environment
     print(f"Running: {cmake_cmd}")
@@ -412,6 +414,7 @@ def generate_clion_config(platform="all"):
         # WASM Release preset
         release_cache_vars = wasm_cache_vars.copy()
         release_cache_vars["CMAKE_BUILD_TYPE"] = "Release"
+        release_cache_vars["KIWI_WASM_RELEASE"] = "ON"
         
         presets["configurePresets"].append({
             "name": "wasm-release",

@@ -20,3 +20,9 @@
 
 !/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.js
 /CMakePresets.json
+
+# Python cache
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd

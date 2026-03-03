@@ -168,8 +168,6 @@ You need to download the `Emscripten` SDK (`emsdk`) first, then set the toolchai
 -DCMAKE_TOOLCHAIN_FILE=/Users/user/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
 ```
 
-If you specify `KIWI_EMSCRIPTEN_BUILD_DIR`, the build system will build an automatically deployed project for you.
-
 ### Frontend Page Build Method
 
 This project contains a frontend project located at `src/client/kiwi_machine_wasm/kiwi-machine`
