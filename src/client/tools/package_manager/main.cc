@@ -27,6 +27,8 @@
 #include "workspace.h"
 
 DEFINE_string(km_path, "", "Kiwi-Machine executable/bundle directory.");
+DEFINE_string(zipped_path, "", "Input path for zipped files.");
+DEFINE_string(output_path, "", "Output path for packaged files.");
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -721,6 +723,24 @@ int WINAPI wWinMain(HINSTANCE hInstance,
 int main(int argc, char **argv) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 #endif
+
+    if (!FLAGS_zipped_path.empty() && !FLAGS_output_path.empty()) {
+        kiwi::base::FilePath zipped_path =
+                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_zipped_path);
+        kiwi::base::FilePath output_path =
+                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_output_path);
+        auto result = PackEntireDirectory(zipped_path, output_path);
+        if (!result.empty()) {
+            printf("Done. Result: \n");
+            for (const auto &path : result) {
+                printf("%s\n", path.AsUTF8Unsafe().c_str());
+            }
+            return 0;
+        } else {
+            printf("打包失败。\n");
+            return 1;
+        }
+    }
 
     InitSDL();
 

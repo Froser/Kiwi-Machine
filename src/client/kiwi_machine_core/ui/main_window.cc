@@ -664,7 +664,6 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
 #endif
 
 void MainWindow::InitializeRuntimeData() {
-  SDL_assert(runtime_id_ >= 0);
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id_);
 
   if (FLAGS_enable_debug) {

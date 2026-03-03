@@ -316,3 +316,19 @@ Kiwi-Machine provides an NES packaging tool located at `src/tools/package_manage
 
 This repository does not contain NES resources. If you need to obtain NES resources, you can clone `https://github.com/Froser/kiwi-machine-workspace` using git.
 Open the package manager's GUI interface for packaging by running `package_manager --workspace {Kiwi-Machine's Workspace path}`.
+
+### Auto Package
+
+Kiwi-Machine also provides an automated packaging target `auto_package` to simplify the packaging process. This target automatically packages all subdirectories under `zipped/nes` in the workspace and copies the generated `.pak` files to the same directory as `kiwi_machine`.
+
+To use `auto_package`:
+
+```bash
+# Build the auto_package target (will automatically build package_manager and kiwi_machine first)
+cmake --build <build_dir> --target auto_package
+```
+
+The `auto_package` target will:
+1. Check if `src/third_party/Kiwi-Machine-Workspace` exists
+2. Process each subdirectory under `zipped/nes` and package it into `.pak` files
+3. Copy all generated `.pak` files to the same directory as `kiwi_machine`

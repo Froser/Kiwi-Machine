@@ -467,7 +467,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
       std::string highlight = to_string(icon_data.at("highlight"));
       icon = kiwi::nes::Bytes(normal.begin(), normal.end());
       icon_highlight = kiwi::nes::Bytes(highlight.begin(), highlight.end());
-      unzGoToNextFile(*pak);
+      located = unzGoToNextFile(*pak);
       continue;
     }
 
