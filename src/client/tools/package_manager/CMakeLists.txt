@@ -14,6 +14,9 @@ project(package_manager CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
+# Find Python3 for auto_package
+find_package(Python3 COMPONENTS Interpreter)
+
 list(APPEND
         CMAKE_MODULE_PATH
         "${CMAKE_CURRENT_SOURCE_DIR}/../../../../build/cmake"
@@ -77,7 +80,7 @@ target_link_libraries(${PROJECT_NAME}
         imgui
         SDL2-static
         SDL2_image
-        minizip
+        libminizipstatic
         libjpeg
 )
 
@@ -95,3 +98,22 @@ add_custom_command(
         ARGS "${${PROJECT_NAME}_SOURCE_DIR}/db.json" "$<TARGET_FILE_DIR:${PROJECT_NAME}>/db.json"
         VERBATIM
 )
+
+# Auto package target
+if (APPLE)
+    add_custom_target(auto_package
+            COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/auto_package.py" "$<TARGET_FILE:${PROJECT_NAME}>" "$<TARGET_BUNDLE_DIR:kiwi_machine>/Contents/Resources"
+            DEPENDS ${PROJECT_NAME} kiwi_machine
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMENT "Running auto_package.py to package workspace..."
+            VERBATIM
+    )
+else ()
+    add_custom_target(auto_package
+            COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/auto_package.py" "$<TARGET_FILE:${PROJECT_NAME}>" "$<TARGET_FILE_DIR:kiwi_machine>"
+            DEPENDS ${PROJECT_NAME} kiwi_machine
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            COMMENT "Running auto_package.py to package workspace..."
+            VERBATIM
+    )
+endif ()

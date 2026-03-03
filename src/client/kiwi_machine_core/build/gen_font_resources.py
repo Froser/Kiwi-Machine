@@ -53,7 +53,7 @@ def main():
     print("Font resources output dir is", output_dir)
     if use_wasm_ignore:
         print("Generated for wasm env.")
-        with open(target_path + '/wasm_ignore.json', 'r', encoding='utf-8') as f:
+        with open('./resources/fonts/wasm_ignore.json', 'r', encoding='utf-8') as f:
             wasm_ignores = json.load(f)
 
     if not os.path.isdir(output_dir):

@@ -18,6 +18,7 @@
 #include <map>
 #include <set>
 
+#include "build/kiwi_defines.h"
 #include "models/nes_runtime.h"
 #include "ui/window_base.h"
 #include "utility/localization.h"
@@ -95,7 +96,9 @@ class Application {
   bool initialized_ = false;
   NESRuntimeID runtime_id_ = 0;
   scoped_refptr<NESConfig> config_;
+#if !KIWI_WASM
   std::unique_ptr<kiwi::base::Thread> io_thread_;
+#endif
   Timer frame_elapsed_counter_;
   Timer render_counter_;
   kiwi::base::SingleThreadTaskExecutor executor_;

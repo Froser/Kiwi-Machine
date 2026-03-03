@@ -252,7 +252,12 @@ Application* Application::Get() {
 }
 
 scoped_refptr<kiwi::base::SequencedTaskRunner> Application::GetIOTaskRunner() {
+#if KIWI_WASM
+  return kiwi::base::SingleThreadTaskRunner::GetCurrentDefault();
+#else
+  SDL_assert(io_thread_);
   return io_thread_->task_runner();
+#endif
 }
 
 void Application::Initialize(kiwi::base::OnceClosure other_io_task,
@@ -293,11 +298,13 @@ void Application::InitializeApplication(int& argc, char** argv) {
   SDL_assert(!g_app_instance);
   g_app_instance = this;
 
+#if !KIWI_WASM
   // Creates an IO thread to manipulate file (if any) operations.
   io_thread_ = std::make_unique<kiwi::base::Thread>("Kiwi Machine IO Thread");
   kiwi::base::Thread::Options options;
   options.message_pump_type = kiwi::base::MessagePumpType::IO;
   io_thread_->StartWithOptions(std::move(options));
+#endif
 
   // Using gflags to parse command line.
   gflags::ParseCommandLineFlags(&argc, &argv, true);

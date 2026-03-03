@@ -26,3 +26,4 @@ set_target_properties(gtest PROPERTIES FOLDER "3rdparty/googletest-release-1.12.
 set_target_properties(gtest_main PROPERTIES FOLDER "3rdparty/googletest-release-1.12.1")
 set_target_properties(gmock PROPERTIES FOLDER "3rdparty/googletest-release-1.12.1")
 set_target_properties(gmock_main PROPERTIES FOLDER "3rdparty/googletest-release-1.12.1")
+set_target_properties(libjpeg PROPERTIES FOLDER "3rdparty/libjpeg-turbo-jpeg-9f")

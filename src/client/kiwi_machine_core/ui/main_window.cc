@@ -44,6 +44,7 @@
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
+#include "utility/logging.h"
 #include "utility/math.h"
 #include "utility/zip_reader.h"
 
@@ -663,7 +664,6 @@ void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
 #endif
 
 void MainWindow::InitializeRuntimeData() {
-  SDL_assert(runtime_id_ >= 0);
   runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id_);
 
   if (FLAGS_enable_debug) {
@@ -705,6 +705,7 @@ void MainWindow::InitializeUI() {
   is_headless_ = false;
 #endif
 
+  WASM_TRACE_LOG << "Headless mode: " << is_headless_;
   if (FLAGS_enable_debug) {
     // Menu bar
     std::unique_ptr<MenuBar> menu_bar = std::make_unique<MenuBar>(this);
@@ -1255,9 +1256,10 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
     }
 
 #if ENABLE_DEBUG_ROMS
-    if (!debug_roms_.sub_items.empty())
+    if (!debug_roms_.sub_items.empty()) {
       debug.menu_items.push_back(std::move(debug_roms_));
       // debug_roms_ should no longer use.
+    }
 #endif
 
     debug.menu_items.push_back(

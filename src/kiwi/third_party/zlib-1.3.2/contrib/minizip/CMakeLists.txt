@@ -9,7 +9,6 @@ project(
 
 if(CMAKE_SIZEOF_VOID_P LESS 8 AND NOT MINGW)
     message(WARNING "libminizip needs 64bit - stopping here")
-    return()
 endif(CMAKE_SIZEOF_VOID_P LESS 8 AND NOT MINGW)
 
 # ============================================================================
@@ -225,7 +224,8 @@ if(MINIZIP_INSTALL)
             EXPORT minizipSharedExport
             RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
             ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}")
         install(
             EXPORT minizipSharedExport
             FILE minizip-shared.cmake
@@ -251,7 +251,8 @@ if(MINIZIP_INSTALL)
             EXPORT minizipStaticExport
             RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
             ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+            LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+            BUNDLE DESTINATION "${CMAKE_INSTALL_BINDIR}")
         install(
             EXPORT minizipStaticExport
             FILE minizip-static.cmake
