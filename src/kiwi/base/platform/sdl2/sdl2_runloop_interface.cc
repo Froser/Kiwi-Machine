@@ -82,7 +82,7 @@ SDL_Event SDL2RunLoopInterface::CreatePostTaskEvent() {
 void SDL2RunLoopInterface::Run() {
   is_running_ = true;
 #if __EMSCRIPTEN__
-  emscripten_set_main_loop(EmscriptenMainLoop, 0, true);
+  emscripten_set_main_loop(EmscriptenMainLoop, kFPS, true);
 #else
   while (is_running_) {
     HandleEvents();
@@ -91,6 +91,7 @@ void SDL2RunLoopInterface::Run() {
 }
 
 void SDL2RunLoopInterface::HandleEvents() {
+  bool frame_has_rendered = false;
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
     if (GetPreEventHandlerForSDL2()) {
@@ -108,6 +109,7 @@ void SDL2RunLoopInterface::HandleEvents() {
       single_thread_task_executor->RunTask();
 
       TryRender();
+      frame_has_rendered = true;
       continue;
     }
 
@@ -117,7 +119,9 @@ void SDL2RunLoopInterface::HandleEvents() {
     }
   }
 
-  TryRender();
+  if (!frame_has_rendered) {
+    TryRender();
+  }
 }
 
 void SDL2RunLoopInterface::Quit() {
@@ -128,9 +132,9 @@ void SDL2RunLoopInterface::Quit() {
 
 void SDL2RunLoopInterface::TryRender() {
 #if __EMSCRIPTEN__
-  // Emscripten uses emscripten_set_main_loop() to control fps, so we just
-  // render here.
-  GetRenderHandlerForSDL2().Run();
+  if (GetRenderHandlerForSDL2()) {
+    GetRenderHandlerForSDL2().Run();
+  }
 #else
   float delay = GetNextRenderDelay();
   if (delay < 0) {

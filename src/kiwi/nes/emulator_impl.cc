@@ -468,9 +468,7 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
   UnloadOnProperThread();
   cartridge_ = cartridge;
   if (debug_port_) {
-    debug_port_->OnRomLoaded(load_result.success, load_result.success
-                                                      ? cartridge->GetRomData()
-                                                      : nullptr);
+    debug_port_->OnRomLoaded(load_result.success, cartridge->GetRomData());
   }
 
   // Set patch config for PPU
