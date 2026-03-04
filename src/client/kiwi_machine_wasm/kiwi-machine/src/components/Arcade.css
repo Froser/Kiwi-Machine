@@ -14,5 +14,13 @@ GNU General Public License for more details.
 
 .arcade {
   display: flex;
-  height: 80vh;
+  height: calc(100vh - 72px);
+  gap: 24px;
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }

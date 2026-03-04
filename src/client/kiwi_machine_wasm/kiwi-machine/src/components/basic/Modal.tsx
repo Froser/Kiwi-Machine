@@ -22,21 +22,25 @@ interface ModalProps {
   setVisible: Dispatch<SetStateAction<boolean>>,
 }
 
-const headerHeight = 48;
-
 export default function Modal({children, title, show, width, height, setVisible}: ModalProps) {
   const className = 'modal ' + (show ? 'modal-show' : '');
+  const isAutoHeight = height === 'auto';
+  
   return (
     <div className={className} onClick={() => setVisible(false)}>
       <div style={{
         width: `${width ? width : '550px'}`,
-        height: `${height ? `${parseInt(height) + headerHeight}px` : '270px'}`
+        height: isAutoHeight ? 'auto' : `${height}`,
+        maxHeight: '90vh'
       }} onClick={(event) => event.stopPropagation()}>
-        <div className="modal-header"
-             style={{height: `${headerHeight.toString()}px`, lineHeight: `${headerHeight.toString()}px`}}>
-          <span> {title}</span>
+        <div className="modal-header">
+          <span>{title}</span>
         </div>
-        <div className="modal-contents" style={{height: `${height !== '' ? height : '270px'}`}}>
+        <div className="modal-contents" style={{
+          height: isAutoHeight ? 'auto' : 'auto',
+          overflowY: 'auto',
+          flex: isAutoHeight ? '0 1 auto' : '1'
+        }}>
           {children}
         </div>
       </div>

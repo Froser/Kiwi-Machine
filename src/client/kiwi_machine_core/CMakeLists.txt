@@ -137,6 +137,8 @@ set(Sources
         utility/math.h
         utility/timer.cc
         utility/timer.h
+        utility/fps_counter.cc
+        utility/fps_counter.h
         utility/zip_reader.cc
         utility/zip_reader.h
 )

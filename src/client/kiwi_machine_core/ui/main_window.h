@@ -38,6 +38,7 @@ class DisassemblyWidget;
 class FlexItemsWidget;
 class CardWidget;
 class Splash;
+class FpsCounter;
 
 namespace preset_roms {
 struct PresetROM;
@@ -87,6 +88,7 @@ class MainWindow : public WindowBase,
   void LoadROM_WASM(kiwi::base::FilePath rom_path);
   void SetVolume_WASM(float volume);
   void CallMenu_WASM();
+  float GetFPS_WASM();
 #endif
 
   float window_scale() { return config_->data().window_scale; }
@@ -274,6 +276,10 @@ class MainWindow : public WindowBase,
   std::set<MainWindow::Observer*> observers_;
 #if ENABLE_DEBUG_ROMS
   MenuBar::MenuItem debug_roms_;
+#endif
+
+#if KIWI_WASM
+  std::unique_ptr<FpsCounter> fps_counter_;
 #endif
 
 #if KIWI_MOBILE

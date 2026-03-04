@@ -40,6 +40,7 @@
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
+#include "utility/fps_counter.h"
 #include "utility/algorithm.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
@@ -277,6 +278,7 @@ MainWindow::MainWindow(const std::string& title,
   // Only one main window instance should exist in WASM.
   SDL_assert(!g_main_window_instance);
   g_main_window_instance = this;
+  fps_counter_ = std::make_unique<FpsCounter>();
 #endif
 }
 
@@ -336,6 +338,13 @@ void MainWindow::CallMenu_WASM() {
     CloseInGameMenu();
   else
     OnInGameMenuTrigger();
+}
+
+float MainWindow::GetFPS_WASM() {
+  if (fps_counter_) {
+    return fps_counter_->GetCurrentFPS();
+  }
+  return 0.0f;
 }
 
 #endif

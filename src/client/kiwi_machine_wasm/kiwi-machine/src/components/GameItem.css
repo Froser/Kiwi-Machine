@@ -13,16 +13,24 @@ GNU General Public License for more details.
  */
 
 .gameitem {
-  padding: 10px;
-  margin: 5px;
+  padding: 12px;
+  margin: 0 0 8px 0;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
 }
 
 .gameitem:hover {
-  background: rgba(72, 176, 53, 0.1);
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  transform: translateX(4px);
 }
 
 .gameitem-checked {
-  background: rgba(72, 176, 53, 0.5) !important;
+  background: var(--bg-surface) !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: var(--shadow-glow);
 }
 
 .gameitem > img {
@@ -33,9 +41,27 @@ GNU General Public License for more details.
 }
 
 .gameitem-contents {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gameitem-buttons {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  justify-content: center;
 }
 
 .gameitem-contents p {
   margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.gameitem-contents p:first-child {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 15px;
+  margin-bottom: 4px;
 }

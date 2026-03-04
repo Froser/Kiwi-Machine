@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Yisi Yu
+// Copyright (C) 2026 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -10,26 +10,24 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_BRIDGE_API_H_
-#define UTILITY_BRIDGE_API_H_
+#include "utility/fps_counter.h"
 
-#include <emscripten.h>
+FpsCounter::FpsCounter() {
+  Application::Get()->AddObserver(this);
+}
 
-extern "C" {
-EMSCRIPTEN_KEEPALIVE
-void LoadROMFromTempPath(const char* filename);
+FpsCounter::~FpsCounter() {
+  Application::Get()->RemoveObserver(this);
+}
 
-EMSCRIPTEN_KEEPALIVE
-void SetupCallbacks();
+void FpsCounter::OnPreRender(int since_last_frame_ms) {
+  Update(1000.f / since_last_frame_ms);
+}
 
-EMSCRIPTEN_KEEPALIVE
-void SetVolume(float volume);
+void FpsCounter::Update(float value) {
+  current_fps_ = value;
+}
 
-EMSCRIPTEN_KEEPALIVE
-void CallMenu();
-
-EMSCRIPTEN_KEEPALIVE
-float GetFPS();
-};
-
-#endif  // UTILITY_BRIDGE_API_H_
+float FpsCounter::GetCurrentFPS() const {
+  return current_fps_ > 0.0f ? current_fps_ : 0.0f;
+}

@@ -36,7 +36,7 @@ export default function Arcade() {
         <Playground setFrameRef={setFrameRef}/>
         <GameList loadRom={loadRom} romName={romName}/>
       </div>
-      <Footer/>
+      <Footer />
     </>
   );
 }

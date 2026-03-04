@@ -21,6 +21,8 @@ interface VolumeSliderProps {
 }
 
 export default function VolumeSlider({className, id, onChange, value}: VolumeSliderProps) {
+  const progress = value * 100;
+  
   return (
     <input
       id={id}
@@ -31,6 +33,7 @@ export default function VolumeSlider({className, id, onChange, value}: VolumeSli
       step={0.1}
       value={value}
       onChange={onChange}
+      style={{'--progress': `${progress}%`} as React.CSSProperties}
     />
   );
 }

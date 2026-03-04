@@ -11,3 +11,70 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
  */
+
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 150px;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  top: 0;
+  left: 0;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-primary) 0%, var(--accent-primary) var(--progress, 100%), var(--bg-tertiary) var(--progress, 100%), var(--bg-tertiary) 100%);
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all var(--transition-fast);
+  margin-top: -6px;
+  position: relative;
+  top: 0;
+  left: 0;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.volume-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all var(--transition-fast);
+  position: relative;
+  top: 0;
+  left: 0;
+}
+
+.volume-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}

@@ -41,8 +41,10 @@ export default function GameItem({contents, loadRom, romName, romId, showDetailM
       <img src={getROMImageUrlFromContents(contents)} loading="lazy" alt={contents.name}/>
       <div className="gameitem-contents">
         <p>{getLocaleTitleFromContents(contents)}</p>
-        <Button onClick={onLoadRom()} text="开始游戏"/>
-        <Button onClick={() => showDetailModal(true, contents)} text="游戏资料"/>
+        <div className="gameitem-buttons">
+          <Button onClick={onLoadRom()} text="开始游戏"/>
+          <Button onClick={() => showDetailModal(true, contents)} text="游戏资料"/>
+        </div>
       </div>
     </div>
   )

@@ -13,21 +13,29 @@ GNU General Public License for more details.
  */
 
 .gamelist {
-  width: 300px;
+  width: 320px;
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
 }
 
 .gamelist-input {
   width: 100%;
-  margin: 5px 15px 5px 5px;
+  margin: 0;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .gamelist-items {
   overflow-y: auto;
   overflow-x: hidden;
-  height: 100%;
+  flex: 1;
+  padding: 12px;
 }
 
 .gamelist-flex {

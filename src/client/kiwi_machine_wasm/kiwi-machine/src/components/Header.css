@@ -12,46 +12,87 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
  */
 
-@font-face {
-  font-family: 'SuperMario256';
-  src: local('SuperMario256'), url(../static/SuperMario256.ttf) format('truetype');
-}
-
 .header {
-  height: 15vh;
+  height: 72px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  color: var(--text-primary);
   user-select: none;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: 100;
 }
 
 .header-container {
-  display: block;
-  vertical-align: middle;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1400px;
+  padding: 0 24px;
 }
 
-.header-title {
-  font-family: SuperMario256, fangsong;
-  font-size: 100px;
-  -webkit-text-stroke: 4px black;
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.header-color-r {
-  color: rgb(231, 38, 20)
+.logo-img {
+  height: 40px;
+  width: auto;
+  transition: transform var(--transition-fast);
 }
 
-.header-color-y {
-  color: rgb(252, 208, 0)
+.logo-img:hover {
+  transform: scale(1.1) rotate(5deg);
 }
 
-.header-color-g {
-  color: rgb(72, 176, 53)
+.logo-text {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.header-color-b {
-  color: rgb(8, 158, 217)
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.github-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: var(--border-radius-lg);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-color);
+}
+
+.github-link:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-2px);
+  color: var(--text-primary);
+}
+
+.github-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }

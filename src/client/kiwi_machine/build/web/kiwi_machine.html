@@ -1,147 +1,463 @@
 <!doctype html>
-<html lang=en-us style="height:100%">
+<html lang="en-us" style="height:100%">
 <head>
-    <meta charset=utf-8>
-    <meta content="text/html; charset=utf-8" http-equiv=Content-Type>
-    <title>Kiwi Machine</title></head>
-<style>
-  .full {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-  }
+    <meta charset="utf-8">
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiwi Machine</title>
+    <link rel="icon" href="favicon.ico" />
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666666;
+            --accent-primary: #48b035;
+            --accent-secondary: #5ac446;
+            --accent-glow: rgba(72, 176, 53, 0.3);
+            --border-color: #333333;
+            --border-radius-lg: 12px;
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 20px var(--accent-glow);
+            --transition-normal: 0.3s ease;
+            --transition-fast: 0.15s ease;
+        }
 
-  .playground {
-    height: 100%;
-    border: none;
-    display: none;
-    margin: auto
-  }
+        * {
+            box-sizing: border-box;
+        }
 
-  .loading {
-    height: 100%;
-    border: none;
-    margin: auto;
-  }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow: hidden;
+        }
 
-  .loading .container {
-    display: flex;
-    height: 100%;
-  }
+        /* Layout Structure */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
 
-  .spinner {
-    width: 10em;
-    height: 10em;
-    border-top: 1em solid rgb(72, 176, 53);
-    border-right: 1em solid transparent;
-    border-radius: 50%;
-    margin: auto;
-    animation: spinner 0.6s linear infinite;
-  }
+        /* Header - Visible only in Standalone Mode */
+        header {
+            display: none;
+            padding: 0 24px;
+            height: 72px;
+            background-color: var(--bg-secondary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+            border-bottom: 1px solid var(--border-color);
+        }
 
-  .head {
-    width: 1em;
-    height: 1em;
-    background-color: rgb(72, 176, 53);
-    border-radius: 50%;
-    margin-left: 8.5em;
-    margin-top: 0.5em;
-  }
+        body.standalone header {
+            display: flex;
+        }
 
-  @keyframes spinner {
-    100% {
-      transform: rotate(360deg)
-    }
-  }
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
 
-</style>
-<body class="full">
-<div class="full">
-    <div id="loading" class="loading">
-        <div class="container">
-            <div class="spinner" style="font-size: 18px">
-                <div class="head"></div>
+        .logo-img {
+            height: 40px;
+            width: auto;
+            transition: transform var(--transition-fast);
+        }
+
+        .logo-img:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .logo-text {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #252525;
+            color: var(--text-primary);
+            border-radius: var(--border-radius-lg);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all var(--transition-fast);
+            border: 1px solid var(--border-color);
+            text-decoration: none;
+        }
+
+        .github-link:hover {
+            background: #2d2d2d;
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-glow);
+            transform: translateY(-2px);
+            color: var(--text-primary);
+        }
+
+        .github-icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .main-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(72, 176, 53, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(72, 176, 53, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Canvas Styling */
+        canvas.playground {
+            display: none; /* Hidden until loaded */
+            outline: none;
+            /* In embedded mode, behave like full size */
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            position: relative;
+            z-index: 1;
+        }
+
+        body.standalone canvas.playground {
+            /* In standalone, give it a nice frame */
+            width: auto;
+            height: auto;
+            max-width: 95%;
+            max-height: 90%;
+            box-shadow: var(--shadow-lg);
+            border-radius: var(--border-radius-lg);
+            background-color: #000;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-primary);
+            z-index: 20;
+        }
+
+        .spinner-container {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            margin-bottom: 1.5rem;
+        }
+
+        .spinner {
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            border: 4px solid transparent;
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spinner 0.8s ease infinite;
+        }
+        
+        .spinner:before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            border: 4px solid transparent;
+            border-top-color: rgba(72, 176, 53, 0.5);
+            border-radius: 50%;
+            animation: spinner 1.2s linear infinite;
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* FPS Counter */
+        .fps-counter {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(20, 20, 20, 0.9);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            padding: 8px 16px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all var(--transition-fast);
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .fps-counter:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .fps-counter .fps-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .fps-counter .fps-value {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .fps-counter.hidden {
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <div class="logo-section">
+            <img src="kiwi.png" alt="Kiwi Machine" class="logo-img" />
+            <h1 class="logo-text">Kiwi Machine</h1>
+        </div>
+        <div class="header-actions">
+            <a href="https://github.com/froser/kiwi-machine" target="_blank" rel="noopener noreferrer" class="github-link">
+                <svg class="github-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.81,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z" />
+                </svg>
+                <span>GitHub</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <div id="loading" class="loading-overlay">
+            <div class="spinner-container">
+                <div class="spinner"></div>
             </div>
+            <div class="loading-text">Initializing System...</div>
+        </div>
+        <canvas class="playground" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+        <div class="fps-counter hidden" id="fpsCounter">
+            <span class="fps-label">FPS</span>
+            <span class="fps-value" id="fpsValue">--</span>
         </div>
     </div>
-    <canvas class="playground" id="canvas" oncontextmenu=event.preventDefault()></canvas>
 </div>
+
 <script>
-  var KiwiMachineCallback = {
-    onVolumeChanged: (volume) => {
-      window.parent.postMessage({
-        type: 'volumeChanged',
-        data: volume
-      });
+    // FPS Counter
+    let fpsUpdateInterval = null;
+    
+    function updateFPSFromCPP() {
+        try {
+            if (typeof Module !== 'undefined' && Module.ccall) {
+                const fps = Module.ccall('GetFPS', 'number', [], []);
+                const fpsValueEl = document.getElementById('fpsValue');
+                if (fpsValueEl) {
+                    fpsValueEl.textContent = Math.round(fps);
+                }
+            }
+        } catch (e) {
+            console.log('Waiting for Module to load...');
+        }
     }
-  }
-
-  var Module = {
-    preRun: [
-      () => {
-        window.document.getElementById('canvas').style.display = 'block';
-        window.document.getElementById('loading').remove();
-      }
-    ],
-    postRun: [
-      () => {
-        Module.ccall("SetupCallbacks");
-        const urlParams = new URLSearchParams(window.location.search);
-        const romUrl = urlParams.get('rom');
-
-        const RemoteMessageHandler = {
-          loadROMBinary: function (url) {
-            fetch(url).then(e => e.blob().then(e => {
-              e.arrayBuffer().then(e => {
-                let n = new Uint8Array(e), o = "template.nes", t = FS.open(o, "w+");
-                FS.write(t, n, 0, n.length, 0), FS.close(t), Module.ccall("LoadROMFromTempPath", null, ["string"], [o])
-              })
-            }))
-          },
-          changeVolume: function (data) {
-            Module.ccall("SetVolume", null, ["number"], [data.volume]);
-          },
-          callMenu: function () {
-            Module.ccall("CallMenu");
-          }
+    
+    function toggleFPSDisplay(show) {
+        const fpsCounter = document.getElementById('fpsCounter');
+        if (fpsCounter) {
+            if (show) {
+                fpsCounter.classList.remove('hidden');
+                if (!fpsUpdateInterval) {
+                    fpsUpdateInterval = setInterval(updateFPSFromCPP, 1000);
+                }
+            } else {
+                fpsCounter.classList.add('hidden');
+                if (fpsUpdateInterval) {
+                    clearInterval(fpsUpdateInterval);
+                    fpsUpdateInterval = null;
+                }
+            }
         }
-
-        // Handle load ROM message from React components
+    }
+    
+    // Start FPS counter when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        // Handle messages from parent window (React component)
         window.addEventListener('message', (event) => {
-          const message = event.data;
-          RemoteMessageHandler[message.type](message.data);
+            const message = event.data;
+            if (message && message.type === 'toggleFps') {
+                toggleFPSDisplay(message.data.show);
+            }
         }, false);
+    });
 
-        if (romUrl === null || romUrl === '') {
-          fetch("roms/db.json").then(response => {
-            response.json().then(db => {
-              const name = db[0].dir;
-              RemoteMessageHandler.loadROMBinary(`roms/${name}/${name}.nes`);
-            })
-          })
-        } else {
-          RemoteMessageHandler.loadROMBinary(`${romUrl}`);
+    // Detect Standalone Mode
+    if (window.self === window.top) {
+        document.body.classList.add('standalone');
+    }
+
+    var KiwiMachineCallback = {
+        onVolumeChanged: (volume) => {
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'volumeChanged',
+                    data: volume
+                }, '*');
+            }
         }
-      }
-    ],
-    arguments: ['--lang=' + navigator.language],
-    canvas: (() => {
-      var canvas = document.getElementById("canvas");
-      canvas.addEventListener("webglcontextlost", (e => {
-        console.log("WebGL context lost. You will need to reload the page."), e.preventDefault()
-      }));
-      return canvas;
-    })(),
-    print: (function () {
-      return function (text) {
-        if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-        console.log(text);
-      };
-    })(),
-  };
-  window.onerror = e => {
-    console.log("Exception thrown, see JavaScript console")
-  }
+    }
+
+    var Module = {
+        preRun: [
+            () => {
+                window.document.getElementById('canvas').style.display = 'block';
+                var loadingEl = window.document.getElementById('loading');
+                if(loadingEl) loadingEl.remove();
+            }
+        ],
+        postRun: [
+            () => {
+                Module.ccall("SetupCallbacks");
+                const urlParams = new URLSearchParams(window.location.search);
+                const romUrl = urlParams.get('rom');
+
+                const RemoteMessageHandler = {
+                    loadROMBinary: function (url) {
+                        fetch(url).then(e => e.blob().then(e => {
+                            e.arrayBuffer().then(e => {
+                                let n = new Uint8Array(e), o = "template.nes", t = FS.open(o, "w+");
+                                FS.write(t, n, 0, n.length, 0), FS.close(t), Module.ccall("LoadROMFromTempPath", null, ["string"], [o])
+                            })
+                        }))
+                    },
+                    changeVolume: function (data) {
+                        Module.ccall("SetVolume", null, ["number"], [data.volume]);
+                    },
+                    callMenu: function () {
+                        Module.ccall("CallMenu");
+                    }
+                }
+
+                // Handle load ROM message from React components
+                window.addEventListener('message', (event) => {
+                    const message = event.data;
+                    if (message && message.type && RemoteMessageHandler[message.type]) {
+                        RemoteMessageHandler[message.type](message.data);
+                    }
+                }, false);
+
+                if (romUrl === null || romUrl === '') {
+                    fetch("roms/db.json").then(response => {
+                        response.json().then(db => {
+                            if (db && db.length > 0) {
+                                const name = db[0].dir;
+                                RemoteMessageHandler.loadROMBinary(`roms/${name}/${name}.nes`);
+                            }
+                        })
+                    }).catch(err => {
+                        console.log("Could not load local ROM db", err);
+                    });
+                } else {
+                    RemoteMessageHandler.loadROMBinary(`${romUrl}`);
+                }
+            }
+        ],
+        arguments: ['--lang=' + navigator.language],
+        canvas: (() => {
+            var canvas = document.getElementById("canvas");
+            canvas.addEventListener("webglcontextlost", (e => {
+                console.log("WebGL context lost. You will need to reload the page."), e.preventDefault()
+            }));
+            return canvas;
+        })(),
+        print: (function () {
+            return function (text) {
+                if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+                console.log(text);
+            };
+        })(),
+    };
+    window.onerror = e => {
+        console.log("Exception thrown, see JavaScript console")
+    }
 </script>
 {{{ SCRIPT }}}
 </body>

@@ -14,10 +14,10 @@ GNU General Public License for more details.
 
 .button {
   appearance: none;
-  background-color: rgb(72, 176, 53);
-  border: 1px solid rgba(27, 31, 35, .15);
-  border-radius: 6px;
-  box-shadow: rgba(27, 31, 35, .1) 0 1px 0;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  border: none;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
   box-sizing: border-box;
   color: #fff;
   cursor: pointer;
@@ -25,8 +25,8 @@ GNU General Public License for more details.
   font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   font-size: 14px;
   font-weight: 600;
-  line-height: 15px;
-  padding: 6px 16px;
+  line-height: 1.5;
+  padding: 10px 20px;
   position: relative;
   text-align: center;
   text-decoration: none;
@@ -35,7 +35,8 @@ GNU General Public License for more details.
   touch-action: manipulation;
   vertical-align: middle;
   white-space: nowrap;
-  margin: 6px;
+  margin: 0;
+  transition: all var(--transition-fast);
 }
 
 .button:focus:not(:focus-visible):not(.focus-visible) {
@@ -44,22 +45,24 @@ GNU General Public License for more details.
 }
 
 .button:hover {
-  background-color: #2c974b;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), var(--shadow-glow);
 }
 
 .button:focus {
-  box-shadow: rgba(46, 164, 79, .4) 0 0 0 3px;
+  box-shadow: 0 0 0 3px var(--accent-glow);
   outline: none;
 }
 
 .button:disabled {
-  background-color: #94d3a2;
-  border-color: rgba(27, 31, 35, .1);
-  color: rgba(255, 255, 255, .8);
-  cursor: default;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .button:active {
-  background-color: #298e46;
-  box-shadow: rgba(20, 70, 32, .2) 0 1px 0 inset;
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }

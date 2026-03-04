@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Yisi Yu
+// Copyright (C) 2026 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -10,26 +10,28 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_BRIDGE_API_H_
-#define UTILITY_BRIDGE_API_H_
+#ifndef UTILITY_FPS_COUNTER_H_
+#define UTILITY_FPS_COUNTER_H_
 
-#include <emscripten.h>
+#include <kiwi_nes.h>
 
-extern "C" {
-EMSCRIPTEN_KEEPALIVE
-void LoadROMFromTempPath(const char* filename);
+#include "ui/application.h"
 
-EMSCRIPTEN_KEEPALIVE
-void SetupCallbacks();
+class FpsCounter : public ApplicationObserver {
+ public:
+  FpsCounter();
+  ~FpsCounter() override;
 
-EMSCRIPTEN_KEEPALIVE
-void SetVolume(float volume);
+  float GetCurrentFPS() const;
 
-EMSCRIPTEN_KEEPALIVE
-void CallMenu();
+ protected:
+  void OnPreRender(int since_last_frame_ms) override;
 
-EMSCRIPTEN_KEEPALIVE
-float GetFPS();
+ private:
+  void Update(float value);
+
+ private:
+  float current_fps_ = 0.0f;
 };
 
-#endif  // UTILITY_BRIDGE_API_H_
+#endif  // UTILITY_FPS_COUNTER_H_

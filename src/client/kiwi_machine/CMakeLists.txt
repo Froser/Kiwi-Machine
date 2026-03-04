@@ -119,57 +119,52 @@ if (EMSCRIPTEN)
 -s ALLOW_MEMORY_GROWTH \
 -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=\\\[\\\"\\\$autoResumeAudioContext\\\"\\\,\\\"\\\$dynCall\\\"\\\] \
 -s EXPORTED_RUNTIME_METHODS=ccall \
--s EXPORTED_FUNCTIONS=_LoadROMFromTempPath\\\,_SetupCallbacks\\\,_CallMenu\\\,_SetVolume\\\,_main \
+-s EXPORTED_FUNCTIONS=_LoadROMFromTempPath\\\,_SetupCallbacks\\\,_CallMenu\\\,_SetVolume\\\,_GetFPS\\\,_main \
 -gsource-map \
 --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/build/web/kiwi_machine.html"
     )
     set_target_properties(${PROJECT_NAME}
             PROPERTIES
             LINK_FLAGS ${EM_FLAGS}
+            LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/build/web/kiwi_machine.html
     )
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
 
     # Run KiwiMachine WASM (Without ROMS Copy)
     if (KIWI_WASM_RELEASE)
         add_custom_target(
-                "RunKiwiMachineWASM_WithoutROMSCopy"
+                "BuildKiwiMachineWASM_WithoutROMSCopy"
                 COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --release
-                COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --start
                 WORKING_DIRECTORY ${kiwi_machine_SOURCE_DIR}/../kiwi_machine_wasm
                 VERBATIM
-                DEPENDS kiwi_machine
-                DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/build/web/kiwi_machine.html
+                DEPENDS ${PROJECT_NAME}
         )
     else ()
         add_custom_target(
-                "RunKiwiMachineWASM_WithoutROMSCopy"
+                "BuildKiwiMachineWASM_WithoutROMSCopy"
                 COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --debug
-                COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --start
                 WORKING_DIRECTORY ${kiwi_machine_SOURCE_DIR}/../kiwi_machine_wasm
                 VERBATIM
-                DEPENDS kiwi_machine
-                DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/build/web/kiwi_machine.html
+                DEPENDS ${PROJECT_NAME}
         )
     endif ()
     
     # Run KiwiMachine WASM
     if (KIWI_WASM_RELEASE)
         add_custom_target(
-                "RunKiwiMachineWASM"
+                "BuildKiwiMachineWASM"
                 COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --release --roms
-                COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --start
                 WORKING_DIRECTORY ${kiwi_machine_SOURCE_DIR}/../kiwi_machine_wasm
                 VERBATIM
-                DEPENDS kiwi_machine
+                DEPENDS ${PROJECT_NAME}
         )
     else ()
         add_custom_target(
-                "RunKiwiMachineWASM"
+                "BuildKiwiMachineWASM"
                 COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --debug --roms
-                COMMAND ${Python3_EXECUTABLE} "build-wasm.py" --start
                 WORKING_DIRECTORY ${kiwi_machine_SOURCE_DIR}/../kiwi_machine_wasm
                 VERBATIM
-                DEPENDS kiwi_machine
+                DEPENDS ${PROJECT_NAME}
         )
     endif ()
 endif ()

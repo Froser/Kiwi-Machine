@@ -12,32 +12,31 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
  */
 
-.volumepanel {
+.checkbox-container {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: var(--bg-surface);
-  border-radius: var(--border-radius-lg);
-  border: 1px solid var(--border-color);
-  transition: all var(--transition-fast);
-}
-
-.volumepanel:hover {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px var(--accent-glow);
-}
-
-.volumepanel-mute {
-  width: 32px;
-  height: 32px;
+  gap: 8px;
   cursor: pointer;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: var(--border-radius-lg);
   transition: all var(--transition-fast);
-  padding: 4px;
-  border-radius: var(--border-radius-sm);
 }
 
-.volumepanel-mute:hover {
-  background: var(--bg-surface-hover);
-  transform: scale(1.1);
+.checkbox-container:hover {
+  background: rgba(72, 176, 53, 0.05);
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.checkbox-label {
+  cursor: pointer;
 }

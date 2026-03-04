@@ -13,6 +13,7 @@ GNU General Public License for more details.
  */
 
 .footer {
+  display: none;  /* currently disabled */
   color: #41464f;
   font-size: 14px;
   margin-top: 10px;
