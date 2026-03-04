@@ -44,7 +44,7 @@ class APU : public Device, public EmulatorStates::SerializableState {
   ~APU() override;
 
   enum {
-    kOutBufferConstantSize = 4096,
+    kOutBufferConstantSize = 512,
   };
 
  public:

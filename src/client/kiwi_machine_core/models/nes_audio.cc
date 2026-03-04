@@ -17,7 +17,7 @@
 
 namespace {
 constexpr size_t kBufferSize = 512;
-constexpr size_t kBufferCount = 12;
+constexpr size_t kBufferCount = 24;
 }  // namespace
 
 NESAudio::NESAudio(NESRuntimeID runtime_id) : runtime_id_(runtime_id) {}
