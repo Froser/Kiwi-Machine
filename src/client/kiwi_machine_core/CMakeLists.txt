@@ -235,3 +235,6 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
+
+# Add testing directory
+add_subdirectory(testing)

@@ -1,26 +1,18 @@
-// Copyright (C) 2023 Yisi Yu
-//
+// Copyright (C) 2026 Yisi Yu
+// 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
+// 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_ALGORITMN_H_
-#define UTILITY_ALGORITMN_H_
+#include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
 
-#include <string>
-
-// Checks if string s1 contains all characters of string s2 in the same order.
-// The comparison is case-insensitive.
-// 
-// `s1` is The source string to search in.
-// `s2` is The string to search for.
-// Return true if s1 contains all characters of s2 in order, false otherwise
-bool HasString(const std::string& s1, const std::string& s2);
-
-#endif  // UTILITY_ALGORITMN_H_
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

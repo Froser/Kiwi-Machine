@@ -91,7 +91,6 @@ void SDL2RunLoopInterface::Run() {
 }
 
 void SDL2RunLoopInterface::HandleEvents() {
-  bool frame_has_rendered = false;
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
     if (GetPreEventHandlerForSDL2()) {
@@ -107,9 +106,6 @@ void SDL2RunLoopInterface::HandleEvents() {
               event.user.data1);
       CHECK(single_thread_task_executor);
       single_thread_task_executor->RunTask();
-
-      TryRender();
-      frame_has_rendered = true;
       continue;
     }
 
@@ -119,9 +115,7 @@ void SDL2RunLoopInterface::HandleEvents() {
     }
   }
 
-  if (!frame_has_rendered) {
-    TryRender();
-  }
+  TryRender();
 }
 
 void SDL2RunLoopInterface::Quit() {

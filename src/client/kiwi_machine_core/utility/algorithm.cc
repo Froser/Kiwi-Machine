@@ -17,19 +17,21 @@
 namespace {}
 
 bool HasString(const std::string& s1, const std::string& s2) {
+  if (s2.empty()) {
+    return true;
+  }
+
   std::string src_string = kiwi::base::ToLowerASCII(s1);
   std::string test_string = kiwi::base::ToLowerASCII(s2);
-  for (int i = 0; i < src_string.size(); ++i) {
-    char c = src_string[i];
-    auto pos = test_string.find(c);
-    if (pos != std::string::npos) {
-      if (test_string.length() == 1)
-        return i == test_string.length() - 1;
-
-      test_string = test_string.substr(pos + 1);
-    } else {
+  
+  size_t pos = 0;
+  for (char c : test_string) {
+    pos = src_string.find(c, pos);
+    if (pos == std::string::npos) {
       return false;
     }
+    ++pos;
   }
+  
   return true;
 }
