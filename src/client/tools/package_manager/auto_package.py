@@ -52,7 +52,7 @@ def main():
         return 1
     
     # Create output directory if it doesn't exist, and clean it if it does
-    output_path = workspace_path / "output"
+    output_path = workspace_path / "out"
     if output_path.exists():
         shutil.rmtree(output_path)
     output_path.mkdir(parents=True, exist_ok=True)
