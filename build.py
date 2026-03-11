@@ -64,9 +64,7 @@ def build_pc(build_project=False):
     # Build the Debug project if requested
     if build_project:
         print(f"\nBuilding Debug project...")
-        if generator == 'Xcode':
-            build_cmd = 'xcodebuild -configuration Debug'
-        elif generator == 'Visual Studio 17 2022':
+        if generator == 'Visual Studio 17 2022':
             build_cmd = 'cmake --build . --config Debug'
         else:
             build_cmd = 'cmake --build .'
@@ -85,9 +83,7 @@ def build_pc(build_project=False):
     # Build the Release project if requested
     if build_project:
         print(f"\nBuilding Release project...")
-        if generator == 'Xcode':
-            build_cmd = 'xcodebuild -configuration Release'
-        elif generator == 'Visual Studio 17 2022':
+        if generator == 'Visual Studio 17 2022':
             build_cmd = 'cmake --build . --config Release'
         else:
             build_cmd = 'cmake --build .'
@@ -110,9 +106,7 @@ def build_pc(build_project=False):
         # Build the Intel Debug project if requested
         if build_project:
             print(f"\nBuilding Intel Debug project...")
-            if generator == 'Xcode':
-                build_cmd = 'xcodebuild -configuration Debug'
-            elif generator == 'Visual Studio 17 2022':
+            if generator == 'Visual Studio 17 2022':
                 build_cmd = 'cmake --build . --config Debug'
             else:
                 build_cmd = 'cmake --build .'
@@ -131,9 +125,7 @@ def build_pc(build_project=False):
         # Build the Intel Release project if requested
         if build_project:
             print(f"\nBuilding Intel Release project...")
-            if generator == 'Xcode':
-                build_cmd = 'xcodebuild -configuration Release'
-            elif generator == 'Visual Studio 17 2022':
+            if generator == 'Visual Studio 17 2022':
                 build_cmd = 'cmake --build . --config Release'
             else:
                 build_cmd = 'cmake --build .'
