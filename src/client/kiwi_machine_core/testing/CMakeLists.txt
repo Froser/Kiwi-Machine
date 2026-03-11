@@ -35,10 +35,11 @@ target_link_libraries(kiwi_machine_core_unittests PRIVATE
 
 # Include directories
 target_include_directories(kiwi_machine_core_unittests PRIVATE
+    ../../../
     ${kiwi_machine_core_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${SDL2_SOURCE_DIR}/include
-    ${imgui_SOURCE_DIR}
+    ../../../../src/third_party/imgui
     ${kiwi_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../include
+    ../../../../include
 )

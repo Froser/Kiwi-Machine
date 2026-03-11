@@ -4,6 +4,9 @@
 
 ![](docs/preview.gif)
 
+## CICD
+[![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build.yml)
+
 ## Basic Introduction
 
 Kiwi Machine is a simple Nintendo Entertainment System (NES/FC) emulator engine. It provides a very simple interface to help implement NES emulators on various platforms.
