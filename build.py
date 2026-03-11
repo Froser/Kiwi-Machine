@@ -58,7 +58,7 @@ def build_pc(build_project=False):
         os.makedirs(debug_dir)
     
     # Construct cmake command
-    cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Debug .."
+    cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Debug .."
     run_command(cmake_cmd, cwd=debug_dir)
     
     # Build the Debug project if requested
@@ -77,7 +77,7 @@ def build_pc(build_project=False):
         os.makedirs(release_dir)
     
     # Construct cmake command
-    cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Release .."
+    cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Release .."
     run_command(cmake_cmd, cwd=release_dir)
     
     # Build the Release project if requested
@@ -100,7 +100,7 @@ def build_pc(build_project=False):
             os.makedirs(intel_debug_dir)
         
         # Construct cmake command
-        cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
+        cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
         run_command(cmake_cmd, cwd=intel_debug_dir)
         
         # Build the Intel Debug project if requested
@@ -119,7 +119,7 @@ def build_pc(build_project=False):
             os.makedirs(intel_release_dir)
         
         # Construct cmake command
-        cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
+        cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
         run_command(cmake_cmd, cwd=intel_release_dir)
         
         # Build the Intel Release project if requested
@@ -159,14 +159,14 @@ def build_mobile():
     print(f"Building iOS Debug configuration (Device) in {ios_debug_dir}")
     if not os.path.exists(ios_debug_dir):
         os.makedirs(ios_debug_dir)
-    run_command(f"cmake -G 'Xcode' -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=OS64 ..", cwd=ios_debug_dir)
+    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=OS64 ..", cwd=ios_debug_dir)
     
     # Always build iOS Release configuration for real device (OS64)
     ios_release_dir = os.path.join(PROJECT_ROOT, "cmake-build-ios-release")
     print(f"Building iOS Release configuration (Device) in {ios_release_dir}")
     if not os.path.exists(ios_release_dir):
         os.makedirs(ios_release_dir)
-    run_command(f"cmake -G 'Xcode' -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=OS64 ..", cwd=ios_release_dir)
+    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=OS64 ..", cwd=ios_release_dir)
 
 def install_emsdk():
     """Install Emscripten environment"""
@@ -252,7 +252,7 @@ def build_wasm_config(config):
     print(f"\nRunning cmake for {config} configuration...")
     # Add KIWI_WASM_RELEASE=ON for Release configuration
     wasm_release_flag = "-DKIWI_WASM_RELEASE=ON" if config == "release" else ""
-    cmake_cmd = f"cmake -G '{generator}' -DCMAKE_TOOLCHAIN_FILE={emscripten_cmake_path} -DCMAKE_BUILD_TYPE={config.capitalize()} {wasm_release_flag} -DBUILD_SHARED_LIBS=OFF -DZLIB_BUILD_SHARED=OFF -DGFLAGS_INTTYPES_FORMAT=C99 -DINTTYPES_FORMAT=C99 -DSDL2MIXER_CMD=OFF -DSDL_TEST=OFF -DMINIZIP_BUILD_SHARED=OFF -DMINIZIP_BUILD_STATIC=ON .."
+    cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_TOOLCHAIN_FILE={emscripten_cmake_path} -DCMAKE_BUILD_TYPE={config.capitalize()} {wasm_release_flag} -DBUILD_SHARED_LIBS=OFF -DZLIB_BUILD_SHARED=OFF -DGFLAGS_INTTYPES_FORMAT=C99 -DINTTYPES_FORMAT=C99 -DSDL2MIXER_CMD=OFF -DSDL_TEST=OFF -DMINIZIP_BUILD_SHARED=OFF -DMINIZIP_BUILD_STATIC=ON .."
     
     # Run command with modified environment
     print(f"Running: {cmake_cmd}")
