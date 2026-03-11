@@ -13,6 +13,7 @@ def run_command(cmd, cwd=None):
     """Run a command and return the output"""
     print(f"Running: {cmd}")
     result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
+    print(f"{result.stdout}")
     if result.returncode != 0:
         print(f"Error running command: {cmd}")
         print(f"Stderr: {result.stderr}")
@@ -257,6 +258,7 @@ def build_wasm_config(config):
     # Run command with modified environment
     print(f"Running: {cmake_cmd}")
     result = subprocess.run(cmake_cmd, shell=True, cwd=cmake_build_dir, capture_output=True, text=True, env=env)
+    print(f"{result.stdout}")
     if result.returncode != 0:
         print(f"Error running command: {cmake_cmd}")
         print(f"Stderr: {result.stderr}")
@@ -273,6 +275,7 @@ def build_wasm_config(config):
         build_cmd = 'ninja'
     print(f"Running: {build_cmd}")
     result = subprocess.run(build_cmd, shell=True, cwd=cmake_build_dir, capture_output=True, text=True, env=env)
+    print(f"{result.stdout}")
     if result.returncode != 0:
         print(f"Error running command: {build_cmd}")
         print(f"Stderr: {result.stderr}")
