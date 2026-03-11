@@ -63,11 +63,11 @@ def build_pc(build_project=False):
     
     # Build the Debug project if requested
     if build_project:
-        print(f"\nBuilding Debug project...")
+        print(f"\nBuilding Debug project (kiwi_machine)...")
         if generator == 'Visual Studio 17 2022':
-            build_cmd = 'cmake --build . --config Debug'
+            build_cmd = 'cmake --build . --config Debug --target kiwi_machine'
         else:
-            build_cmd = 'cmake --build .'
+            build_cmd = 'cmake --build . --target kiwi_machine'
         run_command(build_cmd, cwd=debug_dir)
     
     # Build Release configuration
@@ -82,11 +82,11 @@ def build_pc(build_project=False):
     
     # Build the Release project if requested
     if build_project:
-        print(f"\nBuilding Release project...")
+        print(f"\nBuilding Release project (kiwi_machine)...")
         if generator == 'Visual Studio 17 2022':
-            build_cmd = 'cmake --build . --config Release'
+            build_cmd = 'cmake --build . --config Release --target kiwi_machine'
         else:
-            build_cmd = 'cmake --build .'
+            build_cmd = 'cmake --build . --target kiwi_machine'
         run_command(build_cmd, cwd=release_dir)
     
     # For Apple Silicon machines, also build Intel architecture projects
@@ -105,11 +105,11 @@ def build_pc(build_project=False):
         
         # Build the Intel Debug project if requested
         if build_project:
-            print(f"\nBuilding Intel Debug project...")
+            print(f"\nBuilding Intel Debug project (kiwi_machine)...")
             if generator == 'Visual Studio 17 2022':
-                build_cmd = 'cmake --build . --config Debug'
+                build_cmd = 'cmake --build . --config Debug --target kiwi_machine'
             else:
-                build_cmd = 'cmake --build .'
+                build_cmd = 'cmake --build . --target kiwi_machine'
             run_command(build_cmd, cwd=intel_debug_dir)
         
         # Build Intel Release configuration
@@ -124,11 +124,11 @@ def build_pc(build_project=False):
         
         # Build the Intel Release project if requested
         if build_project:
-            print(f"\nBuilding Intel Release project...")
+            print(f"\nBuilding Intel Release project (kiwi_machine)...")
             if generator == 'Visual Studio 17 2022':
-                build_cmd = 'cmake --build . --config Release'
+                build_cmd = 'cmake --build . --config Release --target kiwi_machine'
             else:
-                build_cmd = 'cmake --build .'
+                build_cmd = 'cmake --build . --target kiwi_machine'
             run_command(build_cmd, cwd=intel_release_dir)
 
 def check_xcode_installed():
