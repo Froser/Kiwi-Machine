@@ -1,0 +1,58 @@
+name: Build Kiwi Machine
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake ninja-build libx11-dev libxext-dev libxrender-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libasound2-dev
+
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install cmake ninja
+
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Sync workspace dependencies
+      run: |
+        python build.py workspace
+
+    - name: Build PC platform (Debug and Release)
+      run: |
+        python build.py pc
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiwi-machine-${{ matrix.os }}
+        path: |
+          cmake-build-debug/
+          cmake-build-release/
+        retention-days: 30
