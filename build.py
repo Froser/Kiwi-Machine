@@ -43,7 +43,7 @@ def get_cmake_generator():
         return 'Unix Makefiles'
 
 
-def build_pc():
+def build_pc(build_project=False):
     """Build PC platform projects"""
     print("\n=== Building PC platform projects ===")
     
@@ -61,6 +61,17 @@ def build_pc():
     cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Debug .."
     run_command(cmake_cmd, cwd=debug_dir)
     
+    # Build the Debug project if requested
+    if build_project:
+        print(f"\nBuilding Debug project...")
+        if generator == 'Xcode':
+            build_cmd = 'xcodebuild -configuration Debug'
+        elif generator == 'Visual Studio 17 2022':
+            build_cmd = 'cmake --build . --config Debug'
+        else:
+            build_cmd = 'cmake --build .'
+        run_command(build_cmd, cwd=debug_dir)
+    
     # Build Release configuration
     release_dir = os.path.join(PROJECT_ROOT, "cmake-build-release")
     print(f"Building Release configuration in {release_dir}")
@@ -70,6 +81,17 @@ def build_pc():
     # Construct cmake command
     cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Release .."
     run_command(cmake_cmd, cwd=release_dir)
+    
+    # Build the Release project if requested
+    if build_project:
+        print(f"\nBuilding Release project...")
+        if generator == 'Xcode':
+            build_cmd = 'xcodebuild -configuration Release'
+        elif generator == 'Visual Studio 17 2022':
+            build_cmd = 'cmake --build . --config Release'
+        else:
+            build_cmd = 'cmake --build .'
+        run_command(build_cmd, cwd=release_dir)
     
     # For Apple Silicon machines, also build Intel architecture projects
     if is_apple_silicon():
@@ -85,6 +107,17 @@ def build_pc():
         cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
         run_command(cmake_cmd, cwd=intel_debug_dir)
         
+        # Build the Intel Debug project if requested
+        if build_project:
+            print(f"\nBuilding Intel Debug project...")
+            if generator == 'Xcode':
+                build_cmd = 'xcodebuild -configuration Debug'
+            elif generator == 'Visual Studio 17 2022':
+                build_cmd = 'cmake --build . --config Debug'
+            else:
+                build_cmd = 'cmake --build .'
+            run_command(build_cmd, cwd=intel_debug_dir)
+        
         # Build Intel Release configuration
         intel_release_dir = os.path.join(PROJECT_ROOT, "cmake-build-intel-release")
         print(f"Building Intel Release configuration in {intel_release_dir}")
@@ -94,6 +127,17 @@ def build_pc():
         # Construct cmake command
         cmake_cmd = f"cmake -G '{generator}' -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
         run_command(cmake_cmd, cwd=intel_release_dir)
+        
+        # Build the Intel Release project if requested
+        if build_project:
+            print(f"\nBuilding Intel Release project...")
+            if generator == 'Xcode':
+                build_cmd = 'xcodebuild -configuration Release'
+            elif generator == 'Visual Studio 17 2022':
+                build_cmd = 'cmake --build . --config Release'
+            else:
+                build_cmd = 'cmake --build .'
+            run_command(build_cmd, cwd=intel_release_dir)
 
 def check_xcode_installed():
     """Check if XCode is installed"""
@@ -279,7 +323,7 @@ def sync_workspace():
 
 def print_help():
     """Print help information"""
-    print("Usage: build.py [options] [--clion] [--cleanup-clion] [--cleanup]")
+    print("Usage: build.py [options] [--clion] [--cleanup-clion] [--cleanup] [--build]")
     print("Options:")
     print("  pc          Build PC platform projects (Debug and Release)")
     print("  ios         Build iOS platform projects (Debug and Release)")
@@ -290,6 +334,7 @@ def print_help():
     print("  --clion     Generate CLion configuration files instead of building")
     print("  --cleanup-clion     Remove CLion configuration directory")
     print("  --cleanup   Remove all binary output directories")
+    print("  --build     Actually build the projects after CMake configuration")
     print("")
     print("For Apple Silicon machines, additional Intel architecture builds are created.")
 
@@ -549,6 +594,9 @@ def main():
     # Check for --cleanup flag
     cleanup_build_mode = "--cleanup" in sys.argv
     
+    # Check for --build flag
+    build_mode = "--build" in sys.argv
+    
     # Remove flags from arguments if present
     if clion_mode:
         sys.argv.remove("--clion")
@@ -556,6 +604,8 @@ def main():
         sys.argv.remove("--cleanup-clion")
     if cleanup_build_mode:
         sys.argv.remove("--cleanup")
+    if build_mode:
+        sys.argv.remove("--build")
     
     # Handle cleanup modes
     if cleanup_clion_mode:
@@ -573,7 +623,7 @@ def main():
         else:
             # No arguments, execute all steps
             sync_workspace()
-            build_pc()
+            build_pc(build_mode)
             build_wasm()
             # Build iOS only on macOS
             if platform.system() == 'Darwin':
@@ -585,7 +635,7 @@ def main():
                 if clion_mode:
                     generate_clion_config("pc")
                 else:
-                    build_pc()
+                    build_pc(build_mode)
             elif arg == "ios":
                 if clion_mode:
                     generate_clion_config("ios")
@@ -607,7 +657,7 @@ def main():
                     generate_clion_config("all")
                 else:
                     sync_workspace()
-                    build_pc()
+                    build_pc(build_mode)
                     build_wasm()
                     # Build iOS only on macOS
                     if platform.system() == 'Darwin':

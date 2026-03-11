@@ -46,7 +46,7 @@ jobs:
 
     - name: Build PC platform (Debug and Release)
       run: |
-        python build.py pc
+        python build.py pc --build
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
