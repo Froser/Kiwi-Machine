@@ -1,0 +1,49 @@
+name: Build Android
+
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ 'main' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on Android
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x src/client/kiwi_machine_android/gradlew
+
+    - name: Build Android APK (Debug)
+      run: |
+        cd src/client/kiwi_machine_android
+        ./gradlew assembleDebug
+
+    - name: Build Android APK (Release)
+      run: |
+        cd src/client/kiwi_machine_android
+        ./gradlew assembleRelease
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiwi-machine-android
+        path: |
+          src/client/kiwi_machine_android/app/build/outputs/apk/
+        retention-days: 30
