@@ -11,6 +11,8 @@
 
 [![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_macos.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_macos.yml)
 
+[![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_wasm.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_wasm.yml)
+
 ## Basic Introduction
 
 Kiwi Machine is a simple Nintendo Entertainment System (NES/FC) emulator engine. It provides a very simple interface to help implement NES emulators on various platforms.
@@ -99,11 +101,27 @@ python3 build.py workspace # Sync workspace dependencies
 python3 build.py all       # Build all platforms and sync dependencies
 python3 build.py help      # Print help information
 
+# Actually build the projects after CMake configuration
+python3 build.py pc --build        # Build PC platform and compile projects
+python3 build.py all --build       # Build all platforms and compile projects
+
 # Generate CLion configuration files
 python3 build.py pc --clion        # Generate CLion config for PC platform
 python3 build.py ios --clion       # Generate CLion config for iOS platform
 python3 build.py wasm --clion      # Generate CLion config for WebAssembly platform
 python3 build.py all --clion       # Generate CLion config for all platforms
+```
+
+### Build Flag
+
+By default, `build.py` will only configure the CMake projects without actually compiling them. Use the `--build` flag to actually compile the projects after CMake configuration:
+
+```bash
+# Only configure CMake projects (default)
+python3 build.py pc
+
+# Configure and compile projects
+python3 build.py pc --build
 ```
 
 ### Important Note for CLion Users
