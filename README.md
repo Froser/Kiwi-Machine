@@ -5,7 +5,11 @@
 ![](docs/preview.gif)
 
 ## CICD
-[![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build.yml)
+[![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_windows.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_windows.yml)
+
+[![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_ubuntu.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_ubuntu.yml)
+
+[![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_macos.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_macos.yml)
 
 ## Basic Introduction
 

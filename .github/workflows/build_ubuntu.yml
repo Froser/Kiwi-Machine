@@ -1,0 +1,44 @@
+name: Build Ubuntu
+
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ 'main' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies (Ubuntu)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake ninja-build libx11-dev libxext-dev libxrender-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libasound2-dev
+
+    - name: Sync workspace dependencies
+      run: |
+        python build.py workspace
+
+    - name: Build PC platform (Debug and Release)
+      run: |
+        python build.py pc --build
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiwi-machine-ubuntu-latest
+        path: |
+          cmake-build-debug/
+          cmake-build-release/
+        retention-days: 30
