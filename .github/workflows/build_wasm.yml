@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     name: Build on WebAssembly
-    runs-on: windows-latest
+    runs-on: macos-14
 
     steps:
     - name: Checkout repository
