@@ -160,7 +160,7 @@ def build_mobile(build_project=False):
     print(f"Building iOS Debug configuration (Simulator) in {ios_debug_dir}")
     if not os.path.exists(ios_debug_dir):
         os.makedirs(ios_debug_dir)
-    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=SIMULATOR64 ..", cwd=ios_debug_dir)
+    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=SIMULATOR64 -DENABLE_ARC=OFF ..", cwd=ios_debug_dir)
     
     # Build the Debug project if requested
     if build_project:
@@ -173,7 +173,7 @@ def build_mobile(build_project=False):
     print(f"Building iOS Release configuration (Simulator) in {ios_release_dir}")
     if not os.path.exists(ios_release_dir):
         os.makedirs(ios_release_dir)
-    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=SIMULATOR64 ..", cwd=ios_release_dir)
+    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=SIMULATOR64 -DENABLE_ARC=OFF ..", cwd=ios_release_dir)
     
     # Build the Release project if requested
     if build_project:
@@ -491,7 +491,8 @@ def generate_clion_config(platform="all"):
                 "binaryDir": "${sourceDir}/cmake-build-ios-debug",
                 "cacheVariables": {
                     "CMAKE_BUILD_TYPE": "Debug",
-                    "PLATFORM": "OS64"
+                    "PLATFORM": "OS64",
+                    "ENABLE_ARC": "OFF"
                 },
                 "toolchainFile": ios_toolchain
             })
@@ -505,7 +506,8 @@ def generate_clion_config(platform="all"):
                 "binaryDir": "${sourceDir}/cmake-build-ios-release",
                 "cacheVariables": {
                     "CMAKE_BUILD_TYPE": "Release",
-                    "PLATFORM": "OS64"
+                    "PLATFORM": "OS64",
+                    "ENABLE_ARC": "OFF"
                 },
                 "toolchainFile": ios_toolchain
             })
