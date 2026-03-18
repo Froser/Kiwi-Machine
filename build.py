@@ -48,6 +48,8 @@ def build_pc(build_project=False):
     """Build PC platform projects"""
     print("\n=== Building PC platform projects ===")
     
+    success = True
+    
     # Get appropriate CMake generator
     generator = get_cmake_generator()
     print(f"Using CMake generator: {generator}")
@@ -60,16 +62,18 @@ def build_pc(build_project=False):
     
     # Construct cmake command
     cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Debug .."
-    run_command(cmake_cmd, cwd=debug_dir)
+    if not run_command(cmake_cmd, cwd=debug_dir):
+        success = False
     
     # Build the Debug project if requested
-    if build_project:
+    if build_project and success:
         print(f"\nBuilding Debug project (kiwi_machine)...")
         if generator == 'Visual Studio 17 2022':
             build_cmd = 'cmake --build . --config Debug --target kiwi_machine'
         else:
             build_cmd = 'cmake --build . --target kiwi_machine'
-        run_command(build_cmd, cwd=debug_dir)
+        if not run_command(build_cmd, cwd=debug_dir):
+            success = False
     
     # Build Release configuration
     release_dir = os.path.join(PROJECT_ROOT, "cmake-build-release")
@@ -79,19 +83,21 @@ def build_pc(build_project=False):
     
     # Construct cmake command
     cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Release .."
-    run_command(cmake_cmd, cwd=release_dir)
+    if success and not run_command(cmake_cmd, cwd=release_dir):
+        success = False
     
     # Build the Release project if requested
-    if build_project:
+    if build_project and success:
         print(f"\nBuilding Release project (kiwi_machine)...")
         if generator == 'Visual Studio 17 2022':
             build_cmd = 'cmake --build . --config Release --target kiwi_machine'
         else:
             build_cmd = 'cmake --build . --target kiwi_machine'
-        run_command(build_cmd, cwd=release_dir)
+        if not run_command(build_cmd, cwd=release_dir):
+            success = False
     
     # For Apple Silicon machines, also build Intel architecture projects
-    if is_apple_silicon():
+    if is_apple_silicon() and success:
         print("\n=== Building Intel architecture projects for Apple Silicon ===")
         
         # Build Intel Debug configuration
@@ -102,16 +108,18 @@ def build_pc(build_project=False):
         
         # Construct cmake command
         cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
-        run_command(cmake_cmd, cwd=intel_debug_dir)
+        if not run_command(cmake_cmd, cwd=intel_debug_dir):
+            success = False
         
         # Build the Intel Debug project if requested
-        if build_project:
+        if build_project and success:
             print(f"\nBuilding Intel Debug project (kiwi_machine)...")
             if generator == 'Visual Studio 17 2022':
                 build_cmd = 'cmake --build . --config Debug --target kiwi_machine'
             else:
                 build_cmd = 'cmake --build . --target kiwi_machine'
-            run_command(build_cmd, cwd=intel_debug_dir)
+            if not run_command(build_cmd, cwd=intel_debug_dir):
+                success = False
         
         # Build Intel Release configuration
         intel_release_dir = os.path.join(PROJECT_ROOT, "cmake-build-intel-release")
@@ -121,16 +129,20 @@ def build_pc(build_project=False):
         
         # Construct cmake command
         cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
-        run_command(cmake_cmd, cwd=intel_release_dir)
+        if success and not run_command(cmake_cmd, cwd=intel_release_dir):
+            success = False
         
         # Build the Intel Release project if requested
-        if build_project:
+        if build_project and success:
             print(f"\nBuilding Intel Release project (kiwi_machine)...")
             if generator == 'Visual Studio 17 2022':
                 build_cmd = 'cmake --build . --config Release --target kiwi_machine'
             else:
                 build_cmd = 'cmake --build . --target kiwi_machine'
-            run_command(build_cmd, cwd=intel_release_dir)
+            if not run_command(build_cmd, cwd=intel_release_dir):
+                success = False
+    
+    return success
 
 def check_xcode_installed():
     """Check if XCode is installed"""
@@ -150,7 +162,9 @@ def build_mobile(build_project=False):
     if not check_xcode_installed():
         print("Warning: XCode is not installed")
         print("iOS build will be skipped")
-        return
+        return False
+    
+    success = True
     
     # Use iOS toolchain
     ios_toolchain = os.path.join(PROJECT_ROOT, "build", "cmake", "ios.toolchain.cmake")
@@ -160,26 +174,32 @@ def build_mobile(build_project=False):
     print(f"Building iOS Debug configuration (Simulator) in {ios_debug_dir}")
     if not os.path.exists(ios_debug_dir):
         os.makedirs(ios_debug_dir)
-    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=SIMULATOR64 -DENABLE_ARC=OFF ..", cwd=ios_debug_dir)
+    if not run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=SIMULATOR64 -DENABLE_ARC=OFF ..", cwd=ios_debug_dir):
+        success = False
     
     # Build the Debug project if requested
-    if build_project:
+    if build_project and success:
         print(f"\nBuilding iOS Debug project (kiwi_machine)...")
         build_cmd = 'xcodebuild -configuration Debug -scheme kiwi_machine -sdk iphonesimulator -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM=""'
-        run_command(build_cmd, cwd=ios_debug_dir)
+        if not run_command(build_cmd, cwd=ios_debug_dir):
+            success = False
     
     # Always build iOS Release configuration for simulator (SIMULATOR64)
     ios_release_dir = os.path.join(PROJECT_ROOT, "cmake-build-ios-release")
     print(f"Building iOS Release configuration (Simulator) in {ios_release_dir}")
     if not os.path.exists(ios_release_dir):
         os.makedirs(ios_release_dir)
-    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=SIMULATOR64 -DENABLE_ARC=OFF ..", cwd=ios_release_dir)
+    if success and not run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=SIMULATOR64 -DENABLE_ARC=OFF ..", cwd=ios_release_dir):
+        success = False
     
     # Build the Release project if requested
-    if build_project:
+    if build_project and success:
         print(f"\nBuilding iOS Release project (kiwi_machine)...")
         build_cmd = 'xcodebuild -configuration Release -scheme kiwi_machine -sdk iphonesimulator -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM=""'
-        run_command(build_cmd, cwd=ios_release_dir)
+        if not run_command(build_cmd, cwd=ios_release_dir):
+            success = False
+    
+    return success
 
 def install_emsdk():
     """Install Emscripten environment"""
@@ -304,7 +324,9 @@ def build_wasm():
     # Install Emscripten if not already installed
     emsdk_dir = os.path.join(PROJECT_ROOT, "emsdk")
     if not os.path.exists(emsdk_dir):
-        install_emsdk()
+        if not install_emsdk():
+            print("Emscripten installation failed!")
+            return False
     
     # Build Debug configuration
     debug_success = build_wasm_config("debug")
@@ -315,9 +337,10 @@ def build_wasm():
     # Print completion information
     if debug_success and release_success:
         print("\nAll WebAssembly builds completed successfully!")
+        return True
     else:
         print("\nSome WebAssembly builds failed!")
-        sys.exit(1)
+        return False
 
 def sync_workspace():
     """Sync workspace dependencies"""
@@ -325,7 +348,7 @@ def sync_workspace():
     
     # Call existing workspace-sync.py script
     workspace_script = os.path.join(PROJECT_ROOT, "build", "workspace-sync.py")
-    run_command(f"python3 {workspace_script}")
+    return run_command(f"python3 {workspace_script}")
 
 
 def print_help():
@@ -625,18 +648,24 @@ def main():
         cleanup_clion()
         return
     
+    overall_success = True
+    
     # Parse command line arguments
     if len(sys.argv) == 1:
         if clion_mode:
             generate_clion_config("all")
         else:
             # No arguments, execute all steps
-            sync_workspace()
-            build_pc(build_mode)
-            build_wasm()
+            if not sync_workspace():
+                overall_success = False
+            if not build_pc(build_mode):
+                overall_success = False
+            if not build_wasm():
+                overall_success = False
             # Build iOS only on macOS
             if platform.system() == 'Darwin':
-                build_mobile(build_mode)
+                if not build_mobile(build_mode):
+                    overall_success = False
     else:
         # With arguments, execute corresponding steps
         for arg in sys.argv[1:]:
@@ -644,38 +673,52 @@ def main():
                 if clion_mode:
                     generate_clion_config("pc")
                 else:
-                    build_pc(build_mode)
+                    if not build_pc(build_mode):
+                        overall_success = False
             elif arg == "ios":
                 if clion_mode:
                     generate_clion_config("ios")
                 else:
                     # Build iOS only on macOS
                     if platform.system() == 'Darwin':
-                        build_mobile(build_mode)
+                        if not build_mobile(build_mode):
+                            overall_success = False
                     else:
                         print("iOS build is only supported on macOS")
+                        overall_success = False
             elif arg == "wasm":
                 if clion_mode:
                     generate_clion_config("wasm")
                 else:
-                    build_wasm()
+                    if not build_wasm():
+                        overall_success = False
             elif arg == "workspace":
-                sync_workspace()
+                if not sync_workspace():
+                    overall_success = False
             elif arg == "all":
                 if clion_mode:
                     generate_clion_config("all")
                 else:
-                    sync_workspace()
-                    build_pc(build_mode)
-                    build_wasm()
+                    if not sync_workspace():
+                        overall_success = False
+                    if not build_pc(build_mode):
+                        overall_success = False
+                    if not build_wasm():
+                        overall_success = False
                     # Build iOS only on macOS
                     if platform.system() == 'Darwin':
-                        build_mobile(build_mode)
+                        if not build_mobile(build_mode):
+                            overall_success = False
             elif arg == "help":
                 print_help()
             else:
                 print(f"Unknown option: {arg}")
                 print_help()
+                overall_success = False
+    
+    if not overall_success:
+        print("\nSome builds failed!")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
