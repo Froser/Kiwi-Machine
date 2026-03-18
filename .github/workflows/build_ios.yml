@@ -1,0 +1,43 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ 'main' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on iOS
+    runs-on: macos-14
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies (macOS)
+      run: |
+        brew install cmake ninja
+
+    - name: Sync workspace dependencies
+      run: |
+        python build.py workspace
+
+    - name: Build iOS platform (Debug and Release)
+      run: |
+        python build.py ios --build
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiwi-machine-ios
+        path: |
+          cmake-build-ios-debug/
+          cmake-build-ios-release/
+        retention-days: 30

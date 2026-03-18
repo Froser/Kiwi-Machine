@@ -142,7 +142,7 @@ def check_xcode_installed():
         print(f"Error checking XCode installation: {e}")
         return False
 
-def build_mobile():
+def build_mobile(build_project=False):
     """Build mobile platform projects"""
     print("\n=== Building Mobile platform projects ===")
     
@@ -155,19 +155,31 @@ def build_mobile():
     # Use iOS toolchain
     ios_toolchain = os.path.join(PROJECT_ROOT, "build", "cmake", "ios.toolchain.cmake")
     
-    # Always build iOS Debug configuration for real device (OS64)
+    # Always build iOS Debug configuration for simulator (SIMULATOR64)
     ios_debug_dir = os.path.join(PROJECT_ROOT, "cmake-build-ios-debug")
-    print(f"Building iOS Debug configuration (Device) in {ios_debug_dir}")
+    print(f"Building iOS Debug configuration (Simulator) in {ios_debug_dir}")
     if not os.path.exists(ios_debug_dir):
         os.makedirs(ios_debug_dir)
-    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=OS64 ..", cwd=ios_debug_dir)
+    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Debug -DPLATFORM=SIMULATOR64 ..", cwd=ios_debug_dir)
     
-    # Always build iOS Release configuration for real device (OS64)
+    # Build the Debug project if requested
+    if build_project:
+        print(f"\nBuilding iOS Debug project (kiwi_machine)...")
+        build_cmd = 'xcodebuild -configuration Debug -scheme kiwi_machine -sdk iphonesimulator -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM=""'
+        run_command(build_cmd, cwd=ios_debug_dir)
+    
+    # Always build iOS Release configuration for simulator (SIMULATOR64)
     ios_release_dir = os.path.join(PROJECT_ROOT, "cmake-build-ios-release")
-    print(f"Building iOS Release configuration (Device) in {ios_release_dir}")
+    print(f"Building iOS Release configuration (Simulator) in {ios_release_dir}")
     if not os.path.exists(ios_release_dir):
         os.makedirs(ios_release_dir)
-    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=OS64 ..", cwd=ios_release_dir)
+    run_command(f"cmake -G \"Xcode\" -DCMAKE_TOOLCHAIN_FILE={ios_toolchain} -DCMAKE_BUILD_TYPE=Release -DPLATFORM=SIMULATOR64 ..", cwd=ios_release_dir)
+    
+    # Build the Release project if requested
+    if build_project:
+        print(f"\nBuilding iOS Release project (kiwi_machine)...")
+        build_cmd = 'xcodebuild -configuration Release -scheme kiwi_machine -sdk iphonesimulator -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM=""'
+        run_command(build_cmd, cwd=ios_release_dir)
 
 def install_emsdk():
     """Install Emscripten environment"""
@@ -622,7 +634,7 @@ def main():
             build_wasm()
             # Build iOS only on macOS
             if platform.system() == 'Darwin':
-                build_mobile()
+                build_mobile(build_mode)
     else:
         # With arguments, execute corresponding steps
         for arg in sys.argv[1:]:
@@ -637,7 +649,7 @@ def main():
                 else:
                     # Build iOS only on macOS
                     if platform.system() == 'Darwin':
-                        build_mobile()
+                        build_mobile(build_mode)
                     else:
                         print("iOS build is only supported on macOS")
             elif arg == "wasm":
@@ -656,7 +668,7 @@ def main():
                     build_wasm()
                     # Build iOS only on macOS
                     if platform.system() == 'Darwin':
-                        build_mobile()
+                        build_mobile(build_mode)
             elif arg == "help":
                 print_help()
             else:
