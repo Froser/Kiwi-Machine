@@ -45,7 +45,7 @@ fi
 echo "\$MAKE is '$MAKE'"
 
 echo "Setting up Emscripten SDK environment..."
-. "$ENVSCRIPT"
+source "$ENVSCRIPT"
 
 echo "Setting up..."
 set -x
