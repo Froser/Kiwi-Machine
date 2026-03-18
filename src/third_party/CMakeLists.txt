@@ -17,6 +17,11 @@ add_subdirectory(SDL_mixer-release-2.6.3)
 add_subdirectory(libjpeg-turbo-jpeg-9f)
 add_subdirectory(googletest-release-1.12.1 "googletest")
 
+# Link Apple frameworks to SDL2_image for iOS
+if(IOS AND TARGET ios_frameworks)
+    target_link_libraries(SDL2_image PRIVATE ios_frameworks)
+endif()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_target_properties(gflags_nothreads_static PROPERTIES FOLDER "3rdparty/gflags")
 set_target_properties(imgui PROPERTIES FOLDER "3rdparty/imgui")

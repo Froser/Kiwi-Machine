@@ -49,3 +49,22 @@ macro(KIWI_TARGET_FOLDER target folder)
         set_target_properties(${target} PROPERTIES FOLDER ${folder})
     endif()
 endmacro()
+
+if(IOS)
+    find_library(IMAGEIO_FRAMEWORK ImageIO)
+    find_library(COREGRAPHICS_FRAMEWORK CoreGraphics)
+    find_library(CORESERVICES_FRAMEWORK CoreServices)
+    find_library(UNIFORMTYPEIDENTIFIERS_FRAMEWORK UniformTypeIdentifiers)
+    
+    if(NOT TARGET ios_frameworks)
+        add_library(ios_frameworks INTERFACE)
+        target_link_libraries(ios_frameworks INTERFACE
+            ${IMAGEIO_FRAMEWORK}
+            ${COREGRAPHICS_FRAMEWORK}
+            ${CORESERVICES_FRAMEWORK}
+        )
+        if(UNIFORMTYPEIDENTIFIERS_FRAMEWORK)
+            target_link_libraries(ios_frameworks INTERFACE ${UNIFORMTYPEIDENTIFIERS_FRAMEWORK})
+        endif()
+    endif()
+endif()
