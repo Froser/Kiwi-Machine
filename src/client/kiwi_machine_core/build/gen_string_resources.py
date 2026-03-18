@@ -55,7 +55,7 @@ const StringMap& GetGlobalStringMap();
                 all_strings += '  }},\n'
 
     header_file = output_dir + '/string_resources.h'
-    with open(header_file, "w") as o:
+    with open(header_file, "w", encoding='utf-8') as o:
 
         o.write('\n')
         o.write(header)
@@ -73,7 +73,7 @@ const StringMap& GetGlobalStringMap();
     print("Generated: ", header_file)
 
     cc_file = output_dir + '/string_resources.cc'
-    with open(cc_file, "w") as o:
+    with open(cc_file, "w", encoding='utf-8') as o:
         o.write('#include "resources/string_resources.h"\n')
         o.write('\n')
         o.write('namespace string_resources {\n')

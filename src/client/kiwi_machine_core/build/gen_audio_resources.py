@@ -92,7 +92,7 @@ namespace audio_resources {
                 print(f.name, 'is in ignore list. Ignored.')
 
     header_file = output_dir + '/audio_resources.h'
-    with open(header_file, "w") as o:
+    with open(header_file, "w", encoding='utf-8') as o:
         o.write('\n')
         o.write(header)
         o.write('\n')
@@ -112,7 +112,7 @@ namespace audio_resources {
     print("Generated: ", header_file)
 
     cc_file = output_dir + '/audio_resources.cc'
-    with open(cc_file, "w") as o:
+    with open(cc_file, "w", encoding='utf-8') as o:
         o.write('#include "resources/audio_resources.h"\n')
         o.write('\n')
         o.write('#include <SDL_assert.h>\n')

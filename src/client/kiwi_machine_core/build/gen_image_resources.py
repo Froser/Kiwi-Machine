@@ -92,7 +92,7 @@ namespace image_resources {
                 print(f.name, 'is in ignore list. Ignored.')
 
     header_file = output_dir + '/image_resources.h'
-    with open(header_file, "w") as o:
+    with open(header_file, "w", encoding='utf-8') as o:
         o.write('\n')
         o.write(header)
         o.write('\n')
@@ -112,7 +112,7 @@ namespace image_resources {
     print("Generated: ", header_file)
 
     cc_file = output_dir + '/image_resources.cc'
-    with open(cc_file, "w") as o:
+    with open(cc_file, "w", encoding='utf-8') as o:
         o.write('#include "resources/image_resources.h"\n')
         o.write('\n')
         o.write('#include <SDL_assert.h>\n')
