@@ -10,12 +10,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-add_subdirectory(glog)
-add_subdirectory(SDL2)
-add_subdirectory(nes_apu)
-add_subdirectory(zlib-1.3.2)
-add_subdirectory(zlib-1.3.2/contrib/minizip)
-
 # Emscripten does not support shared libraries
 if(EMSCRIPTEN)
     set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
@@ -23,6 +17,12 @@ if(EMSCRIPTEN)
     set(MINIZIP_BUILD_SHARED OFF CACHE BOOL "" FORCE)
     set(MINIZIP_BUILD_STATIC ON CACHE BOOL "" FORCE)
 endif()
+
+add_subdirectory(glog)
+add_subdirectory(SDL2)
+add_subdirectory(nes_apu)
+add_subdirectory(zlib-1.3.2)
+add_subdirectory(zlib-1.3.2/contrib/minizip)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 KIWI_TARGET_FOLDER(glog "3rdparty/glog")
