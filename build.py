@@ -313,6 +313,17 @@ def build_wasm_config(config):
         print(f"Stderr: {result.stderr}")
         return False
     
+    # Build the BuildKiwiMachineWASM target to copy artifacts and roms to public folder
+    print(f"\nBuilding BuildKiwiMachineWASM target for {config} configuration...")
+    build_target_cmd = 'cmake --build . --target BuildKiwiMachineWASM'
+    print(f"Running: {build_target_cmd}")
+    result = subprocess.run(build_target_cmd, shell=True, cwd=cmake_build_dir, capture_output=True, text=True, env=env)
+    print(f"{result.stdout}")
+    if result.returncode != 0:
+        print(f"Error running command: {build_target_cmd}")
+        print(f"Stderr: {result.stderr}")
+        return False
+    
     print(f"\nWebAssembly {config} build completed successfully!")
     print(f"Build directory: {cmake_build_dir}")
     return True

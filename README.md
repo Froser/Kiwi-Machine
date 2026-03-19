@@ -360,4 +360,4 @@ cmake --build <build_dir> --target auto_package
 The `auto_package` target will:
 1. Check if `src/third_party/Kiwi-Machine-Workspace` exists
 2. Process each subdirectory under `zipped/nes` and package it into `.pak` files
-3. Copy all generated `.pak` files to the same directory as `kiwi_machine`
+3. Copy all generated `.pak` files to the resources directory of `kiwi_machine`
