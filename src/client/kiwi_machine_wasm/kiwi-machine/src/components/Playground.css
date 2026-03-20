@@ -247,3 +247,9 @@ GNU General Public License for more details.
   background-color: var(--border-color);
   display: inline-block;
 }
+
+@media (max-width: 768px) {
+  .playground-control {
+    display: none;
+  }
+}
