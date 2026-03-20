@@ -21,21 +21,28 @@ import Footer from "./Footer";
 export default function Arcade() {
   const [frameRef, setFrameRef] = useState(useRef<HTMLIFrameElement>(null));
   const [romName, setRomName] = useState('');
+  const [showGameList, setShowGameList] = useState(false);
 
   const loadRom = (romUrl: string, romName: string) => {
     const currentWindow = frameRef.current?.contentWindow;
     const emulator_service = CreateEmulatorService(currentWindow);
     emulator_service.loadROM(romUrl);
     setRomName(romName);
+    setShowGameList(false);
   }
 
   return (
     <>
-      <Header content="Kiwi Machine"></Header>
+      <Header content="Kiwi Machine" onMenuClick={() => setShowGameList(true)}></Header>
       <div className="arcade">
         <Playground setFrameRef={setFrameRef}/>
-        <GameList loadRom={loadRom} romName={romName}/>
       </div>
+      <GameList 
+        loadRom={loadRom} 
+        romName={romName} 
+        show={showGameList} 
+        setShow={setShowGameList}
+      />
       <Footer />
     </>
   );

@@ -76,6 +76,35 @@ GNU General Public License for more details.
   border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
   font-size: 18px;
   font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-close-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.modal-close-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
 }
 
 .modal-contents {

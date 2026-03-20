@@ -11,7 +11,7 @@
 // GNU General Public License for more details.
 
 import "./GameList.css"
-import {FormEvent, useState} from "react";
+import {Dispatch, FormEvent, SetStateAction, useState} from "react";
 import GameItem from "./GameItem";
 import {getROMImageUrlFromContents, isLocaleTitleContains, ROMContent} from "../services/rom";
 import SearchInput from "./basic/SearchInput";
@@ -21,9 +21,11 @@ import Button from "./basic/Button";
 interface GameListProps {
   loadRom: (romUrl: string, romName: string) => void,
   romName: string,
+  show: boolean,
+  setShow: Dispatch<SetStateAction<boolean>>,
 }
 
-export default function GameList({loadRom, romName}: GameListProps) {
+export default function GameList({loadRom, romName, show, setShow}: GameListProps) {
   // Set the full ROM database.
   const [gameDb, setGameDb] = useState<ROMContent[]>();
 
@@ -80,14 +82,16 @@ export default function GameList({loadRom, romName}: GameListProps) {
           </div>
         </Modal>
 
-        <div className="gamelist">
-          <div className="gamelist-input">
-            <SearchInput onInput={updateKeyword} text='搜索你喜欢的游戏'/>
+        <Modal show={show} title="游戏列表" setVisible={setShow} width="95vw" height="90vh">
+          <div className="gamelist gamelist-modal">
+            <div className="gamelist-input">
+              <SearchInput onInput={updateKeyword} text='搜索你喜欢的游戏'/>
+            </div>
+            <div className="gamelist-items">
+              {items}
+            </div>
           </div>
-          <div className="gamelist-items">
-            {items}
-          </div>
-        </div>
+        </Modal>
       </div>
     );
   }

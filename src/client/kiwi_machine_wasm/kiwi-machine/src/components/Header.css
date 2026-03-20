@@ -42,6 +42,34 @@ GNU General Public License for more details.
   gap: 16px;
 }
 
+.search-games-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius-lg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-md);
+}
+
+.search-games-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+}
+
+.search-games-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
 .logo-img {
   height: 40px;
   width: auto;

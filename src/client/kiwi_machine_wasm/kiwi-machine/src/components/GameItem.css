@@ -13,18 +13,23 @@ GNU General Public License for more details.
  */
 
 .gameitem {
-  padding: 12px;
-  margin: 0 0 8px 0;
-  border-radius: var(--border-radius-md);
+  padding: 16px;
+  border-radius: var(--border-radius-lg);
   cursor: pointer;
   transition: all var(--transition-fast);
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .gameitem:hover {
-  background: var(--bg-surface);
-  border-color: var(--border-color);
-  transform: translateX(4px);
+  background: var(--bg-surface-hover);
+  border-color: var(--accent-primary);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
 }
 
 .gameitem-checked {
@@ -34,34 +39,42 @@ GNU General Public License for more details.
 }
 
 .gameitem > img {
-  width: 150px;
-  height: 200px;
-  padding-top: 10px;
+  width: 100%;
+  max-width: 140px;
+  height: 180px;
   object-fit: scale-down;
+  border-radius: var(--border-radius-md);
+  background: white;
 }
 
 .gameitem-contents {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  text-align: center;
 }
 
 .gameitem-buttons {
   display: flex;
   flex-direction: row;
   gap: 8px;
+  width: 100%;
   justify-content: center;
 }
 
 .gameitem-contents p {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
 .gameitem-contents p:first-child {
   color: var(--text-primary);
-  font-weight: 500;
-  font-size: 15px;
-  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
