@@ -46,8 +46,14 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
     })
   }
 
-  const updateKeyword = function (event: FormEvent<HTMLInputElement>) {
-    setKeyword(event.currentTarget.value)
+  const handleSearch = function (keyword: string) {
+    setKeyword(keyword);
+  };
+
+  const handleKeyDown = function (event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      handleSearch(event.currentTarget.value);
+    }
   }
 
   const showDetailModal = (show: boolean, contents: ROMContent) => {
@@ -85,7 +91,7 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
         <Modal show={show} title="游戏列表" setVisible={setShow} width="95vw" height="90vh">
           <div className="gamelist gamelist-modal">
             <div className="gamelist-input">
-              <SearchInput onInput={updateKeyword} text='搜索你喜欢的游戏'/>
+              <SearchInput onKeyDown={handleKeyDown} onSearch={handleSearch} text='搜索你喜欢的游戏'/>
             </div>
             <div className="gamelist-items">
               {items}

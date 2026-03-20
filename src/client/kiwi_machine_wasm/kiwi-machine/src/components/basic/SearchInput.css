@@ -53,7 +53,7 @@ GNU General Public License for more details.
   height: 20px;
   color: var(--text-muted);
   transition: color var(--transition-fast);
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .search:hover .search-icon {
