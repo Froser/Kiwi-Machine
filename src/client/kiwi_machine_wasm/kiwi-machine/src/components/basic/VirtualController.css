@@ -44,6 +44,35 @@ GNU General Public License for more details.
   flex-shrink: 0;
 }
 
+.virtual-dpad-diagonal {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 3;
+}
+
+.virtual-dpad-up-left {
+  top: 0;
+  left: 0;
+}
+
+.virtual-dpad-up-right {
+  top: 0;
+  right: 0;
+}
+
+.virtual-dpad-down-left {
+  bottom: 0;
+  left: 0;
+}
+
+.virtual-dpad-down-right {
+  bottom: 0;
+  right: 0;
+}
+
 .virtual-dpad-center {
   position: absolute;
   width: 40px;
@@ -165,8 +194,8 @@ GNU General Public License for more details.
 
 .virtual-center-buttons {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-direction: row;
+  gap: 12px;
   flex-shrink: 0;
 }
 
