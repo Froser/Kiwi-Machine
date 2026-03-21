@@ -25,6 +25,51 @@ GNU General Public License for more details.
 @media (max-width: 768px) {
   .virtual-controller {
     display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
+  .virtual-dpad {
+    width: min(260px, 40vw);
+    height: min(260px, 40vw);
+  }
+
+  .virtual-dpad-diagonal {
+    width: calc(min(260px, 40vw) * 0.338);
+    height: calc(min(260px, 40vw) * 0.338);
+  }
+
+  .virtual-dpad-center {
+    width: calc(min(260px, 40vw) * 0.277);
+    height: calc(min(260px, 40vw) * 0.277);
+  }
+
+  .virtual-dpad-btn {
+    width: calc(min(260px, 40vw) * 0.338);
+    height: calc(min(260px, 40vw) * 0.338);
+    font-size: calc(min(260px, 40vw) * 0.13);
+  }
+
+  .virtual-action-btn {
+    width: min(120px, 18vw);
+    height: min(120px, 18vw);
+    font-size: calc(min(120px, 18vw) * 0.33);
+  }
+
+  .virtual-action-buttons {
+    gap: min(20px, 3vw);
+  }
+
+  .virtual-center-buttons {
+    margin-top: 16px;
+  }
+
+  .virtual-controller-wrapper {
+    gap: min(24px, 4vw);
   }
 }
 
