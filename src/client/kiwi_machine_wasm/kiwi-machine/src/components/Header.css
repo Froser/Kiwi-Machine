@@ -124,3 +124,26 @@ GNU General Public License for more details.
   height: 20px;
   fill: currentColor;
 }
+
+@media (max-width: 768px) {
+  .logo-text {
+    font-size: 20px;
+  }
+
+  .header-container {
+    padding: 0 12px;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+
+  .github-link span {
+    display: none;
+  }
+
+  .search-games-button,
+  .github-link {
+    padding: 10px;
+  }
+}

@@ -211,64 +211,85 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
       onTouchEnd={handleTouchEnd}
     >
       <div className="virtual-controller-wrapper">
-        <div className="virtual-dpad">
-          <div className="virtual-dpad-center"></div>
-          <button
-            ref={(el) => buttonRefs.current['up-left'] = el}
-            className="virtual-dpad-diagonal virtual-dpad-up-left"
-            onMouseDown={(e) => handleMouseDown('up-left', e)}
-            onTouchStart={(e) => handleTouchStart('up-left', e)}
-          ></button>
-          <button
-            ref={(el) => buttonRefs.current['up-right'] = el}
-            className="virtual-dpad-diagonal virtual-dpad-up-right"
-            onMouseDown={(e) => handleMouseDown('up-right', e)}
-            onTouchStart={(e) => handleTouchStart('up-right', e)}
-          ></button>
-          <button
-            ref={(el) => buttonRefs.current['down-left'] = el}
-            className="virtual-dpad-diagonal virtual-dpad-down-left"
-            onMouseDown={(e) => handleMouseDown('down-left', e)}
-            onTouchStart={(e) => handleTouchStart('down-left', e)}
-          ></button>
-          <button
-            ref={(el) => buttonRefs.current['down-right'] = el}
-            className="virtual-dpad-diagonal virtual-dpad-down-right"
-            onMouseDown={(e) => handleMouseDown('down-right', e)}
-            onTouchStart={(e) => handleTouchStart('down-right', e)}
-          ></button>
-          <button
-            ref={(el) => buttonRefs.current.up = el}
-            className={`virtual-dpad-btn virtual-dpad-up ${isActive('up') ? 'active' : ''}`}
-            onMouseDown={(e) => handleMouseDown('up', e)}
-            onTouchStart={(e) => handleTouchStart('up', e)}
-          >
-            ▲
-          </button>
-          <button
-            ref={(el) => buttonRefs.current.down = el}
-            className={`virtual-dpad-btn virtual-dpad-down ${isActive('down') ? 'active' : ''}`}
-            onMouseDown={(e) => handleMouseDown('down', e)}
-            onTouchStart={(e) => handleTouchStart('down', e)}
-          >
-            ▼
-          </button>
-          <button
-            ref={(el) => buttonRefs.current.left = el}
-            className={`virtual-dpad-btn virtual-dpad-left ${isActive('left') ? 'active' : ''}`}
-            onMouseDown={(e) => handleMouseDown('left', e)}
-            onTouchStart={(e) => handleTouchStart('left', e)}
-          >
-            ◀
-          </button>
-          <button
-            ref={(el) => buttonRefs.current.right = el}
-            className={`virtual-dpad-btn virtual-dpad-right ${isActive('right') ? 'active' : ''}`}
-            onMouseDown={(e) => handleMouseDown('right', e)}
-            onTouchStart={(e) => handleTouchStart('right', e)}
-          >
-            ▶
-          </button>
+        <div className="virtual-top-row">
+          <div className="virtual-dpad">
+            <div className="virtual-dpad-center"></div>
+            <button
+              ref={(el) => buttonRefs.current['up-left'] = el}
+              className="virtual-dpad-diagonal virtual-dpad-up-left"
+              onMouseDown={(e) => handleMouseDown('up-left', e)}
+              onTouchStart={(e) => handleTouchStart('up-left', e)}
+            ></button>
+            <button
+              ref={(el) => buttonRefs.current['up-right'] = el}
+              className="virtual-dpad-diagonal virtual-dpad-up-right"
+              onMouseDown={(e) => handleMouseDown('up-right', e)}
+              onTouchStart={(e) => handleTouchStart('up-right', e)}
+            ></button>
+            <button
+              ref={(el) => buttonRefs.current['down-left'] = el}
+              className="virtual-dpad-diagonal virtual-dpad-down-left"
+              onMouseDown={(e) => handleMouseDown('down-left', e)}
+              onTouchStart={(e) => handleTouchStart('down-left', e)}
+            ></button>
+            <button
+              ref={(el) => buttonRefs.current['down-right'] = el}
+              className="virtual-dpad-diagonal virtual-dpad-down-right"
+              onMouseDown={(e) => handleMouseDown('down-right', e)}
+              onTouchStart={(e) => handleTouchStart('down-right', e)}
+            ></button>
+            <button
+              ref={(el) => buttonRefs.current.up = el}
+              className={`virtual-dpad-btn virtual-dpad-up ${isActive('up') ? 'active' : ''}`}
+              onMouseDown={(e) => handleMouseDown('up', e)}
+              onTouchStart={(e) => handleTouchStart('up', e)}
+            >
+              ▲
+            </button>
+            <button
+              ref={(el) => buttonRefs.current.down = el}
+              className={`virtual-dpad-btn virtual-dpad-down ${isActive('down') ? 'active' : ''}`}
+              onMouseDown={(e) => handleMouseDown('down', e)}
+              onTouchStart={(e) => handleTouchStart('down', e)}
+            >
+              ▼
+            </button>
+            <button
+              ref={(el) => buttonRefs.current.left = el}
+              className={`virtual-dpad-btn virtual-dpad-left ${isActive('left') ? 'active' : ''}`}
+              onMouseDown={(e) => handleMouseDown('left', e)}
+              onTouchStart={(e) => handleTouchStart('left', e)}
+            >
+              ◀
+            </button>
+            <button
+              ref={(el) => buttonRefs.current.right = el}
+              className={`virtual-dpad-btn virtual-dpad-right ${isActive('right') ? 'active' : ''}`}
+              onMouseDown={(e) => handleMouseDown('right', e)}
+              onTouchStart={(e) => handleTouchStart('right', e)}
+            >
+              ▶
+            </button>
+          </div>
+
+          <div className="virtual-action-buttons">
+            <button
+              ref={(el) => buttonRefs.current.b = el}
+              className={`virtual-action-btn ${isActive('b') ? 'active' : ''}`}
+              onMouseDown={(e) => handleMouseDown('b', e)}
+              onTouchStart={(e) => handleTouchStart('b', e)}
+            >
+              B
+            </button>
+            <button
+              ref={(el) => buttonRefs.current.a = el}
+              className={`virtual-action-btn ${isActive('a') ? 'active' : ''}`}
+              onMouseDown={(e) => handleMouseDown('a', e)}
+              onTouchStart={(e) => handleTouchStart('a', e)}
+            >
+              A
+            </button>
+          </div>
         </div>
 
         <div className="virtual-center-buttons">
@@ -287,25 +308,6 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
             onTouchStart={(e) => handleTouchStart('start', e)}
           >
             START
-          </button>
-        </div>
-
-        <div className="virtual-action-buttons">
-          <button
-            ref={(el) => buttonRefs.current.b = el}
-            className={`virtual-action-btn ${isActive('b') ? 'active' : ''}`}
-            onMouseDown={(e) => handleMouseDown('b', e)}
-            onTouchStart={(e) => handleTouchStart('b', e)}
-          >
-            B
-          </button>
-          <button
-            ref={(el) => buttonRefs.current.a = el}
-            className={`virtual-action-btn ${isActive('a') ? 'active' : ''}`}
-            onMouseDown={(e) => handleMouseDown('a', e)}
-            onTouchStart={(e) => handleTouchStart('a', e)}
-          >
-            A
           </button>
         </div>
       </div>

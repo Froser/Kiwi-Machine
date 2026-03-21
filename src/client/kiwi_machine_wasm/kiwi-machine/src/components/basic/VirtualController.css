@@ -30,24 +30,32 @@ GNU General Public License for more details.
 
 .virtual-controller-wrapper {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
   max-width: 600px;
   margin: 0 auto;
   gap: 16px;
 }
 
+.virtual-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 16px;
+}
+
 .virtual-dpad {
-  width: 140px;
-  height: 140px;
+  width: 180px;
+  height: 180px;
   position: relative;
   flex-shrink: 0;
 }
 
 .virtual-dpad-diagonal {
   position: absolute;
-  width: 48px;
-  height: 48px;
+  width: 60px;
+  height: 60px;
   opacity: 0;
   cursor: pointer;
   z-index: 3;
@@ -75,8 +83,8 @@ GNU General Public License for more details.
 
 .virtual-dpad-center {
   position: absolute;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -87,8 +95,8 @@ GNU General Public License for more details.
 
 .virtual-dpad-btn {
   position: absolute;
-  width: 48px;
-  height: 48px;
+  width: 60px;
+  height: 60px;
   background: linear-gradient(180deg, #3a3c3a 0%, #2a2c2a 100%);
   border: 2px solid #1a1c1a;
   border-radius: 8px;
@@ -96,7 +104,7 @@ GNU General Public License for more details.
   align-items: center;
   justify-content: center;
   color: #666;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -157,13 +165,13 @@ GNU General Public License for more details.
 
 .virtual-action-buttons {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   flex-shrink: 0;
 }
 
 .virtual-action-btn {
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   background: linear-gradient(145deg, #e8281f 0%, #c41e15 50%, #a01810 100%);
   border: 3px solid rgba(0, 0, 0, 0.3);
@@ -171,7 +179,7 @@ GNU General Public License for more details.
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: bold;
   font-family: 'Arial Black', sans-serif;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -195,21 +203,22 @@ GNU General Public License for more details.
 .virtual-center-buttons {
   display: flex;
   flex-direction: row;
-  gap: 12px;
+  gap: 20px;
   flex-shrink: 0;
+  margin-top: 8px;
 }
 
 .virtual-center-btn {
-  width: 70px;
-  height: 28px;
+  width: 80px;
+  height: 32px;
   background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 100%);
   border: 2px solid #222;
-  border-radius: 14px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #888;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 1px;
