@@ -58,6 +58,14 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-overflow-scrolling: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 code {

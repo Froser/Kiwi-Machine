@@ -252,4 +252,10 @@ GNU General Public License for more details.
   .playground-control {
     display: none;
   }
+
+  .playground-frame {
+    flex: 0 0 auto;
+    height: 40vh;
+    min-height: 200px;
+  }
 }

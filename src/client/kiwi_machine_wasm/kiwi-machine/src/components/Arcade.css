@@ -24,3 +24,12 @@ GNU General Public License for more details.
   position: relative;
   z-index: 1;
 }
+
+@media (max-width: 768px) {
+  .arcade {
+    height: auto;
+    min-height: calc(100vh - 72px);
+    gap: 12px;
+    padding: 12px;
+  }
+}

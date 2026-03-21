@@ -46,16 +46,16 @@ GNU General Public License for more details.
 }
 
 .virtual-dpad {
-  width: 180px;
-  height: 180px;
+  width: 200px;
+  height: 200px;
   position: relative;
   flex-shrink: 0;
 }
 
 .virtual-dpad-diagonal {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 68px;
+  height: 68px;
   opacity: 0;
   cursor: pointer;
   z-index: 3;
@@ -83,8 +83,8 @@ GNU General Public License for more details.
 
 .virtual-dpad-center {
   position: absolute;
-  width: 50px;
-  height: 50px;
+  width: 56px;
+  height: 56px;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -95,8 +95,8 @@ GNU General Public License for more details.
 
 .virtual-dpad-btn {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 68px;
+  height: 68px;
   background: linear-gradient(180deg, #3a3c3a 0%, #2a2c2a 100%);
   border: 2px solid #1a1c1a;
   border-radius: 8px;
@@ -104,7 +104,7 @@ GNU General Public License for more details.
   align-items: center;
   justify-content: center;
   color: #666;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.1s ease;
@@ -170,8 +170,8 @@ GNU General Public License for more details.
 }
 
 .virtual-action-btn {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   background: linear-gradient(145deg, #e8281f 0%, #c41e15 50%, #a01810 100%);
   border: 3px solid rgba(0, 0, 0, 0.3);
@@ -179,7 +179,7 @@ GNU General Public License for more details.
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: bold;
   font-family: 'Arial Black', sans-serif;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);

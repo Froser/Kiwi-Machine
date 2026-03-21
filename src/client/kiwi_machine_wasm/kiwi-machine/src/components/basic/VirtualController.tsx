@@ -33,7 +33,7 @@ const allButtons: AllButtonType[] = ['up', 'down', 'left', 'right', 'a', 'b', 's
 
 export default function VirtualController({ onButtonPress, onButtonRelease }: VirtualControllerProps) {
   const [activeButtons, setActiveButtons] = useState<Set<ControllerButton>>(new Set());
-  const [isPointerDown, setIsPointerDown] = useState(false);
+  const touchToButtonMap = useRef<Map<number, AllButtonType>>(new Map());
   const buttonRefs = useRef<Record<AllButtonType, HTMLButtonElement | null>>({
     up: null,
     down: null,
@@ -114,101 +114,98 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
     }
   }, [onButtonRelease]);
 
-  const setAllButtonsInactive = useCallback(() => {
-    setActiveButtons(prev => {
-      prev.forEach(button => {
-        onButtonRelease?.(button);
-      });
-      return new Set();
-    });
-  }, [onButtonRelease]);
-
-  const handlePointerMove = useCallback((clientX: number, clientY: number) => {
-    if (!isPointerDown) return;
-
-    const buttonAtPos = getButtonAtPosition(clientX, clientY);
-    
-    const getButtonsToRelease = (button: AllButtonType | null): ControllerButton[] => {
-      if (!button) return [];
-      if (button in diagonalButtonMap) {
-        return diagonalButtonMap[button as DiagonalButton];
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const buttonAtPos = getButtonAtPosition(touch.clientX, touch.clientY);
+      if (buttonAtPos) {
+        touchToButtonMap.current.set(touch.identifier, buttonAtPos);
+        setButtonActive(buttonAtPos);
       }
-      return [button as ControllerButton];
-    };
-
-    const currentButtons = getButtonsToRelease(buttonAtPos);
-    
-    activeButtons.forEach(button => {
-      if (!currentButtons.includes(button)) {
-        setButtonInactive(button);
-      }
-    });
-
-    if (buttonAtPos) {
-      setButtonActive(buttonAtPos);
     }
-  }, [isPointerDown, activeButtons, getButtonAtPosition, setButtonActive, setButtonInactive]);
+  }, [getButtonAtPosition, setButtonActive]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const oldButton = touchToButtonMap.current.get(touch.identifier);
+      const newButton = getButtonAtPosition(touch.clientX, touch.clientY);
+
+      if (oldButton !== newButton) {
+        if (oldButton) {
+          setButtonInactive(oldButton);
+          touchToButtonMap.current.delete(touch.identifier);
+        }
+        if (newButton) {
+          touchToButtonMap.current.set(touch.identifier, newButton);
+          setButtonActive(newButton);
+        }
+      }
+    }
+  }, [getButtonAtPosition, setButtonActive, setButtonInactive]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const button = touchToButtonMap.current.get(touch.identifier);
+      if (button) {
+        setButtonInactive(button);
+        touchToButtonMap.current.delete(touch.identifier);
+      }
+    }
+  }, [setButtonInactive]);
+
+  const handleTouchCancel = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const button = touchToButtonMap.current.get(touch.identifier);
+      if (button) {
+        setButtonInactive(button);
+        touchToButtonMap.current.delete(touch.identifier);
+      }
+    }
+  }, [setButtonInactive]);
 
   const handleMouseDown = useCallback((button: AllButtonType, e: React.MouseEvent) => {
     e.preventDefault();
-    setIsPointerDown(true);
     setButtonActive(button);
   }, [setButtonActive]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    handlePointerMove(e.clientX, e.clientY);
-  }, [handlePointerMove]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsPointerDown(false);
-    setAllButtonsInactive();
-  }, [setAllButtonsInactive]);
-
-  const handleTouchStart = useCallback((button: AllButtonType, e: React.TouchEvent) => {
-    e.preventDefault();
-    setIsPointerDown(true);
-    setButtonActive(button);
-  }, [setButtonActive]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length > 0) {
-      const touch = e.touches[0];
-      handlePointerMove(touch.clientX, touch.clientY);
-    }
-  }, [handlePointerMove]);
-
-  const handleTouchEnd = useCallback(() => {
-    setIsPointerDown(false);
-    setAllButtonsInactive();
-  }, [setAllButtonsInactive]);
+  const handleMouseUp = useCallback((button: AllButtonType) => {
+    setButtonInactive(button);
+  }, [setButtonInactive]);
 
   const isActive = (button: ControllerButton) => activeButtons.has(button);
 
   useEffect(() => {
     const handleGlobalMouseUp = () => {
-      if (isPointerDown) {
-        setIsPointerDown(false);
-        setAllButtonsInactive();
-      }
+      setActiveButtons(prev => {
+        prev.forEach(button => {
+          onButtonRelease?.(button);
+        });
+        return new Set();
+      });
     };
 
     window.addEventListener('mouseup', handleGlobalMouseUp);
-    window.addEventListener('touchend', handleGlobalMouseUp);
 
     return () => {
       window.removeEventListener('mouseup', handleGlobalMouseUp);
-      window.removeEventListener('touchend', handleGlobalMouseUp);
     };
-  }, [isPointerDown, setAllButtonsInactive]);
+  }, [onButtonRelease]);
 
   return (
     <div 
       className="virtual-controller"
       ref={containerRef}
-      onMouseMove={handleMouseMove}
+      onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
-      onMouseUp={handleMouseUp}
       onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
     >
       <div className="virtual-controller-wrapper">
         <div className="virtual-top-row">
@@ -218,31 +215,36 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
               ref={(el) => buttonRefs.current['up-left'] = el}
               className="virtual-dpad-diagonal virtual-dpad-up-left"
               onMouseDown={(e) => handleMouseDown('up-left', e)}
-              onTouchStart={(e) => handleTouchStart('up-left', e)}
+              onMouseUp={() => handleMouseUp('up-left')}
+              onMouseLeave={() => handleMouseUp('up-left')}
             ></button>
             <button
               ref={(el) => buttonRefs.current['up-right'] = el}
               className="virtual-dpad-diagonal virtual-dpad-up-right"
               onMouseDown={(e) => handleMouseDown('up-right', e)}
-              onTouchStart={(e) => handleTouchStart('up-right', e)}
+              onMouseUp={() => handleMouseUp('up-right')}
+              onMouseLeave={() => handleMouseUp('up-right')}
             ></button>
             <button
               ref={(el) => buttonRefs.current['down-left'] = el}
               className="virtual-dpad-diagonal virtual-dpad-down-left"
               onMouseDown={(e) => handleMouseDown('down-left', e)}
-              onTouchStart={(e) => handleTouchStart('down-left', e)}
+              onMouseUp={() => handleMouseUp('down-left')}
+              onMouseLeave={() => handleMouseUp('down-left')}
             ></button>
             <button
               ref={(el) => buttonRefs.current['down-right'] = el}
               className="virtual-dpad-diagonal virtual-dpad-down-right"
               onMouseDown={(e) => handleMouseDown('down-right', e)}
-              onTouchStart={(e) => handleTouchStart('down-right', e)}
+              onMouseUp={() => handleMouseUp('down-right')}
+              onMouseLeave={() => handleMouseUp('down-right')}
             ></button>
             <button
               ref={(el) => buttonRefs.current.up = el}
               className={`virtual-dpad-btn virtual-dpad-up ${isActive('up') ? 'active' : ''}`}
               onMouseDown={(e) => handleMouseDown('up', e)}
-              onTouchStart={(e) => handleTouchStart('up', e)}
+              onMouseUp={() => handleMouseUp('up')}
+              onMouseLeave={() => handleMouseUp('up')}
             >
               ▲
             </button>
@@ -250,7 +252,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
               ref={(el) => buttonRefs.current.down = el}
               className={`virtual-dpad-btn virtual-dpad-down ${isActive('down') ? 'active' : ''}`}
               onMouseDown={(e) => handleMouseDown('down', e)}
-              onTouchStart={(e) => handleTouchStart('down', e)}
+              onMouseUp={() => handleMouseUp('down')}
+              onMouseLeave={() => handleMouseUp('down')}
             >
               ▼
             </button>
@@ -258,7 +261,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
               ref={(el) => buttonRefs.current.left = el}
               className={`virtual-dpad-btn virtual-dpad-left ${isActive('left') ? 'active' : ''}`}
               onMouseDown={(e) => handleMouseDown('left', e)}
-              onTouchStart={(e) => handleTouchStart('left', e)}
+              onMouseUp={() => handleMouseUp('left')}
+              onMouseLeave={() => handleMouseUp('left')}
             >
               ◀
             </button>
@@ -266,7 +270,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
               ref={(el) => buttonRefs.current.right = el}
               className={`virtual-dpad-btn virtual-dpad-right ${isActive('right') ? 'active' : ''}`}
               onMouseDown={(e) => handleMouseDown('right', e)}
-              onTouchStart={(e) => handleTouchStart('right', e)}
+              onMouseUp={() => handleMouseUp('right')}
+              onMouseLeave={() => handleMouseUp('right')}
             >
               ▶
             </button>
@@ -277,7 +282,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
               ref={(el) => buttonRefs.current.b = el}
               className={`virtual-action-btn ${isActive('b') ? 'active' : ''}`}
               onMouseDown={(e) => handleMouseDown('b', e)}
-              onTouchStart={(e) => handleTouchStart('b', e)}
+              onMouseUp={() => handleMouseUp('b')}
+              onMouseLeave={() => handleMouseUp('b')}
             >
               B
             </button>
@@ -285,7 +291,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
               ref={(el) => buttonRefs.current.a = el}
               className={`virtual-action-btn ${isActive('a') ? 'active' : ''}`}
               onMouseDown={(e) => handleMouseDown('a', e)}
-              onTouchStart={(e) => handleTouchStart('a', e)}
+              onMouseUp={() => handleMouseUp('a')}
+              onMouseLeave={() => handleMouseUp('a')}
             >
               A
             </button>
@@ -297,7 +304,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
             ref={(el) => buttonRefs.current.select = el}
             className={`virtual-center-btn ${isActive('select') ? 'active' : ''}`}
             onMouseDown={(e) => handleMouseDown('select', e)}
-            onTouchStart={(e) => handleTouchStart('select', e)}
+            onMouseUp={() => handleMouseUp('select')}
+            onMouseLeave={() => handleMouseUp('select')}
           >
             SELECT
           </button>
@@ -305,7 +313,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
             ref={(el) => buttonRefs.current.start = el}
             className={`virtual-center-btn ${isActive('start') ? 'active' : ''}`}
             onMouseDown={(e) => handleMouseDown('start', e)}
-            onTouchStart={(e) => handleTouchStart('start', e)}
+            onMouseUp={() => handleMouseUp('start')}
+            onMouseLeave={() => handleMouseUp('start')}
           >
             START
           </button>
