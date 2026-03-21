@@ -30,6 +30,13 @@ void CallMenu();
 
 EMSCRIPTEN_KEEPALIVE
 float GetFPS();
+
+EMSCRIPTEN_KEEPALIVE
+void JoystickButtonDown(int button);
+
+EMSCRIPTEN_KEEPALIVE
+void JoystickButtonUp(int button);
+
 };
 
 #endif  // UTILITY_BRIDGE_API_H_

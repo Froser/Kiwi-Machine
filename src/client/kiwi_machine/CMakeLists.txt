@@ -124,7 +124,7 @@ if (EMSCRIPTEN)
 -s ALLOW_MEMORY_GROWTH \
 -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=\\\[\\\"\\\$autoResumeAudioContext\\\"\\\,\\\"\\\$dynCall\\\"\\\] \
 -s EXPORTED_RUNTIME_METHODS=ccall \
--s EXPORTED_FUNCTIONS=_LoadROMFromTempPath\\\,_SetupCallbacks\\\,_CallMenu\\\,_SetVolume\\\,_GetFPS\\\,_main \
+-s EXPORTED_FUNCTIONS=_LoadROMFromTempPath\\\,_SetupCallbacks\\\,_CallMenu\\\,_SetVolume\\\,_JoystickButtonDown\\\,_JoystickButtonUp\\\,_GetFPS\\\,_main \
 -gsource-map \
 --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/build/web/kiwi_machine.html"
     )

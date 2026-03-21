@@ -16,12 +16,24 @@ import Checkbox from "./basic/Checkbox";
 import Modal from "./basic/Modal";
 import {Dispatch, RefObject, SetStateAction, useEffect, useRef, useState} from "react";
 import NESController from "./basic/NESController";
+import VirtualController, {ControllerButton} from "./basic/VirtualController";
 import VolumePanel from "./VolumePanel";
 import {CreateEmulatorService} from "../services/emulator";
 
 interface PlaygroundProps {
   setFrameRef: Dispatch<SetStateAction<RefObject<HTMLIFrameElement>>>
 }
+
+const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
+  a: 0,
+  b: 1,
+  select: 2,
+  start: 3,
+  up: 4,
+  down: 5,
+  left: 6,
+  right: 7
+};
 
 export default function Playground({setFrameRef}: PlaygroundProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -44,10 +56,26 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
     }
   };
 
+  const handleButtonPress = (button: ControllerButton) => {
+    const currentWindow = frameRef.current?.contentWindow;
+    if (currentWindow) {
+      CreateEmulatorService(currentWindow).joystickButtonDown(controllerButtonToJoystickButton[button]);
+    }
+  };
+
+  const handleButtonRelease = (button: ControllerButton) => {
+    const currentWindow = frameRef.current?.contentWindow;
+    if (currentWindow) {
+      CreateEmulatorService(currentWindow).joystickButtonUp(controllerButtonToJoystickButton[button]);
+    }
+  };
+
   return (
     <div className="playground">
       <iframe className="playground-frame" ref={frameRef} src="kiwi_machine.html" title="Kiwi Machine">
       </iframe>
+
+      <VirtualController onButtonPress={handleButtonPress} onButtonRelease={handleButtonRelease} />
 
       <div className='playground-control'>
         <Modal show={manualModal} setVisible={setManualModal} title="操作说明" height="auto" width="900px">

@@ -1,0 +1,200 @@
+/*
+Copyright (C) 2024 Yisi Yu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+ */
+
+.virtual-controller {
+  display: none;
+  width: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+@media (max-width: 768px) {
+  .virtual-controller {
+    display: block;
+  }
+}
+
+.virtual-controller-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 600px;
+  margin: 0 auto;
+  gap: 16px;
+}
+
+.virtual-dpad {
+  width: 140px;
+  height: 140px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.virtual-dpad-center {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, #2d2f2d 0%, #1a1c1a 100%);
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.virtual-dpad-btn {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(180deg, #3a3c3a 0%, #2a2c2a 100%);
+  border: 2px solid #1a1c1a;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  z-index: 2;
+}
+
+.virtual-dpad-btn:active,
+.virtual-dpad-btn.active {
+  background: linear-gradient(180deg, #4a4c4a 0%, #3a3c3a 100%);
+  transform: scale(0.95);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+  color: #888;
+}
+
+.virtual-dpad-up {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.virtual-dpad-down {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.virtual-dpad-left {
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.virtual-dpad-right {
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.virtual-dpad-up:active,
+.virtual-dpad-up.active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.virtual-dpad-down:active,
+.virtual-dpad-down.active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.virtual-dpad-left:active,
+.virtual-dpad-left.active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.virtual-dpad-right:active,
+.virtual-dpad-right.active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.virtual-action-buttons {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.virtual-action-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #e8281f 0%, #c41e15 50%, #a01810 100%);
+  border: 3px solid rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+  font-weight: bold;
+  font-family: 'Arial Black', sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    inset 0 3px 6px rgba(255, 255, 255, 0.2),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.1s ease;
+}
+
+.virtual-action-btn:active,
+.virtual-action-btn.active {
+  transform: scale(0.92);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.1),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.virtual-center-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.virtual-center-btn {
+  width: 70px;
+  height: 28px;
+  background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 100%);
+  border: 2px solid #222;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.1s ease;
+}
+
+.virtual-center-btn:active,
+.virtual-center-btn.active {
+  transform: translateY(1px);
+  box-shadow: 
+    inset 0 3px 6px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 rgba(255, 255, 255, 0.1);
+}

@@ -41,6 +41,24 @@ class EmulatorService {
       }
     );
   }
+
+  joystickButtonDown(keyCode: number) {
+    this.window.postMessage({
+      type: 'joystickButtonDown',
+      data: {
+        keyCode: keyCode
+      }
+    });
+  }
+
+  joystickButtonUp(keyCode: number) {
+    this.window.postMessage({
+      type: 'joystickButtonUp',
+      data: {
+        keyCode: keyCode
+      }
+    });
+  }
 }
 
 function CreateEmulatorService(window: Window | null | undefined) {

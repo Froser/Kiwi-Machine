@@ -40,9 +40,9 @@
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
-#include "utility/fps_counter.h"
 #include "utility/algorithm.h"
 #include "utility/audio_effects.h"
+#include "utility/fps_counter.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 #include "utility/logging.h"
@@ -345,6 +345,13 @@ float MainWindow::GetFPS_WASM() {
     return fps_counter_->GetCurrentFPS();
   }
   return 0.0f;
+}
+
+void MainWindow::JoystickButtonDown_WASM(kiwi::nes::ControllerButton button) {
+  SetVirtualJoystickButton(0, button, true);
+}
+void MainWindow::JoystickButtonUp_WASM(kiwi::nes::ControllerButton button) {
+  SetVirtualJoystickButton(0, button, false);
 }
 
 #endif

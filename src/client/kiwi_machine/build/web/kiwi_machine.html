@@ -413,7 +413,13 @@
                     },
                     callMenu: function () {
                         Module.ccall("CallMenu");
-                    }
+                    },
+                    joystickButtonDown: function (data) {
+                        Module.ccall("JoystickButtonDown", null, ["number"], [data.keyCode]);
+                    },
+                    joystickButtonUp: function (data) {
+                        Module.ccall("JoystickButtonUp", null, ["number"], [data.keyCode]);
+                    },
                 }
 
                 // Handle load ROM message from React components

@@ -22,7 +22,7 @@ class NESFrame;
 class CanvasObserver {
  public:
   CanvasObserver();
-  ~CanvasObserver();
+  virtual ~CanvasObserver();
 
   virtual void OnAboutToRenderFrame(Canvas* canvas,
                                     scoped_refptr<NESFrame> frame);

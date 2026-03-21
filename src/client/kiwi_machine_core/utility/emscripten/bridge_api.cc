@@ -14,6 +14,7 @@
 
 #include <emscripten.h>
 
+#include "nes/controller.h"
 #include "ui/main_window.h"
 
 namespace {
@@ -76,6 +77,22 @@ EMSCRIPTEN_KEEPALIVE
 float GetFPS() {
   MainWindow* main_window = MainWindow::GetInstance();
   return main_window->GetFPS_WASM();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void JoystickButtonDown(int button) {
+  kiwi::nes::ControllerButton b =
+      static_cast<kiwi::nes::ControllerButton>(button);
+  MainWindow* main_window = MainWindow::GetInstance();
+  main_window->JoystickButtonDown_WASM(b);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void JoystickButtonUp(int button) {
+  kiwi::nes::ControllerButton b =
+      static_cast<kiwi::nes::ControllerButton>(button);
+  MainWindow* main_window = MainWindow::GetInstance();
+  main_window->JoystickButtonUp_WASM(b);
 }
 
 };
