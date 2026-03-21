@@ -13,97 +13,18 @@ GNU General Public License for more details.
  */
 
 .virtual-controller {
-  display: none;
+  display: block;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   width: 100%;
   padding: 16px 0;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
   box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
-}
-
-@media (max-width: 768px), (max-height: 768px) and (orientation: landscape) {
-  .virtual-controller {
-    display: block;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 16px 0;
-    padding-bottom: env(safe-area-inset-bottom, 16px);
-  }
-
-  .virtual-controller-wrapper {
-    max-width: 100%;
-    gap: min(24px, 4vw, 5vh);
-  }
-
-  .virtual-top-row {
-    gap: 0;
-    padding: 0;
-    justify-content: flex-start;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  .virtual-dpad {
-    margin-left: 0;
-    width: min(260px, 40vw, 35vh);
-    height: min(260px, 40vw, 35vh);
-    flex-shrink: 0;
-  }
-
-  .virtual-action-buttons {
-    margin-left: auto;
-    margin-right: 0;
-    gap: min(20px, 3vw, 4vh);
-    flex-shrink: 0;
-  }
-
-  .virtual-dpad-diagonal {
-    width: calc(min(260px, 40vw, 35vh) * 0.338);
-    height: calc(min(260px, 40vw, 35vh) * 0.338);
-  }
-
-  .virtual-dpad-center {
-    width: calc(min(260px, 40vw, 35vh) * 0.277);
-    height: calc(min(260px, 40vw, 35vh) * 0.277);
-  }
-
-  .virtual-dpad-btn {
-    width: calc(min(260px, 40vw, 35vh) * 0.338);
-    height: calc(min(260px, 40vw, 35vh) * 0.338);
-    font-size: calc(min(260px, 40vw, 35vh) * 0.13);
-  }
-
-  .virtual-action-btn {
-    width: min(120px, 18vw, 25vh);
-    height: min(120px, 18vw, 25vh);
-    font-size: calc(min(120px, 18vw, 25vh) * 0.33);
-  }
-
-  .virtual-center-buttons {
-    margin-top: 16px;
-  }
-}
-
-@media (max-width: 768px) and (orientation: landscape), (max-height: 768px) and (orientation: landscape) {
-  .virtual-dpad-btn,
-  .virtual-action-btn,
-  .virtual-center-btn,
-  .virtual-dpad-center {
-    opacity: 0.6;
-  }
-
-  .virtual-dpad-btn:active,
-  .virtual-dpad-btn.active,
-  .virtual-action-btn:active,
-  .virtual-action-btn.active,
-  .virtual-center-btn:active,
-  .virtual-center-btn.active {
-    opacity: 0.6;
-  }
 }
 
 .virtual-controller-wrapper {
@@ -112,7 +33,7 @@ GNU General Public License for more details.
   align-items: center;
   max-width: 100%;
   margin: 0 auto;
-  gap: 16px;
+  gap: min(24px, 4vw, 5vh);
 }
 
 .virtual-top-row {
@@ -121,23 +42,25 @@ GNU General Public License for more details.
   align-items: center;
   width: 100%;
   max-width: 100%;
-  gap: 16px;
+  gap: 0;
+  padding: 0;
   box-sizing: border-box;
   overflow: hidden;
 }
 
 .virtual-dpad {
-  width: min(200px, 45vw);
-  height: min(200px, 45vw);
+  width: min(260px, 40vw, 35vh);
+  height: min(260px, 40vw, 35vh);
   position: relative;
-  flex-shrink: 1;
+  flex-shrink: 0;
   flex-grow: 0;
+  margin-left: 0;
 }
 
 .virtual-dpad-diagonal {
   position: absolute;
-  width: calc(min(200px, 45vw) * 0.34);
-  height: calc(min(200px, 45vw) * 0.34);
+  width: calc(min(260px, 40vw, 35vh) * 0.338);
+  height: calc(min(260px, 40vw, 35vh) * 0.338);
   opacity: 0;
   cursor: pointer;
   z-index: 3;
@@ -165,20 +88,21 @@ GNU General Public License for more details.
 
 .virtual-dpad-center {
   position: absolute;
-  width: calc(min(200px, 45vw) * 0.28);
-  height: calc(min(200px, 45vw) * 0.28);
+  width: calc(min(260px, 40vw, 35vh) * 0.277);
+  height: calc(min(260px, 40vw, 35vh) * 0.277);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   background: linear-gradient(180deg, #2d2f2d 0%, #1a1c1a 100%);
   border-radius: 4px;
   z-index: 1;
+  opacity: 1;
 }
 
 .virtual-dpad-btn {
   position: absolute;
-  width: calc(min(200px, 45vw) * 0.34);
-  height: calc(min(200px, 45vw) * 0.34);
+  width: calc(min(260px, 40vw, 35vh) * 0.338);
+  height: calc(min(260px, 40vw, 35vh) * 0.338);
   background: linear-gradient(180deg, #3a3c3a 0%, #2a2c2a 100%);
   border: 2px solid #1a1c1a;
   border-radius: 8px;
@@ -186,11 +110,12 @@ GNU General Public License for more details.
   align-items: center;
   justify-content: center;
   color: #666;
-  font-size: calc(min(200px, 45vw) * 0.13);
+  font-size: calc(min(260px, 40vw, 35vh) * 0.13);
   font-weight: bold;
   cursor: pointer;
   transition: all 0.1s ease;
   z-index: 2;
+  opacity: 1;
 }
 
 .virtual-dpad-btn:active,
@@ -199,6 +124,7 @@ GNU General Public License for more details.
   transform: scale(0.95);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
   color: #888;
+  opacity: 1;
 }
 
 .virtual-dpad-up {
@@ -247,14 +173,16 @@ GNU General Public License for more details.
 
 .virtual-action-buttons {
   display: flex;
-  gap: min(16px, 3vw);
-  flex-shrink: 1;
+  gap: min(20px, 3vw, 4vh);
+  flex-shrink: 0;
   flex-grow: 0;
+  margin-left: auto;
+  margin-right: 0;
 }
 
 .virtual-action-btn {
-  width: min(90px, 20vw);
-  height: min(90px, 20vw);
+  width: min(120px, 18vw, 25vh);
+  height: min(120px, 18vw, 25vh);
   border-radius: 50%;
   background: linear-gradient(145deg, #e8281f 0%, #c41e15 50%, #a01810 100%);
   border: 3px solid rgba(0, 0, 0, 0.3);
@@ -262,7 +190,7 @@ GNU General Public License for more details.
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: calc(min(90px, 20vw) * 0.33);
+  font-size: calc(min(120px, 18vw, 25vh) * 0.33);
   font-weight: bold;
   font-family: 'Arial Black', sans-serif;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -272,6 +200,7 @@ GNU General Public License for more details.
     inset 0 3px 6px rgba(255, 255, 255, 0.2),
     inset 0 -3px 6px rgba(0, 0, 0, 0.2);
   transition: all 0.1s ease;
+  opacity: 1;
 }
 
 .virtual-action-btn:active,
@@ -281,6 +210,7 @@ GNU General Public License for more details.
     0 2px 4px rgba(0, 0, 0, 0.3),
     inset 0 1px 2px rgba(255, 255, 255, 0.1),
     inset 0 -1px 2px rgba(0, 0, 0, 0.1);
+  opacity: 1;
 }
 
 .virtual-center-buttons {
@@ -289,7 +219,7 @@ GNU General Public License for more details.
   gap: min(20px, 4vw);
   flex-shrink: 1;
   flex-grow: 0;
-  margin-top: 8px;
+  margin-top: 16px;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -313,6 +243,7 @@ GNU General Public License for more details.
     inset 0 2px 4px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition: all 0.1s ease;
+  opacity: 1;
 }
 
 .virtual-center-btn:active,
@@ -321,4 +252,18 @@ GNU General Public License for more details.
   box-shadow: 
     inset 0 3px 6px rgba(0, 0, 0, 0.5),
     inset 0 0 0 rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.landscape .virtual-dpad-center,
+.landscape .virtual-dpad-btn,
+.landscape .virtual-dpad-btn:active,
+.landscape .virtual-dpad-btn.active,
+.landscape .virtual-action-btn,
+.landscape .virtual-action-btn:active,
+.landscape .virtual-action-btn.active,
+.landscape .virtual-center-btn,
+.landscape .virtual-center-btn:active,
+.landscape .virtual-center-btn.active {
+  opacity: 0.6;
 }

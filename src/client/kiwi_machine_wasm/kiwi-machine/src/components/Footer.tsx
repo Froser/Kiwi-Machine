@@ -11,8 +11,20 @@
 // GNU General Public License for more details.
 
 import "./Footer.css"
+import { useEffect, useState } from "react";
+import { isMobileDevice } from "../services/device";
 
 export default function Footer() {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    setIsVisible(!isMobileDevice());
+  }, []);
+
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <footer className="footer">
       <span>已备案</span>

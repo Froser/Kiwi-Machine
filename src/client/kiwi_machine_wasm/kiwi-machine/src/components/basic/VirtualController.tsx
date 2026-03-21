@@ -12,6 +12,7 @@
 
 import "./VirtualController.css"
 import { useState, useCallback, useRef, useEffect } from "react";
+import { isMobileDevice } from "../../services/device";
 
 export type ControllerButton = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'select' | 'start';
 type DiagonalButton = 'up-left' | 'up-right' | 'down-left' | 'down-right';
@@ -33,6 +34,8 @@ const allButtons: AllButtonType[] = ['up', 'down', 'left', 'right', 'a', 'b', 's
 
 export default function VirtualController({ onButtonPress, onButtonRelease }: VirtualControllerProps) {
   const [activeButtons, setActiveButtons] = useState<Set<ControllerButton>>(new Set());
+  const [isVisible, setIsVisible] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
   const touchToButtonMap = useRef<Map<number, AllButtonType>>(new Map());
   const buttonRefs = useRef<Record<AllButtonType, HTMLButtonElement | null>>({
     up: null,
@@ -49,6 +52,21 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
     'down-right': null,
   });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const checkOrientation = useCallback(() => {
+    setIsLandscape(window.innerWidth > window.innerHeight);
+  }, []);
+
+  useEffect(() => {
+    setIsVisible(isMobileDevice());
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, [checkOrientation]);
 
   const getButtonAtPosition = useCallback((clientX: number, clientY: number): AllButtonType | null => {
     for (const button of allButtons) {
@@ -198,9 +216,13 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
     };
   }, [onButtonRelease]);
 
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <div 
-      className="virtual-controller"
+      className={`virtual-controller ${isLandscape ? 'landscape' : 'portrait'}`}
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

@@ -19,6 +19,7 @@ import NESController from "./basic/NESController";
 import VirtualController, {ControllerButton} from "./basic/VirtualController";
 import VolumePanel from "./VolumePanel";
 import {CreateEmulatorService} from "../services/emulator";
+import {isMobileDevice} from "../services/device";
 
 interface PlaygroundProps {
   setFrameRef: Dispatch<SetStateAction<RefObject<HTMLIFrameElement>>>
@@ -40,9 +41,11 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
   const [manualModal, setManualModal] = useState(false);
   const [aboutModal, setAboutModal] = useState(false);
   const [showFps, setShowFps] = useState(false);
+  const [showControl, setShowControl] = useState(true);
 
   useEffect(() => {
     setFrameRef(frameRef);
+    setShowControl(!isMobileDevice());
   }, [setFrameRef]);
 
   const handleShowFpsChange = (checked: boolean) => {
@@ -77,7 +80,7 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
 
       <VirtualController onButtonPress={handleButtonPress} onButtonRelease={handleButtonRelease} />
 
-      <div className='playground-control'>
+      {showControl && <div className='playground-control'>
         <Modal show={manualModal} setVisible={setManualModal} title="操作说明" height="auto" width="900px">
           <div className="playground-manual-section">
             <div className='playground-manual-title'>操作方式说明</div>
@@ -236,7 +239,7 @@ export default function Playground({setFrameRef}: PlaygroundProps) {
           checked={showFps} 
           onChange={handleShowFpsChange}
         />
-      </div>
+      </div>}
     </div>
   );
 }
