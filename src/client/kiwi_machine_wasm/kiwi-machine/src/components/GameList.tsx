@@ -11,7 +11,7 @@
 // GNU General Public License for more details.
 
 import "./GameList.css"
-import {Dispatch, FormEvent, SetStateAction, useState} from "react";
+import {Dispatch, SetStateAction, useState} from "react";
 import GameItem from "./GameItem";
 import {getROMImageUrlFromContents, isLocaleTitleContains, ROMContent} from "../services/rom";
 import SearchInput from "./basic/SearchInput";
