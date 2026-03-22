@@ -32,8 +32,16 @@ GNU General Public License for more details.
   flex-direction: column;
   align-items: center;
   max-width: 100%;
-  margin: 0 auto;
+  margin-left: 20px;
+  margin-right: 20px;
   gap: min(24px, 4vw, 5vh);
+}
+
+@media (orientation: landscape) {
+  .virtual-controller-wrapper {
+    margin-left: 40px;
+    margin-right: 40px;
+  }
 }
 
 .virtual-top-row {
@@ -265,5 +273,5 @@ GNU General Public License for more details.
 .landscape .virtual-center-btn,
 .landscape .virtual-center-btn:active,
 .landscape .virtual-center-btn.active {
-  opacity: 0.6;
+  opacity: 0.4;
 }
