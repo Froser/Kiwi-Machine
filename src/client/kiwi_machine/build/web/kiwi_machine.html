@@ -374,6 +374,15 @@
         document.body.classList.add('standalone');
     }
 
+    // Function to sync filesystem to IndexedDB
+    window.syncFilesystemToDB = function() {
+        FS.syncfs(false, (err) => {
+            if (err) {
+                console.error('Error syncing to IndexedDB:', err);
+            }
+        });
+    };
+
     var KiwiMachineCallback = {
         onVolumeChanged: (volume) => {
             if (window.parent) {
@@ -387,6 +396,20 @@
 
     var Module = {
         preRun: [
+            () => {
+                // Mount IDBFS for persistent storage
+                FS.mkdir('/persistent');
+                FS.mount(IDBFS, {}, '/persistent');
+                
+                // Sync from IndexedDB to in-memory filesystem
+                FS.syncfs(true, (err) => {
+                    if (err) {
+                        console.error('Error syncing from IndexedDB:', err);
+                    } else {
+                        console.log('Successfully synced from IndexedDB');
+                    }
+                });
+            },
             () => {
                 window.document.getElementById('canvas').style.display = 'block';
                 var loadingEl = window.document.getElementById('loading');

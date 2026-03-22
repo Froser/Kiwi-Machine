@@ -23,6 +23,10 @@
 #include "ui/application.h"
 #include "ui/widgets/canvas.h"
 
+#if KIWI_WASM
+#include "utility/emscripten/bridge_api.h"
+#endif
+
 namespace {
 std::vector<std::unique_ptr<NESRuntime::Data>> g_runtime_data;
 
@@ -40,12 +44,18 @@ struct FilePathSorter {
 };
 
 kiwi::base::FilePath GetProfilePath(const std::string& name) {
+#if KIWI_WASM
+  // In WASM, use /persistent directory for IDBFS
+  return kiwi::base::FilePath::FromUTF8Unsafe("/Profile").Append(
+      kiwi::base::FilePath::FromUTF8Unsafe(name));
+#else
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
   kiwi::base::FilePath profile_path =
       kiwi::base::FilePath::FromUTF8Unsafe(pref_path).Append(
           kiwi::base::FilePath::FromUTF8Unsafe(name));
   SDL_free(pref_path);
   return profile_path;
+#endif
 }
 
 kiwi::base::FilePath GetStatesPath(const kiwi::base::FilePath& profile_path,
@@ -136,6 +146,10 @@ bool SaveStateByPathOnIOThread(
         4, reinterpret_cast<const unsigned char*>(thumbnail_data.data()),
         Canvas::kNESFrameDefaultWidth * sizeof(thumbnail_data[0]));
   }
+
+#if KIWI_WASM
+  SyncFilesystem();
+#endif
 
   return true;
 }

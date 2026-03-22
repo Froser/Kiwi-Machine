@@ -15,6 +15,10 @@
 #include "build/kiwi_defines.h"
 #include "ui/application.h"
 
+#if KIWI_WASM
+#include "utility/emscripten/bridge_api.h"
+#endif
+
 namespace {
 kiwi::base::FilePath GetSettingsFile(const kiwi::base::FilePath& profile_path) {
   return profile_path.Append(FILE_PATH_LITERAL("Settings"));
@@ -46,6 +50,11 @@ bool SaveConfigOnIOThread(const kiwi::base::FilePath& profile_path,
     return false;
 
   file.WriteAtCurrentPos(content.data(), content.size());
+
+#if KIWI_WASM
+  SyncFilesystem();
+#endif
+
   return true;
 }
 

@@ -37,6 +37,9 @@ void JoystickButtonDown(int button);
 EMSCRIPTEN_KEEPALIVE
 void JoystickButtonUp(int button);
 
+EMSCRIPTEN_KEEPALIVE
+void SyncFilesystem();
+
 };
 
 #endif  // UTILITY_BRIDGE_API_H_

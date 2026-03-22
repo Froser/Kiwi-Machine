@@ -95,4 +95,13 @@ void JoystickButtonUp(int button) {
   main_window->JoystickButtonUp_WASM(b);
 }
 
+EMSCRIPTEN_KEEPALIVE
+void SyncFilesystem() {
+  EM_ASM({
+    if (window.syncFilesystemToDB) {
+      window.syncFilesystemToDB();
+    }
+  });
+}
+
 };
