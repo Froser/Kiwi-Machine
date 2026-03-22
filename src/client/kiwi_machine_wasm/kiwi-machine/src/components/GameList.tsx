@@ -17,6 +17,7 @@ import {getROMImageUrlFromContents, isLocaleTitleContains, ROMContent} from "../
 import SearchInput from "./basic/SearchInput";
 import Modal from "./basic/Modal";
 import Button from "./basic/Button";
+import {isMobileDevice} from "../services/device";
 
 interface GameListProps {
   loadRom: (romUrl: string, romName: string) => void,
@@ -38,6 +39,10 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
   // Set detail modal's content.
   const [modalContent, setModalContents] = useState<ROMContent>();
 
+  // Number of games to display on mobile
+  const [displayCount, setDisplayCount] = useState(10);
+  const ITEMS_PER_PAGE = 10;
+
   if (!gameDb) {
     fetch('roms/db.json').then((response) => {
       response.json().then(db => {
@@ -48,6 +53,7 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
 
   const handleSearch = function (keyword: string) {
     setKeyword(keyword);
+    setDisplayCount(ITEMS_PER_PAGE);
   };
 
   const handleKeyDown = function (event: React.KeyboardEvent<HTMLInputElement>) {
@@ -64,12 +70,22 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
   if (!gameDb) {
     return <div/>;
   } else {
-    const items = gameDb.filter(item => {
-      return isLocaleTitleContains(item, keyword)
-    }).map(item => {
-      return <GameItem key={item.id} contents={item} loadRom={loadRom} romName={romName} romId={item.id}
-                       showDetailModal={showDetailModal}/>
+    const filteredItems = gameDb.filter(item => {
+      return isLocaleTitleContains(item, keyword);
     });
+
+    const isMobile = isMobileDevice();
+    const visibleItems = isMobile ? filteredItems.slice(0, displayCount) : filteredItems;
+    const hasMore = isMobile && filteredItems.length > displayCount;
+
+    const items = visibleItems.map(item => {
+      return <GameItem key={item.id} contents={item} loadRom={loadRom} romName={romName} romId={item.id}
+                       showDetailModal={showDetailModal}/>;
+    });
+
+    const handleShowMore = () => {
+      setDisplayCount(prev => prev + ITEMS_PER_PAGE);
+    };
 
     return (
       <div>
@@ -96,6 +112,11 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
             <div className="gamelist-items">
               {items}
             </div>
+            {hasMore && (
+              <div style={{display: 'flex', justifyContent: 'center', marginTop: '20px', paddingBottom: '20px'}}>
+                <Button text="显示更多" onClick={handleShowMore}/>
+              </div>
+            )}
           </div>
         </Modal>
       </div>
