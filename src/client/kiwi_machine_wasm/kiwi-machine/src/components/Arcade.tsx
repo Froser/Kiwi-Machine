@@ -11,7 +11,7 @@
 // GNU General Public License for more details.
 
 import "./Arcade.css"
-import {useRef, useState} from "react";
+import {useRef, useState, useEffect} from "react";
 import Header from "./Header";
 import Playground from "./Playground";
 import GameList from "./GameList";
@@ -19,6 +19,7 @@ import {CreateEmulatorService} from "../services/emulator";
 import Footer from "./Footer";
 import ManualModal from "./basic/modals/ManualModal";
 import AboutModal from "./basic/modals/AboutModal";
+import LandscapeTips from "./basic/LandscapeTips";
 
 export default function Arcade() {
   const [frameRef, setFrameRef] = useState(useRef<HTMLIFrameElement>(null));
@@ -26,6 +27,8 @@ export default function Arcade() {
   const [showGameList, setShowGameList] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showLandscapeTips, setShowLandscapeTips] = useState(false);
+  const [hasShownTips, setHasShownTips] = useState(false);
 
   const loadRom = (romUrl: string, romName: string) => {
     const currentWindow = frameRef.current?.contentWindow;
@@ -34,6 +37,25 @@ export default function Arcade() {
     setRomName(romName);
     setShowGameList(false);
   }
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isLandscape && !hasShownTips && !showLandscapeTips) {
+        setShowLandscapeTips(true);
+        setHasShownTips(true);
+      }
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, [showLandscapeTips, hasShownTips]);
 
   return (
     <>
@@ -55,6 +77,11 @@ export default function Arcade() {
       
       <ManualModal show={showManualModal} setVisible={setShowManualModal} />
       <AboutModal show={showAboutModal} setVisible={setShowAboutModal} />
+      
+      <LandscapeTips 
+        show={showLandscapeTips} 
+        setVisible={setShowLandscapeTips}
+      />
     </>
   );
 }
