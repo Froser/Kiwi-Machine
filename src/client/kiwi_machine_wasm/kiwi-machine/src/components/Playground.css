@@ -18,6 +18,7 @@ GNU General Public License for more details.
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+  position: relative;
 }
 
 .playground-frame {
@@ -30,16 +31,121 @@ GNU General Public License for more details.
   overflow: hidden;
 }
 
-.playground-control {
+.playground-float-button {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  border: none;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
+  z-index: 100;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.playground-float-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.playground-float-button:active {
+  transform: scale(0.95);
+}
+
+.playground-float-icon {
+  width: 28px;
+  height: 28px;
+  stroke: white;
+}
+
+.playground-control {
+  position: absolute;
+  right: 24px;
+  bottom: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
   background: var(--bg-surface);
   border-radius: var(--border-radius-lg);
   border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-lg);
+  max-width: 400px;
+  z-index: 99;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.playground-control-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.playground-control-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.playground-control-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all var(--transition-fast);
+}
+
+.playground-control-close:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.playground-control-content {
+  width: 100%;
+}
+
+.playground-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.playground-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.playground-control-row-single {
+  justify-content: flex-start;
 }
 
 .playground-about-contents {
@@ -249,8 +355,32 @@ GNU General Public License for more details.
 }
 
 @media (max-width: 768px) {
+  .playground-float-button {
+    width: 48px;
+    height: 48px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .playground-float-icon {
+    width: 24px;
+    height: 24px;
+  }
+
   .playground-control {
-    display: none;
+    right: 16px;
+    bottom: 80px;
+    left: 16px;
+    max-width: none;
+  }
+
+  .playground-control-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .playground-control-row-single {
+    align-items: flex-start;
   }
 
   .playground-frame {

@@ -17,11 +17,15 @@ import Playground from "./Playground";
 import GameList from "./GameList";
 import {CreateEmulatorService} from "../services/emulator";
 import Footer from "./Footer";
+import ManualModal from "./basic/modals/ManualModal";
+import AboutModal from "./basic/modals/AboutModal";
 
 export default function Arcade() {
   const [frameRef, setFrameRef] = useState(useRef<HTMLIFrameElement>(null));
   const [romName, setRomName] = useState('');
   const [showGameList, setShowGameList] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   const loadRom = (romUrl: string, romName: string) => {
     const currentWindow = frameRef.current?.contentWindow;
@@ -35,7 +39,11 @@ export default function Arcade() {
     <>
       <Header content="Kiwi Machine" onMenuClick={() => setShowGameList(true)}></Header>
       <div className="arcade">
-        <Playground setFrameRef={setFrameRef}/>
+        <Playground 
+          setFrameRef={setFrameRef}
+          setShowManualModal={setShowManualModal}
+          setShowAboutModal={setShowAboutModal}
+        />
       </div>
       <GameList 
         loadRom={loadRom} 
@@ -44,6 +52,9 @@ export default function Arcade() {
         setShow={setShowGameList}
       />
       <Footer />
+      
+      <ManualModal show={showManualModal} setVisible={setShowManualModal} />
+      <AboutModal show={showAboutModal} setVisible={setShowAboutModal} />
     </>
   );
 }
