@@ -10,6 +10,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+import { useState } from "react"
 import "./Header.css"
 
 interface HeaderProps {
@@ -18,8 +19,10 @@ interface HeaderProps {
 }
 
 export default function Header({content, onMenuClick}: HeaderProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
-    <header className="header">
+    <header className={`header ${isMenuOpen ? 'menu-open' : ''}`}>
       <div className="header-container">
         <div className="logo-section">
           <img src="kiwi.png" alt="Kiwi Machine" className="logo-img" />
@@ -42,6 +45,13 @@ export default function Header({content, onMenuClick}: HeaderProps) {
           </a>
         </div>
       </div>
+      <button className="mobile-menu-toggle" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
     </header>
   );
 }

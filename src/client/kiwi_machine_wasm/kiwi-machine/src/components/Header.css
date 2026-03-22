@@ -147,3 +147,101 @@ GNU General Public License for more details.
     padding: 10px;
   }
 }
+
+.mobile-menu-toggle {
+  display: none;
+}
+
+@media (orientation: landscape) {
+  .header {
+    height: auto;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    width: auto;
+  }
+
+  .header.menu-open {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 16px;
+    padding-top: 72px;
+    top: 8px;
+    right: 8px;
+    width: auto;
+  }
+
+  .header-container {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    padding: 0;
+    max-width: none;
+  }
+
+  .header.menu-open .header-container {
+    display: flex;
+  }
+
+  .logo-section {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .search-games-button,
+  .github-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .search-games-button span,
+  .github-link span {
+    display: inline;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    color: var(--text-primary);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-fast);
+    z-index: 1001;
+  }
+
+  .header.menu-open .mobile-menu-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+  }
+
+  .mobile-menu-toggle:hover {
+    background: var(--bg-surface-hover);
+    transform: scale(1.1);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .mobile-menu-toggle svg {
+    width: 24px;
+    height: 24px;
+  }
+}
