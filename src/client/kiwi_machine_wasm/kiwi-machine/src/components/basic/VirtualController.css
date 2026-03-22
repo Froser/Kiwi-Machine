@@ -38,9 +38,39 @@ GNU General Public License for more details.
 }
 
 @media (orientation: landscape) {
+  .virtual-controller {
+    padding-bottom: calc(env(safe-area-inset-bottom, 16px) - 20px) !important;
+  }
+
   .virtual-controller-wrapper {
-    margin-left: 40px;
-    margin-right: 40px;
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+
+  .virtual-dpad {
+    width: calc(min(260px, 40vw, 35vh) * 1.35) !important;
+    height: calc(min(260px, 40vw, 35vh) * 1.35) !important;
+  }
+
+  .virtual-dpad-diagonal {
+    width: calc(min(260px, 40vw, 35vh) * 0.338 * 1.35) !important;
+    height: calc(min(260px, 40vw, 35vh) * 0.338 * 1.35) !important;
+  }
+
+  .virtual-dpad-center {
+    width: calc(min(260px, 40vw, 35vh) * 0.277 * 1.35) !important;
+    height: calc(min(260px, 40vw, 35vh) * 0.277 * 1.35) !important;
+  }
+
+  .virtual-dpad-btn {
+    width: calc(min(260px, 40vw, 35vh) * 0.338 * 1.35) !important;
+    height: calc(min(260px, 40vw, 35vh) * 0.338 * 1.35) !important;
+    font-size: calc(min(260px, 40vw, 35vh) * 0.13 * 1.35) !important;
+  }
+
+  .virtual-action-btn {
+    width: calc(min(120px, 18vw, 25vh) * 0.85) !important;
+    height: calc(min(120px, 18vw, 25vh) * 0.85) !important;
   }
 }
 

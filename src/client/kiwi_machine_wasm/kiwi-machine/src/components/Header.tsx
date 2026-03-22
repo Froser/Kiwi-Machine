@@ -10,8 +10,9 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import "./Header.css"
+import { isMobileDevice } from "../services/device"
 
 interface HeaderProps {
   content: string,
@@ -20,9 +21,27 @@ interface HeaderProps {
 
 export default function Header({content, onMenuClick}: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileLandscape, setIsMobileLandscape] = useState(false);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      const isMobile = isMobileDevice();
+      const isLandscape = window.innerWidth > window.innerHeight;
+      setIsMobileLandscape(isMobile && isLandscape);
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      window.removeEventListener('orientationchange', checkOrientation);
+    };
+  }, []);
 
   return (
-    <header className={`header ${isMenuOpen ? 'menu-open' : ''}`}>
+    <header className={`header ${isMenuOpen ? 'menu-open' : ''} ${isMobileLandscape ? 'mobile-landscape' : ''}`}>
       <div className="header-container">
         <div className="logo-section">
           <img src="kiwi.png" alt="Kiwi Machine" className="logo-img" />
