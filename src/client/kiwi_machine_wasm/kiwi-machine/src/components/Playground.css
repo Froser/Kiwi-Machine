@@ -383,7 +383,7 @@ GNU General Public License for more details.
     align-items: flex-start;
   }
 
-  .playground-frame {
+  .playground-mobile .playground-frame {
     flex: 0 0 auto;
     height: 40vh;
     min-height: 200px;

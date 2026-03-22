@@ -40,6 +40,7 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [showFps, setShowFps] = useState(false);
   const [showControl, setShowControl] = useState(false);
+  const isMobile = isMobileDevice();
 
   useEffect(() => {
     setFrameRef(frameRef);
@@ -71,7 +72,7 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
   };
 
   return (
-    <div className="playground">
+    <div className={`playground ${isMobile ? 'playground-mobile' : 'playground-desktop'}`}>
       <iframe className="playground-frame" ref={frameRef} src="kiwi_machine.html" title="Kiwi Machine">
       </iframe>
 
