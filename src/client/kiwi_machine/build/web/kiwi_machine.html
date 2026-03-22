@@ -374,13 +374,47 @@
         document.body.classList.add('standalone');
     }
 
-    // Function to sync filesystem to IndexedDB
-    window.syncFilesystemToDB = function() {
+    // Optimized sync mechanism with strict queue control
+    let isSyncing = false;
+    let hasPendingSync = false;
+    
+    const performSync = () => {
+        if (isSyncing) {
+            hasPendingSync = true;
+            return;
+        }
+        
+        isSyncing = true;
+        hasPendingSync = false;
+        
         FS.syncfs(false, (err) => {
+            isSyncing = false;
+            
             if (err) {
                 console.error('Error syncing to IndexedDB:', err);
+            } else {
+                console.log('Successfully synced to IndexedDB');
+            }
+            
+            // If there was a pending sync during this operation, do it now
+            if (hasPendingSync) {
+                performSync();
             }
         });
+    };
+    
+    let debounceTimer = null;
+    window.syncFilesystemToDB = function() {
+        // Clear any existing timer
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+        }
+        
+        // Set a new timer - wait 300ms before syncing
+        debounceTimer = setTimeout(() => {
+            debounceTimer = null;
+            performSync();
+        }, 300);
     };
 
     var KiwiMachineCallback = {
@@ -398,7 +432,11 @@
         preRun: [
             () => {
                 // Mount IDBFS for persistent storage
-                FS.mkdir('/persistent');
+                try {
+                    FS.mkdir('/persistent');
+                } catch (e) {
+                    // Directory may already exist, ignore
+                }
                 FS.mount(IDBFS, {}, '/persistent');
                 
                 // Sync from IndexedDB to in-memory filesystem
@@ -487,6 +525,30 @@
     window.onerror = e => {
         console.log("Exception thrown, see JavaScript console")
     }
+
+    // Sync filesystem before page unload
+    window.addEventListener('beforeunload', (event) => {
+        // Cancel any pending debounced sync
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+        }
+        
+        // Try to sync immediately if not already syncing
+        if (!isSyncing) {
+            try {
+                isSyncing = true;
+                FS.syncfs(false, (err) => {
+                    isSyncing = false;
+                    if (err) {
+                        console.error('Error syncing before unload:', err);
+                    }
+                });
+            } catch (e) {
+                console.error('Exception during sync before unload:', e);
+            }
+        }
+    });
 </script>
 {{{ SCRIPT }}}
 </body>

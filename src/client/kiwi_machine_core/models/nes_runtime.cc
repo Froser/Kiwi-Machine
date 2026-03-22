@@ -46,7 +46,7 @@ struct FilePathSorter {
 kiwi::base::FilePath GetProfilePath(const std::string& name) {
 #if KIWI_WASM
   // In WASM, use /persistent directory for IDBFS
-  return kiwi::base::FilePath::FromUTF8Unsafe("/Profile").Append(
+  return kiwi::base::FilePath::FromUTF8Unsafe("/persistent").Append(
       kiwi::base::FilePath::FromUTF8Unsafe(name));
 #else
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
