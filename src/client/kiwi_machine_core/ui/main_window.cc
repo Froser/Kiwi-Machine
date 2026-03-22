@@ -1078,10 +1078,13 @@ void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
 }
 
 void MainWindow::StartAutoSave() {
+  // Disable auto save in wasm because it may cause performance issue.
+#if !KIWI_WASM
   constexpr int kAutoSaveTimeDelta = 5000;
   runtime_data_->StartAutoSave(
       kiwi::base::Milliseconds(kAutoSaveTimeDelta),
       kiwi::base::BindRepeating(&NESFrame::GetLastFrame, canvas_->frame()));
+#endif
 }
 
 void MainWindow::StopAutoSave() {
