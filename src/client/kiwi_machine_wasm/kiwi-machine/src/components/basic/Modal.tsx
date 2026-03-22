@@ -19,15 +19,16 @@ interface ModalProps {
   show: boolean,
   width?: string,
   height?: string,
+  zIndex?: number,
   setVisible: Dispatch<SetStateAction<boolean>>,
 }
 
-export default function Modal({children, title, show, width, height, setVisible}: ModalProps) {
+export default function Modal({children, title, show, width, height, zIndex, setVisible}: ModalProps) {
   const className = 'modal ' + (show ? 'modal-show' : '');
   const isAutoHeight = height === 'auto';
   
   return (
-    <div className={className} onClick={() => setVisible(false)}>
+    <div className={className} style={{zIndex: zIndex}} onClick={() => setVisible(false)}>
       <div style={{
         width: `${width ? width : '550px'}`,
         height: isAutoHeight ? 'auto' : `${height}`,

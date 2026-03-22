@@ -89,7 +89,7 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
 
     return (
       <div>
-        <Modal show={modalVisible} title="游戏介绍" setVisible={setModalVisible}>
+        <Modal show={modalVisible} title="游戏介绍" setVisible={setModalVisible} zIndex={1001}>
           <div className="gamelist-flex">
             <img className="gamelist-modal-item gamelist-modal-thumbnail" loading="lazy"
                  src={getROMImageUrlFromContents(modalContent ? modalContent : null)}
