@@ -152,7 +152,7 @@ GNU General Public License for more details.
   display: none;
 }
 
-@media (orientation: landscape) {
+@media (max-width: 768px) and (orientation: landscape) {
   .header {
     height: auto;
     background: transparent;
