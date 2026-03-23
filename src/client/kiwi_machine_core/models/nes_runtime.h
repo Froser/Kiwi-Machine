@@ -96,6 +96,9 @@ class NESRuntime {
 
     // Reads the raw JPEG thumbnail data for the given save state.
     kiwi::nes::Bytes ReadSaveStateThumbnail(int crc32, int slot);
+
+    // Deletes a save state for the given CRC and slot.
+    bool DeleteSaveState(int crc32, int slot);
 #endif
 
     using GetThumbnailCallback = kiwi::base::RepeatingCallback<

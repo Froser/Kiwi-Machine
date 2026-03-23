@@ -78,6 +78,15 @@ class EmulatorService {
     });
   }
 
+  deleteState(slot: number) {
+    this.window.postMessage({
+      type: 'deleteState',
+      data: {
+        slot: slot
+      }
+    });
+  }
+
   getSaveStatesCount(): number {
     const module = (this.window as any).Module;
     if (module && module._GetSaveStatesCount) {

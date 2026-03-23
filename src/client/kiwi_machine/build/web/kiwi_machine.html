@@ -488,6 +488,10 @@
                     loadState: function (data) {
                         Module.ccall("LoadState", null, ["number"], [data.slot]);
                     },
+                    deleteState: function (data) {
+                        Module.ccall("DeleteState", null, ["number"], [data.slot]);
+                        window.syncFilesystemToDB();
+                    },
                 }
 
                 // Handle load ROM message from React components

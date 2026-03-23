@@ -108,6 +108,12 @@ void LoadState(int slot) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void DeleteState(int slot) {
+  MainWindow* main_window = MainWindow::GetInstance();
+  main_window->DeleteState_WASM(slot);
+}
+
+EMSCRIPTEN_KEEPALIVE
 int GetSaveStatesCount() {
   MainWindow* main_window = MainWindow::GetInstance();
   return main_window->GetSaveStatesCount_WASM();

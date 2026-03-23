@@ -74,6 +74,16 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
     }
   };
 
+  const handleDelete = (slot: number) => {
+    const currentWindow = frameRef.current?.contentWindow;
+    if (currentWindow) {
+      CreateEmulatorService(currentWindow).deleteState(slot);
+      setTimeout(() => {
+        loadSaveSlots();
+      }, 500);
+    }
+  };
+
   return (
     <Modal title="存档/读档" show={show} setVisible={setVisible} width="800px" height="auto">
       <div className="save-load-modal">
@@ -91,7 +101,10 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
               <div className="save-slot-actions">
                 <Button text="保存" onClick={() => handleSave(slot.slot)} />
                 {slot.hasData && (
-                  <Button text="读取" onClick={() => handleLoad(slot.slot)} />
+                  <>
+                    <Button text="读取" onClick={() => handleLoad(slot.slot)} />
+                    <Button text="删除" onClick={() => handleDelete(slot.slot)} variant="danger" />
+                  </>
                 )}
               </div>
             </div>

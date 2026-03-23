@@ -497,6 +497,8 @@ void NESRuntime::Data::StopAutoSave() {
   auto_save_started_ = false;
 }
 
+#if KIWI_WASM
+
 bool NESRuntime::Data::SaveStateExists(int crc32, int slot) {
   kiwi::base::FilePath path_to_data =
       GetSnapshotDataPath(profile_path, crc32, slot);
@@ -515,6 +517,14 @@ kiwi::nes::Bytes NESRuntime::Data::ReadSaveStateThumbnail(int crc32, int slot) {
   }
   return {};
 }
+
+bool NESRuntime::Data::DeleteSaveState(int crc32, int slot) {
+  kiwi::base::FilePath path_to_snapshot =
+      GetSnapshotPath(profile_path, crc32, slot);
+  return kiwi::base::DeletePathRecursively(path_to_snapshot);
+}
+
+#endif
 
 NESRuntime::Data* NESRuntime::GetDataById(NESRuntimeID id) {
   return g_runtime_data[id].get();

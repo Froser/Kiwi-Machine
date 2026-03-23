@@ -66,3 +66,15 @@ GNU General Public License for more details.
   transform: translateY(0);
   box-shadow: var(--shadow-sm);
 }
+
+.button-danger {
+  background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%);
+}
+
+.button-danger:hover {
+  box-shadow: 0 4px 16px rgba(244, 67, 54, 0.4);
+}
+
+.button-danger:focus {
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.3);
+}

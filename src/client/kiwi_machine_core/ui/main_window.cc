@@ -396,6 +396,17 @@ std::string MainWindow::GetSaveStateThumbnail_WASM(int slot) {
          Base64Encode(thumbnail_data.data(), thumbnail_data.size());
 }
 
+void MainWindow::DeleteState_WASM(int slot) {
+  if (!runtime_data_ || !runtime_data_->emulator) {
+    return;
+  }
+  auto* rom_data = runtime_data_->emulator->GetRomData();
+  if (!rom_data) {
+    return;
+  }
+  runtime_data_->DeleteSaveState(rom_data->crc, slot);
+}
+
 #endif
 
 #if !KIWI_MOBILE

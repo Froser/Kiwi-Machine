@@ -93,6 +93,7 @@ class MainWindow : public WindowBase,
   void JoystickButtonUp_WASM(kiwi::nes::ControllerButton button);
   void SaveState_WASM(int slot);
   void LoadState_WASM(int slot);
+  void DeleteState_WASM(int slot);
   int GetSaveStatesCount_WASM();
   bool HasSaveState_WASM(int slot);
   std::string GetSaveStateThumbnail_WASM(int slot);

@@ -15,11 +15,13 @@ import {MouseEventHandler} from "react";
 
 interface ButtonProps {
   text: string,
-  onClick: MouseEventHandler<HTMLButtonElement>
+  onClick: MouseEventHandler<HTMLButtonElement>,
+  variant?: 'default' | 'danger'
 }
 
-export default function Button({text, onClick}: ButtonProps) {
+export default function Button({text, onClick, variant = 'default'}: ButtonProps) {
+  const className = variant === 'danger' ? 'button button-danger' : 'button';
   return (
-    <button className="button" onClick={onClick}>{text}</button>
+    <button className={className} onClick={onClick}>{text}</button>
   );
 }
