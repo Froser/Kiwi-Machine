@@ -68,6 +68,12 @@ void SetVolume(float volume) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void ResetROM() {
+  MainWindow* main_window = MainWindow::GetInstance();
+  main_window->ResetROM_WASM();
+}
+
+EMSCRIPTEN_KEEPALIVE
 float GetFPS() {
   MainWindow* main_window = MainWindow::GetInstance();
   return main_window->GetFPS_WASM();

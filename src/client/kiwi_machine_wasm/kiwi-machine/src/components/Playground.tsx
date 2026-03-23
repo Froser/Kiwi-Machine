@@ -56,8 +56,18 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
     };
 
     window.addEventListener('keydown', handleKeyDown);
+
+    const handleIframeMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'escapeKeyDown') {
+        setShowControl(!showControl);
+      }
+    };
+
+    window.addEventListener('message', handleIframeMessage);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('message', handleIframeMessage);
     };
   }, [showControl]);
 
@@ -102,13 +112,20 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
 
       {showControl && <div className='playground-control'>
         <div className="playground-control-header">
-          <span className="playground-control-title">控制面板</span>
+          <span className="playground-control-title">游戏菜单</span>
           <button className="playground-control-close" onClick={() => setShowControl(false)}>✕</button>
         </div>
         <div className="playground-control-content">
           <div className="playground-control-group">
             <div className="playground-control-row">
               <Button text="存档/读档" onClick={() => setShowSaveLoadModal(true)}/>
+              <Button text="重置" onClick={() => {
+                const currentWindow = frameRef.current?.contentWindow;
+                if (currentWindow) {
+                  CreateEmulatorService(currentWindow).resetROM();
+                  currentWindow.focus();
+                }
+              }}/>
             </div>
             <div className="playground-control-row">
               <VolumePanel id='volume_slider' frame={frameRef}/>

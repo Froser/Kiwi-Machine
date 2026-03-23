@@ -25,6 +25,12 @@ class EmulatorService {
     });
   }
 
+  resetROM() {
+    this.window.postMessage({
+      type: 'resetROM'
+    });
+  }
+
   loadROM(romUrl: string) {
     this.window.postMessage(
       {

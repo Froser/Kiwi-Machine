@@ -367,6 +367,15 @@
                 toggleFPSDisplay(message.data.show);
             }
         }, false);
+
+        // Listen for ESC key and send to parent
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && window.parent) {
+                window.parent.postMessage({
+                    type: 'escapeKeyDown'
+                }, '*');
+            }
+        }, false);
     });
 
     // Detect Standalone Mode
@@ -472,7 +481,9 @@
                     changeVolume: function (data) {
                         Module.ccall("SetVolume", null, ["number"], [data.volume]);
                     },
-
+                    resetROM: function () {
+                        Module.ccall("ResetROM");
+                    },
                     joystickButtonDown: function (data) {
                         Module.ccall("JoystickButtonDown", null, ["number"], [data.keyCode]);
                     },
