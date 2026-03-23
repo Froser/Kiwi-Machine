@@ -12,7 +12,7 @@
 
 import "./SaveLoadModal.css"
 import Modal from "./basic/Modal";
-import {Dispatch, RefObject, SetStateAction, useEffect, useState} from "react";
+import {Dispatch, RefObject, SetStateAction, useCallback, useEffect, useState} from "react";
 import {CreateEmulatorService} from "../services/emulator";
 
 interface SaveLoadModalProps {
@@ -30,13 +30,7 @@ interface SaveSlot {
 export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModalProps) {
   const [saveSlots, setSaveSlots] = useState<SaveSlot[]>([]);
 
-  useEffect(() => {
-    if (show) {
-      loadSaveSlots();
-    }
-  }, [show]);
-
-  const loadSaveSlots = () => {
+  const loadSaveSlots = useCallback(() => {
     const currentWindow = frameRef.current?.contentWindow;
     if (!currentWindow) return;
 
@@ -53,7 +47,13 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
     }
 
     setSaveSlots(slots);
-  };
+  }, [frameRef]);
+
+  useEffect(() => {
+    if (show) {
+      loadSaveSlots();
+    }
+  }, [show, loadSaveSlots]);
 
   const handleSave = (slot: number) => {
     const currentWindow = frameRef.current?.contentWindow;

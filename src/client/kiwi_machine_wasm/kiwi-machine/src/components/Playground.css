@@ -64,6 +64,15 @@ GNU General Public License for more details.
   stroke: white;
 }
 
+.playground-control-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 98;
+}
+
 .playground-control {
   position: absolute;
   right: 24px;

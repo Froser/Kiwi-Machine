@@ -1,0 +1,124 @@
+/*
+Copyright (C) 2024 Yisi Yu
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+ */
+
+.control-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 98;
+}
+
+.control-panel {
+  position: absolute;
+  right: 24px;
+  bottom: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-surface);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  max-width: 400px;
+  z-index: 99;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.control-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.control-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.control-panel-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all var(--transition-fast);
+}
+
+.control-panel-close:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.control-panel-content {
+  width: 100%;
+}
+
+.control-panel-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.control-panel-row-single {
+  justify-content: flex-start;
+}
+
+@media (max-width: 768px) {
+  .control-panel {
+    right: 16px;
+    bottom: 144px;
+    left: 16px;
+    max-width: none;
+  }
+
+  .control-panel-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .control-panel-row-single {
+    align-items: flex-start;
+  }
+}

@@ -11,12 +11,10 @@
 // GNU General Public License for more details.
 
 import "./Playground.css"
-import Button from "./basic/Button";
-import Checkbox from "./basic/Checkbox";
 import {Dispatch, RefObject, SetStateAction, useEffect, useRef, useState} from "react";
 import VirtualController, {ControllerButton} from "./basic/VirtualController";
-import VolumePanel from "./VolumePanel";
 import SaveLoadModal from "./SaveLoadModal";
+import ControlPanel from "./ControlPanel";
 import {CreateEmulatorService} from "../services/emulator";
 import {isMobileDevice} from "../services/device";
 
@@ -71,17 +69,6 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
     };
   }, [showControl]);
 
-  const handleShowFpsChange = (checked: boolean) => {
-    setShowFps(checked);
-    const currentWindow = frameRef.current?.contentWindow;
-    if (currentWindow) {
-      currentWindow.postMessage({
-        type: 'toggleFps',
-        data: { show: checked }
-      }, '*');
-    }
-  };
-
   const handleButtonPress = (button: ControllerButton) => {
     const currentWindow = frameRef.current?.contentWindow;
     if (currentWindow) {
@@ -110,41 +97,16 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
         </svg>
       </div>}
 
-      {showControl && <div className='playground-control'>
-        <div className="playground-control-header">
-          <span className="playground-control-title">游戏菜单</span>
-          <button className="playground-control-close" onClick={() => setShowControl(false)}>✕</button>
-        </div>
-        <div className="playground-control-content">
-          <div className="playground-control-group">
-            <div className="playground-control-row">
-              <Button text="存档/读档" onClick={() => setShowSaveLoadModal(true)}/>
-              <Button text="重置" onClick={() => {
-                const currentWindow = frameRef.current?.contentWindow;
-                if (currentWindow) {
-                  CreateEmulatorService(currentWindow).resetROM();
-                  currentWindow.focus();
-                }
-              }}/>
-            </div>
-            <div className="playground-control-row">
-              <VolumePanel id='volume_slider' frame={frameRef}/>
-            </div>
-            <div className="playground-control-row">
-              <Button text="操作说明" onClick={() => setShowManualModal(true)}/>
-              <Button text="关于Kiwi Machine" onClick={() => setShowAboutModal(true)}/>
-            </div>
-            <div className="playground-control-row playground-control-row-single">
-              <Checkbox 
-                id="showFpsCheckbox"
-                label="显示帧率" 
-                checked={showFps} 
-                onChange={handleShowFpsChange}
-              />
-            </div>
-          </div>
-        </div>
-      </div>}
+      <ControlPanel
+        show={showControl}
+        setVisible={setShowControl}
+        frameRef={frameRef}
+        setShowSaveLoadModal={setShowSaveLoadModal}
+        setShowManualModal={setShowManualModal}
+        setShowAboutModal={setShowAboutModal}
+        showFps={showFps}
+        setShowFps={setShowFps}
+      />
       <SaveLoadModal 
         show={showSaveLoadModal} 
         setVisible={setShowSaveLoadModal} 
