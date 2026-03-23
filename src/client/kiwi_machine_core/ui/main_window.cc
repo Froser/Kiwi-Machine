@@ -13,10 +13,8 @@
 #include "ui/main_window.h"
 
 #include <gflags/gflags.h>
-#include <cmath>
-#include <iostream>
-#include <queue>
 
+#include "base/files/file_util.h"
 #include "build/kiwi_defines.h"
 #include "debug/debug_roms.h"
 #include "kiwi_flags.h"
@@ -352,6 +350,50 @@ void MainWindow::JoystickButtonDown_WASM(kiwi::nes::ControllerButton button) {
 }
 void MainWindow::JoystickButtonUp_WASM(kiwi::nes::ControllerButton button) {
   SetVirtualJoystickButton(0, button, false);
+}
+
+void MainWindow::SaveState_WASM(int slot) {
+  if (CanSaveOrLoadState()) {
+    OnSaveState(slot);
+  }
+}
+
+void MainWindow::LoadState_WASM(int slot) {
+  if (CanSaveOrLoadState()) {
+    OnLoadState(slot);
+  }
+}
+
+int MainWindow::GetSaveStatesCount_WASM() {
+  return NESRuntime::Data::MaxSaveStates;
+}
+
+bool MainWindow::HasSaveState_WASM(int slot) {
+  if (!runtime_data_ || !runtime_data_->emulator) {
+    return false;
+  }
+  auto* rom_data = runtime_data_->emulator->GetRomData();
+  if (!rom_data) {
+    return false;
+  }
+  return runtime_data_->SaveStateExists(rom_data->crc, slot);
+}
+
+std::string MainWindow::GetSaveStateThumbnail_WASM(int slot) {
+  if (!runtime_data_ || !runtime_data_->emulator) {
+    return "";
+  }
+  auto* rom_data = runtime_data_->emulator->GetRomData();
+  if (!rom_data) {
+    return "";
+  }
+  kiwi::nes::Bytes thumbnail_data =
+      runtime_data_->ReadSaveStateThumbnail(rom_data->crc, slot);
+  if (thumbnail_data.empty()) {
+    return "";
+  }
+  return "data:image/jpeg;base64," +
+         Base64Encode(thumbnail_data.data(), thumbnail_data.size());
 }
 
 #endif

@@ -46,8 +46,8 @@ struct FilePathSorter {
 kiwi::base::FilePath GetProfilePath(const std::string& name) {
 #if KIWI_WASM
   // In WASM, use /persistent directory for IDBFS
-  return kiwi::base::FilePath::FromUTF8Unsafe("/persistent").Append(
-      kiwi::base::FilePath::FromUTF8Unsafe(name));
+  return kiwi::base::FilePath::FromUTF8Unsafe("/persistent")
+      .Append(kiwi::base::FilePath::FromUTF8Unsafe(name));
 #else
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
   kiwi::base::FilePath profile_path =
@@ -495,6 +495,25 @@ void NESRuntime::Data::StartAutoSave(kiwi::base::TimeDelta delta,
 
 void NESRuntime::Data::StopAutoSave() {
   auto_save_started_ = false;
+}
+
+bool NESRuntime::Data::SaveStateExists(int crc32, int slot) {
+  kiwi::base::FilePath path_to_data =
+      GetSnapshotDataPath(profile_path, crc32, slot);
+  return kiwi::base::PathExists(path_to_data);
+}
+
+kiwi::nes::Bytes NESRuntime::Data::ReadSaveStateThumbnail(int crc32, int slot) {
+  kiwi::base::FilePath path_to_thumbnail =
+      GetSnapshotThumbnailPath(profile_path, crc32, slot);
+  if (!kiwi::base::PathExists(path_to_thumbnail)) {
+    return {};
+  }
+  auto result = kiwi::base::ReadFileToBytes(path_to_thumbnail);
+  if (result.has_value()) {
+    return result.value();
+  }
+  return {};
 }
 
 NESRuntime::Data* NESRuntime::GetDataById(NESRuntimeID id) {

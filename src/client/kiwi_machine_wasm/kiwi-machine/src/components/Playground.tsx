@@ -16,6 +16,7 @@ import Checkbox from "./basic/Checkbox";
 import {Dispatch, RefObject, SetStateAction, useEffect, useRef, useState} from "react";
 import VirtualController, {ControllerButton} from "./basic/VirtualController";
 import VolumePanel from "./VolumePanel";
+import SaveLoadModal from "./SaveLoadModal";
 import {CreateEmulatorService} from "../services/emulator";
 import {isMobileDevice} from "../services/device";
 
@@ -40,6 +41,7 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [showFps, setShowFps] = useState(false);
   const [showControl, setShowControl] = useState(false);
+  const [showSaveLoadModal, setShowSaveLoadModal] = useState(false);
   const isMobile = isMobileDevice();
 
   useEffect(() => {
@@ -98,6 +100,7 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
                 CreateEmulatorService(currentWindow).callMenu();
                 currentWindow?.focus();
               }}/>
+              <Button text="存档/读档" onClick={() => setShowSaveLoadModal(true)}/>
               <VolumePanel id='volume_slider' frame={frameRef}/>
             </div>
             <div className="playground-control-row">
@@ -115,6 +118,11 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
           </div>
         </div>
       </div>}
+      <SaveLoadModal 
+        show={showSaveLoadModal} 
+        setVisible={setShowSaveLoadModal} 
+        frameRef={frameRef}
+      />
     </div>
   );
 }

@@ -90,6 +90,14 @@ class NESRuntime {
         int slot,
         kiwi::base::OnceCallback<void(const StateResult&)> load_callback);
 
+#if KIWI_WASM
+    // Checks if a save state exists for the given CRC and slot.
+    bool SaveStateExists(int crc32, int slot);
+
+    // Reads the raw JPEG thumbnail data for the given save state.
+    kiwi::nes::Bytes ReadSaveStateThumbnail(int crc32, int slot);
+#endif
+
     using GetThumbnailCallback = kiwi::base::RepeatingCallback<
         const kiwi::nes::IODevices::RenderDevice::Buffer&()>;
     void StartAutoSave(kiwi::base::TimeDelta delta,

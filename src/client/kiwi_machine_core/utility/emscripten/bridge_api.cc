@@ -96,6 +96,39 @@ void JoystickButtonUp(int button) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void SaveState(int slot) {
+  MainWindow* main_window = MainWindow::GetInstance();
+  main_window->SaveState_WASM(slot);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void LoadState(int slot) {
+  MainWindow* main_window = MainWindow::GetInstance();
+  main_window->LoadState_WASM(slot);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int GetSaveStatesCount() {
+  MainWindow* main_window = MainWindow::GetInstance();
+  return main_window->GetSaveStatesCount_WASM();
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool HasSaveState(int slot) {
+  MainWindow* main_window = MainWindow::GetInstance();
+  return main_window->HasSaveState_WASM(slot);
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* GetSaveStateThumbnail(int slot) {
+  MainWindow* main_window = MainWindow::GetInstance();
+  std::string thumbnail = main_window->GetSaveStateThumbnail_WASM(slot);
+  static std::string static_thumbnail;
+  static_thumbnail = thumbnail;
+  return static_thumbnail.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
 void SyncFilesystem() {
   EM_ASM({
     if (window.syncFilesystemToDB) {

@@ -14,6 +14,9 @@
 #define UTILITY_ALGORITMN_H_
 
 #include <string>
+#include <vector>
+
+#include <kiwi_nes.h>
 
 // Checks if string s1 contains all characters of string s2 in the same order.
 // The comparison is case-insensitive.
@@ -22,5 +25,11 @@
 // `s2` is The string to search for.
 // Return true if s1 contains all characters of s2 in order, false otherwise
 bool HasString(const std::string& s1, const std::string& s2);
+
+// Encodes binary data to Base64 string.
+// `data` is the binary data to encode.
+// `len` is the length of the data.
+// Returns the Base64 encoded string.
+std::string Base64Encode(const kiwi::nes::Byte* data, size_t len);
 
 #endif  // UTILITY_ALGORITMN_H_

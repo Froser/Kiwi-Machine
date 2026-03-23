@@ -91,6 +91,11 @@ class MainWindow : public WindowBase,
   float GetFPS_WASM();
   void JoystickButtonDown_WASM(kiwi::nes::ControllerButton button);
   void JoystickButtonUp_WASM(kiwi::nes::ControllerButton button);
+  void SaveState_WASM(int slot);
+  void LoadState_WASM(int slot);
+  int GetSaveStatesCount_WASM();
+  bool HasSaveState_WASM(int slot);
+  std::string GetSaveStateThumbnail_WASM(int slot);
 #endif
 
   float window_scale() { return config_->data().window_scale; }

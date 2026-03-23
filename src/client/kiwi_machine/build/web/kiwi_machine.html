@@ -481,6 +481,13 @@
                     joystickButtonUp: function (data) {
                         Module.ccall("JoystickButtonUp", null, ["number"], [data.keyCode]);
                     },
+                    saveState: function (data) {
+                        Module.ccall("SaveState", null, ["number"], [data.slot]);
+                        window.syncFilesystemToDB();
+                    },
+                    loadState: function (data) {
+                        Module.ccall("LoadState", null, ["number"], [data.slot]);
+                    },
                 }
 
                 // Handle load ROM message from React components

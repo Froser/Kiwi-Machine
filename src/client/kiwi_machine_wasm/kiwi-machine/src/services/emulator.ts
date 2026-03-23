@@ -59,6 +59,51 @@ class EmulatorService {
       }
     });
   }
+
+  saveState(slot: number) {
+    this.window.postMessage({
+      type: 'saveState',
+      data: {
+        slot: slot
+      }
+    });
+  }
+
+  loadState(slot: number) {
+    this.window.postMessage({
+      type: 'loadState',
+      data: {
+        slot: slot
+      }
+    });
+  }
+
+  getSaveStatesCount(): number {
+    const module = (this.window as any).Module;
+    if (module && module._GetSaveStatesCount) {
+      return module._GetSaveStatesCount();
+    }
+    return 0;
+  }
+
+  hasSaveState(slot: number): boolean {
+    const module = (this.window as any).Module;
+    if (module && module._HasSaveState) {
+      return module._HasSaveState(slot);
+    }
+    return false;
+  }
+
+  getSaveStateThumbnail(slot: number): string {
+    const module = (this.window as any).Module;
+    if (module && module._GetSaveStateThumbnail) {
+      const ptr = module._GetSaveStateThumbnail(slot);
+      if (ptr) {
+        return module.UTF8ToString(ptr);
+      }
+    }
+    return '';
+  }
 }
 
 function CreateEmulatorService(window: Window | null | undefined) {

@@ -35,3 +35,20 @@ bool HasString(const std::string& s1, const std::string& s2) {
   
   return true;
 }
+
+std::string Base64Encode(const kiwi::nes::Byte* data, size_t len) {
+  static const char* chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string result;
+  result.reserve(((len + 2) / 3) * 4);
+  for (size_t i = 0; i < len; i += 3) {
+    uint32_t n = static_cast<uint32_t>(data[i]) << 16;
+    if (i + 1 < len) n |= static_cast<uint32_t>(data[i + 1]) << 8;
+    if (i + 2 < len) n |= data[i + 2];
+    result += chars[(n >> 18) & 0x3F];
+    result += chars[(n >> 12) & 0x3F];
+    result += (i + 1 < len) ? chars[(n >> 6) & 0x3F] : '=';
+    result += (i + 2 < len) ? chars[n & 0x3F] : '=';
+  }
+  return result;
+}
