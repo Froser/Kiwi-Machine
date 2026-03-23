@@ -331,13 +331,6 @@ void MainWindow::SetVolume_WASM(float volume) {
   OnSetAudioVolume(volume);
 }
 
-void MainWindow::CallMenu_WASM() {
-  if (in_game_menu_->visible())
-    CloseInGameMenu();
-  else
-    OnInGameMenuTrigger();
-}
-
 float MainWindow::GetFPS_WASM() {
   if (fps_counter_) {
     return fps_counter_->GetCurrentFPS();

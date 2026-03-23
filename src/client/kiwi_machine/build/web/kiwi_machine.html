@@ -472,9 +472,7 @@
                     changeVolume: function (data) {
                         Module.ccall("SetVolume", null, ["number"], [data.volume]);
                     },
-                    callMenu: function () {
-                        Module.ccall("CallMenu");
-                    },
+
                     joystickButtonDown: function (data) {
                         Module.ccall("JoystickButtonDown", null, ["number"], [data.keyCode]);
                     },

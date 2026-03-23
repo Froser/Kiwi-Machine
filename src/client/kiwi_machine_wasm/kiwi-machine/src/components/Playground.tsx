@@ -48,6 +48,19 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
     setFrameRef(frameRef);
   }, [setFrameRef]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowControl(!showControl);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showControl]);
+
   const handleShowFpsChange = (checked: boolean) => {
     setShowFps(checked);
     const currentWindow = frameRef.current?.contentWindow;
@@ -95,11 +108,6 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
         <div className="playground-control-content">
           <div className="playground-control-group">
             <div className="playground-control-row">
-              <Button text="游戏菜单 (ESC)" onClick={() => {
-                const currentWindow = frameRef.current?.contentWindow;
-                CreateEmulatorService(currentWindow).callMenu();
-                currentWindow?.focus();
-              }}/>
               <Button text="存档/读档" onClick={() => setShowSaveLoadModal(true)}/>
             </div>
             <div className="playground-control-row">

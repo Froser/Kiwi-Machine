@@ -87,7 +87,6 @@ class MainWindow : public WindowBase,
   static MainWindow* GetInstance();
   void LoadROM_WASM(kiwi::base::FilePath rom_path);
   void SetVolume_WASM(float volume);
-  void CallMenu_WASM();
   float GetFPS_WASM();
   void JoystickButtonDown_WASM(kiwi::nes::ControllerButton button);
   void JoystickButtonUp_WASM(kiwi::nes::ControllerButton button);

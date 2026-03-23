@@ -124,7 +124,7 @@ if (EMSCRIPTEN)
 -s ALLOW_MEMORY_GROWTH \
 -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=\\\[\\\"\\\$autoResumeAudioContext\\\"\\\,\\\"\\\$dynCall\\\"\\\] \
 -s EXPORTED_RUNTIME_METHODS=ccall,FS,UTF8ToString \
--s EXPORTED_FUNCTIONS=_LoadROMFromTempPath\\\,_SetupCallbacks\\\,_CallMenu\\\,_SetVolume\\\,_JoystickButtonDown\\\,_JoystickButtonUp\\\,_GetFPS\\\,_SyncFilesystem\\\,_SaveState\\\,_LoadState\\\,_DeleteState\\\,_GetSaveStatesCount\\\,_HasSaveState\\\,_GetSaveStateThumbnail\\\,_main \
+-s EXPORTED_FUNCTIONS=_LoadROMFromTempPath\\\,_SetupCallbacks\\\,_SetVolume\\\,_JoystickButtonDown\\\,_JoystickButtonUp\\\,_GetFPS\\\,_SyncFilesystem\\\,_SaveState\\\,_LoadState\\\,_DeleteState\\\,_GetSaveStatesCount\\\,_HasSaveState\\\,_GetSaveStateThumbnail\\\,_main \
 -s FILESYSTEM=1 \
 -lidbfs.js \
 -gsource-map \

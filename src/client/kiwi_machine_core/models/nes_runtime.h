@@ -17,6 +17,7 @@
 #include <map>
 #include <string>
 
+#include "build/kiwi_defines.h"
 #include "debug/debug_port.h"
 #include "models/nes_config.h"
 

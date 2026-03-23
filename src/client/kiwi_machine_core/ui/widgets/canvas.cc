@@ -76,11 +76,16 @@ bool Canvas::IsWindowless() {
 }
 
 bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
+#if !KIWI_WASM
   if (event->keysym.sym == SDLK_ESCAPE) {
     InvokeInGameMenu();
     return true;
   }
   return false;
+#else
+  // WASM uses web ui menu, instead of the in-game menu.
+  return false;
+#endif
 }
 
 bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {

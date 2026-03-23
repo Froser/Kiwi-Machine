@@ -34,13 +34,7 @@ class EmulatorService {
     );
   }
 
-  callMenu() {
-    this.window.postMessage(
-      {
-        type: 'callMenu',
-      }
-    );
-  }
+
 
   joystickButtonDown(keyCode: number) {
     this.window.postMessage({
