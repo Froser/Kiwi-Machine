@@ -88,7 +88,11 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
       <iframe className="playground-frame" ref={frameRef} src="kiwi_machine.html" title="Kiwi Machine">
       </iframe>
 
-      <VirtualController onButtonPress={handleButtonPress} onButtonRelease={handleButtonRelease} />
+      <VirtualController 
+        onButtonPress={handleButtonPress} 
+        onButtonRelease={handleButtonRelease}
+        onMenuButtonClick={() => setShowControl(!showControl)}
+      />
 
       {!isMobileDevice() && <div className="playground-float-button" onClick={() => setShowControl(!showControl)}>
         <svg className="playground-float-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

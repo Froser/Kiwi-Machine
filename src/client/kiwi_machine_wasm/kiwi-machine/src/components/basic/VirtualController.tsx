@@ -21,6 +21,7 @@ type AllButtonType = ControllerButton | DiagonalButton;
 interface VirtualControllerProps {
   onButtonPress?: (button: ControllerButton) => void;
   onButtonRelease?: (button: ControllerButton) => void;
+  onMenuButtonClick?: () => void;
 }
 
 const diagonalButtonMap: Record<DiagonalButton, ControllerButton[]> = {
@@ -32,7 +33,7 @@ const diagonalButtonMap: Record<DiagonalButton, ControllerButton[]> = {
 
 const allButtons: AllButtonType[] = ['up', 'down', 'left', 'right', 'a', 'b', 'select', 'start', 'up-left', 'up-right', 'down-left', 'down-right'];
 
-export default function VirtualController({ onButtonPress, onButtonRelease }: VirtualControllerProps) {
+export default function VirtualController({ onButtonPress, onButtonRelease, onMenuButtonClick }: VirtualControllerProps) {
   const [activeButtons, setActiveButtons] = useState<Set<ControllerButton>>(new Set());
   const [isVisible, setIsVisible] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
@@ -229,6 +230,17 @@ export default function VirtualController({ onButtonPress, onButtonRelease }: Vi
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
     >
+      {onMenuButtonClick && (
+        <button 
+          className="virtual-menu-button"
+          onClick={onMenuButtonClick}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      )}
       <div className="virtual-controller-wrapper">
         <div className="virtual-top-row">
           <div className="virtual-dpad">

@@ -27,6 +27,45 @@ GNU General Public License for more details.
   touch-action: none;
 }
 
+.virtual-menu-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 100%);
+  border: 2px solid #222;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  transition: all 0.1s ease;
+  color: #888;
+}
+
+.virtual-menu-button:hover {
+  background: linear-gradient(180deg, #6a6a6a 0%, #4a4a4a 100%);
+  color: #999;
+}
+
+.virtual-menu-button:active {
+  transform: translateY(1px);
+  box-shadow: 
+    inset 0 3px 6px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 rgba(255, 255, 255, 0.1);
+  color: #777;
+}
+
+.virtual-menu-button svg {
+  width: 18px;
+  height: 18px;
+}
+
 .virtual-controller-wrapper {
   display: flex;
   flex-direction: column;
