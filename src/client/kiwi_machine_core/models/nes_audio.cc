@@ -13,21 +13,12 @@
 #include "models/nes_audio.h"
 
 #include <kiwi_nes.h>
-#include <mutex>
-
-namespace {
-constexpr size_t kBufferSize = 512;
-constexpr size_t kBufferCount = 24;
-}  // namespace
 
 NESAudio::NESAudio(NESRuntimeID runtime_id) : runtime_id_(runtime_id) {}
 
 NESAudio::~NESAudio() {
   if (audio_device_id_)
     SDL_CloseAudioDevice(audio_device_id_);
-
-  if (free_sem_)
-    SDL_DestroySemaphore(free_sem_);
 }
 
 void NESAudio::Reset() {
@@ -40,8 +31,6 @@ void NESAudio::Initialize() {
   SDL_assert(runtime_data_->emulator);
 
   ResetBuffer();
-
-  free_sem_ = SDL_CreateSemaphore(kBufferCount - 1);
 
   if (SDL_WasInit(SDL_INIT_AUDIO)) {
     SDL_AudioSpec as;
@@ -69,14 +58,19 @@ void NESAudio::Start() {
 
 void NESAudio::ResetBuffer() {
   SDL_LockAudioDevice(audio_device_id_);
-  if (free_sem_)
-    SDL_DestroySemaphore(free_sem_);
-  free_sem_ = SDL_CreateSemaphore(kBufferCount - 1);
 
-  buffer_.resize(kBufferCount * kBufferSize);
-  write_buf_ = 0;
-  write_pos_ = 0;
-  read_buf_ = 0;
+  // Clear all buffers
+  for (auto& buf : buffers_) {
+    buf.fill(0);
+  }
+  temp_buffer_.fill(0);
+  temp_pos_ = 0;
+
+  // Reset atomic counters
+  write_buf_.store(0, std::memory_order_relaxed);
+  read_buf_.store(0, std::memory_order_relaxed);
+  filled_count_.store(0, std::memory_order_relaxed);
+
   SDL_UnlockAudioDevice(audio_device_id_);
 }
 
@@ -87,26 +81,35 @@ void NESAudio::ReadAudioBuffer(void* userdata, Uint8* stream, int len) {
 }
 
 void NESAudio::ReadAudioBuffer(Uint8* stream, int count) {
-  if (SDL_SemValue(free_sem_) < kBufferCount - 1) {
+  // Check if there are any filled buffers available
+  size_t current_filled = filled_count_.load(std::memory_order_acquire);
+  if (current_filled > 0) {
+    size_t current_read = read_buf_.load(std::memory_order_relaxed);
+
     // TODO MSB is not supported yet.
     if (SDL_AUDIO_ISLITTLEENDIAN(audio_spec_.format)) {
-      memcpy(stream, Buffer(read_buf_), count);
-      read_buf_ = (read_buf_ + 1) % kBufferCount;
-      SDL_SemPost(free_sem_);
+      memcpy(stream, buffers_[current_read].data(), count);
+
+      // Update read index
+      read_buf_.store((current_read + 1) % kBufferCount,
+                      std::memory_order_release);
+
+      // Decrement filled count
+      filled_count_.fetch_sub(1, std::memory_order_release);
     } else {
-      std::once_flag flag;
+      static std::once_flag flag;
       std::call_once(flag, [this]() {
         SDL_LogWarn(SDL_LOG_CATEGORY_AUDIO, "Big endian is not supported yet.");
       });
+      // Even if big endian is not supported, update counters to avoid deadlock
+      read_buf_.store((current_read + 1) % kBufferCount,
+                      std::memory_order_release);
+      filled_count_.fetch_sub(1, std::memory_order_release);
     }
   } else {
+    // No data available, play silence
     memset(stream, 0, count);
   }
-}
-
-kiwi::nes::Sample* NESAudio::Buffer(size_t index) {
-  SDL_assert(index < kBufferCount);
-  return buffer_.data() + index * kBufferSize;
 }
 
 void NESAudio::Write(kiwi::nes::Sample* samples, size_t count) {
@@ -114,20 +117,43 @@ void NESAudio::Write(kiwi::nes::Sample* samples, size_t count) {
     return;
 
   const kiwi::nes::Sample* in = samples;
-  while (count) {
-    int n = static_cast<int>(kBufferSize - write_pos_);
-    if (n > count)
-      n = count;
+  while (count > 0) {
+    // Check how much space is left in the temp buffer
+    size_t space_in_temp = kBufferSize - temp_pos_;
+    size_t to_copy = (count < space_in_temp) ? count : space_in_temp;
 
-    memcpy(Buffer(write_buf_) + write_pos_, in, n * sizeof(kiwi::nes::Sample));
-    in += n;
-    write_pos_ += n;
-    count -= n;
+    // Copy to temp buffer
+    memcpy(temp_buffer_.data() + temp_pos_, in,
+           to_copy * sizeof(kiwi::nes::Sample));
+    temp_pos_ += to_copy;
+    in += to_copy;
+    count -= to_copy;
 
-    if (write_pos_ >= kBufferSize) {
-      write_pos_ = 0;
-      write_buf_ = (write_buf_ + 1) % kBufferCount;
-      SDL_SemWait(free_sem_);
+    // If temp buffer is full, commit to ring buffer
+    if (temp_pos_ >= kBufferSize) {
+      // Check if there's space available
+      size_t current_filled = filled_count_.load(std::memory_order_acquire);
+      if (current_filled >= kBufferCount) {
+        // Buffer full, clear temp buffer and drop data
+        temp_pos_ = 0;
+        return;
+      }
+
+      size_t current_write = write_buf_.load(std::memory_order_relaxed);
+
+      // Copy temp buffer to ring buffer
+      memcpy(buffers_[current_write].data(), temp_buffer_.data(),
+             kBufferSize * sizeof(kiwi::nes::Sample));
+
+      // Update write index
+      write_buf_.store((current_write + 1) % kBufferCount,
+                       std::memory_order_release);
+
+      // Increment filled count
+      filled_count_.fetch_add(1, std::memory_order_release);
+
+      // Clear temp buffer
+      temp_pos_ = 0;
     }
   }
 }
