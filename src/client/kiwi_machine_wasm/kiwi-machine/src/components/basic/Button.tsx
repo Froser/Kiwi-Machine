@@ -19,9 +19,7 @@ interface ButtonProps {
   variant?: 'default' | 'danger'
 }
 
-export default function Button({text, onClick, variant = 'default'}: ButtonProps) {
-  const className = variant === 'danger' ? 'button button-danger' : 'button';
-  return (
-    <button className={className} onClick={onClick}>{text}</button>
-  );
+export default function Button({text, onClick, variant}: ButtonProps) {
+  const buttonClass = variant === 'danger' ? 'button button-danger' : 'button';
+  return <button className={buttonClass} onClick={onClick}>{text}</button>;
 }

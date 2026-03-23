@@ -12,7 +12,6 @@
 
 import "./SaveLoadModal.css"
 import Modal from "./basic/Modal";
-import Button from "./basic/Button";
 import {Dispatch, RefObject, SetStateAction, useEffect, useState} from "react";
 import {CreateEmulatorService} from "../services/emulator";
 
@@ -85,30 +84,33 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
   };
 
   return (
-    <Modal title="存档/读档" show={show} setVisible={setVisible} width="800px" height="auto">
+    <Modal title="存档/读档" show={show} setVisible={setVisible} width="1100px" height="auto">
       <div className="save-load-modal">
         <div className="save-load-grid">
-          {saveSlots.map((slot) => (
+          {saveSlots.map((slot) => {
+            const slotNumber = slot.slot + 1;
+            return (
             <div key={slot.slot} className="save-slot">
-              <div className="save-slot-number">存档 {slot.slot + 1}</div>
+              <div className="save-slot-number">存档 {slotNumber}</div>
               <div className="save-slot-thumbnail">
                 {slot.hasData && slot.thumbnail ? (
-                  <img src={slot.thumbnail} alt={`存档 ${slot.slot + 1}`} />
+                  <img src={slot.thumbnail} alt={`存档 ${slotNumber}`} />
                 ) : (
                   <div className="save-slot-empty">空</div>
                 )}
               </div>
               <div className="save-slot-actions">
-                <Button text="保存" onClick={() => handleSave(slot.slot)} />
-                {slot.hasData && (
+                <button className="button" onClick={() => handleSave(slot.slot)}>保存</button>
+                {slot.hasData ? (
                   <>
-                    <Button text="读取" onClick={() => handleLoad(slot.slot)} />
-                    <Button text="删除" onClick={() => handleDelete(slot.slot)} variant="danger" />
+                    <button className="button" onClick={() => handleLoad(slot.slot)}>读取</button>
+                    <button className="button button-danger" onClick={() => handleDelete(slot.slot)}>删除</button>
                   </>
-                )}
+                ) : null}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </Modal>

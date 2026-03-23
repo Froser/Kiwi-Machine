@@ -16,8 +16,8 @@
 }
 
 .save-load-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
 }
 
@@ -25,12 +25,16 @@
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-lg);
-  padding: 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   transition: all var(--transition-fast);
+  width: 190px;
+  height: 320px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .save-slot:hover {
@@ -42,11 +46,12 @@
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
+  flex-shrink: 0;
 }
 
 .save-slot-thumbnail {
   width: 100%;
-  aspect-ratio: 256/240;
+  height: 160px;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -54,6 +59,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .save-slot-thumbnail img {
@@ -69,10 +75,15 @@
 
 .save-slot-actions {
   display: flex;
+  flex-direction: row;
   gap: 8px;
   width: 100%;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .save-slot-actions .button {
   flex: 1;
+  font-size: 13px;
+  padding: 10px 8px;
 }

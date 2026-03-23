@@ -101,6 +101,8 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
                 currentWindow?.focus();
               }}/>
               <Button text="存档/读档" onClick={() => setShowSaveLoadModal(true)}/>
+            </div>
+            <div className="playground-control-row">
               <VolumePanel id='volume_slider' frame={frameRef}/>
             </div>
             <div className="playground-control-row">

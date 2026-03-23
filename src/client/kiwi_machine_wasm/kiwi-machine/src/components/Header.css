@@ -125,6 +125,18 @@ GNU General Public License for more details.
   fill: currentColor;
 }
 
+@media (max-width: 900px) {
+  .search-games-button span,
+  .github-link span {
+    display: none;
+  }
+
+  .search-games-button,
+  .github-link {
+    padding: 10px;
+  }
+}
+
 @media (max-width: 768px) {
   .logo-text {
     font-size: 20px;
@@ -136,15 +148,6 @@ GNU General Public License for more details.
 
   .header-actions {
     gap: 8px;
-  }
-
-  .github-link span {
-    display: none;
-  }
-
-  .search-games-button,
-  .github-link {
-    padding: 10px;
   }
 }
 
@@ -209,7 +212,7 @@ GNU General Public License for more details.
 
 .header.mobile-landscape .search-games-button span,
 .header.mobile-landscape .github-link span {
-  display: inline;
+  display: inline !important;
 }
 
 .header.mobile-landscape .mobile-menu-toggle {
