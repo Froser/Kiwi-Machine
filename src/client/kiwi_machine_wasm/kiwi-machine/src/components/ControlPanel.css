@@ -18,7 +18,7 @@ GNU General Public License for more details.
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 98;
+  z-index: 1000;
 }
 
 .control-panel {
@@ -34,7 +34,7 @@ GNU General Public License for more details.
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
   max-width: 400px;
-  z-index: 99;
+  z-index: 1001;
   animation: slideUp 0.3s ease-out;
 }
 
@@ -108,7 +108,7 @@ GNU General Public License for more details.
 @media (max-width: 768px) {
   .control-panel {
     right: 16px;
-    bottom: 144px;
+    bottom: 200px;
     left: 16px;
     max-width: none;
   }

@@ -25,6 +25,7 @@ GNU General Public License for more details.
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  z-index: 100;
 }
 
 .virtual-menu-button {

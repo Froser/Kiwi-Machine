@@ -14,6 +14,8 @@
 
 #include <kiwi_nes.h>
 
+#include <mutex>
+
 NESAudio::NESAudio(NESRuntimeID runtime_id) : runtime_id_(runtime_id) {}
 
 NESAudio::~NESAudio() {
