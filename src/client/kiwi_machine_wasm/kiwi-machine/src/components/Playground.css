@@ -29,6 +29,17 @@ GNU General Public License for more details.
   background: #000;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  transition: opacity 0.5s ease;
+}
+
+.playground-frame-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.playground-frame-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .playground-float-button {

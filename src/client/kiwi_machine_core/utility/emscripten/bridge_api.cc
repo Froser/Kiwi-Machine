@@ -24,6 +24,7 @@ class BridgeMainWindowObserver : public MainWindow::Observer {
   ~BridgeMainWindowObserver() override;
 
   void OnVolumeChanged(float new_value) override;
+  void OnSplashFinished() override;
 
  public:
   static BridgeMainWindowObserver* Setup();
@@ -45,6 +46,12 @@ BridgeMainWindowObserver* BridgeMainWindowObserver::Setup() {
 void BridgeMainWindowObserver::OnVolumeChanged(float new_value) {
   EM_ASM({window.KiwiMachineCallback.onVolumeChanged({volume : $0})},
          new_value);
+}
+
+void BridgeMainWindowObserver::OnSplashFinished() {
+  EM_ASM({if (window.KiwiMachineCallback && window.KiwiMachineCallback.onSplashFinished) {
+    window.KiwiMachineCallback.onSplashFinished();
+  }});
 }
 
 }  // namespace

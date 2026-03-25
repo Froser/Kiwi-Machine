@@ -16,6 +16,7 @@ import VirtualController, {ControllerButton} from "./basic/VirtualController";
 import ControlPanel from "./ControlPanel";
 import {CreateEmulatorService} from "../services/emulator";
 import {isMobileDevice} from "../services/device";
+import LoadingSplash from "./LoadingSplash";
 
 interface PlaygroundProps {
   setFrameRef: Dispatch<SetStateAction<RefObject<HTMLIFrameElement>>>,
@@ -39,6 +40,8 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [showFps, setShowFps] = useState(false);
   const [showControl, setShowControl] = useState(false);
+  const [isSplashFinished, setIsSplashFinished] = useState(false);
+  const [showCanvas, setShowCanvas] = useState(false);
   const isMobile = isMobileDevice();
 
   useEffect(() => {
@@ -68,6 +71,36 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
     };
   }, [showControl]);
 
+  useEffect(() => {
+    const handleIframeLoad = () => {
+      const iframeWindow = frameRef.current?.contentWindow;
+      if (iframeWindow) {
+        (iframeWindow as any).KiwiMachineCallback = {
+          onSplashFinished: () => {
+            setIsSplashFinished(true);
+          },
+          onVolumeChanged: (data: { volume: number }) => {
+          }
+        };
+      }
+    };
+
+    const iframe = frameRef.current;
+    if (iframe) {
+      iframe.addEventListener('load', handleIframeLoad);
+    }
+
+    return () => {
+      if (iframe) {
+        iframe.removeEventListener('load', handleIframeLoad);
+      }
+    };
+  }, []);
+
+  const handleSplashFinished = () => {
+    setShowCanvas(true);
+  };
+
   const handleButtonPress = (button: ControllerButton) => {
     const currentWindow = frameRef.current?.contentWindow;
     if (currentWindow) {
@@ -84,8 +117,17 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
 
   return (
     <div className={`playground ${isMobile ? 'playground-mobile' : 'playground-desktop'}`}>
-      <iframe className="playground-frame" ref={frameRef} src="kiwi_machine.html" title="Kiwi Machine">
-      </iframe>
+      <LoadingSplash 
+        onFinished={handleSplashFinished} 
+        isReady={isSplashFinished} 
+      />
+      
+      <iframe 
+        className={`playground-frame ${showCanvas ? 'playground-frame-visible' : 'playground-frame-hidden'}`} 
+        ref={frameRef} 
+        src="kiwi_machine.html" 
+        title="Kiwi Machine"
+      />
 
       <VirtualController 
         onButtonPress={handleButtonPress} 
@@ -96,7 +138,7 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
       {!isMobileDevice() && <div className="playground-float-button" onClick={() => setShowControl(!showControl)}>
         <svg className="playground-float-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
       </div>}
 

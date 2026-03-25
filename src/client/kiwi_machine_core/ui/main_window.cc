@@ -263,6 +263,7 @@ bool FullscreenMask::IsWindowless() {
 MainWindow::Observer::Observer() = default;
 MainWindow::Observer::~Observer() = default;
 void MainWindow::Observer::OnVolumeChanged(float new_value) {}
+void MainWindow::Observer::OnSplashFinished() {}
 
 MainWindow::MainWindow(const std::string& title,
                        NESRuntimeID runtime_id,
@@ -413,8 +414,8 @@ bool MainWindow::IsLandscape() {
 #endif
 
 void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
-#if !KIWI_IOS  // iOS has launch storyboard, so we don't need to show a splash
-               // here.
+#if !KIWI_IOS && !KIWI_WASM  // iOS has launch storyboard, WASM will handle it
+                             // on frontend here.
   // If we have menu, we don't show splash screen, because we probably want to
   // do some debug works.
   SDL_assert(!splash_);
@@ -434,6 +435,10 @@ void MainWindow::CloseSplash() {
     if (ms > kSplashTimeoutMs) {
       main_stack_widget_->set_visible(true);
       RemoveWidgetLater(splash_);
+      // Notify observers that splash is finished
+      for (auto* observer : observers_) {
+        observer->OnSplashFinished();
+      }
     } else {
       kiwi::base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
           FROM_HERE,
@@ -443,6 +448,10 @@ void MainWindow::CloseSplash() {
     }
   } else {
     main_stack_widget_->set_visible(true);
+    // Notify observers that splash is finished
+    for (auto* observer : observers_) {
+      observer->OnSplashFinished();
+    }
   }
 }
 

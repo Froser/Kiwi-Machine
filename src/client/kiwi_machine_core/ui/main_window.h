@@ -26,7 +26,6 @@
 #include "ui/widgets/menu_bar.h"
 #include "ui/widgets/side_menu.h"
 #include "ui/window_base.h"
-#include "utility/timer.h"
 
 class Canvas;
 class InGameMenu;
@@ -71,6 +70,7 @@ class MainWindow : public WindowBase,
 
    public:
     virtual void OnVolumeChanged(float new_value);
+    virtual void OnSplashFinished();
   };
 
  public:
