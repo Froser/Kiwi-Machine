@@ -25,7 +25,11 @@ interface PlaygroundProps {
   showSaveLoadModal: boolean,
   setShowManualModal: Dispatch<SetStateAction<boolean>>,
   setShowAboutModal: Dispatch<SetStateAction<boolean>>,
-  setShowSaveLoadModal: Dispatch<SetStateAction<boolean>>
+  setShowSaveLoadModal: Dispatch<SetStateAction<boolean>>,
+  showToast: boolean,
+  setShowToast: Dispatch<SetStateAction<boolean>>,
+  toastMessage: string,
+  setToastMessage: Dispatch<SetStateAction<string>>
 }
 
 const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
@@ -39,7 +43,7 @@ const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
   right: 7
 };
 
-export default function Playground({setFrameRef, showManualModal, showAboutModal, showSaveLoadModal, setShowManualModal, setShowAboutModal, setShowSaveLoadModal}: PlaygroundProps) {
+export default function Playground({setFrameRef, showManualModal, showAboutModal, showSaveLoadModal, setShowManualModal, setShowAboutModal, setShowSaveLoadModal, showToast, setShowToast, toastMessage, setToastMessage}: PlaygroundProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [showFps, setShowFps] = useState(false);
   const [showControl, setShowControl] = useState(false);
@@ -120,6 +124,28 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
             setIsSplashFinished(true);
           },
           onVolumeChanged: (data: { volume: number }) => {
+          },
+          onSaveStateSucceeded: (slot: number) => {
+            const count = CreateEmulatorService(iframeWindow).getSaveStatesCount();
+            if (count <= 0 || slot !== count - 1) {
+              setToastMessage('保存成功');
+              setShowToast(true);
+            }
+          },
+          onSaveStateFailed: (slot: number) => {
+            const count = CreateEmulatorService(iframeWindow).getSaveStatesCount();
+            if (count <= 0 || slot !== count - 1) {
+              setToastMessage('保存失败');
+              setShowToast(true);
+            }
+          },
+          onLoadStateSucceeded: (slot: number) => {
+            setToastMessage('读取成功');
+            setShowToast(true);
+          },
+          onLoadStateFailed: (slot: number) => {
+            setToastMessage('读取失败');
+            setShowToast(true);
           }
         };
       }

@@ -264,6 +264,10 @@ MainWindow::Observer::Observer() = default;
 MainWindow::Observer::~Observer() = default;
 void MainWindow::Observer::OnVolumeChanged(float new_value) {}
 void MainWindow::Observer::OnSplashFinished() {}
+void MainWindow::Observer::OnSaveStateSucceeded(int slot) {}
+void MainWindow::Observer::OnSaveStateFailed(int slot) {}
+void MainWindow::Observer::OnLoadStateSucceeded(int slot) {}
+void MainWindow::Observer::OnLoadStateFailed(int slot) {}
 
 MainWindow::MainWindow(const std::string& title,
                        NESRuntimeID runtime_id,
@@ -1712,10 +1716,13 @@ void MainWindow::OnSaveState(int which_state) {
           runtime_data->SaveState(
               rom_data->crc, which_state, data,
               window->canvas_->frame()->GetLastFrame(),
-              kiwi::base::BindOnce(&MainWindow::OnStateSaved,
-                                   kiwi::base::Unretained(window)));
+              kiwi::base::BindOnce(
+                  [](MainWindow* window, int slot, bool succeed) {
+                    window->OnStateSaved(slot, succeed);
+                  },
+                  kiwi::base::Unretained(window), which_state));
         } else {
-          window->OnStateSaved(false);
+          window->OnStateSaved(which_state, false);
         }
       },
       this, runtime_data_, which_state));
@@ -1748,15 +1755,25 @@ void MainWindow::OnLoadAutoSavedState(int timestamp) {
   }
 }
 
-void MainWindow::OnStateSaved(bool succeed) {
+void MainWindow::OnStateSaved(int slot, bool succeed) {
   using namespace string_resources;
 
   if (succeed) {
     SDL_assert(in_game_menu_);
     in_game_menu_->RequestCurrentThumbnail();
+#if !KIWI_WASM
     Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_SUCCEEDED));
+#endif
+    for (auto* observer : observers_) {
+      observer->OnSaveStateSucceeded(slot);
+    }
   } else {
+#if !KIWI_WASM
     Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_FAILED));
+#endif
+    for (auto* observer : observers_) {
+      observer->OnSaveStateFailed(slot);
+    }
   }
 }
 
@@ -1769,15 +1786,26 @@ void MainWindow::OnStateLoaded(
     runtime_data_->emulator->LoadState(
         state_result.state_data,
         kiwi::base::BindOnce(
-            [](MainWindow* window, bool success) {
+            [](MainWindow* window, int slot_or_timestamp, bool success) {
+#if !KIWI_WASM
               if (success)
                 Toast::ShowToast(
                     window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_SUCCEEDED));
               else
                 Toast::ShowToast(
                     window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_FAILED));
+#endif
+              if (success) {
+                for (auto* observer : window->observers_) {
+                  observer->OnLoadStateSucceeded(slot_or_timestamp);
+                }
+              } else {
+                for (auto* observer : window->observers_) {
+                  observer->OnLoadStateFailed(slot_or_timestamp);
+                }
+              }
             },
-            this));
+            this, state_result.slot_or_timestamp));
     audio_->Start();
   }
 }

@@ -25,6 +25,10 @@ class BridgeMainWindowObserver : public MainWindow::Observer {
 
   void OnVolumeChanged(float new_value) override;
   void OnSplashFinished() override;
+  void OnSaveStateSucceeded(int slot) override;
+  void OnSaveStateFailed(int slot) override;
+  void OnLoadStateSucceeded(int slot) override;
+  void OnLoadStateFailed(int slot) override;
 
  public:
   static BridgeMainWindowObserver* Setup();
@@ -52,6 +56,30 @@ void BridgeMainWindowObserver::OnSplashFinished() {
   EM_ASM({if (window.KiwiMachineCallback && window.KiwiMachineCallback.onSplashFinished) {
     window.KiwiMachineCallback.onSplashFinished();
   }});
+}
+
+void BridgeMainWindowObserver::OnSaveStateSucceeded(int slot) {
+  EM_ASM({if (window.KiwiMachineCallback && window.KiwiMachineCallback.onSaveStateSucceeded) {
+    window.KiwiMachineCallback.onSaveStateSucceeded($0);
+  }}, slot);
+}
+
+void BridgeMainWindowObserver::OnSaveStateFailed(int slot) {
+  EM_ASM({if (window.KiwiMachineCallback && window.KiwiMachineCallback.onSaveStateFailed) {
+    window.KiwiMachineCallback.onSaveStateFailed($0);
+  }}, slot);
+}
+
+void BridgeMainWindowObserver::OnLoadStateSucceeded(int slot) {
+  EM_ASM({if (window.KiwiMachineCallback && window.KiwiMachineCallback.onLoadStateSucceeded) {
+    window.KiwiMachineCallback.onLoadStateSucceeded($0);
+  }}, slot);
+}
+
+void BridgeMainWindowObserver::OnLoadStateFailed(int slot) {
+  EM_ASM({if (window.KiwiMachineCallback && window.KiwiMachineCallback.onLoadStateFailed) {
+    window.KiwiMachineCallback.onLoadStateFailed($0);
+  }}, slot);
 }
 
 }  // namespace

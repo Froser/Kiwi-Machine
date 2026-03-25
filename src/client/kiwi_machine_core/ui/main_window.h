@@ -71,6 +71,10 @@ class MainWindow : public WindowBase,
    public:
     virtual void OnVolumeChanged(float new_value);
     virtual void OnSplashFinished();
+    virtual void OnSaveStateSucceeded(int slot);
+    virtual void OnSaveStateFailed(int slot);
+    virtual void OnLoadStateSucceeded(int slot);
+    virtual void OnLoadStateFailed(int slot);
   };
 
  public:
@@ -188,7 +192,7 @@ class MainWindow : public WindowBase,
   void OnSaveState(int which_state);
   void OnLoadState(int which_state);
   void OnLoadAutoSavedState(int timestamp);
-  void OnStateSaved(bool succeed);
+  void OnStateSaved(int slot, bool succeed);
   void OnStateLoaded(const NESRuntime::Data::StateResult& state_result);
   bool CanSaveOrLoadState();
   void OnTogglePause();

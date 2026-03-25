@@ -20,7 +20,7 @@ import Button from "./basic/Button";
 import {isMobileDevice} from "../services/device";
 
 interface GameListProps {
-  loadRom: (romUrl: string, romName: string) => void,
+  loadRom: (romUrl: string, romName: string, romId: number) => void,
   romName: string,
   show: boolean,
   setShow: Dispatch<SetStateAction<boolean>>,

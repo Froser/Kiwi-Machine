@@ -20,7 +20,7 @@ import {
 
 interface GameItemProps {
   contents: ROMContent,
-  loadRom: (romUrl: string, romName: string) => void,
+  loadRom: (romUrl: string, romName: string, romId: number) => void,
   romName: string,
   romId: number,
   showDetailModal: (show: boolean, contents: ROMContent) => void,
@@ -29,7 +29,7 @@ interface GameItemProps {
 export default function GameItem({contents, loadRom, romName, romId, showDetailModal}: GameItemProps) {
   const onLoadRom = function () {
     return () => {
-      loadRom(getROMUrlFromContents(contents), contents.name);
+      loadRom(getROMUrlFromContents(contents), contents.name, contents.id);
     }
   }
 

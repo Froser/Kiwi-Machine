@@ -11,7 +11,7 @@
 // GNU General Public License for more details.
 
 import "./Modal.css"
-import {Dispatch, ReactNode, SetStateAction} from "react";
+import {Dispatch, ReactNode, SetStateAction, useEffect} from "react";
 
 interface ModalProps {
   children: ReactNode,
@@ -26,6 +26,21 @@ interface ModalProps {
 export default function Modal({children, title, show, width, height, zIndex, setVisible}: ModalProps) {
   const className = 'modal ' + (show ? 'modal-show' : '');
   const isAutoHeight = height === 'auto';
+  
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && show) {
+        event.preventDefault();
+        event.stopPropagation();
+        setVisible(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [show, setVisible]);
   
   return (
     <div className={className} style={{zIndex: zIndex}} onClick={() => setVisible(false)}>
