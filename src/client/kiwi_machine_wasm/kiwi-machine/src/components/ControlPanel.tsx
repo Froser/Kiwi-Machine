@@ -26,6 +26,7 @@ interface ControlPanelProps {
   setShowAboutModal: Dispatch<SetStateAction<boolean>>;
   showFps: boolean;
   setShowFps: Dispatch<SetStateAction<boolean>>;
+  onClose?: () => void;
 }
 
 export default function ControlPanel({
@@ -36,8 +37,13 @@ export default function ControlPanel({
   setShowManualModal,
   setShowAboutModal,
   showFps,
-  setShowFps
+  setShowFps,
+  onClose
 }: ControlPanelProps) {
+  const handleClose = () => {
+    setVisible(false);
+    onClose?.();
+  };
   const handleShowFpsChange = (checked: boolean) => {
     setShowFps(checked);
     const currentWindow = frameRef.current?.contentWindow;
@@ -54,16 +60,19 @@ export default function ControlPanel({
   }
 
   return (
-    <div className="control-panel-overlay" onClick={() => setVisible(false)}>
+    <div className="control-panel-overlay" onClick={handleClose}>
       <div className='control-panel' onClick={(event) => event.stopPropagation()}>
         <div className="control-panel-header">
           <span className="control-panel-title">游戏菜单</span>
-          <button className="control-panel-close" onClick={() => setVisible(false)}>✕</button>
+          <button className="control-panel-close" onClick={handleClose}>✕</button>
         </div>
         <div className="control-panel-content">
           <div className="control-panel-group">
             <div className="control-panel-row">
-              <Button text="存档/读档" onClick={() => setShowSaveLoadModal(true)}/>
+              <Button text="存档/读档" onClick={() => {
+                setShowSaveLoadModal(true);
+                onClose?.();
+              }}/>
               <Button text="重置" onClick={() => {
                 const currentWindow = frameRef.current?.contentWindow;
                 if (currentWindow) {
@@ -76,8 +85,14 @@ export default function ControlPanel({
               <VolumePanel id='volume_slider' frame={frameRef}/>
             </div>
             <div className="control-panel-row">
-              <Button text="操作说明" onClick={() => setShowManualModal(true)}/>
-              <Button text="关于Kiwi Machine" onClick={() => setShowAboutModal(true)}/>
+              <Button text="操作说明" onClick={() => {
+                setShowManualModal(true);
+                onClose?.();
+              }}/>
+              <Button text="关于Kiwi Machine" onClick={() => {
+                setShowAboutModal(true);
+                onClose?.();
+              }}/>
             </div>
             <div className="control-panel-row control-panel-row-single">
               <Checkbox 

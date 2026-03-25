@@ -18,7 +18,8 @@ import {CreateEmulatorService} from "../services/emulator";
 interface SaveLoadModalProps {
   show: boolean,
   setVisible: Dispatch<SetStateAction<boolean>>,
-  frameRef: RefObject<HTMLIFrameElement>
+  frameRef: RefObject<HTMLIFrameElement>,
+  onClose?: () => void
 }
 
 interface SaveSlot {
@@ -29,7 +30,7 @@ interface SaveSlot {
   isAutoSave?: boolean
 }
 
-export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModalProps) {
+export default function SaveLoadModal({show, setVisible, frameRef, onClose}: SaveLoadModalProps) {
   const [saveSlots, setSaveSlots] = useState<SaveSlot[]>([]);
 
   const loadSaveSlots = useCallback(() => {
@@ -131,6 +132,9 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
     if (currentWindow) {
       CreateEmulatorService(currentWindow).loadState(slot);
       setVisible(false);
+      setTimeout(() => {
+        currentWindow.focus();
+      }, 100);
     }
   };
 
@@ -144,8 +148,18 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
     }
   };
 
+  const handleClose = () => {
+    setVisible(false);
+    onClose?.();
+  };
+
+  const handleLoadWithClose = (slot: number) => {
+    handleLoad(slot);
+    onClose?.();
+  };
+
   return (
-    <Modal title="存档/读档" show={show} setVisible={setVisible} width="1100px" height="auto">
+    <Modal title="存档/读档" show={show} setVisible={setVisible} width="1100px" height="auto" onClose={onClose}>
       <div className="save-load-modal">
         <div className="save-load-grid">
           {saveSlots.map((slot, index) => {
@@ -165,7 +179,7 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
                 {slot.isAutoSave ? (
                   <button 
                     className={`button ${!slot.hasData ? 'button-disabled' : ''}`} 
-                    onClick={() => slot.hasData && handleLoad(slot.slot)}
+                    onClick={() => slot.hasData && handleLoadWithClose(slot.slot)}
                     disabled={!slot.hasData}
                   >
                     读取
@@ -175,7 +189,7 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
                     <button className="button" onClick={() => handleSave(slot.slot)}>保存</button>
                     {slot.hasData ? (
                       <>
-                        <button className="button" onClick={() => handleLoad(slot.slot)}>读取</button>
+                        <button className="button" onClick={() => handleLoadWithClose(slot.slot)}>读取</button>
                         <button className="button button-danger" onClick={() => handleDelete(slot.slot)}>删除</button>
                       </>
                     ) : null}

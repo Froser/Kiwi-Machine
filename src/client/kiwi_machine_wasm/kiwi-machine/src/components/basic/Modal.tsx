@@ -21,18 +21,24 @@ interface ModalProps {
   height?: string,
   zIndex?: number,
   setVisible: Dispatch<SetStateAction<boolean>>,
+  onClose?: () => void,
 }
 
-export default function Modal({children, title, show, width, height, zIndex, setVisible}: ModalProps) {
+export default function Modal({children, title, show, width, height, zIndex, setVisible, onClose}: ModalProps) {
   const className = 'modal ' + (show ? 'modal-show' : '');
   const isAutoHeight = height === 'auto';
+
+  const handleClose = () => {
+    setVisible(false);
+    onClose?.();
+  };
   
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && show) {
         event.preventDefault();
         event.stopPropagation();
-        setVisible(false);
+        handleClose();
       }
     };
 
@@ -40,10 +46,10 @@ export default function Modal({children, title, show, width, height, zIndex, set
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [show, setVisible]);
+  }, [show, setVisible, onClose]);
   
   return (
-    <div className={className} style={{zIndex: zIndex}} onClick={() => setVisible(false)}>
+    <div className={className} style={{zIndex: zIndex}} onClick={handleClose}>
       <div style={{
         width: `${width ? width : '550px'}`,
         height: isAutoHeight ? 'auto' : `${height}`,
@@ -51,7 +57,7 @@ export default function Modal({children, title, show, width, height, zIndex, set
       }} onClick={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <span>{title}</span>
-          <button className="modal-close-button" onClick={() => setVisible(false)} aria-label="关闭">
+          <button className="modal-close-button" onClick={handleClose} aria-label="关闭">
             <svg className="modal-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>

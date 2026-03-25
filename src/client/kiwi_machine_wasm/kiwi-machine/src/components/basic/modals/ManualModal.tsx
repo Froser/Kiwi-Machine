@@ -18,11 +18,17 @@ import {Dispatch, SetStateAction} from "react";
 interface ManualModalProps {
   show: boolean;
   setVisible: Dispatch<SetStateAction<boolean>>;
+  onClose?: () => void;
 }
 
-export default function ManualModal({show, setVisible}: ManualModalProps) {
+export default function ManualModal({show, setVisible, onClose}: ManualModalProps) {
+  const handleClose = () => {
+    setVisible(false);
+    onClose?.();
+  };
+  
   return (
-    <Modal show={show} setVisible={setVisible} title="操作说明" height="auto" width="900px">
+    <Modal show={show} setVisible={setVisible} title="操作说明" height="auto" width="900px" onClose={onClose}>
       <div className="playground-manual-section">
         <div className='playground-manual-title'>操作方式说明</div>
         <div className='playground-manual-content'>
@@ -125,7 +131,7 @@ export default function ManualModal({show, setVisible}: ManualModalProps) {
       </div>
 
       <div className="playground-manual-footer">
-        <Button text="关闭" onClick={() => setVisible(false)}/>
+        <Button text="关闭" onClick={handleClose}/>
       </div>
     </Modal>
   );

@@ -40,6 +40,12 @@ export default function Arcade() {
   const [emulatorReady, setEmulatorReady] = useState(false);
   const [hasAutoLoadedGame, setHasAutoLoadedGame] = useState(false);
 
+  const focusIframe = () => {
+    setTimeout(() => {
+      frameRef.current?.focus();
+    }, 100);
+  };
+
   const loadRom = (romUrl: string, romName: string, romId: number) => {
     const currentWindow = frameRef.current?.contentWindow;
     const emulator_service = CreateEmulatorService(currentWindow);
@@ -48,6 +54,7 @@ export default function Arcade() {
     setShowGameList(false);
     
     setLastRomRecord(romId, romName);
+    focusIframe();
   }
 
   useEffect(() => {
@@ -106,6 +113,11 @@ export default function Arcade() {
     };
   }, [showLandscapeTips, hasShownTips]);
 
+  const handleEmulatorReadyWithFocus = () => {
+    handleEmulatorReady();
+    focusIframe();
+  };
+
   return (
     <>
       <Header content="Kiwi Machine" onMenuClick={() => setShowGameList(true)}></Header>
@@ -122,7 +134,7 @@ export default function Arcade() {
           setShowToast={setShowToast}
           toastMessage={toastMessage}
           setToastMessage={setToastMessage}
-          onEmulatorReady={handleEmulatorReady}
+          onEmulatorReady={handleEmulatorReadyWithFocus}
         />
       </div>
       <GameList 
@@ -130,15 +142,17 @@ export default function Arcade() {
         romName={romName} 
         show={showGameList} 
         setShow={setShowGameList}
+        onClose={focusIframe}
       />
       <Footer />
       
-      <ManualModal show={showManualModal} setVisible={setShowManualModal} />
-      <AboutModal show={showAboutModal} setVisible={setShowAboutModal} />
+      <ManualModal show={showManualModal} setVisible={setShowManualModal} onClose={focusIframe} />
+      <AboutModal show={showAboutModal} setVisible={setShowAboutModal} onClose={focusIframe} />
       <SaveLoadModal 
         show={showSaveLoadModal} 
         setVisible={setShowSaveLoadModal} 
         frameRef={frameRef}
+        onClose={focusIframe}
       />
       
       <LandscapeTips 

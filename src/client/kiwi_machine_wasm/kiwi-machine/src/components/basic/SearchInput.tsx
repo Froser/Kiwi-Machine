@@ -11,7 +11,7 @@
 // GNU General Public License for more details.
 
 import "./SearchInput.css"
-import {KeyboardEventHandler, useRef} from "react";
+import {KeyboardEventHandler, useRef, useImperativeHandle, forwardRef} from "react";
 
 interface SearchInputProps {
   text: string,
@@ -19,8 +19,18 @@ interface SearchInputProps {
   onSearch?: (keyword: string) => void,
 }
 
-export default function SearchInput({text, onKeyDown, onSearch}: SearchInputProps) {
+export interface SearchInputRef {
+  focus: () => void;
+}
+
+const SearchInput = forwardRef<SearchInputRef, SearchInputProps>(({text, onKeyDown, onSearch}, ref) => {
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    }
+  }));
 
   const handleIconClick = () => {
     if (onSearch && inputRef.current) {
@@ -36,4 +46,8 @@ export default function SearchInput({text, onKeyDown, onSearch}: SearchInputProp
       </svg>
     </div>
   );
-}
+});
+
+SearchInput.displayName = 'SearchInput';
+
+export default SearchInput;

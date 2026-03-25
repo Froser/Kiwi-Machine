@@ -17,11 +17,17 @@ import {Dispatch, SetStateAction} from "react";
 interface AboutModalProps {
   show: boolean;
   setVisible: Dispatch<SetStateAction<boolean>>;
+  onClose?: () => void;
 }
 
-export default function AboutModal({show, setVisible}: AboutModalProps) {
+export default function AboutModal({show, setVisible, onClose}: AboutModalProps) {
+  const handleClose = () => {
+    setVisible(false);
+    onClose?.();
+  };
+  
   return (
-    <Modal show={show} setVisible={setVisible} title="关于 Kiwi Machine" width="700px" height="auto">
+    <Modal show={show} setVisible={setVisible} title="关于 Kiwi Machine" width="700px" height="auto" onClose={onClose}>
       <div className="playground-about-contents">
         <h1>关于 Kiwi Machine</h1>
         <p>
@@ -52,7 +58,7 @@ export default function AboutModal({show, setVisible}: AboutModalProps) {
         </p>
       </div>
       <div className="playground-manual-footer">
-        <Button text="关闭" onClick={() => setVisible(false)}/>
+        <Button text="关闭" onClick={handleClose}/>
       </div>
     </Modal>
   );

@@ -56,6 +56,12 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
     setFrameRef(frameRef);
   }, [setFrameRef]);
 
+  const focusIframe = () => {
+    setTimeout(() => {
+      frameRef.current?.focus();
+    }, 100);
+  };
+
   useEffect(() => {
     const handleEscape = () => {
       if (showSaveLoadModal) {
@@ -67,6 +73,8 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
       } else {
         setShowControl(!showControl);
       }
+      
+      focusIframe();
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -197,6 +205,7 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
         ref={frameRef} 
         src="kiwi_machine.html" 
         title="Kiwi Machine"
+        tabIndex={0}
       />
 
       <VirtualController 
@@ -221,6 +230,7 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
         setShowAboutModal={setShowAboutModal}
         showFps={showFps}
         setShowFps={setShowFps}
+        onClose={focusIframe}
       />
     </div>
   );

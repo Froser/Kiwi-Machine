@@ -11,10 +11,10 @@
 // GNU General Public License for more details.
 
 import "./GameList.css"
-import {Dispatch, SetStateAction, useState} from "react";
+import {Dispatch, SetStateAction, useState, useEffect, useRef} from "react";
 import GameItem from "./GameItem";
 import {getROMImageUrlFromContents, isLocaleTitleContains, ROMContent} from "../services/rom";
-import SearchInput from "./basic/SearchInput";
+import SearchInput, {SearchInputRef} from "./basic/SearchInput";
 import Modal from "./basic/Modal";
 import Button from "./basic/Button";
 import {isMobileDevice} from "../services/device";
@@ -24,9 +24,10 @@ interface GameListProps {
   romName: string,
   show: boolean,
   setShow: Dispatch<SetStateAction<boolean>>,
+  onClose?: () => void;
 }
 
-export default function GameList({loadRom, romName, show, setShow}: GameListProps) {
+export default function GameList({loadRom, romName, show, setShow, onClose}: GameListProps) {
   // Set the full ROM database.
   const [gameDb, setGameDb] = useState<ROMContent[]>();
 
@@ -42,6 +43,20 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
   // Number of games to display on mobile
   const [displayCount, setDisplayCount] = useState(10);
   const ITEMS_PER_PAGE = 10;
+  const searchInputRef = useRef<SearchInputRef>(null);
+
+  useEffect(() => {
+    if (show) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    }
+  }, [show]);
+
+  const handleClose = () => {
+    setShow(false);
+    onClose?.();
+  };
 
   if (!gameDb) {
     fetch('roms/db.json').then((response) => {
@@ -89,7 +104,7 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
 
     return (
       <div>
-        <Modal show={modalVisible} title="游戏介绍" setVisible={setModalVisible} zIndex={1001}>
+        <Modal show={modalVisible} title="游戏介绍" setVisible={setModalVisible} zIndex={1001} onClose={onClose}>
           <div className="gamelist-flex">
             <img className="gamelist-modal-item gamelist-modal-thumbnail" loading="lazy"
                  src={getROMImageUrlFromContents(modalContent ? modalContent : null)}
@@ -104,10 +119,10 @@ export default function GameList({loadRom, romName, show, setShow}: GameListProp
           </div>
         </Modal>
 
-        <Modal show={show} title="游戏列表" setVisible={setShow} width="95vw" height="90vh">
+        <Modal show={show} title="游戏列表" setVisible={handleClose} width="95vw" height="90vh" onClose={onClose}>
           <div className="gamelist gamelist-modal">
             <div className="gamelist-input">
-              <SearchInput onKeyDown={handleKeyDown} onSearch={handleSearch} text='搜索你喜欢的游戏'/>
+              <SearchInput ref={searchInputRef} onKeyDown={handleKeyDown} onSearch={handleSearch} text='搜索你喜欢的游戏'/>
             </div>
             <div className="gamelist-items">
               {items}
