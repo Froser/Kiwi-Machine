@@ -23,6 +23,7 @@ import LandscapeTips from "./basic/LandscapeTips";
 import Toast from "./basic/Toast";
 import SaveLoadModal from "./SaveLoadModal";
 import {getROMUrlFromContents, ROMContent} from "../services/rom";
+import {getLastRomRecord, setLastRomRecord} from "../services/lastRomRecord";
 
 export default function Arcade() {
   const [frameRef, setFrameRef] = useState(useRef<HTMLIFrameElement>(null));
@@ -36,7 +37,8 @@ export default function Arcade() {
   const [toastMessage, setToastMessage] = useState('');
   const [hasShownTips, setHasShownTips] = useState(false);
   const [gameDb, setGameDb] = useState<ROMContent[]>();
-  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [emulatorReady, setEmulatorReady] = useState(false);
+  const [hasAutoLoadedGame, setHasAutoLoadedGame] = useState(false);
 
   const loadRom = (romUrl: string, romName: string, romId: number) => {
     const currentWindow = frameRef.current?.contentWindow;
@@ -45,8 +47,7 @@ export default function Arcade() {
     setRomName(romName);
     setShowGameList(false);
     
-    localStorage.setItem('lastPlayedGameId', romId.toString());
-    localStorage.setItem('lastPlayedGameName', romName);
+    setLastRomRecord(romId, romName);
   }
 
   useEffect(() => {
@@ -57,30 +58,17 @@ export default function Arcade() {
     })
   }, []);
 
-  useEffect(() => {
-    const handleIframeLoad = () => {
-      setIframeLoaded(true);
-    };
-
-    const iframe = frameRef.current;
-    if (iframe) {
-      iframe.addEventListener('load', handleIframeLoad);
-    }
-
-    return () => {
-      if (iframe) {
-        iframe.removeEventListener('load', handleIframeLoad);
-      }
-    };
-  }, []);
+  const handleEmulatorReady = () => {
+    setEmulatorReady(true);
+  };
 
   useEffect(() => {
-    if (iframeLoaded && gameDb && gameDb.length > 0) {
-      const lastPlayedGameId = localStorage.getItem('lastPlayedGameId');
+    if (emulatorReady && gameDb && gameDb.length > 0 && !hasAutoLoadedGame) {
+      const lastRomRecord = getLastRomRecord();
       let gameToLoad = gameDb[0];
       
-      if (lastPlayedGameId) {
-        const foundGame = gameDb.find(game => game.id === parseInt(lastPlayedGameId));
+      if (lastRomRecord) {
+        const foundGame = gameDb.find(game => game.id === lastRomRecord.id);
         if (foundGame) {
           gameToLoad = foundGame;
         }
@@ -91,9 +79,13 @@ export default function Arcade() {
         const emulator_service = CreateEmulatorService(currentWindow);
         emulator_service.loadROM(getROMUrlFromContents(gameToLoad));
         setRomName(gameToLoad.name);
+        
+        setLastRomRecord(gameToLoad.id, gameToLoad.name);
+        
+        setHasAutoLoadedGame(true);
       }
     }
-  }, [iframeLoaded, gameDb]);
+  }, [emulatorReady, gameDb, hasAutoLoadedGame]);
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -130,6 +122,7 @@ export default function Arcade() {
           setShowToast={setShowToast}
           toastMessage={toastMessage}
           setToastMessage={setToastMessage}
+          onEmulatorReady={handleEmulatorReady}
         />
       </div>
       <GameList 

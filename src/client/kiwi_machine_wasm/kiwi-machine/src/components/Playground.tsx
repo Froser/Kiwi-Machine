@@ -29,7 +29,8 @@ interface PlaygroundProps {
   showToast: boolean,
   setShowToast: Dispatch<SetStateAction<boolean>>,
   toastMessage: string,
-  setToastMessage: Dispatch<SetStateAction<string>>
+  setToastMessage: Dispatch<SetStateAction<string>>,
+  onEmulatorReady?: () => void
 }
 
 const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
@@ -43,7 +44,7 @@ const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
   right: 7
 };
 
-export default function Playground({setFrameRef, showManualModal, showAboutModal, showSaveLoadModal, setShowManualModal, setShowAboutModal, setShowSaveLoadModal, showToast, setShowToast, toastMessage, setToastMessage}: PlaygroundProps) {
+export default function Playground({setFrameRef, showManualModal, showAboutModal, showSaveLoadModal, setShowManualModal, setShowAboutModal, setShowSaveLoadModal, showToast, setShowToast, toastMessage, setToastMessage, onEmulatorReady}: PlaygroundProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [showFps, setShowFps] = useState(false);
   const [showControl, setShowControl] = useState(false);
@@ -122,6 +123,9 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
         (iframeWindow as any).KiwiMachineCallback = {
           onSplashFinished: () => {
             setIsSplashFinished(true);
+            if (onEmulatorReady) {
+              onEmulatorReady();
+            }
           },
           onVolumeChanged: (data: { volume: number }) => {
           },
