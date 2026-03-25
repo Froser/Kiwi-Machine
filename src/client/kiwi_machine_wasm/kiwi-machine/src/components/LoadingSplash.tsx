@@ -18,28 +18,10 @@ interface LoadingSplashProps {
   isReady: boolean;
 }
 
-const PARTICLE_COUNT = 60;
-
 export default function LoadingSplash({ onFinished, isReady }: LoadingSplashProps) {
   const [isHidden, setIsHidden] = useState(false);
   const [shouldFadeOut, setShouldFadeOut] = useState(false);
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; size: number; delay: number; color: string }>>([]);
   const [startTime] = useState(Date.now());
-
-  useEffect(() => {
-    const newParticles = [];
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      newParticles.push({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 4 + 2,
-        delay: Math.random() * 4,
-        color: `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 0.8)`,
-      });
-    }
-    setParticles(newParticles);
-  }, []);
 
   useEffect(() => {
     if (isReady && !shouldFadeOut) {
@@ -67,23 +49,6 @@ export default function LoadingSplash({ onFinished, isReady }: LoadingSplashProp
 
   return (
     <div className={`loading-splash ${isHidden ? 'hidden' : ''} ${shouldFadeOut ? 'fade-out' : ''}`}>
-      <div className="particles-container">
-        {particles.map((particle) => (
-          <div
-            key={particle.id}
-            className="particle"
-            style={{
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
-              width: `${particle.size}px`,
-              height: `${particle.size}px`,
-              animationDelay: `${particle.delay}s`,
-              background: particle.color,
-            }}
-          />
-        ))}
-      </div>
-
       <div className="glow-effect" />
 
       <div className="logo-container">

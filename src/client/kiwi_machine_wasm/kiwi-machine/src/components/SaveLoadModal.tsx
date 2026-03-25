@@ -25,7 +25,8 @@ interface SaveSlot {
   slot: number,
   hasData: boolean,
   thumbnail: string,
-  processedThumbnail?: string
+  processedThumbnail?: string,
+  isAutoSave?: boolean
 }
 
 export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModalProps) {
@@ -45,6 +46,13 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
         hasData: emulatorService.hasSaveState(i),
         thumbnail: emulatorService.getSaveStateThumbnail(i)
       });
+    }
+
+    if (slots.length > 0) {
+      const autoSaveSlot = slots.pop();
+      if (autoSaveSlot) {
+        slots.unshift({ ...autoSaveSlot, isAutoSave: true });
+      }
     }
 
     setSaveSlots(slots);
@@ -140,27 +148,39 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
     <Modal title="存档/读档" show={show} setVisible={setVisible} width="1100px" height="auto">
       <div className="save-load-modal">
         <div className="save-load-grid">
-          {saveSlots.map((slot) => {
-            const slotNumber = slot.slot + 1;
+          {saveSlots.map((slot, index) => {
+            const displayName = slot.isAutoSave ? "自动保存" : `存档 ${index}`;
             const thumbnailToUse = slot.processedThumbnail || slot.thumbnail;
             return (
-            <div key={slot.slot} className="save-slot">
-              <div className="save-slot-number">存档 {slotNumber}</div>
+            <div key={slot.slot} className={`save-slot ${slot.isAutoSave ? 'save-slot-auto' : ''}`}>
+              <div className="save-slot-number">{displayName}</div>
               <div className="save-slot-thumbnail">
                 {slot.hasData && thumbnailToUse ? (
-                  <img src={thumbnailToUse} alt={`存档 ${slotNumber}`} />
+                  <img src={thumbnailToUse} alt={displayName} />
                 ) : (
-                  <div className="save-slot-empty">空</div>
+                  <div className="save-slot-empty">{slot.isAutoSave ? '暂无' : '空'}</div>
                 )}
               </div>
               <div className="save-slot-actions">
-                <button className="button" onClick={() => handleSave(slot.slot)}>保存</button>
-                {slot.hasData ? (
+                {slot.isAutoSave ? (
+                  <button 
+                    className={`button ${!slot.hasData ? 'button-disabled' : ''}`} 
+                    onClick={() => slot.hasData && handleLoad(slot.slot)}
+                    disabled={!slot.hasData}
+                  >
+                    读取
+                  </button>
+                ) : (
                   <>
-                    <button className="button" onClick={() => handleLoad(slot.slot)}>读取</button>
-                    <button className="button button-danger" onClick={() => handleDelete(slot.slot)}>删除</button>
+                    <button className="button" onClick={() => handleSave(slot.slot)}>保存</button>
+                    {slot.hasData ? (
+                      <>
+                        <button className="button" onClick={() => handleLoad(slot.slot)}>读取</button>
+                        <button className="button button-danger" onClick={() => handleDelete(slot.slot)}>删除</button>
+                      </>
+                    ) : null}
                   </>
-                ) : null}
+                )}
               </div>
             </div>
             );

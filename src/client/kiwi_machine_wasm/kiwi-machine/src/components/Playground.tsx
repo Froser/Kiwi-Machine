@@ -65,9 +65,35 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
 
     window.addEventListener('message', handleIframeMessage);
 
+    const autoSave = () => {
+      const currentWindow = frameRef.current?.contentWindow;
+      if (currentWindow) {
+        const emulatorService = CreateEmulatorService(currentWindow);
+        const count = emulatorService.getSaveStatesCount();
+        if (count > 0) {
+          emulatorService.saveState(count - 1);
+        }
+      }
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      autoSave();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        autoSave();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('message', handleIframeMessage);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [showControl]);
 
