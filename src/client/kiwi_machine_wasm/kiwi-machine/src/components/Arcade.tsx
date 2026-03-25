@@ -65,6 +65,9 @@ export default function Arcade() {
       <div className="arcade">
         <Playground 
           setFrameRef={setFrameRef}
+          showManualModal={showManualModal}
+          showAboutModal={showAboutModal}
+          showSaveLoadModal={showSaveLoadModal}
           setShowManualModal={setShowManualModal}
           setShowAboutModal={setShowAboutModal}
           setShowSaveLoadModal={setShowSaveLoadModal}

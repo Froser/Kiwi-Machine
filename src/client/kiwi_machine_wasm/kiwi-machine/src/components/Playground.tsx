@@ -20,6 +20,9 @@ import LoadingSplash from "./LoadingSplash";
 
 interface PlaygroundProps {
   setFrameRef: Dispatch<SetStateAction<RefObject<HTMLIFrameElement>>>,
+  showManualModal: boolean,
+  showAboutModal: boolean,
+  showSaveLoadModal: boolean,
   setShowManualModal: Dispatch<SetStateAction<boolean>>,
   setShowAboutModal: Dispatch<SetStateAction<boolean>>,
   setShowSaveLoadModal: Dispatch<SetStateAction<boolean>>
@@ -36,7 +39,7 @@ const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
   right: 7
 };
 
-export default function Playground({setFrameRef, setShowManualModal, setShowAboutModal, setShowSaveLoadModal}: PlaygroundProps) {
+export default function Playground({setFrameRef, showManualModal, showAboutModal, showSaveLoadModal, setShowManualModal, setShowAboutModal, setShowSaveLoadModal}: PlaygroundProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [showFps, setShowFps] = useState(false);
   const [showControl, setShowControl] = useState(false);
@@ -49,9 +52,21 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
   }, [setFrameRef]);
 
   useEffect(() => {
+    const handleEscape = () => {
+      if (showSaveLoadModal) {
+        setShowSaveLoadModal(false);
+      } else if (showManualModal) {
+        setShowManualModal(false);
+      } else if (showAboutModal) {
+        setShowAboutModal(false);
+      } else {
+        setShowControl(!showControl);
+      }
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setShowControl(!showControl);
+        handleEscape();
       }
     };
 
@@ -59,7 +74,7 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
 
     const handleIframeMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'escapeKeyDown') {
-        setShowControl(!showControl);
+        handleEscape();
       }
     };
 
@@ -76,26 +91,25 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
       }
     };
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      autoSave();
-    };
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         autoSave();
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const autoSaveInterval = setInterval(() => {
+      autoSave();
+    }, 30000);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('message', handleIframeMessage);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(autoSaveInterval);
     };
-  }, [showControl]);
+  }, [showControl, showManualModal, showAboutModal, showSaveLoadModal]);
 
   useEffect(() => {
     const handleIframeLoad = () => {
