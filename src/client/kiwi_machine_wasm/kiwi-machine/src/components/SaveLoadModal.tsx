@@ -24,7 +24,8 @@ interface SaveLoadModalProps {
 interface SaveSlot {
   slot: number,
   hasData: boolean,
-  thumbnail: string
+  thumbnail: string,
+  processedThumbnail?: string
 }
 
 export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModalProps) {
@@ -54,6 +55,58 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
       loadSaveSlots();
     }
   }, [show, loadSaveSlots]);
+
+  const processThumbnail = useCallback((thumbnail: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const b = data[i + 2];
+            data[i] = b;
+            data[i + 2] = r;
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg'));
+        } else {
+          resolve(thumbnail);
+        }
+      };
+      img.onerror = () => resolve(thumbnail);
+      img.src = thumbnail;
+    });
+  }, []);
+
+  useEffect(() => {
+    const processAllThumbnails = async () => {
+      const processedSlots = await Promise.all(saveSlots.map(async (slot) => {
+        if (slot.hasData && slot.thumbnail && !slot.processedThumbnail) {
+          try {
+            const processed = await processThumbnail(slot.thumbnail);
+            return { ...slot, processedThumbnail: processed };
+          } catch (e) {
+            return slot;
+          }
+        }
+        return slot;
+      }));
+      setSaveSlots(processedSlots);
+    };
+    if (saveSlots.length > 0) {
+      processAllThumbnails();
+    }
+  }, [saveSlots, processThumbnail]);
 
   const handleSave = (slot: number) => {
     const currentWindow = frameRef.current?.contentWindow;
@@ -89,12 +142,13 @@ export default function SaveLoadModal({show, setVisible, frameRef}: SaveLoadModa
         <div className="save-load-grid">
           {saveSlots.map((slot) => {
             const slotNumber = slot.slot + 1;
+            const thumbnailToUse = slot.processedThumbnail || slot.thumbnail;
             return (
             <div key={slot.slot} className="save-slot">
               <div className="save-slot-number">存档 {slotNumber}</div>
               <div className="save-slot-thumbnail">
-                {slot.hasData && slot.thumbnail ? (
-                  <img src={slot.thumbnail} alt={`存档 ${slotNumber}`} />
+                {slot.hasData && thumbnailToUse ? (
+                  <img src={thumbnailToUse} alt={`存档 ${slotNumber}`} />
                 ) : (
                   <div className="save-slot-empty">空</div>
                 )}

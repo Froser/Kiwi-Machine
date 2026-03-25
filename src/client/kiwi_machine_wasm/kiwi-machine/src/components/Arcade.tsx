@@ -20,6 +20,7 @@ import Footer from "./Footer";
 import ManualModal from "./basic/modals/ManualModal";
 import AboutModal from "./basic/modals/AboutModal";
 import LandscapeTips from "./basic/LandscapeTips";
+import SaveLoadModal from "./SaveLoadModal";
 
 export default function Arcade() {
   const [frameRef, setFrameRef] = useState(useRef<HTMLIFrameElement>(null));
@@ -27,6 +28,7 @@ export default function Arcade() {
   const [showGameList, setShowGameList] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showSaveLoadModal, setShowSaveLoadModal] = useState(false);
   const [showLandscapeTips, setShowLandscapeTips] = useState(false);
   const [hasShownTips, setHasShownTips] = useState(false);
 
@@ -65,6 +67,7 @@ export default function Arcade() {
           setFrameRef={setFrameRef}
           setShowManualModal={setShowManualModal}
           setShowAboutModal={setShowAboutModal}
+          setShowSaveLoadModal={setShowSaveLoadModal}
         />
       </div>
       <GameList 
@@ -77,6 +80,11 @@ export default function Arcade() {
       
       <ManualModal show={showManualModal} setVisible={setShowManualModal} />
       <AboutModal show={showAboutModal} setVisible={setShowAboutModal} />
+      <SaveLoadModal 
+        show={showSaveLoadModal} 
+        setVisible={setShowSaveLoadModal} 
+        frameRef={frameRef}
+      />
       
       <LandscapeTips 
         show={showLandscapeTips} 

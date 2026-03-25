@@ -13,7 +13,6 @@
 import "./Playground.css"
 import {Dispatch, RefObject, SetStateAction, useEffect, useRef, useState} from "react";
 import VirtualController, {ControllerButton} from "./basic/VirtualController";
-import SaveLoadModal from "./SaveLoadModal";
 import ControlPanel from "./ControlPanel";
 import {CreateEmulatorService} from "../services/emulator";
 import {isMobileDevice} from "../services/device";
@@ -21,7 +20,8 @@ import {isMobileDevice} from "../services/device";
 interface PlaygroundProps {
   setFrameRef: Dispatch<SetStateAction<RefObject<HTMLIFrameElement>>>,
   setShowManualModal: Dispatch<SetStateAction<boolean>>,
-  setShowAboutModal: Dispatch<SetStateAction<boolean>>
+  setShowAboutModal: Dispatch<SetStateAction<boolean>>,
+  setShowSaveLoadModal: Dispatch<SetStateAction<boolean>>
 }
 
 const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
@@ -35,11 +35,10 @@ const controllerButtonToJoystickButton: Record<ControllerButton, number> = {
   right: 7
 };
 
-export default function Playground({setFrameRef, setShowManualModal, setShowAboutModal}: PlaygroundProps) {
+export default function Playground({setFrameRef, setShowManualModal, setShowAboutModal, setShowSaveLoadModal}: PlaygroundProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [showFps, setShowFps] = useState(false);
   const [showControl, setShowControl] = useState(false);
-  const [showSaveLoadModal, setShowSaveLoadModal] = useState(false);
   const isMobile = isMobileDevice();
 
   useEffect(() => {
@@ -110,11 +109,6 @@ export default function Playground({setFrameRef, setShowManualModal, setShowAbou
         setShowAboutModal={setShowAboutModal}
         showFps={showFps}
         setShowFps={setShowFps}
-      />
-      <SaveLoadModal 
-        show={showSaveLoadModal} 
-        setVisible={setShowSaveLoadModal} 
-        frameRef={frameRef}
       />
     </div>
   );
