@@ -104,23 +104,16 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
       }
     };
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        autoSave();
-      }
+    const handleBeforeUnload = () => {
+      autoSave();
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    const autoSaveInterval = setInterval(() => {
-      autoSave();
-    }, 30000);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('message', handleIframeMessage);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(autoSaveInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [showControl, showManualModal, showAboutModal, showSaveLoadModal]);
 
