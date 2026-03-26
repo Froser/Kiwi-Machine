@@ -115,7 +115,7 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
       window.removeEventListener('message', handleIframeMessage);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [showControl, showManualModal, showAboutModal, showSaveLoadModal]);
+  }, [showControl, showManualModal, showAboutModal, showSaveLoadModal, setShowAboutModal, setShowManualModal, setShowSaveLoadModal]);
 
   useEffect(() => {
     const handleIframeLoad = () => {
@@ -166,7 +166,7 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
         iframe.removeEventListener('load', handleIframeLoad);
       }
     };
-  }, []);
+  }, [onEmulatorReady, setShowToast, setToastMessage]);
 
   const handleSplashFinished = () => {
     setShowCanvas(true);

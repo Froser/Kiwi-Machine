@@ -11,7 +11,7 @@
 // GNU General Public License for more details.
 
 import "./Modal.css"
-import {Dispatch, ReactNode, SetStateAction, useEffect} from "react";
+import {Dispatch, ReactNode, SetStateAction, useEffect, useCallback} from "react";
 
 interface ModalProps {
   children: ReactNode,
@@ -28,10 +28,10 @@ export default function Modal({children, title, show, width, height, zIndex, set
   const className = 'modal ' + (show ? 'modal-show' : '');
   const isAutoHeight = height === 'auto';
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setVisible(false);
     onClose?.();
-  };
+  }, [setVisible, onClose]);
   
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -46,7 +46,7 @@ export default function Modal({children, title, show, width, height, zIndex, set
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [show, setVisible, onClose]);
+  }, [show, handleClose]);
   
   return (
     <div className={className} style={{zIndex: zIndex}} onClick={handleClose}>

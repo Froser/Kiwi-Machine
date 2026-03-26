@@ -148,11 +148,6 @@ export default function SaveLoadModal({show, setVisible, frameRef, onClose}: Sav
     }
   };
 
-  const handleClose = () => {
-    setVisible(false);
-    onClose?.();
-  };
-
   const handleLoadWithClose = (slot: number) => {
     handleLoad(slot);
     onClose?.();

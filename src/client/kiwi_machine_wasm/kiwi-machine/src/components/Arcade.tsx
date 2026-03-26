@@ -92,7 +92,7 @@ export default function Arcade() {
         setHasAutoLoadedGame(true);
       }
     }
-  }, [emulatorReady, gameDb, hasAutoLoadedGame]);
+  }, [emulatorReady, gameDb, hasAutoLoadedGame, frameRef]);
 
   useEffect(() => {
     const checkOrientation = () => {
