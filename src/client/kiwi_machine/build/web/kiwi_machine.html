@@ -368,11 +368,24 @@
             }
         }, false);
 
-        // Listen for ESC key and send to parent
+        // Listen for ESC key and save/load shortcuts, then send to parent
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && window.parent) {
+            if (!window.parent) {
+                return;
+            }
+            if (event.key === 'Escape') {
                 window.parent.postMessage({
                     type: 'escapeKeyDown'
+                }, '*');
+            } else if (event.key === 'F1') {
+                event.preventDefault();
+                window.parent.postMessage({
+                    type: 'saveStateShortcut'
+                }, '*');
+            } else if (event.key === 'F2') {
+                event.preventDefault();
+                window.parent.postMessage({
+                    type: 'loadStateShortcut'
                 }, '*');
             }
         }, false);

@@ -62,6 +62,28 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
     }, 100);
   };
 
+  const saveToAutoSlot = () => {
+    const currentWindow = frameRef.current?.contentWindow;
+    if (currentWindow) {
+      const emulatorService = CreateEmulatorService(currentWindow);
+      const count = emulatorService.getSaveStatesCount();
+      if (count > 0) {
+        emulatorService.saveState(count - 1);
+      }
+    }
+  };
+
+  const loadFromAutoSlot = () => {
+    const currentWindow = frameRef.current?.contentWindow;
+    if (currentWindow) {
+      const emulatorService = CreateEmulatorService(currentWindow);
+      const count = emulatorService.getSaveStatesCount();
+      if (count > 0) {
+        emulatorService.loadState(count - 1);
+      }
+    }
+  };
+
   useEffect(() => {
     const handleEscape = () => {
       if (showSaveLoadModal) {
@@ -77,23 +99,7 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
       focusIframe();
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        handleEscape();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    const handleIframeMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'escapeKeyDown') {
-        handleEscape();
-      }
-    };
-
-    window.addEventListener('message', handleIframeMessage);
-
-    const autoSave = () => {
+    const saveToAutoSlotLocal = () => {
       const currentWindow = frameRef.current?.contentWindow;
       if (currentWindow) {
         const emulatorService = CreateEmulatorService(currentWindow);
@@ -104,16 +110,46 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
       }
     };
 
-    const handleBeforeUnload = () => {
-      autoSave();
+    const loadFromAutoSlotLocal = () => {
+      const currentWindow = frameRef.current?.contentWindow;
+      if (currentWindow) {
+        const emulatorService = CreateEmulatorService(currentWindow);
+        const count = emulatorService.getSaveStatesCount();
+        if (count > 0) {
+          emulatorService.loadState(count - 1);
+        }
+      }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleEscape();
+      } else if (event.key === 'F1') {
+        event.preventDefault();
+        saveToAutoSlotLocal();
+      } else if (event.key === 'F2') {
+        event.preventDefault();
+        loadFromAutoSlotLocal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    const handleIframeMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'escapeKeyDown') {
+        handleEscape();
+      } else if (event.data && event.data.type === 'saveStateShortcut') {
+        saveToAutoSlotLocal();
+      } else if (event.data && event.data.type === 'loadStateShortcut') {
+        loadFromAutoSlotLocal();
+      }
+    };
+
+    window.addEventListener('message', handleIframeMessage);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('message', handleIframeMessage);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [showControl, showManualModal, showAboutModal, showSaveLoadModal, setShowAboutModal, setShowManualModal, setShowSaveLoadModal]);
 
@@ -131,18 +167,12 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
           onVolumeChanged: (data: { volume: number }) => {
           },
           onSaveStateSucceeded: (slot: number) => {
-            const count = CreateEmulatorService(iframeWindow).getSaveStatesCount();
-            if (count <= 0 || slot !== count - 1) {
-              setToastMessage('保存成功');
-              setShowToast(true);
-            }
+            setToastMessage('保存成功');
+            setShowToast(true);
           },
           onSaveStateFailed: (slot: number) => {
-            const count = CreateEmulatorService(iframeWindow).getSaveStatesCount();
-            if (count <= 0 || slot !== count - 1) {
-              setToastMessage('保存失败');
-              setShowToast(true);
-            }
+            setToastMessage('保存失败');
+            setShowToast(true);
           },
           onLoadStateSucceeded: (slot: number) => {
             setToastMessage('读取成功');
@@ -207,11 +237,35 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
         onMenuButtonClick={() => setShowControl(!showControl)}
       />
 
-      {!isMobileDevice() && <div className="playground-float-button" onClick={() => setShowControl(!showControl)}>
-        <svg className="playground-float-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
+      {!isMobileDevice() && <div className="playground-float-group">
+        <button
+          className="playground-float-button playground-float-button-small"
+          title="存档 (F1)"
+          onClick={() => { saveToAutoSlot(); focusIframe(); }}
+        >
+          <svg className="playground-float-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <line x1="12" y1="7" x2="12" y2="14"></line>
+            <polyline points="9 11 12 14 15 11"></polyline>
+          </svg>
+        </button>
+        <button
+          className="playground-float-button playground-float-button-small"
+          title="读档 (F2)"
+          onClick={() => { loadFromAutoSlot(); focusIframe(); }}
+        >
+          <svg className="playground-float-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <line x1="12" y1="7" x2="12" y2="14"></line>
+            <polyline points="9 10 12 7 15 10"></polyline>
+          </svg>
+        </button>
+        <div className="playground-float-button" onClick={() => setShowControl(!showControl)}>
+          <svg className="playground-float-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </div>
       </div>}
 
       <ControlPanel

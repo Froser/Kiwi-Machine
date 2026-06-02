@@ -158,7 +158,7 @@ export default function SaveLoadModal({show, setVisible, frameRef, onClose}: Sav
       <div className="save-load-modal">
         <div className="save-load-grid">
           {saveSlots.map((slot, index) => {
-            const displayName = slot.isAutoSave ? "自动保存" : `存档 ${index}`;
+            const displayName = slot.isAutoSave ? "快速保存" : `存档 ${index}`;
             const thumbnailToUse = slot.processedThumbnail || slot.thumbnail;
             return (
             <div key={slot.slot} className={`save-slot ${slot.isAutoSave ? 'save-slot-auto' : ''}`}>

@@ -33,6 +33,11 @@ export default function ManualModal({show, setVisible, onClose}: ManualModalProp
         <div className='playground-manual-title'>操作方式说明</div>
         <div className='playground-manual-content'>
           <p>在游戏中，您可以通过按下 <b>ESC</b> 键来唤起游戏选项菜单，进行存档、读档、设置等操作。</p>
+          <p>您还可以使用以下快捷键进行快速存读档（也可点击右下角悬浮按钮）：</p>
+          <ul style={{margin: '8px 0 0 24px', padding: 0}}>
+            <li style={{margin: '4px 0'}}><b>F1</b>：保存到“快速保存”存档位</li>
+            <li style={{margin: '4px 0'}}><b>F2</b>：从“快速保存”存档位读取</li>
+          </ul>
         </div>
       </div>
 
