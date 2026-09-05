@@ -208,14 +208,31 @@ std::string ROMTitleUpdater::GetCollateStringHint() {
 
 bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
                                            int& similarity) {
-  if (HasString(filter, preset_rom_.name)) {
-    similarity = std::string_view(preset_rom_.name).size() - filter.size();
+  // |filter| is what the user typed; it must appear as an ordered subsequence
+  // of the candidate title. Note the argument order: HasString(haystack,
+  // needle).
+  // 1) Match the localized (possibly Chinese/Japanese) title so users can
+  //    search by the name shown on screen.
+  std::string localized_title = GetLocalizedString();
+  if (HasString(localized_title, filter)) {
+    similarity = static_cast<int>(localized_title.size()) -
+                 static_cast<int>(filter.size());
     return true;
   }
 
+  // 2) Match the ROM's internal (English) name.
+  if (HasString(preset_rom_.name, filter)) {
+    similarity = static_cast<int>(std::string_view(preset_rom_.name).size()) -
+                 static_cast<int>(filter.size());
+    return true;
+  }
+
+  // 3) Match the romanized collate hint (e.g. Japanese kana -> romaji), so
+  //    users can also search by pronunciation.
   std::string hint = language_conversion::KanaToRomaji(GetCollateStringHint());
-  if (HasString(filter, hint)) {
-    similarity = hint.size() - filter.size();
+  if (HasString(hint, filter)) {
+    similarity =
+        static_cast<int>(hint.size()) - static_cast<int>(filter.size());
     return true;
   }
 

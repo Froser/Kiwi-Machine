@@ -59,6 +59,7 @@ set(Sources
         resources/audio_resources.cc
         resources/font_resources.cc
         resources/string_resources.cc
+        resources/string_resources.h
         resources/image_resources.cc
         ui/widgets/about_widget.cc
         ui/widgets/about_widget.h
@@ -210,7 +211,9 @@ add_custom_command(
 )
 
 add_custom_command(
-        OUTPUT resources/string_resources.cc
+        OUTPUT
+        resources/string_resources.cc
+        resources/string_resources.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

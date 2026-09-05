@@ -518,7 +518,7 @@ InGameMenu::FrameText InGameMenu::BuildFrameText() const {
           ? string_resources::IDR_IN_GAME_MENU_CONFIRM_RESET
           : string_resources::IDR_IN_GAME_MENU_CONFIRM_BACK_TO_MAIN);
   text.cancel = GetLocalizedString(string_resources::IDR_IN_GAME_MENU_CANCEL);
-  text.confirm = GetLocalizedString(string_resources::IDR_IN_GAME_MENU_CONFIRM);
+  text.confirm = GetLocalizedString(string_resources::IDR_COMMON_CONFIRM);
   return text;
 }
 

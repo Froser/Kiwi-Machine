@@ -353,6 +353,12 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   if (!activate_)
     return false;
 
+  // Controller events are dispatched to the parent before its children.
+  // While search is active, prevent the game list from moving; FilterWidget
+  // will consume the same event when Widget dispatch continues to children.
+  if (c && filter_widget_->has_begun())
+    return true;
+
   if (k) {
     if (k->keysym.sym == SDLK_f) {
       ShowFilterWidget();
@@ -692,10 +698,10 @@ void FlexItemsWidget::PaintFilter() {
   if (!filter_contents_.empty()) {
 #if KIWI_MOBILE
     std::string template_string =
-        GetLocalizedString(string_resources::IDR_ITEMS_WIGDET_FILTERING_MOBILE);
+        GetLocalizedString(string_resources::IDR_ITEMS_WIDGET_FILTERING_MOBILE);
 #else
     std::string template_string =
-        GetLocalizedString(string_resources::IDR_ITEMS_WIGDET_FILTERING);
+        GetLocalizedString(string_resources::IDR_ITEMS_WIDGET_FILTERING);
 #endif
     std::string filter_contents = kiwi::base::StringPrintf(
         template_string.c_str(), filter_contents_.c_str());

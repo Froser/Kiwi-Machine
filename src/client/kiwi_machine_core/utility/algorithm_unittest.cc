@@ -58,3 +58,21 @@ TEST_F(AlgorithmTest, HasStringSingleCharacter) {
   EXPECT_TRUE(HasString("A", "a"));
   EXPECT_TRUE(HasString("a", "A"));
 }
+
+TEST_F(AlgorithmTest, HasStringUtf8Chinese) {
+  // The needle (2nd arg) must be an ordered subsequence of the haystack (1st
+  // arg), matched by whole UTF-8 code points.
+  EXPECT_TRUE(HasString("超级马里奥兄弟", "马里奥"));
+  EXPECT_TRUE(HasString("超级马里奥兄弟", "马"));
+  EXPECT_TRUE(HasString("超级马里奥兄弟", "超奥弟"));  // subsequence
+  EXPECT_FALSE(HasString("超级马里奥兄弟", "奥马"));    // wrong order
+  EXPECT_FALSE(HasString("超级马里奥兄弟", "坦克"));
+  EXPECT_TRUE(HasString("魂斗罗", ""));  // empty needle matches
+}
+
+TEST_F(AlgorithmTest, HasStringUtf8Mixed) {
+  // Mixed ASCII + CJK, ASCII stays case-insensitive.
+  EXPECT_TRUE(HasString("Final Fantasy 最终幻想", "最终"));
+  EXPECT_TRUE(HasString("Final Fantasy 最终幻想", "ff"));  // subsequence of ascii
+  EXPECT_FALSE(HasString("最终幻想", "fantasy"));
+}
