@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2023 Yisi Yu
+// Copyright (C) 2023 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -14,19 +14,13 @@
 
 #include <SDL.h>
 #include <kiwi_nes.h>
-#include <map>
-#include <memory>
+#include <unordered_map>
 
 #include "preset_roms/preset_roms.h"
 #include "resources/string_resources.h"
 #include "utility/zip_reader.h"
 
 namespace {
-constexpr char kVisibleChars[] =
-    "!\"#$%&'()*+,-./"
-    "0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`"
-    "abcdefghijklmnopqrstuvwxyz{|}~";
-static_assert(sizeof(kVisibleChars) == 95);
 std::string g_global_language;
 
 const std::string& GetLocalizedString(SupportedLanguage language, int id) {
@@ -46,11 +40,6 @@ const std::string& GetLocalizedString(SupportedLanguage language, int id) {
 
   return lang_iter->second;
 }
-
-std::set<ImWchar> g_glyph_chars;
-
-using GlyphRangePtr = std::unique_ptr<ImVector<ImWchar>>;
-std::map<SupportedLanguage, GlyphRangePtr> g_glyph_ranges;
 
 const char* GetROMLocalizedTitle(SupportedLanguage language,
                                  const preset_roms::PresetROM& rom) {
@@ -74,35 +63,6 @@ const char* GetROMLocalizedCollateStringHint(
   }
 
   return GetROMLocalizedTitle(language, rom);
-}
-
-ImVector<ImWchar> BuildGlyphRanges(SupportedLanguage language) {
-  ImVector<ImWchar> out_ranges;
-  ImFontGlyphRangesBuilder ranges_builder;
-  ranges_builder.AddText(kVisibleChars);
-  for (int i = 0; i < string_resources::END_OF_STRINGS; ++i) {
-    ranges_builder.AddText(GetLocalizedString(language, i).c_str());
-  }
-
-  const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
-  for (const auto& package : packages) {
-    for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-      auto& rom = package->GetRomsByIndex(i);
-      std::string title = package->GetTitleForLanguage(language);
-      ranges_builder.AddText(title.c_str());
-      ranges_builder.AddText(GetROMLocalizedTitle(language, rom));
-      for (const auto& alter : rom.alternates) {
-        ranges_builder.AddText(GetROMLocalizedTitle(language, alter));
-      }
-    }
-  }
-
-  for (ImWchar c : g_glyph_chars) {
-    ranges_builder.AddChar(c);
-  }
-  ranges_builder.BuildRanges(&out_ranges);
-
-  return out_ranges;
 }
 
 }  // namespace
@@ -195,14 +155,6 @@ const char* GetROMLocalizedCollateStringHint(
 
 const std::string& GetLocalizedString(int id) {
   return GetLocalizedString(GetCurrentSupportedLanguage(), id);
-}
-
-bool AddCharToGlyphRanges(ImWchar c) {
-  return g_glyph_chars.insert(c).second;
-}
-
-ImVector<ImWchar> GetGlyphRanges(SupportedLanguage language) {
-  return BuildGlyphRanges(language);
 }
 
 namespace language_conversion {

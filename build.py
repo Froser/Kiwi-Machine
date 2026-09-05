@@ -27,11 +27,26 @@ def is_apple_silicon():
 
 
 def get_cmake_generator():
-    """Get appropriate CMake generator based on platform"""
+    """Get appropriate CMake generator based on platform.
+
+    On Windows the generator can be overridden via the KIWI_CMAKE_GENERATOR
+    environment variable, so CI (e.g. windows-latest) can follow the newest
+    Visual Studio on the runner without changing the local default:
+      - unset            -> 'Visual Studio 17 2022' (local default, unchanged)
+      - 'auto' or empty  -> '' (let CMake auto-detect the newest generator)
+      - any other string -> used verbatim
+    """
     system = platform.system()
     
     if system == 'Windows':
-        # On Windows, use Visual Studio generator
+        override = os.environ.get('KIWI_CMAKE_GENERATOR')
+        if override is not None:
+            override = override.strip()
+            # Empty or 'auto' means: don't pass -G, let CMake pick the newest.
+            if override == '' or override.lower() == 'auto':
+                return ''
+            return override
+        # On Windows, use Visual Studio generator by default
         return 'Visual Studio 17 2022'
     elif system == 'Darwin':
         # On macOS, use Xcode if installed, else Unix Makefiles
@@ -42,6 +57,25 @@ def get_cmake_generator():
     else:
         # On other platforms (Linux), use Unix Makefiles
         return 'Unix Makefiles'
+
+
+def generator_flag(generator):
+    """Return the '-G "<generator>"' snippet, or '' when generator is empty
+    (so CMake auto-detects the newest available generator)."""
+    if generator:
+        return f'-G "{generator}" '
+    return ''
+
+
+def is_multi_config_generator(generator):
+    """Whether the generator is multi-config (needs '--config' on build and
+    ignores CMAKE_BUILD_TYPE). Covers Visual Studio and Xcode. An empty
+    generator on Windows means CMake auto-detected Visual Studio, so treat it
+    as multi-config too."""
+    if platform.system() == 'Windows':
+        # Windows auto-detect always resolves to a Visual Studio generator.
+        return generator == '' or 'Visual Studio' in generator
+    return 'Visual Studio' in generator or generator == 'Xcode'
 
 
 def build_pc(build_project=False):
@@ -61,14 +95,14 @@ def build_pc(build_project=False):
         os.makedirs(debug_dir)
     
     # Construct cmake command
-    cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Debug .."
+    cmake_cmd = f"cmake {generator_flag(generator)}-DCMAKE_BUILD_TYPE=Debug .."
     if not run_command(cmake_cmd, cwd=debug_dir):
         success = False
     
     # Build the Debug project if requested
     if build_project and success:
         print(f"\nBuilding Debug project (kiwi_machine)...")
-        if generator == 'Visual Studio 17 2022':
+        if is_multi_config_generator(generator):
             build_cmd = 'cmake --build . --config Debug --target kiwi_machine'
         else:
             build_cmd = 'cmake --build . --target kiwi_machine'
@@ -82,14 +116,14 @@ def build_pc(build_project=False):
         os.makedirs(release_dir)
     
     # Construct cmake command
-    cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Release .."
+    cmake_cmd = f"cmake {generator_flag(generator)}-DCMAKE_BUILD_TYPE=Release .."
     if success and not run_command(cmake_cmd, cwd=release_dir):
         success = False
     
     # Build the Release project if requested
     if build_project and success:
         print(f"\nBuilding Release project (kiwi_machine)...")
-        if generator == 'Visual Studio 17 2022':
+        if is_multi_config_generator(generator):
             build_cmd = 'cmake --build . --config Release --target kiwi_machine'
         else:
             build_cmd = 'cmake --build . --target kiwi_machine'
@@ -107,14 +141,14 @@ def build_pc(build_project=False):
             os.makedirs(intel_debug_dir)
         
         # Construct cmake command
-        cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
+        cmake_cmd = f"cmake {generator_flag(generator)}-DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
         if not run_command(cmake_cmd, cwd=intel_debug_dir):
             success = False
         
         # Build the Intel Debug project if requested
         if build_project and success:
             print(f"\nBuilding Intel Debug project (kiwi_machine)...")
-            if generator == 'Visual Studio 17 2022':
+            if is_multi_config_generator(generator):
                 build_cmd = 'cmake --build . --config Debug --target kiwi_machine'
             else:
                 build_cmd = 'cmake --build . --target kiwi_machine'
@@ -128,14 +162,14 @@ def build_pc(build_project=False):
             os.makedirs(intel_release_dir)
         
         # Construct cmake command
-        cmake_cmd = f"cmake -G \"{generator}\" -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
+        cmake_cmd = f"cmake {generator_flag(generator)}-DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 .."
         if success and not run_command(cmake_cmd, cwd=intel_release_dir):
             success = False
         
         # Build the Intel Release project if requested
         if build_project and success:
             print(f"\nBuilding Intel Release project (kiwi_machine)...")
-            if generator == 'Visual Studio 17 2022':
+            if is_multi_config_generator(generator):
                 build_cmd = 'cmake --build . --config Release --target kiwi_machine'
             else:
                 build_cmd = 'cmake --build . --target kiwi_machine'
@@ -301,7 +335,7 @@ def build_wasm_config(config):
     # Use appropriate build command based on generator
     if generator == 'Xcode':
         build_cmd = 'xcodebuild -configuration Debug' if config == 'debug' else 'xcodebuild -configuration Release'
-    elif generator == 'Visual Studio 17 2022':
+    elif is_multi_config_generator(generator):
         build_cmd = 'cmake --build . --config Debug' if config == 'debug' else 'cmake --build . --config Release'
     else:
         build_cmd = 'ninja'

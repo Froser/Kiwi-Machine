@@ -682,7 +682,7 @@ void FlexItemsWidget::PaintDetails() {
       ImVec2(kTextBounds->x + kTextBounds->w, kTextBounds->y + kTextBounds->h),
       ImColor(0.f, 0.f, 0.f, .7f));
   ImGui::GetWindowDrawList()->AddText(
-      font.GetFont(), font.GetFont()->FontSize,
+      font.GetFont(), font.GetFontSize(),
       ImVec2(kTextBounds->x + kDetailWidgetPadding,
              kTextBounds->y + kDetailWidgetPadding),
       ImColor(1.f, 1.f, 1.f), title.c_str());
@@ -741,7 +741,7 @@ void FlexItemsWidget::PaintFilter() {
                kTextBounds->y + kTextBounds->h),
         ImColor(0.f, 0.f, 0.f, .7f));
     ImGui::GetWindowDrawList()->AddText(
-        font.GetFont(), font.GetFont()->FontSize,
+        font.GetFont(), font.GetFontSize(),
         ImVec2(kTextBounds->x + kDetailWidgetPadding,
                kTextBounds->y + kDetailWidgetPadding),
         ImColor(1.f, 1.f, 1.f), filter_contents.c_str());

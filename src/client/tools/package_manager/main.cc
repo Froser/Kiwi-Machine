@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2024 Yisi Yu
+// Copyright (C) 2024 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -144,20 +144,18 @@ bool InitSDL() {
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
 #if __APPLE__
-    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/STHeiti Light.ttc", 16,
-                                 nullptr, io.Fonts->GetGlyphRangesChineseFull());
+    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/STHeiti Light.ttc", 16);
 #endif
 #if _WIN32
     io.Fonts->AddFontFromFileTTF(GetFontsPath()
                                  .Append(FILE_PATH_LITERAL("msyh.ttc"))
                                  .AsUTF8Unsafe()
                                  .c_str(),
-                                 16, nullptr,
-                                 io.Fonts->GetGlyphRangesChineseFull());
+                                 16);
 #endif
 #if __linux__
     io.Fonts->AddFontFromFileTTF("/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
-                                 16, nullptr, io.Fonts->GetGlyphRangesChineseFull());
+                                 16);
 #endif
 
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);

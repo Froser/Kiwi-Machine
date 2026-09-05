@@ -240,12 +240,6 @@ void Application::LocaleChanged() {
   }
 }
 
-void Application::FontChanged() {
-  for (const auto& w : windows_) {
-    w.second->HandleFontChanged();
-  }
-}
-
 Application* Application::Get() {
   SDL_assert(g_app_instance);
   return g_app_instance;

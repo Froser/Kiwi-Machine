@@ -13,7 +13,6 @@
 #ifndef UTILITY_LOCALIZATION_H_
 #define UTILITY_LOCALIZATION_H_
 
-#include <imgui.h>
 #include <string>
 
 #include "build/kiwi_defines.h"
@@ -66,10 +65,6 @@ const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom);
 const char* GetROMLocalizedCollateStringHint(const preset_roms::PresetROM& rom);
 
 const std::string& GetLocalizedString(int id);
-
-bool AddCharToGlyphRanges(ImWchar chars);
-
-ImVector<ImWchar> GetGlyphRanges(SupportedLanguage language);
 
 namespace language_conversion {
 std::string KanaToRomaji(const std::string& kana);

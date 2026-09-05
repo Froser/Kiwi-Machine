@@ -11,6 +11,11 @@ jobs:
   build:
     name: Build on Windows
     runs-on: windows-latest
+    env:
+      # Let CMake auto-detect the newest Visual Studio on the runner instead of
+      # pinning "Visual Studio 17 2022". Keeps windows-latest working across
+      # image upgrades without changing the local default in build.py.
+      KIWI_CMAKE_GENERATOR: auto
 
     steps:
     - name: Checkout repository

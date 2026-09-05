@@ -67,7 +67,7 @@ void FilterWidget::Paint() {
 
   std::string display_filter_contents = filter_contents_ + "_";
   {
-    ScopedFont font(FontType::kDefault2x);
+    ScopedFont font(FontType::kDefault, PreferredFontSize::k2x);
     contents_rect = ImGui::CalcTextSize(display_filter_contents.c_str());
   }
 
@@ -84,7 +84,7 @@ void FilterWidget::Paint() {
 
   {
     ImGui::SetCursorPosX((GetLocalBounds().w - contents_rect.x) / 2);
-    ScopedFont font(FontType::kDefault2x);
+    ScopedFont font(FontType::kDefault, PreferredFontSize::k2x);
     ImGui::TextUnformatted(display_filter_contents.c_str());
   }
 

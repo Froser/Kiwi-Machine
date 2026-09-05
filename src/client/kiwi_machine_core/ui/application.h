@@ -63,9 +63,6 @@ class Application {
   NESRuntimeID runtime_id() { return runtime_id_; }
   scoped_refptr<NESConfig> config() { return config_; }
 
-  // If application's font has been changed, this method should be called.
-  void FontChanged();
-
  private:
   void InitializeApplication(int& argc, char** argv);
   void UninitializeGameControllers();

@@ -69,7 +69,7 @@ void SideMenu::Paint() {
       SDL_Rect button_bounds = MapToWindow(buttons_bounds_map_[i]);
       int text_top = button_bounds.y + (kIconSize - text_size.y) / 2;
       ImGui::GetWindowDrawList()->AddText(
-          font.GetFont(), font.GetFont()->FontSize,
+          font.GetFont(), font.GetFontSize(),
           ImVec2(button_bounds.x + kIconLeft * 2 + kIconSize, text_top),
           ImColor(255, 255, 255), contents.c_str());
     }
@@ -126,7 +126,7 @@ void SideMenu::Paint() {
         int text_top = global_target_selection_rect.y +
                        (global_target_selection_rect.h - text_size.y) / 2;
         ImGui::GetWindowDrawList()->AddText(
-            font.GetFont(), font.GetFont()->FontSize,
+            font.GetFont(), font.GetFontSize(),
             ImVec2(global_target_selection_rect.x + kIconLeft * 2 + kIconSize,
                    text_top),
             kBackgroundColor, menu_content.c_str());
@@ -146,7 +146,7 @@ void SideMenu::Paint() {
       int text_top =
           global_item_rect.y + (global_item_rect.h - text_size.y) / 2;
       ImGui::GetWindowDrawList()->AddText(
-          font.GetFont(), font.GetFont()->FontSize,
+          font.GetFont(), font.GetFontSize(),
           ImVec2(global_item_rect.x + kIconLeft * 2 + kIconSize, text_top),
           ImColor(255, 255, 255), menu_content.c_str());
     }

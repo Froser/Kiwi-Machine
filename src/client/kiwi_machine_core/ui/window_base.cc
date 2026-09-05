@@ -304,11 +304,6 @@ void WindowBase::HandleLocaleChanged() {
   }
 }
 
-void WindowBase::HandleFontChanged() {
-  ImGui_ImplSDLRenderer2_DestroyFontsTexture();
-  ImGui_ImplSDLRenderer2_CreateFontsTexture();
-}
-
 void WindowBase::RemovePendingWidgets() {
   for (Widget* widget : widgets_to_be_removed_) {
     for (auto iter = widgets_.begin(); iter != widgets_.end(); ++iter) {

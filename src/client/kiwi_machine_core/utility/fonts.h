@@ -17,41 +17,15 @@
 
 enum class FontType {
   kSystemDefault,
-  kSystemDefault2x,
-  kSystemDefault3x,
-
   kDefault,
-  kDefault2x,
-  kDefault3x,
-
   kDefaultSimplifiedChinese,
-  kDefaultSimplifiedChinese2x,
-  kDefaultSimplifiedChinese3x,
-
   kDefaultJapanese,
-  kDefaultJapanese2x,
-  kDefaultJapanese3x,
-
   kMax,
 };
 
-class ScopedFont {
- public:
-  explicit ScopedFont(FontType font);
-  ~ScopedFont();
-
-  FontType type() { return type_; }
-  ImFont* GetFont();
-
- private:
-  FontType type_;
-};
-
-void InitializeSystemFonts();
-void InitializeFonts();
-
-enum PreferredFontSize {
-  k1x,
+// Multipliers applied to each font's registered default size.
+enum class PreferredFontSize {
+  k1x = 1,
   k2x,
   k3x,
   k4x,
@@ -59,13 +33,28 @@ enum PreferredFontSize {
   k6x,
 };
 
-FontType GetPreferredFontType(PreferredFontSize size,
-                              FontType default_type = FontType::kDefault);
+class ScopedFont {
+ public:
+  explicit ScopedFont(FontType font,
+                      PreferredFontSize size = PreferredFontSize::k1x);
+  ~ScopedFont();
+
+  ScopedFont(const ScopedFont&) = delete;
+  ScopedFont& operator=(const ScopedFont&) = delete;
+
+  FontType type() const { return type_; }
+  ImFont* GetFont() const;
+  float GetFontSize() const;
+
+ private:
+  FontType type_;
+  float font_size_ = 0.f;
+};
+
+void InitializeSystemFonts();
+void InitializeFonts();
 ScopedFont GetPreferredFont(PreferredFontSize size,
                             FontType default_type = FontType::kDefault);
-FontType GetPreferredFontType(PreferredFontSize size,
-                              const char* text_hint,
-                              FontType default_type = FontType::kDefault);
 ScopedFont GetPreferredFont(PreferredFontSize size,
                             const char* text_hint,
                             FontType default_type = FontType::kDefault);

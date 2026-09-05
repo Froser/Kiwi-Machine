@@ -132,14 +132,11 @@ void DisassemblyWidget::Paint() {
     }
   }
 
-  auto item_getter = [](void* data, int index, const char** out_text) {
+  auto item_getter = [](void* data, int index) {
     DisassemblyWidget* d = reinterpret_cast<DisassemblyWidget*>(data);
-    if (out_text) {
-      d->item_getter_buffer_ = NumberToHexString(
-          4, d->runtime_data_->debug_port->breakpoints()[index]);
-      *out_text = d->item_getter_buffer_.c_str();
-    }
-    return true;
+    d->item_getter_buffer_ = NumberToHexString(
+        4, d->runtime_data_->debug_port->breakpoints()[index]);
+    return d->item_getter_buffer_.c_str();
   };
   ImGui::ListBox("##Breakpoints", &current_selected_breakpoint_, item_getter,
                  this, runtime_data_->debug_port->breakpoints().size());

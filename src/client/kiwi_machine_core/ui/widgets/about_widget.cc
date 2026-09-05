@@ -340,7 +340,7 @@ void AboutWidget::DrawGameSelection() {
     ImGui::Image(
         reinterpret_cast<ImTextureID>(GetImage(
             window()->renderer(), image_resources::ImageID::kItemBadge)),
-        ImVec2(font.GetFont()->FontSize, font.GetFont()->FontSize));
+        ImVec2(font.GetFontSize(), font.GetFontSize()));
     ImGui::SameLine();
     ImGui::TextUnformatted(
         GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_1).c_str());

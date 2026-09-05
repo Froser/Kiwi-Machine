@@ -12,24 +12,23 @@
 
 #include "utility/fonts.h"
 
-#include <SDL.h>
 #include <imgui.h>
-#include <kiwi_nes.h>
 #include <array>
 
 #include "build/kiwi_defines.h"
-#include "preset_roms/preset_roms.h"
 #include "resources/font_resources.h"
-#include "resources/string_resources.h"
-#include "ui/application.h"
 #include "utility/localization.h"
-#include "utility/zip_reader.h"
 
 namespace {
+constexpr float kSystemDefaultFontSize = 13.f;
+constexpr float kDefaultFontSize = 16.f;
+
 std::array<ImFont*, static_cast<int>(FontType::kMax)> g_fonts;
 
 ImFont* GetFont(FontType type) {
-  return g_fonts[static_cast<int>(type)];
+  ImFont* font = g_fonts[static_cast<int>(type)];
+  IM_ASSERT(font);
+  return font;
 }
 
 bool IsASCIIString(const char* str) {
@@ -42,80 +41,72 @@ bool IsASCIIString(const char* str) {
   return true;
 }
 
-int g_frame_count = 0;
+float GetFontSize(ImFont* font, PreferredFontSize size) {
+  return font->LegacySize * static_cast<int>(size);
+}
 
-std::set<ImWchar> g_chars;
-
-void OnGetFallbackGlyph(ImWchar c) {
-  int frame_count = ImGui::GetFrameCount();
-  g_chars.insert(c);
-
-  bool frame_changed = g_frame_count != frame_count && frame_count != 0;
-  if (frame_changed) {
-    bool has_new_chars = false;
-    for (ImWchar w : g_chars) {
-      if (AddCharToGlyphRanges(w))
-        has_new_chars = true;
-    }
-
-    if (has_new_chars) {
-      auto task_runner = kiwi::base::SequencedTaskRunner::GetCurrentDefault();
-      task_runner->PostTask(FROM_HERE, kiwi::base::BindOnce(&InitializeFonts));
-    }
-    g_chars.clear();
-    g_frame_count = frame_count;
+FontType GetPreferredFontType(FontType default_type) {
+  switch (GetCurrentSupportedLanguage()) {
+#if !DISABLE_CHINESE_FONT
+    case SupportedLanguage::kSimplifiedChinese:
+      return FontType::kDefaultSimplifiedChinese;
+#endif
+#if !DISABLE_JAPANESE_FONT
+    case SupportedLanguage::kJapanese:
+      return FontType::kDefaultJapanese;
+#endif
+    default:
+      return default_type;
   }
+}
+
+FontType GetPreferredFontType(const char* text_hint, FontType default_type) {
+  return IsASCIIString(text_hint) ? default_type
+                                 : GetPreferredFontType(default_type);
+}
+
+void RegisterSystemFont() {
+  ImFontConfig font_config;
+  font_config.SizePixels = kSystemDefaultFontSize;
+  g_fonts[static_cast<int>(FontType::kSystemDefault)] =
+      ImGui::GetIO().Fonts->AddFontDefaultVector(&font_config);
+}
+
+void RegisterFont(FontType type,
+                  font_resources::FontID font_id,
+                  float font_size) {
+  ImFontConfig font_config;
+  font_config.FontDataOwnedByAtlas = false;
+  size_t data_size;
+  auto* font_data = const_cast<unsigned char*>(
+      font_resources::GetData(font_id, &data_size));
+  g_fonts[static_cast<int>(type)] =
+      ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
+          font_data, data_size, font_size, &font_config);
 }
 
 }  // namespace
 
-ScopedFont::ScopedFont(FontType font) : type_(font) {
-  ImGui::PushFont(::GetFont(font));
+ScopedFont::ScopedFont(FontType font, PreferredFontSize size) : type_(font) {
+  ImFont* resolved_font = ::GetFont(font);
+  ImGui::PushFont(resolved_font, ::GetFontSize(resolved_font, size));
+  font_size_ = ImGui::GetFontSize();
 }
 
 ScopedFont::~ScopedFont() {
   ImGui::PopFont();
 }
 
-ImFont* ScopedFont::GetFont() {
-  return g_fonts[static_cast<int>(type_)];
+ImFont* ScopedFont::GetFont() const {
+  return ::GetFont(type_);
 }
 
-void RegisterSysFont(FontType font_begin, FontType font_end, int basic_size) {
-  for (FontType ft = font_begin; ft <= font_end;
-       ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {
-    int font_size =
-        basic_size * (static_cast<int>(ft) - static_cast<int>(font_begin) + 1);
-    ImFontConfig cfg;
-    cfg.SizePixels = font_size;
-    g_fonts[static_cast<int>(ft)] = ImGui::GetIO().Fonts->AddFontDefault(&cfg);
-  }
-}
-
-void RegisterFont(FontType font_begin,
-                  FontType font_end,
-                  font_resources::FontID font_id,
-                  int basic_size,
-                  const ImWchar* glyph_ranges) {
-  ImFontConfig font_config;
-  font_config.FontDataOwnedByAtlas = false;
-  for (FontType ft = font_begin; ft <= font_end;
-       ft = static_cast<FontType>(static_cast<int>(ft) + 1)) {
-    int font_size =
-        basic_size * (static_cast<int>(ft) - static_cast<int>(font_begin) + 1);
-    size_t data_size;
-    const auto* font_data = const_cast<unsigned char*>(
-        font_resources::GetData(font_id, &data_size));
-    g_fonts[static_cast<int>(ft)] = ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
-        const_cast<unsigned char*>(font_data), data_size, font_size,
-        &font_config, glyph_ranges);
-
-    g_fonts[static_cast<int>(ft)]->SetOnGetFallbackGlyph(&OnGetFallbackGlyph);
-  }
+float ScopedFont::GetFontSize() const {
+  return font_size_;
 }
 
 void InitializeSystemFonts() {
-  RegisterSysFont(FontType::kSystemDefault, FontType::kSystemDefault3x, 13);
+  RegisterSystemFont();
 }
 
 void InitializeFonts() {
@@ -123,80 +114,23 @@ void InitializeFonts() {
   InitializeSystemFonts();
 
 #if !DISABLE_CHINESE_FONT
-  ImVector<ImWchar> glyph_ranges_zh =
-      GetGlyphRanges(SupportedLanguage::kSimplifiedChinese);
   RegisterFont(FontType::kDefaultSimplifiedChinese,
-               FontType::kDefaultSimplifiedChinese3x,
-               font_resources::FontID::kDengb, 16, glyph_ranges_zh.begin());
+               font_resources::FontID::kDengb, kDefaultFontSize);
 #endif
 #if !DISABLE_JAPANESE_FONT
-  ImVector<ImWchar> glyph_ranges_ja =
-      GetGlyphRanges(SupportedLanguage::kJapanese);
-  RegisterFont(FontType::kDefaultJapanese, FontType::kDefaultJapanese3x,
-               font_resources::FontID::kYumindb, 16, glyph_ranges_ja.begin());
+  RegisterFont(FontType::kDefaultJapanese,
+               font_resources::FontID::kYumindb, kDefaultFontSize);
 #endif
-  RegisterFont(FontType::kDefault, FontType::kDefault3x,
-               font_resources::FontID::kSupermario256, 16, NULL);
-
-  bool success = ImGui::GetIO().Fonts->Build();
-  SDL_assert(success);
-
-  Application::Get()->FontChanged();
-}
-
-FontType GetPreferredFontType(PreferredFontSize size, FontType default_type) {
-  switch (GetCurrentSupportedLanguage()) {
-#if !DISABLE_CHINESE_FONT
-    case SupportedLanguage::kSimplifiedChinese:
-      return (static_cast<FontType>(
-          static_cast<int>(FontType::kDefaultSimplifiedChinese) +
-          static_cast<int>(size)));
-#endif
-#if !DISABLE_JAPANESE_FONT
-    case SupportedLanguage::kJapanese:
-      return (
-          static_cast<FontType>(static_cast<int>(FontType::kDefaultJapanese) +
-                                static_cast<int>(size)));
-#endif
-    default:
-      return (static_cast<FontType>(static_cast<int>(default_type) +
-                                    static_cast<int>(size)));
-  }
+  RegisterFont(FontType::kDefault, font_resources::FontID::kSupermario256,
+               kDefaultFontSize);
 }
 
 ScopedFont GetPreferredFont(PreferredFontSize size, FontType default_type) {
-  return ScopedFont(GetPreferredFontType(size, default_type));
-}
-
-FontType GetPreferredFontType(PreferredFontSize size,
-                              const char* text_hint,
-                              FontType default_type) {
-  bool is_ascii = IsASCIIString(text_hint);
-  if (is_ascii)
-    return (static_cast<FontType>(static_cast<int>(default_type) +
-                                  static_cast<int>(size)));
-
-  switch (GetCurrentSupportedLanguage()) {
-#if !DISABLE_CHINESE_FONT
-    case SupportedLanguage::kSimplifiedChinese:
-      return (static_cast<FontType>(
-          static_cast<int>(FontType::kDefaultSimplifiedChinese) +
-          static_cast<int>(size)));
-#endif
-#if !DISABLE_JAPANESE_FONT
-    case SupportedLanguage::kJapanese:
-      return (
-          static_cast<FontType>(static_cast<int>(FontType::kDefaultJapanese) +
-                                static_cast<int>(size)));
-#endif
-    default:
-      return (static_cast<FontType>(static_cast<int>(default_type) +
-                                    static_cast<int>(size)));
-  }
+  return ScopedFont(GetPreferredFontType(default_type), size);
 }
 
 ScopedFont GetPreferredFont(PreferredFontSize size,
                             const char* text_hint,
                             FontType default_type) {
-  return ScopedFont(GetPreferredFontType(size, text_hint, default_type));
+  return ScopedFont(GetPreferredFontType(text_hint, default_type), size);
 }

@@ -556,7 +556,7 @@ void InGameMenu::DrawMenuItemsImmediate(LayoutImmediateContext& context) {
 void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_Layout(
     LayoutImmediateContext& context) {
   ScopedFont font = GetPreferredFont(context.font_size, context.menu_items[0]);
-  context.menu_font_size = font.GetFont()->FontSize;
+  context.menu_font_size = font.GetFontSize();
 
   int min_menu_x = INT_MAX;
   const int kMenuY = ImGui::GetCursorPosY();
@@ -801,20 +801,20 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_OptionsLayout(
 
   // Window size
   {
-    ScopedFont scoped_font(
-        GetPreferredFontType(context.font_size, context.options_items[1]));
+    ScopedFont scoped_font =
+        GetPreferredFont(context.font_size, context.options_items[1]);
     ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
   }
   // Joysticks
   {
-    ScopedFont scoped_font(
-        GetPreferredFontType(context.font_size, context.options_items[2]));
+    ScopedFont scoped_font =
+        GetPreferredFont(context.font_size, context.options_items[2]);
     ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
   }
   // Languages
   {
-    ScopedFont scoped_font(
-        GetPreferredFontType(context.font_size, context.options_items[3]));
+    ScopedFont scoped_font =
+        GetPreferredFont(context.font_size, context.options_items[3]);
     ImGui::Dummy(ImVec2(1, ImGui::GetFontSize()));
   }
 
@@ -891,7 +891,7 @@ void InGameMenu::DrawMenuItemsImmediate_DrawMenuItems_Options_Volume(
           : GetLocalizedString(string_resources::IDR_IN_GAME_MENU_OFF).c_str();
 
   // There are only 2 options on mobiles: On or Off.emulator->GetVolume();
-  ScopedFont scoped_font(GetPreferredFontType(context.font_size, kVolumeStr));
+  ScopedFont scoped_font = GetPreferredFont(context.font_size, kVolumeStr);
   float prompt_height = ImGui::GetFontSize();
   float prompt_width = prompt_height * .8f;
 
@@ -1190,6 +1190,7 @@ void InGameMenu::DrawSelectionImmediate(LayoutImmediateContext& context) {
     ImGui::TextColored(ImVec4(0.f, 0.f, 0.f, 1.f), "%s",
                        context.selection_menu_item_text);
     ImGui::SetCursorPos(pos_cache);
+    ImGui::Dummy(ImVec2(0.f, 0.f));
   }
 }
 
