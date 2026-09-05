@@ -208,14 +208,31 @@ std::string ROMTitleUpdater::GetCollateStringHint() {
 
 bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
                                            int& similarity) {
-  if (HasString(filter, preset_rom_.name)) {
-    similarity = std::string_view(preset_rom_.name).size() - filter.size();
+  // |filter| is what the user typed; it must appear as an ordered subsequence
+  // of the candidate title. Note the argument order: HasString(haystack,
+  // needle).
+  // 1) Match the localized (possibly Chinese/Japanese) title so users can
+  //    search by the name shown on screen.
+  std::string localized_title = GetLocalizedString();
+  if (HasString(localized_title, filter)) {
+    similarity = static_cast<int>(localized_title.size()) -
+                 static_cast<int>(filter.size());
     return true;
   }
 
+  // 2) Match the ROM's internal (English) name.
+  if (HasString(preset_rom_.name, filter)) {
+    similarity = static_cast<int>(std::string_view(preset_rom_.name).size()) -
+                 static_cast<int>(filter.size());
+    return true;
+  }
+
+  // 3) Match the romanized collate hint (e.g. Japanese kana -> romaji), so
+  //    users can also search by pronunciation.
   std::string hint = language_conversion::KanaToRomaji(GetCollateStringHint());
-  if (HasString(filter, hint)) {
-    similarity = hint.size() - filter.size();
+  if (HasString(hint, filter)) {
+    similarity =
+        static_cast<int>(hint.size()) - static_cast<int>(filter.size());
     return true;
   }
 
@@ -1020,8 +1037,10 @@ void MainWindow::InitializeUI() {
   fullscreen_mask_->set_visible(false);
   AddWidget(std::move(fullscreen_mask));
 
-  if (is_headless_)
-    in_game_menu->HideMenu(6);  // Hides 'Quit Game' when headless
+  if (is_headless_) {
+    in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kToGameSelection,
+                                     false);
+  }
   in_game_menu_ = in_game_menu.get();
   in_game_menu_->set_visible(false);
   AddWidget(std::move(in_game_menu));
@@ -1562,22 +1581,27 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
         std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
             window, runtime_id,
             kiwi::base::BindRepeating(
-                [](StackWidget* stack_widget, InGameMenu::MenuItem item,
-                   int param) {
+                [](StackWidget* stack_widget,
+                   const InGameMenu::MenuCommand& command) {
                   // Mapping button 'B' will trigger kContinue.
-                  if (item == InGameMenu::MenuItem::kToGameSelection ||
-                      item == InGameMenu::MenuItem::kContinue) {
+                  if (command.item == InGameMenu::MenuItem::kToGameSelection ||
+                      command.item == InGameMenu::MenuItem::kContinue) {
                     stack_widget->PopWidget();
                   }
                 },
                 window->main_stack_widget_),
             kiwi::base::BindRepeating(&MainWindow::OnInGameSettingsItemTrigger,
                                       kiwi::base::Unretained(window)));
-        in_game_menu->HideMenu(0);  // Hides 'Continue'
-        in_game_menu->HideMenu(1);  // Hides 'Load Auto Save'
-        in_game_menu->HideMenu(2);  // Hides 'Load State'
-        in_game_menu->HideMenu(3);  // Hides 'Save State'
-        in_game_menu->HideMenu(5);  // Hides 'Reset Game'
+        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kContinue,
+                                         false);
+        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kLoadAutoSave,
+                                         false);
+        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState,
+                                         false);
+        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState,
+                                         false);
+        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kResetGame,
+                                         false);
         in_game_menu->set_bounds(
             SDL_Rect{0, 0, window->main_stack_widget_->bounds().w,
                      window->main_stack_widget_->bounds().h});
@@ -1760,7 +1784,7 @@ void MainWindow::OnStateSaved(int slot, bool succeed) {
 
   if (succeed) {
     SDL_assert(in_game_menu_);
-    in_game_menu_->RequestCurrentThumbnail();
+    in_game_menu_->RefreshStatePreview();
 #if !KIWI_WASM
     Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_SUCCEEDED));
 #endif
@@ -2005,23 +2029,34 @@ void MainWindow::OnInGameMenuTrigger() {
   OnPause();
 }
 
-void MainWindow::OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param) {
-  switch (item) {
+void MainWindow::OnInGameMenuItemTrigger(
+    const InGameMenu::MenuCommand& command) {
+  switch (command.item) {
     case InGameMenu::MenuItem::kContinue: {
       CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kLoadAutoSave: {
-      OnLoadAutoSavedState(param);
+      const auto* timestamp =
+          std::get_if<InGameMenu::AutoSaveTimestamp>(&command.payload);
+      if (!timestamp)
+        break;
+      OnLoadAutoSavedState(timestamp->value);
       CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kLoadState: {
-      SDL_assert(param < NESRuntime::Data::MaxSaveStates);
-      OnLoadState(param);
+      const auto* slot = std::get_if<InGameMenu::StateSlot>(&command.payload);
+      if (!slot)
+        break;
+      SDL_assert(slot->value < NESRuntime::Data::MaxSaveStates);
+      OnLoadState(slot->value);
       CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kSaveState: {
-      SDL_assert(param < NESRuntime::Data::MaxSaveStates);
-      OnSaveState(param);
+      const auto* slot = std::get_if<InGameMenu::StateSlot>(&command.payload);
+      if (!slot)
+        break;
+      SDL_assert(slot->value < NESRuntime::Data::MaxSaveStates);
+      OnSaveState(slot->value);
     } break;
     case InGameMenu::MenuItem::kResetGame: {
       OnResetROM();
@@ -2044,7 +2079,6 @@ void MainWindow::OnInGameSettingsItemTrigger(
 
   switch (item) {
     case InGameMenu::SettingsItem::kVolume:
-      PlayEffect(audio_resources::AudioID::kSelect);
       if (go_left_ptr)
         OnInGameSettingsHandleVolume(*go_left_ptr);
       else
@@ -2063,6 +2097,8 @@ void MainWindow::OnInGameSettingsItemTrigger(
       auto iter =
           std::find(controllers.begin(), controllers.end(),
                     runtime_data_->joystick_mappings[player_index].which);
+      if (iter == controllers.end())
+        iter = controllers.begin();
       if (*go_left_ptr && iter != controllers.begin()) {
         SDL_GameController* next_controller = *(iter - 1);
         SetControllerMapping(runtime_data_, player_index, next_controller,

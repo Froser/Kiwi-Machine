@@ -13,7 +13,6 @@
 #include "ui/styles.h"
 
 #include "build/kiwi_defines.h"
-#include "ui/widgets/canvas.h"
 #include "utility/fonts.h"
 
 namespace styles {
@@ -71,38 +70,6 @@ PreferredFontSize GetPreferredFontSize(float window_scale) {
   return PreferredFontSize::k3x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
-#endif
-}
-
-int GetSnapshotThumbnailWidth(bool is_landscape, float window_scale) {
-#if KIWI_IOS
-  return Canvas::kNESFrameDefaultWidth / (is_landscape ? 2 : 3) * window_scale;
-#else
-  return Canvas::kNESFrameDefaultWidth / 3 * window_scale;
-#endif
-}
-
-int GetSnapshotThumbnailHeight(bool is_landscape, float window_scale) {
-#if KIWI_IOS
-  return Canvas::kNESFrameDefaultHeight / (is_landscape ? 2 : 3) * window_scale;
-#else
-  return Canvas::kNESFrameDefaultHeight / 3 * window_scale;
-#endif
-}
-
-int GetSnapshotPromptHeight(float window_scale) {
-#if KIWI_MOBILE
-  return 14 * window_scale;
-#else
-  return 7 * window_scale;
-#endif
-}
-
-int GetOptionsSpacing() {
-#if KIWI_IOS
-  return 7;
-#else
-  return 20;
 #endif
 }
 

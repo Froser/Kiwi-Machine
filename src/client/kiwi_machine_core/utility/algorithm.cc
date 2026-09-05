@@ -14,25 +14,70 @@
 
 #include <kiwi_nes.h>
 
-namespace {}
+namespace {
+
+// Returns the number of bytes of the UTF-8 code point starting at |lead|.
+// Falls back to 1 for invalid lead bytes so iteration always advances.
+size_t Utf8SequenceLength(unsigned char lead) {
+  if (lead < 0x80)
+    return 1;
+  if ((lead & 0xE0) == 0xC0)
+    return 2;
+  if ((lead & 0xF0) == 0xE0)
+    return 3;
+  if ((lead & 0xF8) == 0xF0)
+    return 4;
+  return 1;
+}
+
+// Splits a UTF-8 string into a list of code points (each kept as its raw byte
+// sequence). ASCII bytes are lower-cased so matching stays case-insensitive;
+// multi-byte code points (e.g. CJK) are preserved as-is.
+std::vector<std::string> SplitIntoCodePoints(const std::string& str) {
+  std::vector<std::string> code_points;
+  size_t i = 0;
+  while (i < str.size()) {
+    size_t len = Utf8SequenceLength(static_cast<unsigned char>(str[i]));
+    // Clamp to the remaining bytes to avoid reading past the end on malformed
+    // input.
+    if (i + len > str.size())
+      len = str.size() - i;
+    std::string cp = str.substr(i, len);
+    if (len == 1)
+      cp = kiwi::base::ToLowerASCII(cp);
+    code_points.push_back(std::move(cp));
+    i += len;
+  }
+  return code_points;
+}
+
+}  // namespace
 
 bool HasString(const std::string& s1, const std::string& s2) {
   if (s2.empty()) {
     return true;
   }
 
-  std::string src_string = kiwi::base::ToLowerASCII(s1);
-  std::string test_string = kiwi::base::ToLowerASCII(s2);
-  
+  // Match by UTF-8 code points instead of raw bytes, so that multi-byte
+  // characters (Chinese, Japanese, etc.) are compared as whole characters and
+  // never match across character boundaries.
+  std::vector<std::string> src = SplitIntoCodePoints(s1);
+  std::vector<std::string> test = SplitIntoCodePoints(s2);
+
   size_t pos = 0;
-  for (char c : test_string) {
-    pos = src_string.find(c, pos);
-    if (pos == std::string::npos) {
-      return false;
+  for (const std::string& cp : test) {
+    bool found = false;
+    for (; pos < src.size(); ++pos) {
+      if (src[pos] == cp) {
+        ++pos;
+        found = true;
+        break;
+      }
     }
-    ++pos;
+    if (!found)
+      return false;
   }
-  
+
   return true;
 }
 
