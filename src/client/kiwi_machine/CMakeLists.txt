@@ -70,6 +70,7 @@ if (APPLE)
     else ()
         set_target_properties(${PROJECT_NAME}
                 PROPERTIES
+                OUTPUT_NAME "Kiwi Machine"
                 MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/build/macos/Info.plist
                 RESOURCE "${Resources}"
         )
@@ -77,7 +78,7 @@ if (APPLE)
         add_custom_target(
                 "KiwiMachine_MakeDMG"
                 ALL
-                COMMAND hdiutil create ./KiwiMachine.dmg -volname "Kiwi Machine" -ov -srcfolder ./kiwi_machine.app
+                COMMAND hdiutil create ./KiwiMachine.dmg -volname "Kiwi Machine" -ov -srcfolder "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>"
                 WORKING_DIRECTORY "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/.."
         )
     endif ()

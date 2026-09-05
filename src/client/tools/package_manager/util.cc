@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2024 Yisi Yu
+// Copyright (C) 2024 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -1013,7 +1013,8 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
     }
 
 #if BUILDFLAG(IS_MAC)
-    kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine.app"));
+    kiwi::base::FilePath kiwi_machine(
+        FILE_PATH_LITERAL("Kiwi Machine.app"));
     if (!kiwi_machine_path_from_cmdline.empty())
       kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(kiwi_machine, {"--test-pak=" + package_path.AsUTF8Unsafe(),

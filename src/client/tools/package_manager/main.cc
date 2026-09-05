@@ -583,9 +583,19 @@ void PaintExplorer() {
                         kiwi_machine_path_from_cmdline =
                                 kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_km_path);
                     }
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_MAC)
                     kiwi::base::FilePath kiwi_machine(
-                        FILE_PATH_LITERAL("kiwi_machine.app"));
+                        FILE_PATH_LITERAL("Kiwi Machine.app"));
+                    if (!kiwi_machine_path_from_cmdline.empty())
+                        kiwi_machine = kiwi_machine_path_from_cmdline;
+                    RunExecutable(kiwi_machine,
+                                  {
+                                      "--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
+                                      "--enable_debug"
+                                  });
+#elif BUILDFLAG(IS_LINUX)
+                    kiwi::base::FilePath kiwi_machine(
+                        FILE_PATH_LITERAL("kiwi_machine"));
                     if (!kiwi_machine_path_from_cmdline.empty())
                         kiwi_machine = kiwi_machine_path_from_cmdline;
                     RunExecutable(kiwi_machine,

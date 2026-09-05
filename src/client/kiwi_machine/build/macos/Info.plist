@@ -5,7 +5,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Kiwi Machine</string>
 	<key>CFBundleExecutable</key>
-	<string>kiwi_machine</string>
+	<string>Kiwi Machine</string>
 	<key>CFBundleVersion</key>
 	<string>1.0.0</string>
 	<key>CFBundleIconFile</key>
