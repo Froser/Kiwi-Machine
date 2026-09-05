@@ -1,4 +1,44 @@
 {
+  "IDR_IN_GAME_MENU_PAUSED": {
+    "default": "Game Paused",
+    "zh": "游戏已暂停",
+    "ja": "一時停止"
+  },
+  "IDR_IN_GAME_MENU_CONFIRM_ACTION": {
+    "default": "Confirm Action",
+    "zh": "确认操作",
+    "ja": "操作の確認"
+  },
+  "IDR_IN_GAME_MENU_CONFIRM_RESET": {
+    "default": "Reset the current game?",
+    "zh": "确定要重置当前游戏吗？",
+    "ja": "現在のゲームをリセットしますか？"
+  },
+  "IDR_IN_GAME_MENU_CONFIRM_BACK_TO_MAIN": {
+    "default": "Return to the main menu?",
+    "zh": "确定要返回主菜单吗？",
+    "ja": "メインメニューに戻りますか？"
+  },
+  "IDR_IN_GAME_MENU_CANCEL": {
+    "default": "Cancel",
+    "zh": "取消",
+    "ja": "キャンセル"
+  },
+  "IDR_IN_GAME_MENU_CONFIRM": {
+    "default": "Confirm",
+    "zh": "确认",
+    "ja": "確認"
+  },
+  "IDR_IN_GAME_MENU_LOAD_THIS_STATE": {
+    "default": "Load This State",
+    "zh": "读取此快照",
+    "ja": "この記録を読み込む"
+  },
+  "IDR_IN_GAME_MENU_SAVE_TO_SLOT": {
+    "default": "Save To This Slot",
+    "zh": "保存到此槽位",
+    "ja": "このスロットに保存"
+  },
   "IDR_IN_GAME_MENU_CONTINUE": {
     "default": "Continue",
     "zh": "继续",

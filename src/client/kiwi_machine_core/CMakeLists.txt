@@ -214,7 +214,7 @@ add_custom_command(
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS resources/strings/files.json
+        DEPENDS resources/strings/files.json resources/strings/strings.json
         VERBATIM
 )
 

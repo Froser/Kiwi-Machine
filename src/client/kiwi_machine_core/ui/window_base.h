@@ -43,6 +43,7 @@ class WindowBase {
   SDL_Rect GetWindowBounds();
   SDL_Renderer* renderer() { return renderer_; }
   SDL_Window* native_window() { return window_; }
+  const std::string& title() const { return title_; }
 
   // Get the insets that you use to determine the safe area for this view.
   // SDL_Rect's x, y, width and height represents left, top, right, and bottom

@@ -224,7 +224,7 @@ class MainWindow : public WindowBase,
   void OnDebugNametable();
   void OnShowUiDemoWidget();
   void OnInGameMenuTrigger();
-  void OnInGameMenuItemTrigger(InGameMenu::MenuItem item, int param);
+  void OnInGameMenuItemTrigger(const InGameMenu::MenuCommand& command);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
                                    InGameMenu::SettingsItemValue value);
   void OnInGameSettingsHandleWindowSize(bool is_left);

@@ -37,10 +37,6 @@ int GetBadgeSize();
 namespace in_game_menu {
 
 PreferredFontSize GetPreferredFontSize(float window_scale);
-int GetSnapshotThumbnailWidth(bool is_landscape, float window_scale);
-int GetSnapshotThumbnailHeight(bool is_landscape, float window_scale);
-int GetSnapshotPromptHeight(float window_scale);
-int GetOptionsSpacing();
 
 }  // namespace in_game_menu
 
