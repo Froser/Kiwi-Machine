@@ -13,9 +13,12 @@
 #ifndef NES_PPU_H_
 #define NES_PPU_H_
 
+#include <array>
+
 #include "base/check.h"
 #include "nes/cpu_bus.h"
 #include "nes/emulator_states.h"
+#include "nes/palette.h"
 #include "nes/ppu_observer.h"
 #include "nes/ppu_patch.h"
 #include "nes/registers.h"
@@ -24,7 +27,6 @@
 namespace kiwi {
 namespace nes {
 class CPU;
-class Palette;
 class PPUBus;
 
 class PPU : public Device, public EmulatorStates::SerializableState {
@@ -69,6 +71,9 @@ class PPU : public Device, public EmulatorStates::SerializableState {
 
   void SetObserver(PPUObserver* observer);
   void RemoveObserver();
+  void SetStepObserverEnabled(bool enabled) {
+    step_observer_enabled_ = enabled;
+  }
   Byte ReadOAMData(Byte address);
 
  public:
@@ -116,6 +121,8 @@ class PPU : public Device, public EmulatorStates::SerializableState {
 
   ALWAYS_INLINE void NMIChange();
 
+  void SetPalette(PPUModel model);
+
  private:
   base::RepeatingClosure cpu_nmi_callback_;
   PPUBus* ppu_bus_ = nullptr;
@@ -134,13 +141,15 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   // contains a display list of up to 64 sprites, where each sprite's
   // information occupies 4 bytes.
   Byte sprite_memory_[64 * 4] = {0};
-  Bytes secondary_oam_;
+  std::array<Byte, 64> secondary_oam_{};
+  std::size_t secondary_oam_size_ = 0;
 
   PipelineState pipeline_state_ = PipelineState::kPreRender;
   int cycles_ = 0;
   int scanline_ = 0;
   bool is_even_frame_ = false;
   std::unique_ptr<Palette> palette_;
+  std::array<Color, Palette::kColorCount> palette_colors_{};
 
   enum { kMaxBufferSize = 2 };
   size_t current_buffer_index_ = 0;
@@ -150,6 +159,7 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   uint32_t crc_;
 
   PPUObserver* observer_ = nullptr;
+  bool step_observer_enabled_ = false;
 };
 
 }  // namespace nes

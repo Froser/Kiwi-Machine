@@ -16,6 +16,21 @@ namespace kiwi {
 namespace nes {
 namespace testing {
 
+class CountingDebugPort : public DebugPort {
+ public:
+  explicit CountingDebugPort(Emulator* emulator) : DebugPort(emulator) {}
+
+  void OnCPUBeforeStep(CPUDebugState&) override { ++before_step_count; }
+
+  void OnCPUStepped(const CPUContext&) override { ++stepped_count; }
+
+  void OnPPUStepped(const PPUContext&) override { ++ppu_stepped_count; }
+
+  int before_step_count = 0;
+  int stepped_count = 0;
+  int ppu_stepped_count = 0;
+};
+
 // Test for all_instrs.nes (tests all CPU instructions)
 class CpuInstructionsTest : public RomTest {
  protected:
@@ -45,6 +60,26 @@ TEST_F(CpuInstructionsTest, RunAllInstructions) {
     std::cout << "Test output:\n" << result.output << std::endl;
   }
   EXPECT_EQ(result.status, 0x00);
+}
+
+TEST_F(CpuInstructionsTest, NotifiesAttachedDebugPortWhenStepping) {
+  bool loaded = false;
+  emulator_->LoadFromFile(
+      GetRomPath(),
+      base::BindOnce([](bool* loaded, bool success) { *loaded = success; },
+                     &loaded));
+  ASSERT_TRUE(loaded);
+
+  auto debug_port = std::make_unique<CountingDebugPort>(emulator_.get());
+  CountingDebugPort* debug_port_ptr = debug_port.get();
+  emulator_->SetDebugPort(debug_port_ptr);
+
+  emulator_->Step();
+
+  EXPECT_EQ(debug_port_ptr->before_step_count, 1);
+  EXPECT_EQ(debug_port_ptr->stepped_count, 1);
+  EXPECT_EQ(debug_port_ptr->ppu_stepped_count, 3);
+  emulator_->SetDebugPort(nullptr);
 }
 
 }  // namespace testing

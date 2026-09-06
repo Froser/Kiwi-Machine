@@ -1,10 +1,10 @@
 // Copyright (C) 2023 Yisi Yu
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -20,20 +20,26 @@
 
 namespace kiwi {
 namespace nes {
-class NES_EXPORT Palette {
- public:
-  Palette();
-  virtual ~Palette();
-
-  virtual Color GetColorBGRA(int index) = 0;
-};
-
 enum class PPUModel {
   k2C02,
 };
 
+class NES_EXPORT Palette {
+ public:
+  static constexpr int kColorCount = 64;
+
+  explicit Palette(PPUModel model);
+  ~Palette();
+
+  Color GetColorBGRA(int index) const;
+
+ private:
+  PPUModel model_;
+  const Color* colors_ = nullptr;
+};
+
 std::unique_ptr<Palette> CreatePaletteFromPPUModel(PPUModel ppu);
-}  // namespace core
+}  // namespace nes
 }  // namespace kiwi
 
 #endif  // NES_PALETTE_H_

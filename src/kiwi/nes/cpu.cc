@@ -45,13 +45,13 @@ constexpr Byte kOperationMask = 0xe0;
 constexpr Byte kOperationShift = 5;
 
 #define IS_OPCODE_IN_BLOCK(opcode, block) \
-  (((opcode)&kInstructionModeMask) == (block))
+  (((opcode) & kInstructionModeMask) == (block))
 
 #define OPCODE_ROW_IN_BLOCK(opcode) \
-  (((opcode)&kOperationMask) >> kOperationShift)
+  (((opcode) & kOperationMask) >> kOperationShift)
 
 #define OPCODE_ADDRESS_MODE_IN_BLOCK(opcode) \
-  (((opcode)&kAddressModeMask) >> kAddressModeShift)
+  (((opcode) & kAddressModeMask) >> kAddressModeShift)
 
 #define IS_CROSSING_PAGE(a, b) ((a & 0xff00) != (b & 0xff00))
 }  // namespace
@@ -106,8 +106,11 @@ void CPU::Interrupt(InterruptType type) {
 
 void CPU::Step() {
   struct M2CylceIRQNotifier {
-    M2CylceIRQNotifier(CPUBus* cpu_bus) : cpu_bus_(cpu_bus) {}
-    ~M2CylceIRQNotifier() { cpu_bus_->GetMapper()->M2CycleIRQ(); }
+    explicit M2CylceIRQNotifier(CPUBus* cpu_bus) : cpu_bus_(cpu_bus) {}
+    ~M2CylceIRQNotifier() {
+      if (Mapper* mapper = cpu_bus_->GetM2CycleIRQMapper())
+        mapper->M2CycleIRQ();
+    }
     CPUBus* cpu_bus_;
   } notifier(cpu_bus_);
 

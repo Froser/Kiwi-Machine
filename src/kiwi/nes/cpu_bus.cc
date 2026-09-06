@@ -25,6 +25,7 @@ CPUBus::~CPUBus() = default;
 void CPUBus::SetMapper(Mapper* mapper) {
   DCHECK(mapper);
   mapper_ = mapper;
+  m2_cycle_irq_mapper_ = mapper->NeedsM2CycleIRQ() ? mapper : nullptr;
 }
 
 Mapper* CPUBus::GetMapper() {
@@ -100,7 +101,6 @@ bool CPUBus::Deserialize(const EmulatorStates::Header& header,
 Word CPUBus::ReadWord(Address address) {
   return Read(address) | Read(address + 1) << 8;
 }
-
 
 }  // namespace nes
 }  // namespace kiwi

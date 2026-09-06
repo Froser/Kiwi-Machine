@@ -53,8 +53,7 @@ struct MapperFactoryBuilder : MapperFactory {
   }
 };
 
-#define MAPPER(mapper, type) \
-  { mapper, new MapperFactoryBuilder<type, mapper>() }
+#define MAPPER(mapper, type) {mapper, new MapperFactoryBuilder<type, mapper>()}
 
 // Leaks mappers by purpose.
 std::map<Byte, MapperFactory*> mapper_factories = {
@@ -81,6 +80,10 @@ NametableMirroring Mapper::GetNametableMirroring() {
 void Mapper::Reset() {}
 
 void Mapper::ScanlineIRQ(int scanline, bool render_enabled) {}
+
+bool Mapper::NeedsM2CycleIRQ() const {
+  return false;
+}
 
 void Mapper::M2CycleIRQ() {}
 

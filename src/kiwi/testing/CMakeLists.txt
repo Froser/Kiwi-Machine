@@ -19,6 +19,9 @@ set(Sources
     rom_test.cc
 
     ../nes/cpu_unittest.cc
+    ../nes/palette_unittest.cc
+    ../nes/ppu_unittest.cc
+    ../nes/ppu_bus_unittest.cc
 )
 
 # Create test executable

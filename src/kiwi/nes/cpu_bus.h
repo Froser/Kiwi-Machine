@@ -35,6 +35,7 @@ class CPUBus : public EmulatorStates::SerializableState {
   // Bus:
   void SetMapper(Mapper* mapper);
   Mapper* GetMapper();
+  Mapper* GetM2CycleIRQMapper() { return m2_cycle_irq_mapper_; }
   Byte Read(Address address);
   void Write(Address address, Byte value);
   Byte* GetPagePointer(Byte page);
@@ -50,6 +51,7 @@ class CPUBus : public EmulatorStates::SerializableState {
 
  private:
   Mapper* mapper_ = nullptr;
+  Mapper* m2_cycle_irq_mapper_ = nullptr;
   Device* ppu_ = nullptr;
   Device* emulator_ = nullptr;
   Byte ram_[0x800] = {0};
