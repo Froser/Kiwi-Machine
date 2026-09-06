@@ -29,10 +29,6 @@
 class MainWindow;
 class InGameMenu : public Widget {
  public:
-  enum {
-    kMaxScaling = 4,
-  };
-
   enum class MenuItem {
     kContinue,
     kLoadAutoSave,
@@ -47,7 +43,7 @@ class InGameMenu : public Widget {
 
   enum class SettingsItem {
     kVolume,
-    kWindowSize,
+    kWindowMode,
     kJoyP1,
     kJoyP2,
     kLanguage,

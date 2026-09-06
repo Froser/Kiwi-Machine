@@ -14,6 +14,9 @@
 
 #include <gflags/gflags.h>
 
+#include <algorithm>
+#include <cstdint>
+
 #include "base/files/file_util.h"
 #include "build/kiwi_defines.h"
 #include "debug/debug_roms.h"
@@ -68,6 +71,8 @@ constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
 constexpr int kSideMenuAnimationMs = 50;
 constexpr int kSplashTimeoutMs = 2000;
+constexpr float kMinUIScale = 1.f;
+constexpr float kMaxUIScale = 4.f;
 
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
@@ -146,6 +151,31 @@ int CalculateWindowHeight(float window_scale, Widget* menu_bar = nullptr) {
   }
 
   return kDefaultWindowHeight * window_scale;
+}
+
+SDL_Rect FitRectPreservingAspect(const SDL_Rect& bounds,
+                                 int content_width,
+                                 int content_height) {
+  if (bounds.w <= 0 || bounds.h <= 0 || content_width <= 0 ||
+      content_height <= 0) {
+    return SDL_Rect{bounds.x, bounds.y, 0, 0};
+  }
+
+  int width;
+  int height;
+  if (static_cast<int64_t>(bounds.w) * content_height <=
+      static_cast<int64_t>(bounds.h) * content_width) {
+    width = bounds.w;
+    height = static_cast<int>(
+        static_cast<int64_t>(width) * content_height / content_width);
+  } else {
+    height = bounds.h;
+    width = static_cast<int>(
+        static_cast<int64_t>(height) * content_width / content_height);
+  }
+
+  return SDL_Rect{bounds.x + (bounds.w - width) / 2,
+                  bounds.y + (bounds.h - height) / 2, width, height};
 }
 
 class StringUpdater : public LocalizedStringUpdater {
@@ -292,8 +322,13 @@ MainWindow::MainWindow(const std::string& title,
     : WindowBase(title,
                  CalculateWindowWidth(config->data().window_scale),
                  CalculateWindowHeight(config->data().window_scale)),
+      runtime_id_(runtime_id),
       config_(config),
-      runtime_id_(runtime_id) {
+      ui_scale_(config->data().window_scale) {
+#if !KIWI_MOBILE && !KIWI_WASM
+  SDL_SetWindowMinimumSize(native_window(), kDefaultWindowWidth,
+                           kDefaultWindowHeight);
+#endif
 #if KIWI_WASM
   // Only one main window instance should exist in WASM.
   SDL_assert(!g_main_window_instance);
@@ -643,13 +678,23 @@ void MainWindow::OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) {
 }
 
 void MainWindow::HandleResizedEvent() {
+  UpdateUIScale();
+
+#if !KIWI_MOBILE
+  const bool native_fullscreen =
+      (SDL_GetWindowFlags(native_window()) & SDL_WINDOW_FULLSCREEN) != 0;
+  if (config_->data().is_fullscreen != native_fullscreen) {
+    config_->data().is_fullscreen = native_fullscreen;
+    config_->SaveConfig();
+  }
+#endif
+
   if (main_stack_widget_) {
     FillLayout(this, main_stack_widget_);
   }
 
   if (side_menu_) {
-    SDL_Rect client_bounds = GetClientBounds();
-    FlexLayout();
+    FlexLayout(false);
   }
 
   if (in_game_menu_) {
@@ -665,17 +710,6 @@ void MainWindow::HandleResizedEvent() {
   }
 
   LayoutVirtualTouchButtons();
-
-  if (is_fullscreen()) {
-    // Calculate fullscreen's frame scale, and set.
-    SDL_Rect client_bounds = GetClientBounds();
-    float scale = static_cast<float>(client_bounds.h) / kDefaultWindowWidth;
-    if (config_->data().window_scale != scale) {
-      config_->data().window_scale = scale;
-      config_->SaveConfig();
-      OnScaleChanged();
-    }
-  }
 
   WindowBase::HandleResizedEvent();
 }
@@ -721,41 +755,13 @@ void MainWindow::Render() {
 #if !KIWI_MOBILE
 void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
                                       scoped_refptr<NESFrame> frame) {
-  // Always adjusts the canvas to the middle of the render area (excludes menu
-  // bar).
   SDL_Rect render_bounds = GetClientBounds();
-
-  if (!is_fullscreen()) {
-    SDL_Rect src_rect = {0, 0, frame->width(), frame->height()};
-    SDL_Rect dest_rect = {
-        static_cast<int>(
-            (render_bounds.w - src_rect.w * canvas->frame_scale()) / 2) +
-            render_bounds.x,
-        static_cast<int>(
-            (render_bounds.h - src_rect.h * canvas->frame_scale()) / 2) +
-            render_bounds.y,
-        static_cast<int>(frame->width() * canvas->frame_scale()),
-        static_cast<int>(frame->height() * canvas->frame_scale())};
-    canvas->set_bounds(dest_rect);
-  } else {
-    bool horizontal_screen = render_bounds.w > render_bounds.h;
-    int dest_width, dest_height;
-    if (horizontal_screen) {
-      dest_height = render_bounds.h;
-      dest_width = static_cast<float>(Canvas::kNESFrameDefaultWidth) /
-                   Canvas::kNESFrameDefaultHeight * dest_height;
-    } else {
-      dest_width = render_bounds.w;
-      dest_height = static_cast<float>(Canvas::kNESFrameDefaultHeight) /
-                    Canvas::kNESFrameDefaultWidth * dest_width;
-    }
-
-    SDL_Rect dest_rect = {
-        static_cast<int>((render_bounds.w - dest_width) / 2) + render_bounds.x,
-        static_cast<int>((render_bounds.h - dest_height) / 2) + render_bounds.y,
-        dest_width, dest_height};
-    canvas->set_bounds(dest_rect);
-  }
+  SDL_Rect dest_rect =
+      FitRectPreservingAspect(render_bounds, frame->width(), frame->height());
+  canvas->set_frame_scale(
+      std::min(static_cast<float>(dest_rect.w) / frame->width(),
+               static_cast<float>(dest_rect.h) / frame->height()));
+  canvas->set_bounds(dest_rect);
 }
 #endif
 
@@ -1109,10 +1115,9 @@ void MainWindow::InitializeUI() {
   }
 
 #if !KIWI_MOBILE
-  OnScaleChanged();
-  HandleResizedEvent();
   if (is_fullscreen())
     OnSetFullscreen();
+  HandleResizedEvent();
 #else
   OnScaleModeChanged();
 #endif
@@ -1215,19 +1220,24 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
          kiwi::base::BindRepeating(&MainWindow::IsAudioEnabled,
                                    kiwi::base::Unretained(this))});
 
-    // Screen size
+    // Window mode
     {
-      MenuBar::MenuItem screen_size;
-      screen_size.title = "Screen size";
-      for (int i = 2; i <= 4; ++i) {
-        screen_size.sub_items.push_back(
-            {kiwi::base::NumberToString(i) + "x",
-             kiwi::base::BindRepeating(&MainWindow::OnSetScreenScale,
-                                       kiwi::base::Unretained(this), i),
-             kiwi::base::BindRepeating(&MainWindow::ScreenScaleIs,
-                                       kiwi::base::Unretained(this), i)});
-      }
-      emulator.menu_items.push_back(std::move(screen_size));
+      MenuBar::MenuItem window_mode;
+      window_mode.title = "Window mode";
+      window_mode.sub_items.push_back(
+          {"Windowed",
+           kiwi::base::BindRepeating(&MainWindow::OnUnsetFullscreen,
+                                     kiwi::base::Unretained(this)),
+           kiwi::base::BindRepeating(
+               [](MainWindow* window) { return !window->is_fullscreen(); },
+               kiwi::base::Unretained(this))});
+      window_mode.sub_items.push_back(
+          {"Fullscreen",
+           kiwi::base::BindRepeating(&MainWindow::OnSetFullscreen,
+                                     kiwi::base::Unretained(this)),
+           kiwi::base::BindRepeating(&MainWindow::is_fullscreen,
+                                     kiwi::base::Unretained(this))});
+      emulator.menu_items.push_back(std::move(window_mode));
     }
 
     // Controllers
@@ -1432,14 +1442,18 @@ void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
   SetLoading(false);
 }
 
-void MainWindow::OnScaleChanged() {
-  if (!is_fullscreen()) {
-    Resize(CalculateWindowWidth(window_scale()),
-           CalculateWindowHeight(window_scale(), menu_bar_));
-  }
-
-  if (canvas_)
-    canvas_->set_frame_scale(window_scale());
+void MainWindow::UpdateUIScale() {
+#if !KIWI_MOBILE
+  SDL_Rect client_bounds = GetClientBounds();
+  const float width_scale =
+      static_cast<float>(client_bounds.w) / kDefaultWindowWidth;
+  const float height_scale =
+      static_cast<float>(client_bounds.h) / kDefaultWindowHeight;
+  ui_scale_ =
+      std::clamp(std::min(width_scale, height_scale), kMinUIScale, kMaxUIScale);
+#else
+  ui_scale_ = config_->data().window_scale;
+#endif
 }
 
 void MainWindow::UpdateGameControllerMapping() {
@@ -1543,9 +1557,8 @@ void MainWindow::CloseInGameMenu() {
   in_game_menu_->Close();
 }
 
-void MainWindow::FlexLayout() {
+void MainWindow::FlexLayout(bool animate) {
   SDL_Rect client_bounds = GetClientBounds();
-  side_menu_timer_.Reset();
   int left_width = side_menu_->GetSuggestedCollapsedWidth();
   int right_width = client_bounds.w - left_width;
 
@@ -1555,12 +1568,20 @@ void MainWindow::FlexLayout() {
           ? side_menu_->GetMinExtendedWidth()
           : client_bounds.w * .15f;
 
-  if (side_menu_->activate()) {
-    side_menu_original_width_ = left_width;
-    side_menu_target_width_ = extended_width;
+  side_menu_target_width_ =
+      side_menu_->activate() ? extended_width : left_width;
+  if (animate) {
+    side_menu_timer_.Reset();
+    side_menu_original_width_ = side_menu_->bounds().w;
+    if (side_menu_original_width_ <= 0) {
+      side_menu_original_width_ =
+          side_menu_->activate() ? left_width : extended_width;
+    }
   } else {
-    side_menu_original_width_ = extended_width;
-    side_menu_target_width_ = left_width;
+    side_menu_original_width_ = side_menu_target_width_;
+    side_menu_->set_bounds(
+        SDL_Rect{0, 0, side_menu_target_width_, client_bounds.h});
+    side_menu_->invalidate();
   }
 
   contents_card_widget_->set_bounds(
@@ -1945,35 +1966,33 @@ bool MainWindow::IsRenderPaused() {
   return runtime_data_->debug_port->render_paused();
 }
 
-void MainWindow::OnSetScreenScale(float scale) {
-  if (config_->data().window_scale != scale) {
-    config_->data().window_scale = scale;
-    config_->SaveConfig();
-    OnScaleChanged();
-  }
-}
-
 void MainWindow::OnSetFullscreen() {
+  if (SDL_GetWindowFlags(native_window()) & SDL_WINDOW_FULLSCREEN)
+    return;
+
+  if (SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN_DESKTOP) !=
+      0) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "Failed to enter fullscreen: %s", SDL_GetError());
+    return;
+  }
+
   config_->data().is_fullscreen = true;
-  config_->data().window_scale = InGameMenu::kMaxScaling;
   config_->SaveConfig();
-
-  SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN_DESKTOP);
-  OnScaleChanged();
 }
 
-void MainWindow::OnUnsetFullscreen(float scale) {
+void MainWindow::OnUnsetFullscreen() {
+  if (!(SDL_GetWindowFlags(native_window()) & SDL_WINDOW_FULLSCREEN))
+    return;
+
+  if (SDL_SetWindowFullscreen(native_window(), 0) != 0) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "Failed to leave fullscreen: %s", SDL_GetError());
+    return;
+  }
+
   config_->data().is_fullscreen = false;
-  config_->data().window_scale = scale;
   config_->SaveConfig();
-  SDL_SetWindowFullscreen(native_window(), 0);
-  OnScaleChanged();
-}
-
-bool MainWindow::ScreenScaleIs(float scale) {
-  SDL_assert(canvas_);
-  SDL_assert(window_scale() == canvas_->frame_scale());
-  return canvas_->frame_scale() == scale;
 }
 
 void MainWindow::OnTogglePaletteWidget() {
@@ -2084,9 +2103,9 @@ void MainWindow::OnInGameSettingsItemTrigger(
       else
         OnSetAudioVolume(*value_ptr);
       break;
-    case InGameMenu::SettingsItem::kWindowSize:
+    case InGameMenu::SettingsItem::kWindowMode:
       SDL_assert(go_left_ptr);
-      OnInGameSettingsHandleWindowSize(*go_left_ptr);
+      OnInGameSettingsHandleWindowMode(*go_left_ptr);
       break;
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
@@ -2133,29 +2152,12 @@ void MainWindow::OnInGameSettingsItemTrigger(
 }
 
 #if !KIWI_MOBILE
-void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
+void MainWindow::OnInGameSettingsHandleWindowMode(bool is_left) {
 #if !KIWI_WASM  // Disable window settings. It should be handled by <canvas>.
-  if (is_fullscreen() && !is_left)
-    return;
-
-  if (is_fullscreen() && is_left) {
-    OnUnsetFullscreen(InGameMenu::kMaxScaling);
-  } else {
-    int scale = window_scale();
-    scale = (is_left ? scale - 1 : scale + 1);
-    if (scale < 2) {
-      scale = 2;
-      OnSetScreenScale(scale);
-    } else if (scale > InGameMenu::kMaxScaling) {
-      // There's an issue(perhaps a bug) on Emscripten when set fullscreen.
-      // "Operation does not support unaligned accesses" at
-      // wasm.emscripten_thread_mailbox_ref.
-      // So fullscreen is disabled here.
-      OnSetFullscreen();
-    } else {
-      OnSetScreenScale(scale);
-    }
-  }
+  if (is_left)
+    OnUnsetFullscreen();
+  else
+    OnSetFullscreen();
 #endif
 }
 

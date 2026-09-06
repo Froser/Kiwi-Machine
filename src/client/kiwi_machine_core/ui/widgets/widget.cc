@@ -71,7 +71,7 @@ void Widget::Render() {
         // bounds when rendering.
         SDL_Rect bounds_to_parent = MapToWindow(bounds_);
         ImGui::SetNextWindowPos(ImVec2(bounds_to_parent.x, bounds_to_parent.y),
-                                ImGuiCond_Once);
+                                ImGuiCond_Always);
         if (bounds_to_parent.w > 0 && bounds_to_parent.h > 0) {
           ImGui::SetNextWindowSize(
               ImVec2(bounds_to_parent.w, bounds_to_parent.h));

@@ -103,7 +103,7 @@ class MainWindow : public WindowBase,
   std::string GetSaveStateThumbnail_WASM(int slot);
 #endif
 
-  float window_scale() { return config_->data().window_scale; }
+  float window_scale() { return ui_scale_; }
   bool is_fullscreen() { return config_->data().is_fullscreen; }
   bool IsLandscape();
 #if KIWI_MOBILE
@@ -152,7 +152,7 @@ class MainWindow : public WindowBase,
   std::vector<MenuBar::Menu> GetMenuModel();
   void SetLoading(bool is_loading);
   void ShowMainMenu(bool show, bool load_from_finger_gesture);
-  void OnScaleChanged();
+  void UpdateUIScale();
   void UpdateGameControllerMapping();
   void CreateVirtualTouchButtons();
   void LayoutVirtualTouchButtons();
@@ -167,7 +167,7 @@ class MainWindow : public WindowBase,
   bool IsVirtualJoystickButtonPressed(int which,
                                       kiwi::nes::ControllerButton button);
   void CloseInGameMenu();
-  void FlexLayout();
+  void FlexLayout(bool animate = true);
   FlexItemsWidget* GetMainItemsWidget();
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
@@ -209,10 +209,8 @@ class MainWindow : public WindowBase,
   bool IsAudioChannelOn(kiwi::nes::AudioChannel which_mask);
   void OnToggleRenderPaused();
   bool IsRenderPaused();
-  void OnSetScreenScale(float scale);
   void OnSetFullscreen();
-  void OnUnsetFullscreen(float scale);
-  bool ScreenScaleIs(float scale);
+  void OnUnsetFullscreen();
   void OnTogglePaletteWidget();
   bool IsPaletteWidgetShown();
   void OnTogglePatternWidget();
@@ -227,7 +225,7 @@ class MainWindow : public WindowBase,
   void OnInGameMenuItemTrigger(const InGameMenu::MenuCommand& command);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
                                    InGameMenu::SettingsItemValue value);
-  void OnInGameSettingsHandleWindowSize(bool is_left);
+  void OnInGameSettingsHandleWindowMode(bool is_left);
   void OnInGameSettingsHandleVolume(bool is_left);
   void OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
                                     const SDL_Point& trigger_point);
@@ -310,6 +308,7 @@ class MainWindow : public WindowBase,
   NESRuntime::Data* runtime_data_ = nullptr;
   std::unique_ptr<NESAudio> audio_;
   scoped_refptr<NESConfig> config_;
+  float ui_scale_ = 1.f;
 
   bool virtual_controller_button_states_[2][static_cast<int>(
       kiwi::nes::ControllerButton::kMax)]{false};
