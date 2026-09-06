@@ -142,7 +142,13 @@ void WindowBase::Resize(int width, int height) {
   SDL_assert(window_);
   int current_width, current_height;
   SDL_GetWindowSize(window_, &current_width, &current_height);
+#if KIWI_MOBILE
+  // Mobile canvas sizing must not replace a portrait window with the
+  // canvas-sized logical bounds when only its height differs.
+  if (current_width != width && current_height != height) {
+#else
   if (current_width != width || current_height != height) {
+#endif
     SDL_SetWindowSize(window_, width, height);
   }
 }

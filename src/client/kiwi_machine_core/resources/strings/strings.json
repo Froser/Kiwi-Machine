@@ -94,6 +94,11 @@
     "zh": "窗口模式",
     "ja": "ウィンドウモード"
   },
+  "IDR_IN_GAME_MENU_SCALING_MODE": {
+    "default": "Scaling Mode",
+    "zh": "缩放模式",
+    "ja": "スケーリングモード"
+  },
   "IDR_IN_GAME_MENU_JOYSTICKS": {
     "default": "Joysticks",
     "zh": "游戏手柄",

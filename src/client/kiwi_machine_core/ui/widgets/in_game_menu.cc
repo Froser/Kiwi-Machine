@@ -63,7 +63,11 @@ constexpr std::array<int, 7> kMenuStringIds = {
 
 constexpr std::array<int, 5> kSettingsStringIds = {
     string_resources::IDR_IN_GAME_MENU_VOLUME,
+#if KIWI_MOBILE
+    string_resources::IDR_IN_GAME_MENU_SCALING_MODE,
+#else
     string_resources::IDR_IN_GAME_MENU_WINDOW_MODE,
+#endif
     string_resources::IDR_IN_GAME_MENU_P1,
     string_resources::IDR_IN_GAME_MENU_P2,
     string_resources::IDR_IN_GAME_MENU_LANGUAGE,
