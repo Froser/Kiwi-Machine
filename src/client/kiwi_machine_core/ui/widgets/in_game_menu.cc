@@ -63,7 +63,7 @@ constexpr std::array<int, 7> kMenuStringIds = {
 
 constexpr std::array<int, 5> kSettingsStringIds = {
     string_resources::IDR_IN_GAME_MENU_VOLUME,
-    string_resources::IDR_IN_GAME_MENU_WINDOW_SIZE,
+    string_resources::IDR_IN_GAME_MENU_WINDOW_MODE,
     string_resources::IDR_IN_GAME_MENU_P1,
     string_resources::IDR_IN_GAME_MENU_P2,
     string_resources::IDR_IN_GAME_MENU_LANGUAGE,
@@ -1815,14 +1815,13 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
       return direction == StepDirection::kPrevious ? volume > 0.f
                                                    : volume < 1.f;
     }
-    case SettingsItem::kWindowSize:
+    case SettingsItem::kWindowMode:
 #if !KIWI_MOBILE
 #if KIWI_WASM
       return false;
 #else
       return direction == StepDirection::kPrevious
-                 ? main_window_->is_fullscreen() ||
-                       main_window_->window_scale() > 2.f
+                 ? main_window_->is_fullscreen()
                  : !main_window_->is_fullscreen();
 #endif
 #else
@@ -1869,21 +1868,13 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
               100.f)));
       return buffer;
     }
-    case SettingsItem::kWindowSize:
+    case SettingsItem::kWindowMode:
 #if !KIWI_MOBILE
       if (main_window_->is_fullscreen()) {
         return GetLocalizedString(
             string_resources::IDR_IN_GAME_MENU_FULLSCREEN);
       }
-      switch (std::clamp(static_cast<int>(main_window_->window_scale()), 2,
-                         static_cast<int>(kMaxScaling))) {
-        case 2:
-          return GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SMALL);
-        case 3:
-          return GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NORMAL);
-        default:
-          return GetLocalizedString(string_resources::IDR_IN_GAME_MENU_LARGE);
-      }
+      return GetLocalizedString(string_resources::IDR_IN_GAME_MENU_WINDOWED);
 #else
       return GetLocalizedString(
           main_window_->is_stretch_mode()

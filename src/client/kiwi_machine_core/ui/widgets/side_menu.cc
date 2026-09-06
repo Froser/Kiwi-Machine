@@ -197,11 +197,10 @@ void SideMenu::AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
 }
 
 int SideMenu::GetSuggestedCollapsedWidth() {
-  if (items_bounds_map_.empty())
-    return 0;
-
-  return (items_bounds_map_[0].x + SCALED(kIconSpacing)) * 2 +
-         items_bounds_map_[0].h * kIconSizeScale;
+  const int item_x = SCALED(kItemSpacing.x);
+  const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
+  return (item_x + SCALED(kIconSpacing)) * 2 +
+         item_height * kIconSizeScale;
 }
 
 int SideMenu::GetMinExtendedWidth() {

@@ -75,12 +75,14 @@ class WindowBase {
   virtual void OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event);
 
  private:
+  static int HandleLiveResizeEvent(void* userdata, SDL_Event* event);
   void RemovePendingWidgets();
 
  private:
   SDL_Window* window_ = nullptr;
   SDL_Renderer* renderer_ = nullptr;
   bool is_rendering_ = false;
+  SDL_threadID main_thread_id_ = 0;
   Widget::Widgets widgets_;
   std::set<Widget*> widgets_to_be_removed_;
   std::string title_;

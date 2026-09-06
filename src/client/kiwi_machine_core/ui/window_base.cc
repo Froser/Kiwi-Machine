@@ -27,7 +27,8 @@ WindowBase::WindowBase(const std::string& title,
 #if !KIWI_MOBILE
   window_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
                              SDL_WINDOWPOS_CENTERED, window_width,
-                             window_height, SDL_WINDOW_ALLOW_HIGHDPI);
+                             window_height,
+                             SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
 #elif KIWI_IOS
   window_ = SDL_CreateWindow(
       nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width,
@@ -51,9 +52,17 @@ WindowBase::WindowBase(const std::string& title,
 
   ImGui_ImplSDL2_InitForSDLRenderer(window_, renderer_);
   ImGui_ImplSDLRenderer2_Init(renderer_);
+
+#if BUILDFLAG(IS_MAC)
+  main_thread_id_ = SDL_ThreadID();
+  SDL_AddEventWatch(&WindowBase::HandleLiveResizeEvent, this);
+#endif
 }
 
 WindowBase::~WindowBase() {
+#if BUILDFLAG(IS_MAC)
+  SDL_DelEventWatch(&WindowBase::HandleLiveResizeEvent, this);
+#endif
   Application::Get()->RemoveWindowFromEventHandler(this);
   ImGui_ImplSDLRenderer2_Shutdown();
   ImGui_ImplSDL2_Shutdown();
@@ -133,7 +142,7 @@ void WindowBase::Resize(int width, int height) {
   SDL_assert(window_);
   int current_width, current_height;
   SDL_GetWindowSize(window_, &current_width, &current_height);
-  if (current_width != width && current_height != height) {
+  if (current_width != width || current_height != height) {
     SDL_SetWindowSize(window_, width, height);
   }
 }
@@ -278,11 +287,28 @@ void WindowBase::OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) {}
 
 void WindowBase::Render() {
   is_rendering_ = true;
+  SDL_SetRenderDrawColor(renderer_, 0x00, 0x00, 0x00, 0xff);
   SDL_RenderClear(renderer_);
   RenderWidgets();
   is_rendering_ = false;
 
   RemovePendingWidgets();
+}
+
+int WindowBase::HandleLiveResizeEvent(void* userdata, SDL_Event* event) {
+#if BUILDFLAG(IS_MAC)
+  auto* window = static_cast<WindowBase*>(userdata);
+  if (event->type == SDL_WINDOWEVENT &&
+      event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED &&
+      event->window.windowID == window->GetWindowID() &&
+      SDL_ThreadID() == window->main_thread_id_ && !window->is_rendering_) {
+    // Cocoa runs a nested event loop while the user drags a window edge.
+    // Render from the event watcher so layout tracks every intermediate size.
+    window->HandleResizedEvent();
+    window->Render();
+  }
+#endif
+  return 1;
 }
 
 void WindowBase::HandleTouchFingerEvent(SDL_TouchFingerEvent* event) {

@@ -89,10 +89,10 @@
     "zh": "音量",
     "ja": "ボリューム"
   },
-  "IDR_IN_GAME_MENU_WINDOW_SIZE": {
-    "default": "Window Size",
-    "zh": "窗口大小",
-    "ja": "ウィンドウサイズ"
+  "IDR_IN_GAME_MENU_WINDOW_MODE": {
+    "default": "Window Mode",
+    "zh": "窗口模式",
+    "ja": "ウィンドウモード"
   },
   "IDR_IN_GAME_MENU_JOYSTICKS": {
     "default": "Joysticks",
@@ -128,6 +128,11 @@
     "default": "Fullscreen",
     "zh": "全屏",
     "ja": "フルスクリーン"
+  },
+  "IDR_IN_GAME_MENU_WINDOWED": {
+    "default": "Windowed",
+    "zh": "窗口",
+    "ja": "ウィンドウ"
   },
   "IDR_IN_GAME_MENU_NONE": {
     "default": "None",
