@@ -23,8 +23,17 @@
 
 class TouchButton : public Widget {
  public:
+  enum class VisualStyle {
+    kImage,
+    kActionA,
+    kActionB,
+    kActionAB,
+    kPause,
+  };
+
   explicit TouchButton(WindowBase* window_base,
-                       image_resources::ImageID image_id);
+                       image_resources::ImageID image_id,
+                       VisualStyle visual_style = VisualStyle::kImage);
   ~TouchButton() override;
 
   void set_finger_down_callback(const kiwi::base::RepeatingClosure& callback) {
@@ -66,6 +75,7 @@ class TouchButton : public Widget {
   int texture_width_ = 0;
   int texture_height_ = 0;
   image_resources::ImageID image_id_;
+  VisualStyle visual_style_ = VisualStyle::kImage;
   std::map<int, TouchDetail> triggered_fingers_;
   ButtonState button_state_ = ButtonState::kNormal;
   float opacity_ = .75f;

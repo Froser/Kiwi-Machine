@@ -143,6 +143,14 @@ float GetMenuFontScale(PreferredFontSize size) {
   return size == PreferredFontSize::k1x ? 1.f : kLargeMenuFontScale;
 }
 
+float GetMenuHorizontalPadding(float layout_padding) {
+#if KIWI_MOBILE
+  return std::max(12.f, layout_padding * .5f);
+#else
+  return layout_padding;
+#endif
+}
+
 ImVec2 MeasureText(const std::string& text,
                    PreferredFontSize font_size,
                    float wrap_width,
@@ -563,10 +571,24 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
 
   const float candidate_margin = std::min(32.f, std::max(16.f, 24.f * scale));
   SDL_Rect candidate_panel = InsetRect(layout.safe_area, candidate_margin);
+#if KIWI_MOBILE
+  const float menu_horizontal_padding =
+      GetMenuHorizontalPadding(layout.padding);
+  const float chevron_width = std::max(36.f, layout.font_height);
+  const float navigation_width =
+      std::max(190.f * scale, widest_menu_item + chevron_width +
+                                  menu_horizontal_padding * 4.f);
+#else
   const float navigation_width =
       std::max(190.f * scale, widest_menu_item + layout.padding * 3.f);
+#endif
+#if KIWI_MOBILE
+  const float detail_min_width =
+      std::max(240.f * scale, layout.font_height * 10.f);
+#else
   const float detail_min_width =
       std::max(300.f * scale, layout.font_height * 15.f);
+#endif
   layout.mode = candidate_panel.w >= navigation_width + detail_min_width &&
                         candidate_panel.w > candidate_panel.h * 1.1f
                     ? LayoutMode::kTwoPane
@@ -614,8 +636,12 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
                                     layout.header_title.w, subtitle_height);
 
   if (layout.mode == LayoutMode::kTwoPane) {
+#if KIWI_MOBILE
+    const float resolved_navigation_width = navigation_width;
+#else
     const float resolved_navigation_width =
         std::min(navigation_width, layout.content.w * .42f);
+#endif
     layout.navigation = MakeRect(layout.content.x, layout.content.y,
                                  resolved_navigation_width, layout.content.h);
     layout.detail =
@@ -660,8 +686,13 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
 
 void InGameMenu::LayoutMenu(const FrameText& text, FrameLayout& layout) {
   std::array<float, kMenuItemCount> row_heights = {};
+  const float horizontal_padding = GetMenuHorizontalPadding(layout.padding);
+#if KIWI_MOBILE
+  const float text_width = 0.f;
+#else
   const float text_width =
       std::max(1.f, layout.navigation.w - layout.padding * 3.f);
+#endif
   const float menu_font_scale = GetMenuFontScale(layout.font_size);
   float top_height = 0.f;
   float bottom_height = 0.f;
@@ -705,9 +736,9 @@ void InGameMenu::LayoutMenu(const FrameText& text, FrameLayout& layout) {
   for (size_t i = 0; i <= ToIndex(MenuItem::kOptions); ++i) {
     if (!menu_item_visible_[i])
       continue;
-    layout.menu_items[i] =
-        MakeRect(layout.navigation.x + layout.padding, top_y,
-                 layout.navigation.w - layout.padding * 2.f, row_heights[i]);
+    layout.menu_items[i] = MakeRect(
+        layout.navigation.x + horizontal_padding, top_y,
+        layout.navigation.w - horizontal_padding * 2.f, row_heights[i]);
     top_y += row_heights[i] + kRowGap;
   }
 
@@ -719,9 +750,9 @@ void InGameMenu::LayoutMenu(const FrameText& text, FrameLayout& layout) {
        i <= ToIndex(MenuItem::kToGameSelection); ++i) {
     if (!menu_item_visible_[i])
       continue;
-    layout.menu_items[i] =
-        MakeRect(layout.navigation.x + layout.padding, bottom_y,
-                 layout.navigation.w - layout.padding * 2.f, row_heights[i]);
+    layout.menu_items[i] = MakeRect(
+        layout.navigation.x + horizontal_padding, bottom_y,
+        layout.navigation.w - horizontal_padding * 2.f, row_heights[i]);
     bottom_y += row_heights[i] + kRowGap;
   }
 }
@@ -951,16 +982,26 @@ void InGameMenu::DrawMenu(const FrameText& text, const FrameLayout& layout) {
       text_color = kBrandOnColor;
     else if (danger)
       text_color = kDangerColor;
+#if KIWI_MOBILE
+    const float chevron_width = std::max(36.f, layout.font_height);
+#else
     const float chevron_width = layout.row_height;
+#endif
+    const float horizontal_padding = GetMenuHorizontalPadding(layout.padding);
     SDL_Rect text_rect = MakeRect(
         layout.menu_items[i].x, layout.menu_items[i].y,
         layout.menu_items[i].w - chevron_width, layout.menu_items[i].h);
     DrawTextInRect(text.menu_items[i], text_rect, layout.font_size, text_color,
-                   layout.padding, false, true, FontType::kDefault,
-                   GetMenuFontScale(layout.font_size));
-    SDL_Rect chevron_rect = MakeRect(
-        RectRight(layout.menu_items[i]) - layout.row_height,
-        layout.menu_items[i].y, layout.row_height, layout.menu_items[i].h);
+                   horizontal_padding, false,
+#if KIWI_MOBILE
+                   false,
+#else
+                   true,
+#endif
+                   FontType::kDefault, GetMenuFontScale(layout.font_size));
+    SDL_Rect chevron_rect =
+        MakeRect(RectRight(layout.menu_items[i]) - chevron_width,
+                 layout.menu_items[i].y, chevron_width, layout.menu_items[i].h);
     DrawChevron(chevron_rect, false,
                 primary
                     ? kBrandOnColor

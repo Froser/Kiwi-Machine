@@ -622,6 +622,35 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
   SDL_Rect body =
       MakeRect(layout.page.x, RectBottom(layout.header) + gap, layout.page.w,
                RectBottom(layout.page) - RectBottom(layout.header) - gap);
+#if KIWI_MOBILE
+  const float section_tab_gap = 8.f * layout.scale;
+  const float section_bar_height = std::min(44.f * layout.scale, body.h * .2f);
+  layout.mobile_section_bar =
+      MakeRect(body.x, body.y, body.w, section_bar_height);
+  const float section_tab_width =
+      (layout.mobile_section_bar.w - section_tab_gap * 2.f) / 3.f;
+  for (size_t i = 0; i < layout.mobile_section_tabs.size(); ++i) {
+    layout.mobile_section_tabs[i] = MakeRect(
+        layout.mobile_section_bar.x + i * (section_tab_width + section_tab_gap),
+        layout.mobile_section_bar.y, section_tab_width,
+        layout.mobile_section_bar.h);
+  }
+
+  SDL_Rect mobile_content =
+      MakeRect(body.x, RectBottom(layout.mobile_section_bar) + gap, body.w,
+               RectBottom(body) - RectBottom(layout.mobile_section_bar) - gap);
+  switch (mobile_section_) {
+    case MobileSection::kControls:
+      layout.controls_panel = mobile_content;
+      break;
+    case MobileSection::kGameSelection:
+      layout.game_selection_panel = mobile_content;
+      break;
+    case MobileSection::kAbout:
+      layout.about_panel = mobile_content;
+      break;
+  }
+#else
   if (layout.mode == LayoutMode::kTwoColumn) {
     const float side_width =
         std::clamp(body.w * .3f, 250.f * layout.scale, 340.f * layout.scale);
@@ -649,6 +678,7 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
         MakeRect(body.x, RectBottom(layout.game_selection_panel) + gap, body.w,
                  remaining_height - selection_height);
   }
+#endif
 
   const float panel_header_height =
       std::min(48.f * layout.scale, layout.controls_panel.h * .24f);
@@ -719,13 +749,60 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
 void AboutWidget::DrawFrame(const FrameText& text, const FrameLayout& layout) {
   DrawBackground(layout);
   DrawHeader(text, layout);
+#if KIWI_MOBILE
+  DrawMobileSectionTabs(text, layout);
+  switch (mobile_section_) {
+    case MobileSection::kControls:
+      DrawControls(text, layout);
+      break;
+    case MobileSection::kGameSelection:
+      DrawGameSelection(text, layout);
+      break;
+    case MobileSection::kAbout:
+      DrawAbout(text, layout);
+      break;
+  }
+#else
   DrawControls(text, layout);
   DrawGameSelection(text, layout);
   DrawAbout(text, layout);
+#endif
 
   ImGui::SetCursorScreenPos(RectMax(layout.page));
   ImGui::Dummy(ImVec2(0.f, 0.f));
 }
+
+#if KIWI_MOBILE
+void AboutWidget::DrawMobileSectionTabs(const FrameText& text,
+                                        const FrameLayout& layout) {
+  const std::array<std::string, 3> labels = {
+      text.controller,
+      text.game_selection,
+      text.about,
+  };
+  const std::array<HitTarget, 3> targets = {
+      HitTarget::kControlsSection,
+      HitTarget::kGameSelectionSection,
+      HitTarget::kAboutSection,
+  };
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  for (size_t i = 0; i < labels.size(); ++i) {
+    const bool selected = i == static_cast<size_t>(mobile_section_);
+    const bool hovered = hovered_target_ == targets[i];
+    const SDL_Rect& rect = layout.mobile_section_tabs[i];
+    draw_list->AddRectFilled(
+        RectMin(rect), RectMax(rect),
+        selected ? kBrandSoftColor
+                 : (hovered ? kPanelMutedColor : IM_COL32(0, 0, 0, 0)),
+        6.f);
+    draw_list->AddRect(RectMin(rect), RectMax(rect),
+                       selected ? kBrandColor : kBorderColor, 6.f);
+    DrawTextInRect(labels[i], rect, GetSecondaryFontSize(layout.body_font),
+                   selected ? kBrandTextColor : kMutedTextColor, 4.f, true,
+                   false);
+  }
+}
+#endif
 
 void AboutWidget::DrawBackground(const FrameLayout& layout) {
   static_cast<void>(layout);
@@ -1141,6 +1218,16 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
       return keyboard->keysym.sym == key ||
              IsJoystickButtonMatch(runtime_data_, button, keyboard->keysym);
     };
+#if KIWI_MOBILE
+    if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {
+      MoveMobileSection(-1);
+      return true;
+    }
+    if (matches(kiwi::nes::ControllerButton::kRight, SDLK_RIGHT)) {
+      MoveMobileSection(1);
+      return true;
+    }
+#else
     if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {
       SelectInputPage(InputPage::kKeyboard);
       return true;
@@ -1149,6 +1236,7 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
       SelectInputPage(InputPage::kGamepad);
       return true;
     }
+#endif
     if (matches(kiwi::nes::ControllerButton::kB, SDLK_ESCAPE)) {
       PlayEffect(audio_resources::AudioID::kBack);
       Close();
@@ -1160,10 +1248,18 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
   if (controller) {
     switch (controller->button) {
       case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+#if KIWI_MOBILE
+        MoveMobileSection(-1);
+#else
         SelectInputPage(InputPage::kKeyboard);
+#endif
         return true;
       case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+#if KIWI_MOBILE
+        MoveMobileSection(1);
+#else
         SelectInputPage(InputPage::kGamepad);
+#endif
         return true;
       case SDL_CONTROLLER_BUTTON_B:
       case SDL_CONTROLLER_BUTTON_X:
@@ -1176,11 +1272,19 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
   }
 
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kLeft)) {
+#if KIWI_MOBILE
+    MoveMobileSection(-1);
+#else
     SelectInputPage(InputPage::kKeyboard);
+#endif
     return true;
   }
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kRight)) {
+#if KIWI_MOBILE
+    MoveMobileSection(1);
+#else
     SelectInputPage(InputPage::kGamepad);
+#endif
     return true;
   }
   return false;
@@ -1191,6 +1295,14 @@ AboutWidget::HitTarget AboutWidget::HitTest(const FrameLayout& layout,
                                             float y) const {
   if (PointInRect(layout.back_button, x, y))
     return HitTarget::kBack;
+#if KIWI_MOBILE
+  if (PointInRect(layout.mobile_section_tabs[0], x, y))
+    return HitTarget::kControlsSection;
+  if (PointInRect(layout.mobile_section_tabs[1], x, y))
+    return HitTarget::kGameSelectionSection;
+  if (PointInRect(layout.mobile_section_tabs[2], x, y))
+    return HitTarget::kAboutSection;
+#endif
   if (PointInRect(layout.keyboard_tab, x, y))
     return HitTarget::kKeyboardTab;
   if (PointInRect(layout.gamepad_tab, x, y))
@@ -1215,6 +1327,17 @@ void AboutWidget::ActivateHitTarget(HitTarget target) {
       PlayEffect(audio_resources::AudioID::kBack);
       Close();
       break;
+#if KIWI_MOBILE
+    case HitTarget::kControlsSection:
+      SelectMobileSection(MobileSection::kControls);
+      break;
+    case HitTarget::kGameSelectionSection:
+      SelectMobileSection(MobileSection::kGameSelection);
+      break;
+    case HitTarget::kAboutSection:
+      SelectMobileSection(MobileSection::kAbout);
+      break;
+#endif
     case HitTarget::kNone:
       break;
   }
@@ -1226,6 +1349,24 @@ void AboutWidget::SelectInputPage(InputPage page) {
   input_page_ = page;
   PlayEffect(audio_resources::AudioID::kSelect);
 }
+
+#if KIWI_MOBILE
+void AboutWidget::SelectMobileSection(MobileSection section) {
+  if (mobile_section_ == section)
+    return;
+  mobile_section_ = section;
+  hovered_target_ = HitTarget::kNone;
+  pressed_target_ = HitTarget::kNone;
+  PlayEffect(audio_resources::AudioID::kSelect);
+}
+
+void AboutWidget::MoveMobileSection(int delta) {
+  constexpr int kSectionCount = 3;
+  const int current = static_cast<int>(mobile_section_);
+  const int next = (current + delta + kSectionCount) % kSectionCount;
+  SelectMobileSection(static_cast<MobileSection>(next));
+}
+#endif
 
 void AboutWidget::OpenRepository() {
   if (SDL_OpenURL(kRepositoryUrl) == 0) {

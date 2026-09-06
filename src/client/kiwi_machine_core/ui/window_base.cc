@@ -349,7 +349,7 @@ void WindowBase::RemovePendingWidgets() {
   widgets_to_be_removed_.clear();
 }
 
-#if !KIWI_IOS
+#if !KIWI_IOS && !KIWI_ANDROID
 SDL_Rect WindowBase::GetSafeAreaInsets() {
   return SDL_Rect{0};
 }

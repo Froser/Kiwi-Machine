@@ -19,8 +19,10 @@
 
 class JoystickButton : public TouchButton {
  public:
-  explicit JoystickButton(WindowBase* window_base,
-                          image_resources::ImageID image_id);
+  explicit JoystickButton(
+      WindowBase* window_base,
+      image_resources::ImageID image_id,
+      TouchButton::VisualStyle visual_style = TouchButton::VisualStyle::kImage);
   ~JoystickButton() override;
 
  protected:
