@@ -326,7 +326,7 @@ void MainWindow::OnVirtualJoystickChanged(int state) {
     SetVirtualJoystickButton(0, kiwi::nes::ControllerButton::kDown, true);
 }
 
-void MainWindow::OnInGameSettingsHandleWindowSize(bool is_left) {
+void MainWindow::OnInGameSettingsHandleWindowMode(bool is_left) {
   if (config_->data().is_stretch_mode && !is_left)
     return;
 
