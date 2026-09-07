@@ -49,6 +49,7 @@ class Mapper004 : public Mapper {
                    EmulatorStates::DeserializableStateData& data) override;
 
  protected:
+  int GetCHRBank(Address address) const;
   virtual Byte ReadCHRByBank(int bank, Address address);
 
  private:

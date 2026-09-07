@@ -38,7 +38,8 @@ Mapper002::~Mapper002() = default;
 //      ++++- Select 16 KB PRG ROM bank for CPU $8000-$BFFF
 //           (UNROM uses bits 2-0; UOROM uses bits 3-0)
 void Mapper002::WritePRG(Address address, Byte value) {
-  select_prg_ = value;
+  if (address >= 0x8000)
+    select_prg_ = value;
 }
 
 Byte Mapper002::ReadPRG(Address address) {

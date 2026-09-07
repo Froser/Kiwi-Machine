@@ -83,12 +83,12 @@ Byte Mapper009::ReadPRG(Address address) {
   // CPU $8000-$9FFF: 8 KB switchable PRG ROM bank
   if (address < 0xa000) {
     size_t banks = select_prg_ % kPRGBankCount;
-    return rom_data()->PRG[kPRGBankSize * banks + (address - 0x8000)];
+    return rom_data()->PRG[kPRGBankSize * banks + (address & 0x1fff)];
   }
 
   // CPU $A000-$FFFF: Three 8 KB PRG ROM banks, fixed to the last three banks
-  return rom_data()
-      ->PRG[kPRGBankSize * (kPRGBankCount - 3) + (address - 0xa000)];
+  const size_t bank = kPRGBankCount - 4 + ((address >> 13) & 0x3);
+  return rom_data()->PRG[kPRGBankSize * bank + (address & 0x1fff)];
 }
 
 void Mapper009::WriteCHR(Address address, Byte value) {}

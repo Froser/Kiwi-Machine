@@ -108,9 +108,7 @@ bool Mapper040::NeedsM2CycleIRQ() const {
 
 void Mapper040::M2CycleIRQ() {
   if (irq_enabled_) {
-    if (irq_count_ < 4096) {
-      ++irq_count_;
-    } else {
+    if (++irq_count_ >= 4096) {
       irq_enabled_ = false;
       irq_callback().Run();
     }

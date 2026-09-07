@@ -58,7 +58,7 @@ void Mapper066::WriteCHR(Address address, Byte value) {
 Byte Mapper066::ReadCHR(Address address) {
   int chr_bank = (select_chr_prg_ & 0xf);
   uint32_t base_address = kCHRBankSize * chr_bank;
-  return rom_data()->CHR[base_address + (address % 0x2000)];
+  return rom_data()->CHR[base_address + (address & 0x1fff)];
 }
 
 void Mapper066::Serialize(EmulatorStates::SerializableStateData& data) {

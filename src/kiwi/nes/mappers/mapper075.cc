@@ -93,18 +93,18 @@ Byte Mapper075::ReadPRG(Address address) {
   DCHECK(address >= 0x8000);
   if (address < 0xa000)
     return rom_data()->PRG[(prg_regs[0] % kPRGBankCount) * kPRGBankSize +
-                           (address - 0x8000)];
+                           (address & 0x1fff)];
 
   if (address < 0xc000)
     return rom_data()->PRG[(prg_regs[1] % kPRGBankCount) * kPRGBankSize +
-                           (address - 0xa000)];
+                           (address & 0x1fff)];
 
   if (address < 0xe000)
     return rom_data()->PRG[(prg_regs[2] % kPRGBankCount) * kPRGBankSize +
-                           (address - 0xc000)];
+                           (address & 0x1fff)];
 
   return rom_data()
-      ->PRG[(kPRGBankCount - 1) * kPRGBankSize + (address - 0xe000)];
+      ->PRG[(kPRGBankCount - 1) * kPRGBankSize + (address & 0x1fff)];
 }
 
 void Mapper075::WriteCHR(Address address, Byte value) {}
