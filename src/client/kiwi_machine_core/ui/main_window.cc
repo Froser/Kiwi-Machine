@@ -758,9 +758,10 @@ void MainWindow::Render() {
     int side_menu_width =
         Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
 #if KIWI_MOBILE
-    SDL_Rect layout_bounds = GetSafeAreaClientBounds();
+    const SDL_Rect layout_bounds = GetSafeAreaClientBounds();
 #else
-    SDL_Rect layout_bounds = GetClientBounds();
+    const SDL_Rect client_bounds = GetClientBounds();
+    const SDL_Rect layout_bounds = {0, 0, client_bounds.w, client_bounds.h};
 #endif
     SDL_Rect side_menu_target_bounds = SDL_Rect{
         layout_bounds.x, layout_bounds.y, side_menu_width, layout_bounds.h};
@@ -1581,9 +1582,11 @@ void MainWindow::CloseInGameMenu() {
 
 void MainWindow::FlexLayout(bool animate) {
 #if KIWI_MOBILE
-  SDL_Rect client_bounds = GetSafeAreaClientBounds();
+  const SDL_Rect client_bounds = GetSafeAreaClientBounds();
 #else
-  SDL_Rect client_bounds = GetClientBounds();
+  const SDL_Rect window_client_bounds = GetClientBounds();
+  const SDL_Rect client_bounds = {0, 0, window_client_bounds.w,
+                                  window_client_bounds.h};
 #endif
   int left_width = side_menu_->GetSuggestedCollapsedWidth();
   int right_width = client_bounds.w - left_width;

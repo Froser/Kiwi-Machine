@@ -1220,11 +1220,11 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     };
 #if KIWI_MOBILE
     if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {
-      MoveMobileSection(-1);
+      MoveMobilePage(-1);
       return true;
     }
     if (matches(kiwi::nes::ControllerButton::kRight, SDLK_RIGHT)) {
-      MoveMobileSection(1);
+      MoveMobilePage(1);
       return true;
     }
 #else
@@ -1249,14 +1249,14 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     switch (controller->button) {
       case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
 #if KIWI_MOBILE
-        MoveMobileSection(-1);
+        MoveMobilePage(-1);
 #else
         SelectInputPage(InputPage::kKeyboard);
 #endif
         return true;
       case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
 #if KIWI_MOBILE
-        MoveMobileSection(1);
+        MoveMobilePage(1);
 #else
         SelectInputPage(InputPage::kGamepad);
 #endif
@@ -1273,7 +1273,7 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
 
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kLeft)) {
 #if KIWI_MOBILE
-    MoveMobileSection(-1);
+    MoveMobilePage(-1);
 #else
     SelectInputPage(InputPage::kKeyboard);
 #endif
@@ -1281,7 +1281,7 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
   }
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kRight)) {
 #if KIWI_MOBILE
-    MoveMobileSection(1);
+    MoveMobilePage(1);
 #else
     SelectInputPage(InputPage::kGamepad);
 #endif
@@ -1360,11 +1360,32 @@ void AboutWidget::SelectMobileSection(MobileSection section) {
   PlayEffect(audio_resources::AudioID::kSelect);
 }
 
-void AboutWidget::MoveMobileSection(int delta) {
-  constexpr int kSectionCount = 3;
-  const int current = static_cast<int>(mobile_section_);
-  const int next = (current + delta + kSectionCount) % kSectionCount;
-  SelectMobileSection(static_cast<MobileSection>(next));
+void AboutWidget::MoveMobilePage(int delta) {
+  constexpr int kPageCount = 4;
+  int current_page = 0;
+  switch (mobile_section_) {
+    case MobileSection::kControls:
+      current_page = input_page_ == InputPage::kKeyboard ? 0 : 1;
+      break;
+    case MobileSection::kGameSelection:
+      current_page = 2;
+      break;
+    case MobileSection::kAbout:
+      current_page = 3;
+      break;
+  }
+
+  const int next_page = (current_page + delta + kPageCount) % kPageCount;
+  if (next_page < 2) {
+    mobile_section_ = MobileSection::kControls;
+    input_page_ = next_page == 0 ? InputPage::kKeyboard : InputPage::kGamepad;
+  } else {
+    mobile_section_ =
+        next_page == 2 ? MobileSection::kGameSelection : MobileSection::kAbout;
+  }
+  hovered_target_ = HitTarget::kNone;
+  pressed_target_ = HitTarget::kNone;
+  PlayEffect(audio_resources::AudioID::kSelect);
 }
 #endif
 

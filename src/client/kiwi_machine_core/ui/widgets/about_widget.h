@@ -156,7 +156,7 @@ class AboutWidget : public Widget {
 #if KIWI_MOBILE
   void DrawMobileSectionTabs(const FrameText& text, const FrameLayout& layout);
   void SelectMobileSection(MobileSection section);
-  void MoveMobileSection(int delta);
+  void MoveMobilePage(int delta);
 #endif
   void DrawControls(const FrameText& text, const FrameLayout& layout);
   void DrawKeyboard(const FrameText& text, const FrameLayout& layout);
