@@ -19,6 +19,25 @@ set(Sources
     rom_test.cc
 
     ../nes/cpu_unittest.cc
+    ../nes/mappers/mapper_test_support.cc
+    ../nes/mappers/mapper000_unittest.cc
+    ../nes/mappers/mapper001_unittest.cc
+    ../nes/mappers/mapper002_unittest.cc
+    ../nes/mappers/mapper003_unittest.cc
+    ../nes/mappers/mapper004_unittest.cc
+    ../nes/mappers/mapper005_unittest.cc
+    ../nes/mappers/mapper007_unittest.cc
+    ../nes/mappers/mapper009_unittest.cc
+    ../nes/mappers/mapper010_unittest.cc
+    ../nes/mappers/mapper011_unittest.cc
+    ../nes/mappers/mapper033_unittest.cc
+    ../nes/mappers/mapper040_unittest.cc
+    ../nes/mappers/mapper048_unittest.cc
+    ../nes/mappers/mapper066_unittest.cc
+    ../nes/mappers/mapper074_unittest.cc
+    ../nes/mappers/mapper075_unittest.cc
+    ../nes/mappers/mapper087_unittest.cc
+    ../nes/mappers/mapper185_unittest.cc
     ../nes/palette_unittest.cc
     ../nes/ppu_unittest.cc
     ../nes/ppu_bus_unittest.cc

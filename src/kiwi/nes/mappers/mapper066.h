@@ -34,9 +34,10 @@ namespace nes {
 //     H = High CHR Bit
 //     L = Low CHR Bit
 //
-//   This reg selects 8k CHR @ $0000.  Note the reversed bit orders.  Most games using this mapper only have 16k
+//   This reg selects 8k CHR @ $0000.  Note the reversed bit orders.  Most games
+//   using this mapper only have 16k
 // CHR, so the 'H' bit is usually unused.
-class Mapper066 : public Mapper{
+class Mapper066 : public Mapper {
  public:
   explicit Mapper066(Cartridge* cartridge);
   ~Mapper066() override;
@@ -54,7 +55,7 @@ class Mapper066 : public Mapper{
                    EmulatorStates::DeserializableStateData& data) override;
 
  private:
-  uint8_t select_chr_prg_;
+  uint8_t select_chr_prg_ = 0;
 };
 }  // namespace nes
 }  // namespace kiwi

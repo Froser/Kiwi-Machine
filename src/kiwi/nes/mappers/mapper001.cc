@@ -120,17 +120,14 @@ Byte Mapper001::ReadCHR(Address address) {
     return character_ram_[address];
 
   constexpr uint32_t kCHRBankSize = 0x1000;
-  if (address < 0x1000) {
-    uint32_t index = (kCHRBankSize * chr_reg_0_) | (address & 0x3fff);
-    return rom_data()->CHR[index];
-  } else if (address <= 0x2000) {
-    uint32_t bank = (chr_mode_ == 0) ? (chr_reg_0_ + 1) : (chr_reg_1_);
-    uint32_t index = (kCHRBankSize * bank) | ((address - 0x1000) & 0x3fff);
-    return rom_data()->CHR[index];
+  DCHECK_LT(address, 0x2000);
+  uint32_t bank = 0;
+  if (chr_mode_ == 0) {
+    bank = (chr_reg_0_ & 0x1e) | (address >> 12);
+  } else {
+    bank = address < 0x1000 ? chr_reg_0_ : chr_reg_1_;
   }
-
-  CHECK(false) << "Shouldn't happen.";
-  return 0;
+  return rom_data()->CHR[(kCHRBankSize * bank) | (address & 0x0fff)];
 }
 
 NametableMirroring Mapper001::GetNametableMirroring() {

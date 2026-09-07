@@ -136,44 +136,38 @@ Byte Mapper004::ReadCHR(Address address) {
     return character_ram_[address];
   }
 
-  int bank = 0;
   if (address <= 0x1fff) {
-    switch (address & 0xfc00) {
-      case 0x0000:
-        bank = (!chr_mode_) ? (bank_register_[0] & 0xfe) : bank_register_[2];
-        break;
-      case 0x0400:
-        bank = (!chr_mode_) ? (bank_register_[0] | 0x01) : bank_register_[3];
-        break;
-      case 0x0800:
-        bank = (!chr_mode_) ? (bank_register_[1] & 0xfe) : bank_register_[4];
-        break;
-      case 0x0c00:
-        bank = (!chr_mode_) ? (bank_register_[1] | 0x01) : bank_register_[5];
-        break;
-      case 0x1000:
-        bank = (!chr_mode_) ? (bank_register_[2]) : (bank_register_[0] & 0xfe);
-        break;
-      case 0x1400:
-        bank = (!chr_mode_) ? (bank_register_[3]) : (bank_register_[0] | 0x01);
-        break;
-      case 0x1800:
-        bank = (!chr_mode_) ? (bank_register_[4]) : (bank_register_[1] & 0xfe);
-        break;
-      case 0x1c00:
-        bank = (!chr_mode_) ? (bank_register_[5]) : (bank_register_[1] | 0x01);
-        break;
-      default:
-        DCHECK(false) << "Shouldn't happen.";
-    }
-
-    return ReadCHRByBank(bank, address);
+    return ReadCHRByBank(GetCHRBank(address), address);
   } else if (address <= 0x2fff) {
     return mirroring_ram_[address - 0x2000];
   }
 
   DCHECK(false);
   return 0;
+}
+
+int Mapper004::GetCHRBank(Address address) const {
+  switch (address & 0xfc00) {
+    case 0x0000:
+      return (!chr_mode_) ? (bank_register_[0] & 0xfe) : bank_register_[2];
+    case 0x0400:
+      return (!chr_mode_) ? (bank_register_[0] | 0x01) : bank_register_[3];
+    case 0x0800:
+      return (!chr_mode_) ? (bank_register_[1] & 0xfe) : bank_register_[4];
+    case 0x0c00:
+      return (!chr_mode_) ? (bank_register_[1] | 0x01) : bank_register_[5];
+    case 0x1000:
+      return (!chr_mode_) ? bank_register_[2] : (bank_register_[0] & 0xfe);
+    case 0x1400:
+      return (!chr_mode_) ? bank_register_[3] : (bank_register_[0] | 0x01);
+    case 0x1800:
+      return (!chr_mode_) ? bank_register_[4] : (bank_register_[1] & 0xfe);
+    case 0x1c00:
+      return (!chr_mode_) ? bank_register_[5] : (bank_register_[1] | 0x01);
+    default:
+      DCHECK(false) << "Shouldn't happen.";
+      return 0;
+  }
 }
 
 Byte Mapper004::ReadCHRByBank(int bank, Address address) {

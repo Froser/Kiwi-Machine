@@ -21,7 +21,7 @@ namespace nes {
 
 constexpr Byte kOpenBus = 8;
 constexpr size_t k1KBank = 1 * 1024;
-constexpr size_t k2KBank = 4 * 1024;
+constexpr size_t k2KBank = 2 * 1024;
 constexpr size_t k4KBank = 4 * 1024;
 constexpr size_t k8KBank = 8 * 1024;
 constexpr size_t k16KBank = 16 * 1024;
@@ -213,11 +213,10 @@ void Mapper005::WritePRG(Address address, Byte value) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k16k, reg_5115_);
           if (!is_rom)
             sram_[k16KBank * bank + (address - 0x8000)] = value;
-        }
-        if (address < 0xe000) {
+        } else if (address < 0xe000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
           if (!is_rom)
-            sram_[k8KBank * bank + (address - 0xc000)] = value;
+            sram_[k8KBank * bank + (address & 0x1fff)] = value;
         }
         break;
       case 3:
@@ -229,16 +228,14 @@ void Mapper005::WritePRG(Address address, Byte value) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5114_);
           if (!is_rom)
             sram_[k8KBank * bank + (address - 0x8000)] = value;
-        }
-        if (address < 0xc000) {
+        } else if (address < 0xc000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5115_);
           if (!is_rom)
-            sram_[k8KBank * bank + (address - 0xa000)] = value;
-        }
-        if (address < 0xe000) {
+            sram_[k8KBank * bank + (address & 0x1fff)] = value;
+        } else if (address < 0xe000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
           if (!is_rom)
-            sram_[k8KBank * bank + (address - 0xc000)] = value;
+            sram_[k8KBank * bank + (address & 0x1fff)] = value;
         }
         break;
       default:
@@ -282,11 +279,11 @@ Byte Mapper005::ReadPRG(Address address) {
       }
       if (address < 0xe000) {
         auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
-        return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0xc000)]
-                      : sram_[k8KBank * bank + (address - 0xc000)];
+        return is_rom ? rom_data()->PRG[k8KBank * bank + (address & 0x1fff)]
+                      : sram_[k8KBank * bank + (address & 0x1fff)];
       }
       return rom_data()->PRG[k8KBank * (((reg_5117_ & 0x7f) % (banks_in_8k_))) +
-                             (address - 0xe000)];
+                             (address & 0x1fff)];
     case 3:
       // CPU $8000-$9FFF: 8 KB switchable PRG ROM/RAM bank
       // CPU $A000-$BFFF: 8 KB switchable PRG ROM/RAM bank
@@ -294,21 +291,21 @@ Byte Mapper005::ReadPRG(Address address) {
       // CPU $E000-$FFFF: 8 KB switchable PRG ROM bank
       if (address < 0xa000) {
         auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5114_);
-        return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0x8000)]
-                      : sram_[k8KBank * bank + (address - 0x8000)];
+        return is_rom ? rom_data()->PRG[k8KBank * bank + (address & 0x1fff)]
+                      : sram_[k8KBank * bank + (address & 0x1fff)];
       }
       if (address < 0xc000) {
         auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5115_);
-        return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0xa000)]
-                      : sram_[k8KBank * bank + (address - 0xa000)];
+        return is_rom ? rom_data()->PRG[k8KBank * bank + (address & 0x1fff)]
+                      : sram_[k8KBank * bank + (address & 0x1fff)];
       }
       if (address < 0xe000) {
         auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
-        return is_rom ? rom_data()->PRG[k8KBank * bank + (address - 0xc000)]
-                      : sram_[k8KBank * bank + (address - 0xc000)];
+        return is_rom ? rom_data()->PRG[k8KBank * bank + (address & 0x1fff)]
+                      : sram_[k8KBank * bank + (address & 0x1fff)];
       }
       return rom_data()->PRG[k8KBank * (((reg_5117_ & 0x7f) % (banks_in_8k_))) +
-                             (address - 0xe000)];
+                             (address & 0x1fff)];
     default:
       CHECK(false) << "Shouldn't be here";
   }
@@ -336,18 +333,20 @@ Byte Mapper005::ReadCHR(Address address) {
     case 0:
       // PPU $0000-$1FFF: 8 KB switchable CHR bank
       if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
-        return rom_data()->CHR[k8KBank * chr_regs_[7] + (address)];
+        return rom_data()->CHR[k8KBank * (chr_regs_[7] >> 3) + address];
       } else {
-        return rom_data()->CHR[k8KBank * chr_regs_[0xb] + (address)];
+        return rom_data()->CHR[k8KBank * (chr_regs_[0xb] >> 3) + address];
       }
     case 1:
       // PPU $0000-$0FFF: 4 KB switchable CHR bank
       // PPU $1000-$1FFF: 4 KB switchable CHR bank
       if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
-        return rom_data()->CHR[k4KBank * chr_regs_[(address >> 12) * 4 + 3] +
-                               (address & 0xfff)];
+        return rom_data()
+            ->CHR[k4KBank * (chr_regs_[(address >> 12) * 4 + 3] >> 2) +
+                  (address & 0xfff)];
       } else {
-        return rom_data()->CHR[k4KBank * chr_regs_[0xb] + (address & 0xfff)];
+        return rom_data()
+            ->CHR[k4KBank * (chr_regs_[0xb] >> 2) + (address & 0xfff)];
       }
     case 2:
       // PPU $0000-$07FF: 2 KB switchable CHR bank
@@ -355,11 +354,13 @@ Byte Mapper005::ReadCHR(Address address) {
       // PPU $1000-$17FF: 2 KB switchable CHR bank
       // PPU $1800-$1FFF: 2 KB switchable CHR bank
       if (!current_pattern_is_8x16_sprite_ || !current_pattern_is_background_) {
-        return rom_data()->CHR[k2KBank * chr_regs_[(address >> 11) * 2 + 1] +
-                               (address & 0x7ff)];
+        return rom_data()
+            ->CHR[k2KBank * (chr_regs_[(address >> 11) * 2 + 1] >> 1) +
+                  (address & 0x7ff)];
       } else {
         return rom_data()
-            ->CHR[k2KBank * chr_regs_[((address & 0xfff) >> 11) * 2 + 9] +
+            ->CHR[k2KBank *
+                      (chr_regs_[((address & 0xfff) >> 11) * 2 + 9] >> 1) +
                   (address & 0x7ff)];
       }
     case 3: {
@@ -538,7 +539,7 @@ void Mapper005::WriteExtendedRAM(Address address, Byte value) {
     }
   } else if (address >= 0x6000) {
     if (sram_protect_[0] == 0x02 && sram_protect_[1] == 0x01) {
-      sram_[k8KBank * reg_5113_ + (address - 0x6000)] = value;
+      sram_[k8KBank * reg_5113_ + (address & 0x1fff)] = value;
     }
   }
 }
@@ -571,8 +572,8 @@ Byte Mapper005::ReadExtendedRAM(Address address) {
       return internal_vram_[address & 0x3ff];
     }
   }
-  if (address > 0x6000) {
-    return sram_[k8KBank * reg_5113_ + (address - 0x6000)];
+  if (address >= 0x6000) {
+    return sram_[k8KBank * reg_5113_ + (address & 0x1fff)];
   }
 
   return 0;
@@ -786,8 +787,8 @@ Byte Mapper005::ReadNametableByte(Byte* ram, Address address) {
       if (is_nametable)
         return fill_mode_tile_;
 
-      if (!IsInExtendedGraphicMode())
-        return fill_mode_color_;
+      Byte palette = fill_mode_color_ & 0x3;
+      return palette | (palette << 2) | (palette << 4) | (palette << 6);
     }
     default:
       CHECK(false) << "Shouldn't be here";

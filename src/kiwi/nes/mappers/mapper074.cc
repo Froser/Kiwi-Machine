@@ -29,8 +29,14 @@ Mapper074::Mapper074(Cartridge* cartridge) : Mapper004(cartridge) {
 Mapper074::~Mapper074() = default;
 
 void Mapper074::WriteCHR(Address address, Byte value) {
-  Mapper004::WriteCHR(address, value);
-  prg_ram_[address % prg_ram_.size()] = value;
+  if (uses_character_ram_ || address > 0x1fff) {
+    Mapper004::WriteCHR(address, value);
+    return;
+  }
+
+  const int bank = GetCHRBank(address);
+  if (bank == 8 || bank == 9)
+    prg_ram_[(bank - 8) * 0x400 + (address & 0x3ff)] = value;
 }
 
 void Mapper074::Serialize(EmulatorStates::SerializableStateData& data) {
