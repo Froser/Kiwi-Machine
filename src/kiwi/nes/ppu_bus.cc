@@ -82,32 +82,25 @@ Byte PPUBus::Read(Address address) {
   // custom cartridge wiring.
   if (address < 0x2000) {
     return mapper_->ReadCHR(address);
-  } else if (address < 0x3eff) {
-    const auto index = address & 0x3ff;
-    // Name tables upto 0x3000, then mirrored upto 3eff
-    auto normalized_address = address;
+  } else if (address < 0x3f00) {
+    // Nametables up to $2FFF are mirrored from $3000 through $3EFF.
+    Address normalized_address = address;
     if (address >= 0x3000) {
       normalized_address -= 0x1000;
     }
+    const Address index = normalized_address & 0x3ff;
 
     if (nametable_[0] >= RAM_SIZE) {
       return mapper_->ReadCHR(normalized_address);
-    } else {
-      if (!is_mmc5_) {
-        if (normalized_address < 0x2400)  // NT0
-          return ram_[nametable_[0] + index];
-        else if (normalized_address < 0x2800)  // NT1
-          return ram_[nametable_[1] + index];
-        else if (normalized_address < 0x2c00)  // NT2
-          return ram_[nametable_[2] + index];
-        else /* if (normalized_address < 0x3000)*/  // NT3
-          return ram_[nametable_[3] + index];
-      } else {
-        // mmc5 has its own nametable routine
-        return mapper_->ReadNametableByte(ram_.data(), normalized_address);
-      }
     }
-  } else if (address < 0x3fff) {
+
+    if (is_mmc5_) {
+      return mapper_->ReadNametableByte(ram_.data(), normalized_address);
+    }
+
+    const Address nametable_index = (normalized_address >> 10) & 0x3;
+    return ram_[nametable_[nametable_index] + index];
+  } else if (address < 0x4000) {
     auto palette_address = address & 0x1f;
     return ReadPalette(palette_address);
   }
@@ -118,31 +111,20 @@ void PPUBus::Write(Address address, Byte value) {
   if (address < 0x2000) {
     mapper_->WriteCHR(address, value);
   } else if (address < 0x3f00) {
-    const auto index = address & 0x03ff;
-    // Name tables up to 0x3000, then mirrored up to 3eff
-    auto normalized_address = address;
+    // Nametables up to $2FFF are mirrored from $3000 through $3EFF.
+    Address normalized_address = address;
     if (address >= 0x3000) {
       normalized_address -= 0x1000;
     }
+    const Address index = normalized_address & 0x03ff;
 
     if (nametable_[0] >= RAM_SIZE)
       mapper_->WriteCHR(normalized_address, value);
-    else {
-      if (!is_mmc5_) {
-        if (normalized_address < 0x2400)  // Nametable 0
-          ram_[nametable_[0] + index] = value;
-        else if (normalized_address < 0x2800)  // Nametable 1
-          ram_[nametable_[1] + index] = value;
-        else if (normalized_address < 0x2c00)  // Nametable 2
-          ram_[nametable_[2] + index] = value;
-        else  // Nametable 3
-          ram_[nametable_[3] + index] = value;
-      } else {
-        // mmc5 has its own nametable routine
-        mapper_->WriteNametableByte(ram_.data(), normalized_address, value);
-      }
-    }
-  } else if (address < 0x3fff) {
+    else if (is_mmc5_)
+      mapper_->WriteNametableByte(ram_.data(), normalized_address, value);
+    else
+      ram_[nametable_[(normalized_address >> 10) & 0x3] + index] = value;
+  } else if (address < 0x4000) {
     auto palette = address & 0x1f;
     // Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C
     if (palette >= 0x10 && address % 4 == 0) {

@@ -70,7 +70,7 @@ void SideMenu::Paint() {
       int text_top = button_bounds.y + (kIconSize - text_size.y) / 2;
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFontSize(),
-          ImVec2(button_bounds.x + kIconLeft * 2 + kIconSize, text_top),
+          ImVec2(kIconLeft + kIconSize + SCALED(kIconSpacing), text_top),
           ImColor(255, 255, 255), contents.c_str());
     }
 
@@ -127,15 +127,14 @@ void SideMenu::Paint() {
                        (global_target_selection_rect.h - text_size.y) / 2;
         ImGui::GetWindowDrawList()->AddText(
             font.GetFont(), font.GetFontSize(),
-            ImVec2(global_target_selection_rect.x + kIconLeft * 2 + kIconSize,
-                   text_top),
+            ImVec2(kIconLeft + kIconSize + SCALED(kIconSpacing), text_top),
             kBackgroundColor, menu_content.c_str());
       } else {
         // A deactivated side menu doesn't paint its text, and has a smaller
         // selection area.
         ImGui::GetWindowDrawList()->AddRectFilled(
             ImVec2(global_selection_rect.x, global_selection_rect.y),
-            ImVec2(global_selection_rect.w,
+            ImVec2(global_selection_rect.x + global_selection_rect.w,
                    global_selection_rect.y + global_selection_rect.h),
             ImColor(255, 255, 255));
       }
@@ -147,7 +146,7 @@ void SideMenu::Paint() {
           global_item_rect.y + (global_item_rect.h - text_size.y) / 2;
       ImGui::GetWindowDrawList()->AddText(
           font.GetFont(), font.GetFontSize(),
-          ImVec2(global_item_rect.x + kIconLeft * 2 + kIconSize, text_top),
+          ImVec2(kIconLeft + kIconSize + SCALED(kIconSpacing), text_top),
           ImColor(255, 255, 255), menu_content.c_str());
     }
 
@@ -305,33 +304,31 @@ bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
 }
 
 void SideMenu::Layout() {
-  if (!bounds_valid_) {
-    items_bounds_map_.resize(menu_items_.size());
-    buttons_bounds_map_.resize(button_items_.size());
-    SDL_Rect kBoundsToWindow = MapToWindow(bounds());
-    const int kX = kBoundsToWindow.x + SCALED(kItemSpacing.x);
-    int y = SCALED(kItemMarginBottom);
-    for (int i = 0; i < button_items_.size(); ++i) {
-      buttons_bounds_map_[i] =
-          SDL_Rect{kX, y, kBoundsToWindow.w - SCALED(kItemSpacing.x),
-                   SCALED(kButtonHeight + kItemSpacing.y * 2)};
-      y += SCALED(kButtonHeight + kItemSpacing.y * 2);
-    }
+  if (bounds_valid_)
+    return;
 
-    y = 0;
-    for (int i = menu_items_.size() - 1; i >= 0; --i) {
-      if (i == menu_items_.size() - 1)
-        y = kBoundsToWindow.h - SCALED(kItemMarginBottom) -
-            SCALED(kItemHeight) - SCALED(kItemSpacing.y) * 2;
+  items_bounds_map_.resize(menu_items_.size());
+  buttons_bounds_map_.resize(button_items_.size());
+  const SDL_Rect bounds_to_window = MapToWindow(bounds());
+  const int item_x = bounds_to_window.x + SCALED(kItemSpacing.x);
+  const int item_width = bounds_to_window.w - SCALED(kItemSpacing.x);
+  const int button_height = SCALED(kButtonHeight + kItemSpacing.y * 2);
+  const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
 
-      items_bounds_map_[i] =
-          SDL_Rect{kX, y, kBoundsToWindow.w - SCALED(kItemSpacing.x),
-                   SCALED(kItemHeight + kItemSpacing.y * 2)};
-      y -= SCALED(kItemHeight + kItemSpacing.y * 2);
-    }
-
-    bounds_valid_ = true;
+  int y = bounds_to_window.y + SCALED(kItemMarginBottom);
+  for (size_t i = 0; i < button_items_.size(); ++i) {
+    buttons_bounds_map_[i] = SDL_Rect{item_x, y, item_width, button_height};
+    y += button_height;
   }
+
+  y = bounds_to_window.y + bounds_to_window.h - SCALED(kItemMarginBottom) -
+      item_height;
+  for (int i = static_cast<int>(menu_items_.size()) - 1; i >= 0; --i) {
+    items_bounds_map_[i] = SDL_Rect{item_x, y, item_width, item_height};
+    y -= item_height;
+  }
+
+  bounds_valid_ = true;
 }
 
 void SideMenu::SetIndex(int index) {

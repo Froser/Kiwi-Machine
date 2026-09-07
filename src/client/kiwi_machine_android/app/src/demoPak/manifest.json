@@ -1,0 +1,11 @@
+{
+  "titles": {
+    "en": "Demo",
+    "zh": "演示游戏",
+    "ja": "デモ"
+  },
+  "icons": {
+    "normal": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\"><path fill=\"#FFFFFF\" d=\"M17 18h30c7 0 12 5 12 12v10c0 7-5 12-12 12H17C10 52 5 47 5 40V30c0-7 5-12 12-12Zm1 9v6h-6v5h6v6h5v-6h6v-5h-6v-6h-5Zm26 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z\"/></svg>",
+    "highlight": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\"><path fill=\"#159505\" d=\"M17 18h30c7 0 12 5 12 12v10c0 7-5 12-12 12H17C10 52 5 47 5 40V30c0-7 5-12 12-12Zm1 9v6h-6v5h6v6h5v-6h6v-5h-6v-6h-5Zm26 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z\"/></svg>"
+  }
+}

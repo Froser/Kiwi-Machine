@@ -135,13 +135,15 @@ void EmulatorImpl::PowerOn() {
   ppu_bus_ = std::make_unique<PPUBus>();
   ppu_ = std::make_unique<PPU>(ppu_bus_.get());
   ppu_->SetObserver(this);
+  ppu_->SetStepObserverEnabled(debug_port_ != nullptr);
 
   cpu_bus_ = std::make_unique<CPUBus>();
   cpu_bus_->set_ppu(ppu_.get());
   cpu_bus_->set_emulator(this);
 
   cpu_ = std::make_unique<CPU>(cpu_bus_.get());
-  cpu_->SetObserver(this);
+  if (debug_port_)
+    cpu_->SetObserver(this);
 
   // Set callback for NMI interrupt
   ppu_->set_cpu_nmi_callback(base::BindRepeating(
@@ -515,6 +517,14 @@ void EmulatorImpl::StepInternal() {
 
 void EmulatorImpl::SetDebugPort(DebugPort* debug_port) {
   debug_port_ = debug_port;
+  if (cpu_) {
+    if (debug_port_)
+      cpu_->SetObserver(this);
+    else
+      cpu_->RemoveObserver();
+  }
+  if (ppu_)
+    ppu_->SetStepObserverEnabled(debug_port_ != nullptr);
 }
 
 Emulator::RunningState EmulatorImpl::GetRunningState() {

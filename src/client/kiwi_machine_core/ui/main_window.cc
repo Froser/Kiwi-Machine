@@ -733,6 +733,23 @@ void MainWindow::Render() {
 
   // Handles animations here
   if (side_menu_) {
+#if KIWI_MOBILE
+    const SDL_Rect safe_bounds = GetSafeAreaClientBounds();
+    const int collapsed_width = side_menu_->GetSuggestedCollapsedWidth();
+    const SDL_Rect expected_contents_bounds = {
+        safe_bounds.x + collapsed_width, safe_bounds.y,
+        safe_bounds.w - collapsed_width, safe_bounds.h};
+    const SDL_Rect current_contents_bounds = contents_card_widget_->bounds();
+    const SDL_Rect current_side_menu_bounds = side_menu_->bounds();
+    if (!SDL_RectEquals(&expected_contents_bounds, &current_contents_bounds) ||
+        current_side_menu_bounds.x != safe_bounds.x ||
+        current_side_menu_bounds.y != safe_bounds.y ||
+        current_side_menu_bounds.h != safe_bounds.h) {
+      FlexLayout(false);
+      LayoutVirtualTouchButtons();
+    }
+#endif
+
     float percentage = side_menu_timer_.ElapsedInMilliseconds() /
                        static_cast<float>(kSideMenuAnimationMs);
     if (percentage >= 1.f)
@@ -740,8 +757,14 @@ void MainWindow::Render() {
 
     int side_menu_width =
         Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
-    SDL_Rect side_menu_target_bounds =
-        SDL_Rect{0, 0, side_menu_width, GetClientBounds().h};
+#if KIWI_MOBILE
+    const SDL_Rect layout_bounds = GetSafeAreaClientBounds();
+#else
+    const SDL_Rect client_bounds = GetClientBounds();
+    const SDL_Rect layout_bounds = {0, 0, client_bounds.w, client_bounds.h};
+#endif
+    SDL_Rect side_menu_target_bounds = SDL_Rect{
+        layout_bounds.x, layout_bounds.y, side_menu_width, layout_bounds.h};
     SDL_Rect side_menu_current_bounds = side_menu_->bounds();
     if (!SDL_RectEquals(&side_menu_target_bounds, &side_menu_current_bounds)) {
       side_menu_->set_bounds(side_menu_target_bounds);
@@ -1558,7 +1581,13 @@ void MainWindow::CloseInGameMenu() {
 }
 
 void MainWindow::FlexLayout(bool animate) {
-  SDL_Rect client_bounds = GetClientBounds();
+#if KIWI_MOBILE
+  const SDL_Rect client_bounds = GetSafeAreaClientBounds();
+#else
+  const SDL_Rect window_client_bounds = GetClientBounds();
+  const SDL_Rect client_bounds = {0, 0, window_client_bounds.w,
+                                  window_client_bounds.h};
+#endif
   int left_width = side_menu_->GetSuggestedCollapsedWidth();
   int right_width = client_bounds.w - left_width;
 
@@ -1579,13 +1608,14 @@ void MainWindow::FlexLayout(bool animate) {
     }
   } else {
     side_menu_original_width_ = side_menu_target_width_;
-    side_menu_->set_bounds(
-        SDL_Rect{0, 0, side_menu_target_width_, client_bounds.h});
+    side_menu_->set_bounds(SDL_Rect{client_bounds.x, client_bounds.y,
+                                    side_menu_target_width_, client_bounds.h});
     side_menu_->invalidate();
   }
 
-  contents_card_widget_->set_bounds(
-      SDL_Rect{left_width, 0, right_width, client_bounds.h});
+  contents_card_widget_->set_bounds(SDL_Rect{client_bounds.x + left_width,
+                                             client_bounds.y, right_width,
+                                             client_bounds.h});
 }
 
 FlexItemsWidget* MainWindow::GetMainItemsWidget() {

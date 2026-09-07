@@ -94,6 +94,9 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
     return ppu_data_address;
   }
 
+  // Append new virtual methods here to preserve existing vtable slots.
+  virtual bool NeedsM2CycleIRQ() const;
+
  protected:
   MirroringChangedCallback mirroring_changed_callback() {
     return mirroring_changed_callback_;

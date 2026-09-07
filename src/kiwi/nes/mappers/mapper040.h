@@ -37,6 +37,7 @@ class Mapper040 : public Mapper {
   // 6000-7fff: bank #6
   Byte ReadExtendedRAM(Address address) override;
 
+  bool NeedsM2CycleIRQ() const override;
   void M2CycleIRQ() override;
 
   // EmulatorStates::SerializableState:

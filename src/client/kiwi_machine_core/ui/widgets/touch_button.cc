@@ -14,13 +14,63 @@
 
 #include <imgui.h>
 
+#include <algorithm>
+#include <cfloat>
+
 #include "ui/window_base.h"
+#include "utility/fonts.h"
 #include "utility/images.h"
 #include "utility/math.h"
 
+namespace {
+constexpr ImU32 kControlFillColor = IM_COL32(24, 29, 27, 255);
+constexpr ImU32 kControlBorderColor = IM_COL32(143, 153, 147, 255);
+constexpr ImU32 kControlTextColor = IM_COL32(245, 247, 245, 255);
+constexpr ImU32 kActionAColor = IM_COL32(240, 82, 82, 255);
+constexpr ImU32 kActionBColor = IM_COL32(76, 200, 92, 255);
+constexpr ImU32 kActionABColor = IM_COL32(227, 179, 65, 255);
+
+ImU32 WithAlpha(ImU32 color, float alpha) {
+  const ImU32 resolved_alpha =
+      static_cast<ImU32>(std::clamp(alpha, 0.f, 1.f) * 255.f);
+  return (color & ~IM_COL32_A_MASK) | (resolved_alpha << IM_COL32_A_SHIFT);
+}
+
+ImU32 GetAccentColor(TouchButton::VisualStyle style) {
+  switch (style) {
+    case TouchButton::VisualStyle::kActionA:
+      return kActionAColor;
+    case TouchButton::VisualStyle::kActionB:
+      return kActionBColor;
+    case TouchButton::VisualStyle::kActionAB:
+      return kActionABColor;
+    case TouchButton::VisualStyle::kPause:
+    case TouchButton::VisualStyle::kImage:
+      return kControlBorderColor;
+  }
+  return kControlBorderColor;
+}
+
+const char* GetActionLabel(TouchButton::VisualStyle style) {
+  switch (style) {
+    case TouchButton::VisualStyle::kActionA:
+      return "A";
+    case TouchButton::VisualStyle::kActionB:
+      return "B";
+    case TouchButton::VisualStyle::kActionAB:
+      return "A+B";
+    case TouchButton::VisualStyle::kPause:
+    case TouchButton::VisualStyle::kImage:
+      return "";
+  }
+  return "";
+}
+}  // namespace
+
 TouchButton::TouchButton(WindowBase* window_base,
-                         image_resources::ImageID image_id)
-    : Widget(window_base), image_id_(image_id) {
+                         image_resources::ImageID image_id,
+                         VisualStyle visual_style)
+    : Widget(window_base), image_id_(image_id), visual_style_(visual_style) {
   SDL_assert(image_id_ != image_resources::ImageID::kLast);
   ImGuiWindowFlags window_flags =
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
@@ -29,19 +79,70 @@ TouchButton::TouchButton(WindowBase* window_base,
       ImGuiWindowFlags_NoBackground;
   set_flags(window_flags);
   set_title("##TouchButton");
-  texture_ = GetImage(window()->renderer(), image_id_);
-
-  SDL_QueryTexture(texture_, nullptr, nullptr, &texture_width_,
-                   &texture_height_);
   SDL_Rect b = bounds();
-  b.w = texture_width_;
-  b.h = texture_height_;
+  if (visual_style_ == VisualStyle::kImage) {
+    texture_ = GetImage(window()->renderer(), image_id_);
+    SDL_QueryTexture(texture_, nullptr, nullptr, &texture_width_,
+                     &texture_height_);
+    b.w = texture_width_;
+    b.h = texture_height_;
+  } else {
+    b.w = 64;
+    b.h = 64;
+  }
   set_bounds(b);
 }
 
 TouchButton::~TouchButton() = default;
 
 void TouchButton::Paint() {
+  if (visual_style_ != VisualStyle::kImage) {
+    const SDL_Rect rect = bounds();
+    const bool pressed = button_state_ == ButtonState::kDown;
+    const float alpha = pressed ? 1.f : opacity_;
+    const float radius = std::min(rect.w, rect.h) * (pressed ? .41f : .46f);
+    const ImVec2 center(rect.x + rect.w / 2.f, rect.y + rect.h / 2.f);
+    ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
+    draw_list->AddCircleFilled(center, radius,
+                               WithAlpha(kControlFillColor, alpha * .82f), 48);
+    draw_list->AddCircle(center, radius,
+                         WithAlpha(GetAccentColor(visual_style_), alpha), 48,
+                         std::max(2.f, radius * .065f));
+
+    if (visual_style_ == VisualStyle::kPause) {
+      const float bar_height = radius * .72f;
+      const float bar_width = std::max(3.f, radius * .14f);
+      const float gap = radius * .18f;
+      draw_list->AddRectFilled(
+          ImVec2(center.x - gap - bar_width, center.y - bar_height / 2.f),
+          ImVec2(center.x - gap, center.y + bar_height / 2.f),
+          WithAlpha(kControlTextColor, alpha), bar_width / 2.f);
+      draw_list->AddRectFilled(
+          ImVec2(center.x + gap, center.y - bar_height / 2.f),
+          ImVec2(center.x + gap + bar_width, center.y + bar_height / 2.f),
+          WithAlpha(kControlTextColor, alpha), bar_width / 2.f);
+      return;
+    }
+
+    const char* label = GetActionLabel(visual_style_);
+    ScopedFont font(
+        GetPreferredFont(PreferredFontSize::k4x, FontType::kSystemDefault));
+    float font_size = std::min(font.GetFontSize(), radius * .95f);
+    ImVec2 text_size =
+        font.GetFont()->CalcTextSizeA(font_size, FLT_MAX, 0.f, label);
+    const float max_text_width = radius * 1.35f;
+    if (text_size.x > max_text_width) {
+      font_size *= max_text_width / text_size.x;
+      text_size = font.GetFont()->CalcTextSizeA(font_size, FLT_MAX, 0.f, label);
+    }
+    draw_list->AddText(
+        font.GetFont(), font_size,
+        ImVec2(center.x - text_size.x / 2.f, center.y - text_size.y / 2.f),
+        WithAlpha(kControlTextColor, pressed ? 1.f : std::max(.9f, opacity_)),
+        label);
+    return;
+  }
+
   ImU32 color = button_state_ == ButtonState::kNormal
                     ? IM_COL32(255, 255, 255, opacity_ * 255)
                     : IM_COL32(255, 255, 255, opacity_ * 128);

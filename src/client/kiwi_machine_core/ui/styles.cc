@@ -78,7 +78,11 @@ PreferredFontSize GetPreferredFontSize(float window_scale) {
 namespace main_window {
 
 int GetJoystickSize(float window_scale) {
+#if KIWI_MOBILE
+  return 150 * window_scale;
+#else
   return 135 * window_scale;
+#endif
 }
 
 int GetJoystickMarginX(float window_scale,
@@ -102,7 +106,7 @@ int GetJoystickMarginY(float window_scale,
 int GetJoystickButtonMarginX(float window_scale,
                              bool is_landscape,
                              const SDL_Rect& safe_area_insets) {
-  int result = is_landscape ? 40 * window_scale : 30 * window_scale;
+  int result = is_landscape ? 12 * window_scale : 20 * window_scale;
   return result + safe_area_insets.x;
 }
 
@@ -180,7 +184,7 @@ int GetMarginX(float window_scale) {
 
 PreferredFontSize PreferredTitleFontSize(float window_scale) {
 #if KIWI_MOBILE
-  return PreferredFontSize::k3x;
+  return PreferredFontSize::k4x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
 #endif
@@ -188,7 +192,7 @@ PreferredFontSize PreferredTitleFontSize(float window_scale) {
 
 PreferredFontSize PreferredContentFontSize() {
 #if KIWI_MOBILE
-  return PreferredFontSize::k2x;
+  return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k1x;
 #endif

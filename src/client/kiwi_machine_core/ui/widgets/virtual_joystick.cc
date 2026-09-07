@@ -13,15 +13,24 @@
 #include "ui/widgets/virtual_joystick.h"
 
 #include <imgui.h>
+
+#include <algorithm>
 #include <cmath>
 
 #include "ui/window_base.h"
-#include "utility/images.h"
 #include "utility/math.h"
+
+namespace {
+constexpr ImU32 kPadFillColor = IM_COL32(24, 29, 27, 150);
+constexpr ImU32 kPadRingColor = IM_COL32(143, 153, 147, 190);
+constexpr ImU32 kPadGuideColor = IM_COL32(143, 153, 147, 70);
+constexpr ImU32 kPadActiveColor = IM_COL32(101, 216, 75, 220);
+constexpr ImU32 kThumbFillColor = IM_COL32(68, 76, 71, 235);
+constexpr ImU32 kThumbRingColor = IM_COL32(224, 230, 226, 220);
+}  // namespace
 
 VirtualJoystick::VirtualJoystick(WindowBase* window_base)
     : Widget(window_base) {
-  SDL_assert(image_id_ != image_resources::ImageID::kLast);
   ImGuiWindowFlags window_flags =
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
@@ -34,29 +43,11 @@ VirtualJoystick::VirtualJoystick(WindowBase* window_base)
 VirtualJoystick::~VirtualJoystick() = default;
 
 void VirtualJoystick::Paint() {
-  if (first_paint_) {
-    SDL_assert(!texture_pad_);
-    texture_pad_ = GetImage(window()->renderer(),
-                            image_resources::ImageID::kVtbJoystickPad);
-
-    SDL_assert(!texture_ball_);
-    texture_ball_ = GetImage(window()->renderer(),
-                             image_resources::ImageID::kVtbJoystickBall);
-
-    first_paint_ = false;
-  }
-
-  int pad_radius = pad_scaling_ * bounds().w / 2;
-  int ball_radius = ball_scaling_ * bounds().w / 2;
-  ImVec2 pad_center(bounds().x + (bounds().w / 2),
-                    bounds().y + (bounds().h / 2));
-
-  SDL_Rect ball_rect = {
-      static_cast<int>(pad_center.x - ball_radius),
-      static_cast<int>(pad_center.y - ball_radius),
-      ball_radius * 2,
-      ball_radius * 2,
-  };
+  const float pad_radius = pad_scaling_ * bounds().w / 2.f;
+  const float ball_radius = ball_scaling_ * bounds().w / 2.f;
+  const ImVec2 pad_center(bounds().x + bounds().w / 2.f,
+                          bounds().y + bounds().h / 2.f);
+  ImVec2 ball_center = pad_center;
 
   if (is_finger_down_) {
     SDL_Rect bounds = window()->GetClientBounds();
@@ -69,7 +60,6 @@ void VirtualJoystick::Paint() {
 
     if (distance2_to_center > (this->bounds().w / 2 * fixed_threshold_) *
                                   (this->bounds().w / 2 * fixed_threshold_)) {
-      ImVec2 ball_center;
       if (distance2_to_center < pad_radius * pad_radius) {
         ball_center.x = finger_pos.x;
         ball_center.y = finger_pos.y;
@@ -80,33 +70,23 @@ void VirtualJoystick::Paint() {
         ball_center.y = pad_center.y + sin * pad_radius;
         ball_center.x = pad_center.x + cos * pad_radius;
       }
-      ball_rect = {
-          static_cast<int>(ball_center.x - ball_radius),
-          static_cast<int>(ball_center.y - ball_radius),
-          ball_radius * 2,
-          ball_radius * 2,
-      };
     }
   }
 
-  SDL_Rect pad_rect{
-      bounds().x + (bounds().w / 2) - pad_radius,
-      bounds().y + (bounds().h / 2) - pad_radius,
-      pad_radius * 2,
-      pad_radius * 2,
-  };
-
-  // Draw joystick pad
-  ImGui::GetBackgroundDrawList()->AddImage(
-      reinterpret_cast<ImTextureID>(texture_pad_),
-      ImVec2(pad_rect.x, pad_rect.y),
-      ImVec2(pad_rect.x + pad_rect.w, pad_rect.y + pad_rect.h));
-
-  // Draw joystick ball
-  ImGui::GetBackgroundDrawList()->AddImage(
-      reinterpret_cast<ImTextureID>(texture_ball_),
-      ImVec2(ball_rect.x, ball_rect.y),
-      ImVec2(ball_rect.x + ball_rect.w, ball_rect.y + ball_rect.h));
+  ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
+  draw_list->AddCircleFilled(pad_center, pad_radius, kPadFillColor, 64);
+  draw_list->AddCircle(pad_center, pad_radius, kPadRingColor, 64,
+                       std::max(2.f, bounds().w * .012f));
+  draw_list->AddCircle(pad_center, pad_radius * .72f, kPadGuideColor, 64,
+                       std::max(1.f, bounds().w * .006f));
+  if (is_finger_down_) {
+    draw_list->AddLine(pad_center, ball_center, kPadActiveColor,
+                       std::max(2.f, bounds().w * .018f));
+  }
+  draw_list->AddCircleFilled(ball_center, ball_radius, kThumbFillColor, 48);
+  draw_list->AddCircle(ball_center, ball_radius,
+                       is_finger_down_ ? kPadActiveColor : kThumbRingColor, 48,
+                       std::max(2.f, bounds().w * .012f));
 }
 
 bool VirtualJoystick::OnTouchFingerDown(SDL_TouchFingerEvent* event) {

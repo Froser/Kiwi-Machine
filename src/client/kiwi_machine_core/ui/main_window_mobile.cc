@@ -53,7 +53,8 @@ void MainWindow::CreateVirtualTouchButtons() {
 
   {
     std::unique_ptr<JoystickButton> vtb_a =
-        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbA);
+        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbA,
+                                         TouchButton::VisualStyle::kActionA);
     vtb_a_ = vtb_a.get();
     vtb_a->set_finger_down_callback(kiwi::base::BindRepeating(
         &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
@@ -67,7 +68,8 @@ void MainWindow::CreateVirtualTouchButtons() {
 
   {
     std::unique_ptr<JoystickButton> vtb_b =
-        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbB);
+        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbB,
+                                         TouchButton::VisualStyle::kActionB);
     vtb_b_ = vtb_b.get();
     vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
         &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
@@ -80,8 +82,9 @@ void MainWindow::CreateVirtualTouchButtons() {
   }
 
   {
-    std::unique_ptr<JoystickButton> vtb_ab = std::make_unique<JoystickButton>(
-        this, image_resources::ImageID::kVtbAb);
+    std::unique_ptr<JoystickButton> vtb_ab =
+        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbAb,
+                                         TouchButton::VisualStyle::kActionAB);
     vtb_ab_ = vtb_ab.get();
     vtb_ab->set_finger_down_callback(
         kiwi::base::BindRepeating(&MainWindow::SetVirtualJoystickButton,
@@ -101,20 +104,6 @@ void MainWindow::CreateVirtualTouchButtons() {
                 kiwi::nes::ControllerButton::kB, false)));
     vtb_ab->set_visible(false);
     AddWidget(std::move(vtb_ab));
-  }
-
-  {
-    std::unique_ptr<JoystickButton> vtb_b =
-        std::make_unique<JoystickButton>(this, image_resources::ImageID::kVtbB);
-    vtb_b_ = vtb_b.get();
-    vtb_b->set_finger_down_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kB, true));
-    vtb_b->set_trigger_callback(kiwi::base::BindRepeating(
-        &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this), 0,
-        kiwi::nes::ControllerButton::kB, false));
-    vtb_b->set_visible(false);
-    AddWidget(std::move(vtb_b));
   }
 
   {
@@ -159,7 +148,8 @@ void MainWindow::CreateVirtualTouchButtons() {
 
     {
       std::unique_ptr<TouchButton> vtb_pause = std::make_unique<TouchButton>(
-          this, image_resources::ImageID::kVtbPause);
+          this, image_resources::ImageID::kVtbPause,
+          TouchButton::VisualStyle::kPause);
       vtb_pause_ = vtb_pause.get();
       vtb_pause->set_trigger_callback(kiwi::base::BindRepeating(
           &MainWindow::OnInGameMenuTrigger, kiwi::base::Unretained(this)));
@@ -219,53 +209,58 @@ void MainWindow::LayoutVirtualTouchButtons() {
     return;
 #endif
 
-  const SDL_Rect kClientBounds = GetClientBounds();
+  const SDL_Rect safe_bounds = GetSafeAreaClientBounds();
+  const SDL_Rect no_safe_area_insets = {};
   bool is_landscape = IsLandscape();
 
   {
     const int kSize = styles::main_window::GetJoystickSize(window_scale());
     const int kPaddingX = styles::main_window::GetJoystickMarginX(
-        window_scale(), is_landscape, GetSafeAreaInsets());
+        window_scale(), is_landscape, no_safe_area_insets);
     const int kPaddingY = styles::main_window::GetJoystickMarginY(
-        window_scale(), is_landscape, GetSafeAreaInsets());
+        window_scale(), is_landscape, no_safe_area_insets);
 
     if (vtb_joystick_) {
       SDL_Rect bounds;
       bounds.h = bounds.w = kSize;
-      bounds.x = kPaddingX;
-      bounds.y = kClientBounds.h - bounds.h - kPaddingY;
+      bounds.x = safe_bounds.x + kPaddingX;
+      bounds.y = safe_bounds.y + safe_bounds.h - bounds.h - kPaddingY;
       vtb_joystick_->set_bounds(bounds);
     }
   }
 
   {
-    const int kSize = 55 * window_scale();
+    const int kSize = 76 * window_scale();
+    const int kComboSize = 64 * window_scale();
     const int kPaddingX = styles::main_window::GetJoystickButtonMarginX(
-        window_scale(), is_landscape, GetSafeAreaInsets());
+        window_scale(), is_landscape, no_safe_area_insets);
     const int kPaddingY = styles::main_window::GetJoystickButtonMarginY(
-        window_scale(), is_landscape, GetSafeAreaInsets());
-    const int kSpacing = 15 * window_scale();
+        window_scale(), is_landscape, no_safe_area_insets);
+    const int kSpacing = 6 * window_scale();
+    const int safe_right = safe_bounds.x + safe_bounds.w;
+    const int action_bottom = safe_bounds.y + safe_bounds.h - kPaddingY;
     if (vtb_a_) {
       SDL_Rect bounds;
       bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w - kPaddingX;
-      bounds.y = kClientBounds.h - bounds.h - kPaddingY;
+      bounds.x = safe_right - bounds.w - kPaddingX;
+      bounds.y = action_bottom - bounds.h;
       vtb_a_->set_bounds(bounds);
     }
 
     if (vtb_b_) {
       SDL_Rect bounds;
       bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w * 2 - kPaddingX - kSpacing;
-      bounds.y = kClientBounds.h - bounds.h - kPaddingY;
+      bounds.x = safe_right - bounds.w * 2 - kPaddingX - kSpacing;
+      bounds.y = action_bottom - bounds.h;
       vtb_b_->set_bounds(bounds);
     }
 
     if (vtb_ab_) {
       SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = kClientBounds.w - bounds.w - kPaddingX;
-      bounds.y = kClientBounds.h - bounds.h * 2 - kPaddingY - kSpacing;
+      bounds.h = bounds.w = kComboSize;
+      const int action_center_x = safe_right - kPaddingX - kSize / 2;
+      bounds.x = action_center_x - bounds.w / 2;
+      bounds.y = action_bottom - kSize - bounds.h - kSpacing;
       vtb_ab_->set_bounds(bounds);
     }
   }
@@ -274,32 +269,33 @@ void MainWindow::LayoutVirtualTouchButtons() {
     const int kMiddleSpacing = 4 * window_scale();
     const int kPaddingBottom =
         styles::main_window::GetJoystickSelectStartButtonMarginBottom(
-            window_scale(), is_landscape, GetSafeAreaInsets());
+            window_scale(), is_landscape, no_safe_area_insets);
+    const int safe_center_x = safe_bounds.x + safe_bounds.w / 2;
     if (vtb_select_) {
       SDL_Rect bounds = vtb_select_->bounds();
-      bounds.x = kClientBounds.w / 2 - bounds.w - kMiddleSpacing;
-      bounds.y = kClientBounds.h - bounds.h - kPaddingBottom;
+      bounds.x = safe_center_x - bounds.w - kMiddleSpacing;
+      bounds.y = safe_bounds.y + safe_bounds.h - bounds.h - kPaddingBottom;
       vtb_select_->set_bounds(bounds);
     }
 
     if (vtb_start_) {
       SDL_Rect bounds = vtb_select_->bounds();
-      bounds.x = kClientBounds.w / 2 + kMiddleSpacing;
-      bounds.y = kClientBounds.h - bounds.h - kPaddingBottom;
+      bounds.x = safe_center_x + kMiddleSpacing;
+      bounds.y = safe_bounds.y + safe_bounds.h - bounds.h - kPaddingBottom;
       vtb_start_->set_bounds(bounds);
     }
   }
 
   if (vtb_pause_) {
     const int kPaddingX = styles::main_window::GetJoystickPauseButtonMarginX(
-        window_scale(), GetSafeAreaInsets());
+        window_scale(), no_safe_area_insets);
     const int kPaddingY = styles::main_window::GetJoystickPauseButtonMarginY(
-        window_scale(), GetSafeAreaInsets());
-    const int kSize = 33 * window_scale();
+        window_scale(), no_safe_area_insets);
+    const int kSize = 42 * window_scale();
     SDL_Rect bounds;
     bounds.h = bounds.w = kSize;
-    bounds.x = kPaddingX;
-    bounds.y = kPaddingY;
+    bounds.x = safe_bounds.x + kPaddingX;
+    bounds.y = safe_bounds.y + kPaddingY;
     vtb_pause_->set_bounds(bounds);
   }
 }

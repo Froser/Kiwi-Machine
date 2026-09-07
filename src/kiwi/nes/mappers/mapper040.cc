@@ -102,6 +102,10 @@ Byte Mapper040::ReadExtendedRAM(Address address) {
   return ReadPRG(address);
 }
 
+bool Mapper040::NeedsM2CycleIRQ() const {
+  return true;
+}
+
 void Mapper040::M2CycleIRQ() {
   if (irq_enabled_) {
     if (irq_count_ < 4096) {

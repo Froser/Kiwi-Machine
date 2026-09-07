@@ -45,6 +45,14 @@ constexpr ImU32 kButtonBrandColor = IM_COL32(101, 216, 75, 255);
 constexpr ImU32 kButtonBrandOnColor = IM_COL32(16, 40, 12, 255);
 constexpr float kButtonCornerRadius = 8.f;
 
+#if KIWI_MOBILE
+constexpr PreferredFontSize kSearchPrimaryFontSize = PreferredFontSize::k3x;
+constexpr PreferredFontSize kSearchActionFontSize = PreferredFontSize::k3x;
+#else
+constexpr PreferredFontSize kSearchPrimaryFontSize = PreferredFontSize::k2x;
+constexpr PreferredFontSize kSearchActionFontSize = PreferredFontSize::k1x;
+#endif
+
 constexpr int kControllerKeyboardRows = 5;
 constexpr int kControllerKeyboardColumns = 10;
 constexpr std::array<std::array<const char*, kControllerKeyboardColumns>,
@@ -85,9 +93,7 @@ ScopedFont ScopedInputFont(PreferredFontSize size, const char* text) {
   return GetPreferredFont(size, text);
 }
 
-bool DrawPrimaryButton(const char* id,
-                       const char* label,
-                       const ImVec2& size) {
+bool DrawPrimaryButton(const char* id, const char* label, const ImVec2& size) {
   const bool pressed = ImGui::InvisibleButton(id, size);
   const bool highlighted = ImGui::IsItemHovered() || ImGui::IsItemActive();
   const ImVec2 min = ImGui::GetItemRectMin();
@@ -99,10 +105,9 @@ bool DrawPrimaryButton(const char* id,
                      kButtonCornerRadius, 0, highlighted ? 2.f : 1.f);
 
   const ImVec2 text_size = ImGui::CalcTextSize(label);
-  draw_list->AddText(
-      ImVec2(min.x + (size.x - text_size.x) / 2.f,
-             min.y + (size.y - text_size.y) / 2.f),
-      kButtonBrandOnColor, label);
+  draw_list->AddText(ImVec2(min.x + (size.x - text_size.x) / 2.f,
+                            min.y + (size.y - text_size.y) / 2.f),
+                     kButtonBrandOnColor, label);
   return pressed;
 }
 }  // namespace
@@ -189,7 +194,7 @@ void FilterWidget::Paint() {
   float confirm_button_width = kConfirmButtonMinWidth;
   {
     ScopedFont font(
-        GetPreferredFont(PreferredFontSize::k1x, confirm_text.c_str()));
+        GetPreferredFont(kSearchActionFontSize, confirm_text.c_str()));
     confirm_button_width =
         std::max(kConfirmButtonMinWidth,
                  ImGui::CalcTextSize(confirm_text.c_str()).x + 32.f);
@@ -199,7 +204,7 @@ void FilterWidget::Paint() {
   confirm_button_width =
       std::min(confirm_button_width,
                std::max(1.f, available_width - kInputButtonSpacing -
-                                  reserved_input_width));
+                                 reserved_input_width));
   const float row_width =
       std::min(available_width, desired_input_width + kInputButtonSpacing +
                                     confirm_button_width);
@@ -207,8 +212,8 @@ void FilterWidget::Paint() {
       std::max(1.f, row_width - kInputButtonSpacing - confirm_button_width);
   float expected_input_row_height = 0.f;
   {
-    ScopedFont font(ScopedInputFont(PreferredFontSize::k2x,
-                                    filter_buffer_.data()));
+    ScopedFont font(
+        ScopedInputFont(kSearchPrimaryFontSize, filter_buffer_.data()));
     expected_input_row_height = ImGui::GetFrameHeight();
   }
 
@@ -216,21 +221,19 @@ void FilterWidget::Paint() {
   std::string title =
       GetLocalizedString(string_resources::IDR_FILTER_WIDGET_TITLE);
   {
-    ScopedFont font(GetPreferredFont(PreferredFontSize::k2x));
+    ScopedFont font(GetPreferredFont(kSearchPrimaryFontSize));
     ImVec2 title_rect = ImGui::CalcTextSize(title.c_str());
     ImGui::SetCursorPosX((client_bounds.w - title_rect.x) / 2);
-    ImVec2 combined_rect(
-        std::max(title_rect.x, row_width),
-        title_rect.y + ImGui::GetStyle().ItemSpacing.y +
-            expected_input_row_height);
+    ImVec2 combined_rect(std::max(title_rect.x, row_width),
+                         title_rect.y + ImGui::GetStyle().ItemSpacing.y +
+                             expected_input_row_height);
     if (controller_mode_) {
-      combined_rect.y +=
-          kControllerKeySpacing +
-          kControllerKeyboardRows *
-              (kControllerKeyHeight + kControllerKeySpacing);
+      combined_rect.y += kControllerKeySpacing +
+                         kControllerKeyboardRows *
+                             (kControllerKeyHeight + kControllerKeySpacing);
     }
-    ImGui::SetCursorPosY(styles::filter_widget::GetTitleTop(
-        GetLocalBounds(), combined_rect));
+    ImGui::SetCursorPosY(
+        styles::filter_widget::GetTitleTop(GetLocalBounds(), combined_rect));
     ImGui::TextUnformatted(title.c_str());
   }
 
@@ -240,8 +243,8 @@ void FilterWidget::Paint() {
 
   // The text field and primary action share one centered row.
   {
-    ScopedFont font(ScopedInputFont(PreferredFontSize::k2x,
-                                    filter_buffer_.data()));
+    ScopedFont font(
+        ScopedInputFont(kSearchPrimaryFontSize, filter_buffer_.data()));
     ImGui::SetCursorPosX((client_bounds.w - row_width) / 2);
     ImGui::SetNextItemWidth(input_width);
 
@@ -254,8 +257,7 @@ void FilterWidget::Paint() {
     // Without EnterReturnsTrue, InputText returns true whenever the content is
     // modified, which gives us real-time filtering.
     constexpr ImGuiInputTextFlags kInputFlags =
-        ImGuiInputTextFlags_AutoSelectAll |
-        ImGuiInputTextFlags_CallbackAlways;
+        ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_CallbackAlways;
     if (ImGui::InputText("##FilterInput", filter_buffer_.data(),
                          filter_buffer_.size(), kInputFlags,
                          &FilterWidget::HandleInputTextCallback, this)) {
@@ -267,16 +269,15 @@ void FilterWidget::Paint() {
   ImGui::SameLine(0.f, kInputButtonSpacing);
   {
     ScopedFont font(
-        GetPreferredFont(PreferredFontSize::k1x, confirm_text.c_str()));
+        GetPreferredFont(kSearchActionFontSize, confirm_text.c_str()));
     confirm_requested =
         DrawPrimaryButton("##FilterConfirm", confirm_text.c_str(),
                           ImVec2(confirm_button_width, input_row_height));
   }
 
   if (controller_mode_) {
-    DrawControllerKeyboard(input_row_top + input_row_height +
-                               kControllerKeySpacing,
-                           row_width);
+    DrawControllerKeyboard(
+        input_row_top + input_row_height + kControllerKeySpacing, row_width);
   }
 
   ImGui::End();
@@ -327,8 +328,7 @@ bool FilterWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
   return false;
 }
 
-bool FilterWidget::OnControllerButtonPressed(
-    SDL_ControllerButtonEvent* event) {
+bool FilterWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
   if (!input_started_)
     return false;
 
@@ -369,8 +369,7 @@ bool FilterWidget::OnControllerButtonPressed(
   return true;
 }
 
-bool FilterWidget::OnControllerAxisMotionEvent(
-    SDL_ControllerAxisEvent* event) {
+bool FilterWidget::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
   if (!input_started_)
     return false;
 
@@ -429,16 +428,13 @@ void FilterWidget::DrawControllerKeyboard(float top, float width) {
   const ImVec2 window_pos = ImGui::GetWindowPos();
   const float available_height =
       std::max(1.f, window()->GetClientBounds().h - top - 12.f);
-  const float key_height =
-      std::max(24.f,
-               std::min(kControllerKeyHeight,
-                        (available_height -
-                         kControllerKeySpacing *
-                             (kControllerKeyboardRows - 1)) /
-                            kControllerKeyboardRows));
+  const float key_height = std::max(
+      24.f, std::min(kControllerKeyHeight,
+                     (available_height -
+                      kControllerKeySpacing * (kControllerKeyboardRows - 1)) /
+                         kControllerKeyboardRows));
   const float left =
-      window_pos.x +
-      (window()->GetClientBounds().w - keyboard_width) / 2;
+      window_pos.x + (window()->GetClientBounds().w - keyboard_width) / 2;
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   ScopedFont font(GetPreferredFont(PreferredFontSize::k1x));
 
@@ -449,8 +445,7 @@ void FilterWidget::DrawControllerKeyboard(float top, float width) {
     for (int column = 0; column < key_count; ++column) {
       const float x = left + column * (key_width + kControllerKeySpacing);
       const float y =
-          window_pos.y + top +
-          row * (key_height + kControllerKeySpacing);
+          window_pos.y + top + row * (key_height + kControllerKeySpacing);
       const ImVec2 min(x, y);
       const ImVec2 max(x + key_width, y + key_height);
       const bool selected =
@@ -458,10 +453,9 @@ void FilterWidget::DrawControllerKeyboard(float top, float width) {
       draw_list->AddRectFilled(
           min, max, selected ? ImColor(227, 179, 65) : ImColor(36, 40, 56),
           4.f);
-      draw_list->AddRect(min, max,
-                         selected ? ImColor(255, 226, 140)
-                                  : ImColor(75, 81, 105),
-                         4.f);
+      draw_list->AddRect(
+          min, max, selected ? ImColor(255, 226, 140) : ImColor(75, 81, 105),
+          4.f);
 
       const char* label = kControllerKeys[row][column];
       ImVec2 label_size = ImGui::CalcTextSize(label);
@@ -476,12 +470,10 @@ void FilterWidget::DrawControllerKeyboard(float top, float width) {
 
 void FilterWidget::MoveControllerSelection(int row_delta, int column_delta) {
   if (row_delta != 0) {
-    controller_row_ =
-        (controller_row_ + row_delta + kControllerKeyboardRows) %
-        kControllerKeyboardRows;
-    controller_column_ =
-        std::min(controller_column_,
-                 kControllerRowLengths[controller_row_] - 1);
+    controller_row_ = (controller_row_ + row_delta + kControllerKeyboardRows) %
+                      kControllerKeyboardRows;
+    controller_column_ = std::min(controller_column_,
+                                  kControllerRowLengths[controller_row_] - 1);
   }
   if (column_delta != 0) {
     const int row_length = kControllerRowLengths[controller_row_];
@@ -518,8 +510,7 @@ void FilterWidget::ActivateControllerKey() {
 
 void FilterWidget::QueueControllerEdit(ControllerEditType type,
                                        const char* text) {
-  pending_controller_edits_.push_back(
-      {type, std::string(text ? text : "")});
+  pending_controller_edits_.push_back({type, std::string(text ? text : "")});
 }
 
 int FilterWidget::HandleInputTextCallback(ImGuiInputTextCallbackData* data) {
@@ -531,8 +522,7 @@ int FilterWidget::HandleInputTextCallback(ImGuiInputTextCallbackData* data) {
         break;
       case ControllerEditType::kBackspace: {
         if (data->SelectionStart != data->SelectionEnd) {
-          const int start =
-              std::min(data->SelectionStart, data->SelectionEnd);
+          const int start = std::min(data->SelectionStart, data->SelectionEnd);
           const int end = std::max(data->SelectionStart, data->SelectionEnd);
           data->DeleteChars(start, end - start);
           break;

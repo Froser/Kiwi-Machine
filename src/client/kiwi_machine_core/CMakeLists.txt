@@ -173,6 +173,7 @@ endif ()
 
 if (ANDROID)
     list(APPEND Sources
+            ui/window_base_android.cc
             utility/android/asset.cc
             utility/android/asset.h
     )

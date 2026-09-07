@@ -19,8 +19,9 @@
 #include "utility/math.h"
 
 JoystickButton::JoystickButton(WindowBase* window_base,
-                               image_resources::ImageID image_id)
-    : TouchButton(window_base, image_id) {}
+                               image_resources::ImageID image_id,
+                               TouchButton::VisualStyle visual_style)
+    : TouchButton(window_base, image_id, visual_style) {}
 
 JoystickButton::~JoystickButton() = default;
 

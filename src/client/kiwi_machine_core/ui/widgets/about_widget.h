@@ -56,6 +56,14 @@ class AboutWidget : public Widget {
     kGamepad,
   };
 
+#if KIWI_MOBILE
+  enum class MobileSection {
+    kControls,
+    kGameSelection,
+    kAbout,
+  };
+#endif
+
   enum class LayoutMode {
     kTwoColumn,
     kSingleColumn,
@@ -67,6 +75,11 @@ class AboutWidget : public Widget {
     kGamepadTab,
     kRepository,
     kBack,
+#if KIWI_MOBILE
+    kControlsSection,
+    kGameSelectionSection,
+    kAboutSection,
+#endif
   };
 
   struct FrameText {
@@ -113,6 +126,11 @@ class AboutWidget : public Widget {
     SDL_Rect version = {};
     SDL_Rect back_button = {};
 
+#if KIWI_MOBILE
+    SDL_Rect mobile_section_bar = {};
+    std::array<SDL_Rect, 3> mobile_section_tabs = {};
+#endif
+
     SDL_Rect controls_panel = {};
     SDL_Rect controls_title = {};
     SDL_Rect keyboard_tab = {};
@@ -135,6 +153,11 @@ class AboutWidget : public Widget {
   void DrawFrame(const FrameText& text, const FrameLayout& layout);
   void DrawBackground(const FrameLayout& layout);
   void DrawHeader(const FrameText& text, const FrameLayout& layout);
+#if KIWI_MOBILE
+  void DrawMobileSectionTabs(const FrameText& text, const FrameLayout& layout);
+  void SelectMobileSection(MobileSection section);
+  void MoveMobilePage(int delta);
+#endif
   void DrawControls(const FrameText& text, const FrameLayout& layout);
   void DrawKeyboard(const FrameText& text, const FrameLayout& layout);
   void DrawGamepad(const FrameText& text, const FrameLayout& layout);
@@ -153,6 +176,9 @@ class AboutWidget : public Widget {
   StackWidget* parent_ = nullptr;
   MainWindow* main_window_ = nullptr;
   InputPage input_page_ = InputPage::kKeyboard;
+#if KIWI_MOBILE
+  MobileSection mobile_section_ = MobileSection::kControls;
+#endif
   FrameLayout last_layout_;
   bool has_layout_ = false;
   HitTarget hovered_target_ = HitTarget::kNone;

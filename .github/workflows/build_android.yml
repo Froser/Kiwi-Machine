@@ -16,6 +16,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Checkout demo ROM workspace
+      uses: actions/checkout@v4
+      with:
+        repository: Froser/Kiwi-Machine-Workspace
+        path: src/third_party/Kiwi-Machine-Workspace
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:

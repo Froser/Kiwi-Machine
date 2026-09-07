@@ -25,8 +25,9 @@ constexpr int kScanlineVisibleDots = 256;
 // Visible scanlines are from 0 to 239.
 constexpr int kVisibleScanlines = 240;
 
-PPU::PPU(PPUBus* bus)
-    : ppu_bus_(bus), palette_(CreatePaletteFromPPUModel(PPUModel::k2C02)) {
+PPU::PPU(PPUBus* bus) : ppu_bus_(bus) {
+  SetPalette(PPUModel::k2C02);
+
   // Initialize buffers
   for (size_t i = 0; i < kMaxBufferSize; ++i) {
     screenbuffers_[i].resize(kVisibleScanlines * kScanlineVisibleDots);
@@ -199,7 +200,8 @@ void PPU::Step() {
         // For sprites rendering, see https://www.nesdev.org/wiki/PPU_OAM.
         bool is_sprite_foreground = true;
         if (is_render_sprites() && (!is_hide_edge_sprites() || x >= 8)) {
-          for (auto i : secondary_oam_) {
+          for (std::size_t sprite = 0; sprite < secondary_oam_size_; ++sprite) {
+            const Byte i = secondary_oam_[sprite];
             Byte sprite_x = sprite_memory_[i * 4 + 3];
 
             if (0 > x - sprite_x || x - sprite_x >= 8)
@@ -284,10 +286,11 @@ void PPU::Step() {
           palette_index = 0;
         }
 
-        DCHECK(palette_);
         // Map |palette_index| to PPU memory map's Palette RAM address.
-        Color bgra = (palette_->GetColorBGRA(
-            ppu_bus_->Read(static_cast<Address>(palette_index | 0x3f00))));
+        const Byte color_index =
+            ppu_bus_->Read(static_cast<Address>(palette_index | 0x3f00));
+        DCHECK(color_index < palette_colors_.size());
+        const Color bgra = palette_colors_[color_index];
         DCHECK(static_cast<size_t>(y) * kScanlineVisibleDots +
                    static_cast<size_t>(x) <
                screenbuffers_[current_buffer_index_].size());
@@ -341,20 +344,18 @@ void PPU::Step() {
         // 4. using the details for the eight (or fewer) sprites chosen, it
         // determines which pixels each has on the scanline and where to draw
         // them.
-        secondary_oam_.resize(0);
+        secondary_oam_size_ = 0;
 
         Byte range = is_long_sprite() ? 16 : 8;
-        std::size_t j = 0;
         for (std::size_t i = sprite_data_address_ / 4; i < 64; ++i) {
           auto diff = (scanline_ - sprite_memory_[i * 4]);
           if (0 <= diff && diff < range) {
             // Sprite overflow shouldn't be set when all rendering is off
-            if (j >= 8 && is_render_enabled()) {
+            if (secondary_oam_size_ >= 8 && is_render_enabled()) {
               registers_.PPUSTATUS.O = 1;
               break;
             }
-            secondary_oam_.push_back(static_cast<Byte>(i));
-            ++j;
+            secondary_oam_[secondary_oam_size_++] = static_cast<Byte>(i);
           }
         }
 
@@ -417,7 +418,7 @@ void PPU::Step() {
   }
 
   ++cycles_;
-  if (observer_) {
+  if (observer_ && step_observer_enabled_) {
     observer_->OnPPUStepped();
   }
 }
@@ -522,6 +523,13 @@ void PPU::SetObserver(PPUObserver* observer) {
 
 void PPU::RemoveObserver() {
   observer_ = nullptr;
+}
+
+void PPU::SetPalette(PPUModel model) {
+  palette_ = CreatePaletteFromPPUModel(model);
+  DCHECK(palette_);
+  for (int index = 0; index < Palette::kColorCount; ++index)
+    palette_colors_[index] = palette_->GetColorBGRA(index);
 }
 
 Byte PPU::GetStatus() {

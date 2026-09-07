@@ -17,9 +17,7 @@
 #include <map>
 #include <string>
 
-#include "resources/image_resources.h"
 #include "ui/widgets/widget.h"
-#include "utility/timer.h"
 
 class VirtualJoystick : public Widget {
  public:
@@ -53,14 +51,10 @@ class VirtualJoystick : public Widget {
   void CalculateJoystick();
 
  private:
-  bool first_paint_ = true;
   float pad_scaling_ = .8f;
   float ball_scaling_ = .3f;
   float fixed_threshold_ = .2f;
   float ignore_threshold_ = 1.4f;
-  SDL_Texture* texture_pad_ = nullptr;
-  SDL_Texture* texture_ball_ = nullptr;
-  image_resources::ImageID image_id_;
   float finger_x_ = 0;
   float finger_y_ = 0;
   SDL_FingerID finger_id_ = 0;
