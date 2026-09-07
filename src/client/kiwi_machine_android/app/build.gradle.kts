@@ -101,7 +101,8 @@ android {
 }
 
 tasks.matching {
-    it.name.startsWith("merge") && it.name.endsWith("Assets")
+    (it.name.startsWith("merge") && it.name.endsWith("Assets")) ||
+        it.name.startsWith("lint")
 }.configureEach {
     dependsOn(packageDemoPak)
 }
