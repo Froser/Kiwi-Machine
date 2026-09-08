@@ -60,6 +60,7 @@ class FlexItemWidget : public Widget {
   void set_filtered(bool filtered) { filtered_ = filtered; }
   bool filtered() const { return filtered_; }
   bool MatchFilter(const std::string& filter, int& similarity) const;
+  std::vector<std::string> GetFilterStrings() const;
 
   void set_row_index(int row_index) { row_index_ = row_index; }
   void set_column_index(int column_index) { column_index_ = column_index; }

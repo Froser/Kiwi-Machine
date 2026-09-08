@@ -15,6 +15,8 @@
 #include <SDL_image.h>
 #include <imgui.h>
 
+#include <iterator>
+
 #include "ui/application.h"
 #include "ui/main_window.h"
 #include "ui/styles.h"
@@ -123,6 +125,18 @@ bool FlexItemWidget::MatchFilter(const std::string& filter,
       return true;
   }
   return false;
+}
+
+std::vector<std::string> FlexItemWidget::GetFilterStrings() const {
+  std::vector<std::string> filter_strings;
+  for (const auto& sub_data : sub_data_) {
+    std::vector<std::string> data_filter_strings =
+        sub_data->title_updater->GetFilterStrings();
+    filter_strings.insert(filter_strings.end(),
+                          std::make_move_iterator(data_filter_strings.begin()),
+                          std::make_move_iterator(data_filter_strings.end()));
+  }
+  return filter_strings;
 }
 
 SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height) {

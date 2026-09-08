@@ -18,9 +18,11 @@
 #include <cmath>
 #include <set>
 
+#include "ui/application.h"
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "ui/widgets/filter_widget.h"
+#include "utility/algorithm.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/math.h"
@@ -48,6 +50,8 @@ constexpr float kMaximumWheelFlingVelocity = 6000.f;
 constexpr Uint32 kWheelVelocitySampleTimeoutMs = 100;
 #endif
 
+using FilterSearchIndex = std::vector<std::vector<std::string>>;
+
 struct AutoReset {
   AutoReset(bool& value) : value_(value) {}
   ~AutoReset() { value_ = false; }
@@ -61,6 +65,37 @@ int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   int rhs_x2 = rhs.x + rhs.w;
 
   return std::min(lhs_x2, rhs_x2) - std::max(lhs.x, rhs.x);
+}
+
+std::vector<size_t> CalculateFilteredResultOnIOThread(
+    std::shared_ptr<const FilterSearchIndex> search_index,
+    std::shared_ptr<std::atomic<uint64_t>> current_request_id,
+    uint64_t request_id,
+    const std::string& filter) {
+  std::vector<std::pair<size_t, int>> matches;
+  for (size_t item_index = 0; item_index < search_index->size(); ++item_index) {
+    if (current_request_id->load(std::memory_order_relaxed) != request_id)
+      return {};
+
+    for (const std::string& candidate : (*search_index)[item_index]) {
+      if (HasString(candidate, filter)) {
+        const int similarity = static_cast<int>(candidate.size()) -
+                               static_cast<int>(filter.size());
+        matches.emplace_back(item_index, similarity);
+        break;
+      }
+    }
+  }
+
+  std::sort(
+      matches.begin(), matches.end(),
+      [](const auto& lhs, const auto& rhs) { return lhs.second < rhs.second; });
+
+  std::vector<size_t> result;
+  result.reserve(matches.size());
+  for (const auto& match : matches)
+    result.push_back(match.first);
+  return result;
 }
 
 }  // namespace
@@ -82,7 +117,10 @@ FlexItemsWidget::FlexItemsWidget(MainWindow* main_window,
   AddWidget(std::move(filter_widget));
 }
 
-FlexItemsWidget::~FlexItemsWidget() = default;
+FlexItemsWidget::~FlexItemsWidget() {
+  filter_request_id_->fetch_add(1, std::memory_order_relaxed);
+  filter_lifetime_token_.reset();
+}
 
 size_t FlexItemsWidget::AddItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
@@ -94,9 +132,12 @@ size_t FlexItemsWidget::AddItem(
     std::unique_ptr<FlexItemWidget> item = std::make_unique<FlexItemWidget>(
         main_window_, this, std::move(title_updater), image_width, image_height,
         image_loader, on_trigger);
+    std::vector<std::string> filter_strings = item->GetFilterStrings();
     items_.push_back(item.get());
     all_items_.push_back(item.get());
     AddWidget(std::move(item));
+    EnsureUniqueFilterSearchIndex();
+    filter_search_index_->push_back(std::move(filter_strings));
     need_layout_all_ = true;
   } else {
     SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
@@ -116,6 +157,8 @@ void FlexItemsWidget::AddSubItem(
   SDL_assert(item_index < items_.size());
   items_[item_index]->AddSubItem(std::move(title_updater), image_width,
                                  image_height, image_loader, on_trigger);
+  EnsureUniqueFilterSearchIndex();
+  (*filter_search_index_)[item_index] = items_[item_index]->GetFilterStrings();
 }
 
 void FlexItemsWidget::SetIndex(size_t index) {
@@ -1002,55 +1045,86 @@ void FlexItemsWidget::Paint() {
       ImColor(48, 48, 48));
 }
 
+void FlexItemsWidget::EnsureUniqueFilterSearchIndex() {
+  if (filter_search_index_.use_count() != 1) {
+    filter_search_index_ =
+        std::make_shared<FilterSearchIndex>(*filter_search_index_);
+  }
+}
+
+void FlexItemsWidget::RebuildFilterSearchIndex() {
+  auto search_index = std::make_shared<FilterSearchIndex>();
+  search_index->reserve(all_items_.size());
+  for (FlexItemWidget* item : all_items_)
+    search_index->push_back(item->GetFilterStrings());
+  filter_search_index_ = std::move(search_index);
+}
+
 void FlexItemsWidget::OnFilter(const std::string& filter) {
   if (filter_contents_ == filter)
     return;
 
   filter_contents_ = filter;
-  if (!filter.empty()) {
-    RestoreCurrentItemToDefault();
-    items_ = CalculateFilteredResult(filter);
-    for (FlexItemWidget* item : all_items_) {
-      const bool filtered =
-          std::find(items_.begin(), items_.end(), item) == items_.end();
-      item->set_filtered(filtered);
-      if (filtered)
-        item->EvictImageTextures();
-    }
-  } else {
-    RestoreCurrentItemToDefault();
-    items_ = all_items_;
-    for (FlexItemWidget* item : all_items_) {
-      item->set_filtered(false);
-    }
+  const uint64_t request_id =
+      filter_request_id_->fetch_add(1, std::memory_order_relaxed) + 1;
+
+  if (filter.empty()) {
+    std::vector<size_t> all_item_indices;
+    all_item_indices.reserve(all_items_.size());
+    for (size_t i = 0; i < all_items_.size(); ++i)
+      all_item_indices.push_back(i);
+    ApplyFilteredResult(request_id, all_item_indices);
+    return;
   }
+
+  std::shared_ptr<const FilterSearchIndex> search_index = filter_search_index_;
+  std::weak_ptr<int> weak_lifetime = filter_lifetime_token_;
+  Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(&CalculateFilteredResultOnIOThread,
+                           std::move(search_index), filter_request_id_,
+                           request_id, filter),
+      kiwi::base::BindOnce(&FlexItemsWidget::DispatchFilteredResult,
+                           std::move(weak_lifetime), this, request_id));
+}
+
+void FlexItemsWidget::DispatchFilteredResult(
+    std::weak_ptr<int> weak_lifetime,
+    FlexItemsWidget* widget,
+    uint64_t request_id,
+    const std::vector<size_t>& item_indices) {
+  if (!weak_lifetime.expired())
+    widget->ApplyFilteredResult(request_id, item_indices);
+}
+
+void FlexItemsWidget::ApplyFilteredResult(
+    uint64_t request_id,
+    const std::vector<size_t>& item_indices) {
+  if (filter_request_id_->load(std::memory_order_relaxed) != request_id)
+    return;
+
+  RestoreCurrentItemToDefault();
+  items_.clear();
+  items_.reserve(item_indices.size());
+
+  std::vector<bool> item_is_filtered(all_items_.size(), true);
+  for (size_t item_index : item_indices) {
+    if (item_index >= all_items_.size())
+      continue;
+    item_is_filtered[item_index] = false;
+    items_.push_back(all_items_[item_index]);
+  }
+
+  for (size_t i = 0; i < all_items_.size(); ++i) {
+    all_items_[i]->set_filtered(item_is_filtered[i]);
+    if (item_is_filtered[i])
+      all_items_[i]->EvictImageTextures();
+  }
+
   original_view_scrolling_ = target_view_scrolling_ = 0;
   need_layout_all_ = true;
   current_index_ = 0;
   SetIndex(0, LayoutOption::kAdjustScrolling, true);
-}
-
-std::vector<FlexItemWidget*> FlexItemsWidget::CalculateFilteredResult(
-    const std::string& filter) {
-  std::vector<std::pair<FlexItemWidget*, int>> result;
-  for (auto* item : all_items_) {
-    int similarity;
-    if (item->MatchFilter(filter, similarity))
-      result.push_back({item, similarity});
-  }
-
-  std::sort(result.begin(), result.end(),
-            [filter](const std::pair<FlexItemWidget*, int>& lhs,
-                     const std::pair<FlexItemWidget*, int>& rhs) {
-              return lhs.second < rhs.second;
-            });
-
-  std::vector<FlexItemWidget*> ret;
-  for (const auto& i : result) {
-    ret.push_back(i.first);
-  }
-
-  return ret;
 }
 
 void FlexItemsWidget::PostPaint() {
@@ -1078,6 +1152,16 @@ void FlexItemsWidget::PostPaint() {
 void FlexItemsWidget::OnWindowResized() {
   need_layout_all_ = true;
   Layout(LayoutOption::kAdjustScrolling);
+}
+
+void FlexItemsWidget::OnLocaleChanged() {
+  RebuildFilterSearchIndex();
+  filter_request_id_->fetch_add(1, std::memory_order_relaxed);
+  if (!filter_contents_.empty()) {
+    std::string filter = std::move(filter_contents_);
+    filter_contents_.clear();
+    OnFilter(filter);
+  }
 }
 
 bool FlexItemsWidget::OnKeyPressed(SDL_KeyboardEvent* event) {
