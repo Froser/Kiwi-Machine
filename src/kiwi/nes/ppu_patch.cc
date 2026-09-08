@@ -42,6 +42,7 @@ PPUPatch::~PPUPatch() = default;
 void PPUPatch::Reset() {
   scanline_irq_dot = 280;
   data_address_patch = nullptr;
+  mask_top_scanline = false;
 }
 
 void PPUPatch::Set(uint32_t rom_crc) {
@@ -55,6 +56,11 @@ void PPUPatch::Set(uint32_t rom_crc) {
     case 0xd229fd5c: // Punch-Out!! (Europe)
       Reset();
       data_address_patch = PUNCH_OUT_data_address_patch;
+      break;
+    case 0x2e1e7fd8:  // Ningen Heiki - Dead Fox (Japan)
+    case 0xe2313813:  // Code Name: Viper (USA)
+      Reset();
+      mask_top_scanline = true;
       break;
     default:
       Reset();

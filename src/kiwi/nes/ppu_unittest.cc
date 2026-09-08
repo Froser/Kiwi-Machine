@@ -8,7 +8,9 @@
 #include "nes/ppu.h"
 
 #include <array>
+#include <vector>
 
+#include "nes/mappers/mapper_test_support.h"
 #include "nes/ppu_bus.h"
 #include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
 
@@ -22,6 +24,19 @@ class CountingPPUObserver : public PPUObserver {
 
   int step_count = 0;
 };
+
+class FramePPUObserver : public PPUObserver {
+ public:
+  void OnRenderReady(const Colors& frame) override {
+    sampled_pixels.push_back(frame[16]);
+    sampled_second_row_pixels.push_back(frame[256 + 16]);
+  }
+
+  std::vector<Color> sampled_pixels;
+  std::vector<Color> sampled_second_row_pixels;
+};
+
+class PPURenderingTest : public MapperTest {};
 
 TEST(PPUTest, NotifiesStepObserverOnlyWhenEnabled) {
   PPUBus bus;
@@ -51,6 +66,45 @@ TEST(PPUTest, DMAWrapsAtEndOfOAM) {
   EXPECT_EQ(ppu.ReadOAMData(0xff), 0x03);
   EXPECT_EQ(ppu.ReadOAMData(0x00), 0x04);
   EXPECT_EQ(ppu.ReadOAMData(0xfb), 0xff);
+}
+
+TEST_F(PPURenderingTest, MasksConfiguredTopOverscanLine) {
+  auto cartridge = LoadMapper(0, 2, 0);
+  ASSERT_TRUE(cartridge);
+
+  PPUBus bus;
+  bus.SetMapper(cartridge->mapper());
+  cartridge->mapper()->WriteCHR(0x0000, 0xff);
+  cartridge->mapper()->WriteCHR(0x0001, 0xff);
+
+  auto render_top_rows = [&bus](uint32_t crc) {
+    PPU ppu(&bus);
+    FramePPUObserver observer;
+    ppu.SetPatch(crc);
+    ppu.SetObserver(&observer);
+    ppu.Write(static_cast<Address>(PPURegister::PPUMASK), 0x0a);
+
+    constexpr int kMaxSteps = 262 * 341;
+    for (int step = 0; step < kMaxSteps && observer.sampled_pixels.empty();
+         ++step) {
+      ppu.Step();
+    }
+
+    EXPECT_EQ(observer.sampled_pixels.size(), 1u);
+    EXPECT_EQ(observer.sampled_second_row_pixels.size(), 1u);
+    if (observer.sampled_pixels.empty() ||
+        observer.sampled_second_row_pixels.empty()) {
+      return std::array<Color, 2>{};
+    }
+    return std::array<Color, 2>{observer.sampled_pixels[0],
+                                observer.sampled_second_row_pixels[0]};
+  };
+
+  const auto regular_pixels = render_top_rows(0);
+  const auto patched_pixels = render_top_rows(0x2e1e7fd8);
+  EXPECT_EQ(regular_pixels[0], regular_pixels[1]);
+  EXPECT_NE(patched_pixels[0], patched_pixels[1]);
+  EXPECT_EQ(patched_pixels[1], regular_pixels[1]);
 }
 
 }  // namespace testing

@@ -290,7 +290,9 @@ void PPU::Step() {
         const Byte color_index =
             ppu_bus_->Read(static_cast<Address>(palette_index | 0x3f00));
         DCHECK(color_index < palette_colors_.size());
-        const Color bgra = palette_colors_[color_index];
+        const Color bgra = patch_.mask_top_scanline && y == 0
+                               ? palette_colors_[0x0f]
+                               : palette_colors_[color_index];
         DCHECK(static_cast<size_t>(y) * kScanlineVisibleDots +
                    static_cast<size_t>(x) <
                screenbuffers_[current_buffer_index_].size());
