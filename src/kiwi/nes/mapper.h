@@ -98,6 +98,8 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual bool NeedsM2CycleIRQ() const;
 
  protected:
+  void ForceUseExtendedRAM();
+
   MirroringChangedCallback mirroring_changed_callback() {
     return mirroring_changed_callback_;
   }

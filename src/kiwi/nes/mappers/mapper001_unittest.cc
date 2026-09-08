@@ -21,6 +21,18 @@ constexpr size_t k16K = 0x4000;
 
 class Mapper001Test : public MapperTest {};
 
+TEST_F(Mapper001Test, ProvidesWorkRAMWithoutBatteryFlag) {
+  auto cartridge = LoadMapper(1, 8, 0);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  EXPECT_TRUE(mapper->HasExtendedRAM());
+  mapper->WriteExtendedRAM(0x6000, 0x5a);
+  mapper->WriteExtendedRAM(0x7fff, 0xa5);
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x6000), 0x5a);
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x7fff), 0xa5);
+}
+
 TEST_F(Mapper001Test, AllPRGModes) {
   struct TestCase {
     Byte control;

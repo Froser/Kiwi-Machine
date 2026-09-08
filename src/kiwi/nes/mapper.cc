@@ -92,6 +92,11 @@ bool Mapper::HasExtendedRAM() {
   return force_use_extended_ram_ || rom_data_->has_extended_ram;
 }
 
+void Mapper::ForceUseExtendedRAM() {
+  force_use_extended_ram_ = true;
+  CheckExtendedRAM();
+}
+
 void Mapper::PPUAddressChanged(Address address) {}
 
 std::unique_ptr<Mapper> Mapper::Create(Cartridge* cartridge, Byte mapper) {
