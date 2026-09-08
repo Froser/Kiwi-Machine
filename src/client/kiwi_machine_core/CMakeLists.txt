@@ -164,6 +164,13 @@ if (IOS)
     )
 endif ()
 
+if (APPLE AND NOT IOS)
+    list(APPEND Sources
+            ui/window_base_macos.h
+            ui/window_base_macos.mm
+    )
+endif ()
+
 if (EMSCRIPTEN)
     list(APPEND Sources
             utility/emscripten/bridge_api.cc

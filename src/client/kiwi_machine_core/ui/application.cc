@@ -26,6 +26,7 @@
 
 #if BUILDFLAG(IS_MAC)
 #include <CoreFoundation/CoreFoundation.h>
+#include "ui/window_base_macos.h"
 #elif BUILDFLAG(IS_WIN)
 #include <Windows.h>
 #elif BUILDFLAG(IS_ANDROID)
@@ -86,6 +87,9 @@ Application::Application(int& argc, char** argv) {
 
 Application::~Application() {
   SDL_assert(g_app_instance);
+#if BUILDFLAG(IS_MAC)
+  UninitializeMacMouseWheelPhaseMonitor();
+#endif
   UninitializeImGui();
   UninitializeGameControllers();
   UninitializeAudioEffects();
@@ -95,6 +99,16 @@ Application::~Application() {
 }
 
 void Application::HandleEvent(SDL_Event* event) {
+#if BUILDFLAG(IS_MAC)
+  MouseWheelPhaseEvent phase_event;
+  if (DecodeMacMouseWheelPhaseEvent(event, &phase_event)) {
+    WindowBase* target = FindWindowFromID(phase_event.window_id);
+    if (target)
+      target->HandleMouseWheelPhaseEvent(&phase_event);
+    return;
+  }
+#endif
+
   switch (event->type) {
     case SDL_KEYDOWN:
     case SDL_KEYUP: {
@@ -335,6 +349,9 @@ void Application::InitializeApplication(int& argc, char** argv) {
                                               kiwi::base::Unretained(this));
   kiwi::base::SetEventHandlerForSDL2(event_handler_);
   kiwi::base::SetRenderHandlerForSDL2(render_handler_);
+#if BUILDFLAG(IS_MAC)
+  InitializeMacMouseWheelPhaseMonitor();
+#endif
 }
 
 void Application::UninitializeGameControllers() {

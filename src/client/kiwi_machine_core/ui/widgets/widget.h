@@ -20,6 +20,21 @@
 #include <string>
 #include <vector>
 
+enum class MouseWheelPhase {
+  kBegin,
+  kEnd,
+  kCancel,
+  kNativeMomentum,
+};
+
+struct MouseWheelPhaseEvent {
+  MouseWheelPhase phase;
+  Uint32 timestamp;
+  Uint32 window_id;
+  int x;
+  int y;
+};
+
 class WindowBase;
 class Widget {
  private:
@@ -76,6 +91,7 @@ class Widget {
   bool HandleJoystickAxisMotionEvent(SDL_ControllerAxisEvent* event);
   bool HandleMouseMoveEvent(SDL_MouseMotionEvent* event);
   bool HandleMouseWheelEvent(SDL_MouseWheelEvent* event);
+  bool HandleMouseWheelPhaseEvent(MouseWheelPhaseEvent* event);
   bool HandleMousePressedEvent(SDL_MouseButtonEvent* event);
   bool HandleMouseReleasedEvent(SDL_MouseButtonEvent* event);
   bool HandleTextEditingEvent(SDL_TextEditingEvent* event);
@@ -115,6 +131,7 @@ class Widget {
   virtual bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event);
   virtual bool OnMouseMove(SDL_MouseMotionEvent* event);
   virtual bool OnMouseWheel(SDL_MouseWheelEvent* event);
+  virtual bool OnMouseWheelPhase(MouseWheelPhaseEvent* event);
   virtual bool OnMousePressed(SDL_MouseButtonEvent* event);
   virtual bool OnMouseReleased(SDL_MouseButtonEvent* event);
   virtual bool OnTextEditing(SDL_TextEditingEvent* event);

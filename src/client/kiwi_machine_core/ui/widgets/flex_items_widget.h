@@ -123,6 +123,7 @@ class FlexItemsWidget : public Widget {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnMouseMove(SDL_MouseMotionEvent* event) override;
   bool OnMouseWheel(SDL_MouseWheelEvent* event) override;
+  bool OnMouseWheelPhase(MouseWheelPhaseEvent* event) override;
   bool OnMousePressed(SDL_MouseButtonEvent* event) override;
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
@@ -138,6 +139,10 @@ class FlexItemsWidget : public Widget {
 #endif
 
  private:
+  void StartInertialScrolling(float velocity);
+  void StopInertialScrolling();
+  void UpdateInertialScrolling();
+
   MainWindow* main_window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
   kiwi::base::RepeatingClosure back_callback_ = kiwi::base::DoNothing();
@@ -177,8 +182,26 @@ class FlexItemsWidget : public Widget {
   MouseButton gesture_locked_button_ = MouseButton::kLeftButton;
   bool scrolling_by_finger_ = false;
   bool mouse_moved_ = false;
+
+  bool inertial_scrolling_ = false;
+  float inertial_scroll_velocity_ = 0.f;
+  float inertial_scroll_remainder_ = 0.f;
+  Timer inertial_scroll_timer_;
+
+  float wheel_scroll_remainder_ = 0.f;
+  float wheel_scroll_velocity_ = 0.f;
+  float last_wheel_scroll_delta_ = 0.f;
+  Uint32 last_wheel_motion_timestamp_ = 0;
+  bool has_wheel_velocity_sample_ = false;
+  bool wheel_gesture_active_ = false;
+
 #if KIWI_MOBILE
-  SDL_TouchFingerEvent last_finger_down_event_;
+  bool touch_active_ = false;
+  SDL_FingerID active_touch_id_ = 0;
+  SDL_TouchFingerEvent last_finger_event_{};
+  float finger_scroll_velocity_ = 0.f;
+  float finger_scroll_remainder_ = 0.f;
+  bool has_finger_velocity_sample_ = false;
 #endif
 };
 
