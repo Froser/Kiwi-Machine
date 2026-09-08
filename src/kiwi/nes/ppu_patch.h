@@ -45,6 +45,10 @@ class NES_EXPORT PPUPatch {
   // Punch-out needs this to adjust its data address, to fetch 0xfe tile to
   // switch its CHR bank!
   void (*data_address_patch)(Address* data_address) = nullptr;
+
+  // Some games leave artifacts in the top overscan line, which was hidden by
+  // consumer CRTs.
+  bool mask_top_scanline;
 };
 
 }  // namespace nes
