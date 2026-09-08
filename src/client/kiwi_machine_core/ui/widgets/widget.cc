@@ -220,6 +220,15 @@ bool Widget::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
   return false;
 }
 
+bool Widget::HandleMouseWheelPhaseEvent(MouseWheelPhaseEvent* event) {
+  if (visible() && enabled()) {
+    Widget* target = HitTest(event->x, event->y);
+    if (target)
+      return target->OnMouseWheelPhase(event);
+  }
+  return false;
+}
+
 bool Widget::HandleMousePressedEvent(SDL_MouseButtonEvent* event) {
   if (visible() && enabled()) {
     Widget* target = HitTest(event->x, event->y);
@@ -417,6 +426,10 @@ bool Widget::OnMouseMove(SDL_MouseMotionEvent* event) {
 
 bool Widget::OnMouseWheel(SDL_MouseWheelEvent* event) {
   return true;
+}
+
+bool Widget::OnMouseWheelPhase(MouseWheelPhaseEvent* event) {
+  return false;
 }
 
 bool Widget::OnMousePressed(SDL_MouseButtonEvent* event) {

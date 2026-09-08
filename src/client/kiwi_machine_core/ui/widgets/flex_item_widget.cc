@@ -62,28 +62,47 @@ FlexItemWidget::FlexItemWidget(
 }
 
 FlexItemWidget::~FlexItemWidget() {
+  EvictImageTextures();
+}
+
+void FlexItemWidget::EvictImageTextures() {
   for (std::unique_ptr<Data>& data : sub_data_) {
-    if (data->image_texture)
-      SDL_DestroyTexture(data->image_texture);
+    if (!data->requesting_or_requested_texture_ &&
+        !data->image_texture.load()) {
+      continue;
+    }
+
+    ++data->texture_request_generation;
+    data->requesting_or_requested_texture_ = false;
+    if (SDL_Texture* texture = data->image_texture.exchange(nullptr))
+      SDL_DestroyTexture(texture);
   }
 }
 
 void FlexItemWidget::CreateTextureIfNotExists() {
-  if (!current_data()->image_texture &&
-      !current_data()->requesting_or_requested_texture_) {
+  Data* image_data = current_data();
+  if (!image_data->image_texture &&
+      !image_data->requesting_or_requested_texture_) {
     // Make sure we only request once
-    current_data()->requesting_or_requested_texture_ = true;
+    image_data->requesting_or_requested_texture_ = true;
+    const uint64_t request_generation =
+        ++image_data->texture_request_generation;
 
     // If there's no texture yet, post a task to request a new one.
     Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
-        FROM_HERE, current_data()->image_loader,
+        FROM_HERE, image_data->image_loader,
         kiwi::base::BindOnce(
-            [](FlexItemWidget* this_widget, const kiwi::nes::Bytes& data) {
+            [](FlexItemWidget* this_widget, Data* target_data,
+               uint64_t request_generation, const kiwi::nes::Bytes& data) {
+              if (target_data->texture_request_generation !=
+                  request_generation) {
+                return;
+              }
               SDL_Texture* texture =
                   this_widget->LoadImageAndCreateTexture(data);
-              this_widget->current_data()->image_texture.exchange(texture);
+              target_data->image_texture.exchange(texture);
             },
-            this));
+            this, image_data, request_generation));
   }
 }
 

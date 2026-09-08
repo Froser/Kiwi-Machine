@@ -13,6 +13,9 @@
 #include "ui/widgets/flex_items_widget.h"
 
 #include <imgui.h>
+
+#include <algorithm>
+#include <cmath>
 #include <set>
 
 #include "ui/main_window.h"
@@ -34,6 +37,16 @@ constexpr int kDetailWidgetPadding = 5;
 constexpr int kFilterWidgetMargin = kDetailWidgetMargin;
 constexpr int kFilterWidgetPadding = kDetailWidgetPadding;
 constexpr int kItemHoverDurationMs = 1000;
+constexpr int kTextureCacheMarginRows = 2;
+constexpr float kMinimumFlingVelocity = 120.f;
+constexpr float kInertialDeceleration = 4.5f;
+constexpr int kMaximumInertialFrameMs = 50;
+
+#if BUILDFLAG(IS_MAC)
+constexpr float kWheelVelocitySmoothing = 0.35f;
+constexpr float kMaximumWheelFlingVelocity = 6000.f;
+constexpr Uint32 kWheelVelocitySampleTimeoutMs = 100;
+#endif
 
 struct AutoReset {
   AutoReset(bool& value) : value_(value) {}
@@ -132,6 +145,18 @@ void FlexItemsWidget::SetActivate(bool activate) {
     Layout(LayoutOption::kDoNotAdjustScrolling);
   }
   if (!activate_) {
+    StopInertialScrolling();
+    wheel_scroll_remainder_ = 0.f;
+    wheel_scroll_velocity_ = 0.f;
+    last_wheel_scroll_delta_ = 0.f;
+    last_wheel_motion_timestamp_ = 0;
+    has_wheel_velocity_sample_ = false;
+    wheel_gesture_active_ = false;
+#if KIWI_MOBILE
+    touch_active_ = false;
+    scrolling_by_finger_ = false;
+    gesture_locked_ = false;
+#endif
     filter_widget_->EndFilter();
   }
 }
@@ -139,6 +164,9 @@ void FlexItemsWidget::SetActivate(bool activate) {
 void FlexItemsWidget::ScrollWith(int scrolling_delta,
                                  const int* mouse_x,
                                  const int* mouse_y) {
+  if (items_.empty())
+    return;
+
   // Alternative rom's cover may have a different size, so we restore here.
   RestoreCurrentItemToDefault();
 
@@ -187,6 +215,55 @@ void FlexItemsWidget::ScrollWith(int scrolling_delta,
     if (current_index_exceeded_bottom)
       AdjustBottomRowItemsIfNeeded(LayoutOption::kDoNotAdjustScrolling);
   }
+}
+
+void FlexItemsWidget::StartInertialScrolling(float velocity) {
+  if (std::abs(velocity) < kMinimumFlingVelocity) {
+    StopInertialScrolling();
+    return;
+  }
+
+  inertial_scrolling_ = true;
+  inertial_scroll_velocity_ = velocity;
+  inertial_scroll_remainder_ = 0.f;
+  inertial_scroll_timer_.Reset();
+}
+
+void FlexItemsWidget::StopInertialScrolling() {
+  inertial_scrolling_ = false;
+  inertial_scroll_velocity_ = 0.f;
+  inertial_scroll_remainder_ = 0.f;
+}
+
+void FlexItemsWidget::UpdateInertialScrolling() {
+  if (!inertial_scrolling_)
+    return;
+
+  const int elapsed_ms =
+      std::min(inertial_scroll_timer_.ElapsedInMillisecondsAndReset(),
+               kMaximumInertialFrameMs);
+  if (elapsed_ms <= 0)
+    return;
+
+  const float elapsed_seconds = elapsed_ms / 1000.f;
+  const float scroll_delta =
+      inertial_scroll_velocity_ * elapsed_seconds + inertial_scroll_remainder_;
+  const int pixel_delta = static_cast<int>(scroll_delta);
+  inertial_scroll_remainder_ = scroll_delta - pixel_delta;
+
+  if (pixel_delta != 0) {
+    const int previous_scrolling = target_view_scrolling_;
+    ScrollWith(pixel_delta, nullptr, nullptr);
+    if (target_view_scrolling_ == previous_scrolling) {
+      StopInertialScrolling();
+      return;
+    }
+  }
+
+  inertial_scroll_velocity_ *=
+      std::exp(-kInertialDeceleration * elapsed_seconds);
+  if (std::abs(inertial_scroll_velocity_) < kMinimumFlingVelocity)
+    StopInertialScrolling();
 }
 
 void FlexItemsWidget::ShowFilterWidget() {
@@ -353,6 +430,10 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   if (!activate_)
     return false;
 
+  if (k || c) {
+    StopInertialScrolling();
+  }
+
   // Controller events are dispatched to the parent before its children.
   // While search is active, prevent the game list from moving; FilterWidget
   // will consume the same event when Widget dispatch continues to children.
@@ -471,20 +552,31 @@ void FlexItemsWidget::ApplyScrolling(int scrolling) {
   if (SDL_RectEmpty(&kLocalBounds))
     return;
 
-  // Extends the view's bounds, make more item to be painted, even if them are
-  // not in the FlexItemsWidget view.
-  // By doing this, we can make sure items which recently be painted will
-  // request its image as soon as possible.
-  constexpr int kExtended = 200;
-  SDL_Rect extended_local_bounds = kLocalBounds;
-  extended_local_bounds.x -= kExtended;
-  extended_local_bounds.h += kExtended;
-
+  int first_visible_row = rows_ + 1;
+  int last_visible_row = -1;
   for (auto* item : items_) {
     SDL_Rect bounds = bounds_map_without_scrolling_[item];
     bounds.y += scrolling;
     item->set_bounds(bounds);
-    item->set_visible(SDL_HasIntersection(&bounds, &extended_local_bounds));
+    if (SDL_HasIntersection(&bounds, &kLocalBounds)) {
+      first_visible_row = std::min(first_visible_row, item->row_index());
+      last_visible_row = std::max(last_visible_row, item->row_index());
+    }
+  }
+
+  if (last_visible_row < 0)
+    return;
+
+  const int first_cached_row =
+      std::max(0, first_visible_row - kTextureCacheMarginRows);
+  const int last_cached_row =
+      std::min(rows_, last_visible_row + kTextureCacheMarginRows);
+  for (auto* item : items_) {
+    const bool cached = item->row_index() >= first_cached_row &&
+                        item->row_index() <= last_cached_row;
+    item->set_visible(cached);
+    if (!cached)
+      item->EvictImageTextures();
   }
 }
 
@@ -870,6 +962,8 @@ void FlexItemsWidget::Paint() {
     first_paint_ = false;
   }
 
+  UpdateInertialScrolling();
+
   // Scrolling animation
   if (updating_view_scrolling_) {
     float percentage = scrolling_timer_.ElapsedInMilliseconds() /
@@ -917,8 +1011,11 @@ void FlexItemsWidget::OnFilter(const std::string& filter) {
     RestoreCurrentItemToDefault();
     items_ = CalculateFilteredResult(filter);
     for (FlexItemWidget* item : all_items_) {
-      item->set_filtered(std::find(items_.begin(), items_.end(), item) ==
-                         items_.end());
+      const bool filtered =
+          std::find(items_.begin(), items_.end(), item) == items_.end();
+      item->set_filtered(filtered);
+      if (filtered)
+        item->EvictImageTextures();
     }
   } else {
     RestoreCurrentItemToDefault();
@@ -1004,15 +1101,101 @@ bool FlexItemsWidget::OnMouseWheel(SDL_MouseWheelEvent* event) {
     return true;
 
 #if BUILDFLAG(IS_MAC)
-  constexpr int kScrollingTurbo = 5;
+  constexpr float kScrollingTurbo = 5.f;
+
+  const float precise_delta = event->preciseY * kScrollingTurbo;
+  if (precise_delta * wheel_scroll_remainder_ < 0.f)
+    wheel_scroll_remainder_ = 0.f;
+  const float scroll_delta = precise_delta + wheel_scroll_remainder_;
+  const int scrolling_changed_value = static_cast<int>(scroll_delta);
+  wheel_scroll_remainder_ = scroll_delta - scrolling_changed_value;
+
+  if (wheel_gesture_active_ && std::abs(precise_delta) > 0.f) {
+    const Uint32 elapsed_ms = event->timestamp - last_wheel_motion_timestamp_;
+    const bool direction_changed =
+        precise_delta * last_wheel_scroll_delta_ < 0.f;
+    if (last_wheel_motion_timestamp_ == 0 ||
+        elapsed_ms > kWheelVelocitySampleTimeoutMs || direction_changed) {
+      wheel_scroll_velocity_ = 0.f;
+      has_wheel_velocity_sample_ = false;
+    } else if (elapsed_ms > 0) {
+      const float velocity =
+          std::clamp(precise_delta * 1000.f / elapsed_ms,
+                     -kMaximumWheelFlingVelocity, kMaximumWheelFlingVelocity);
+      if (has_wheel_velocity_sample_) {
+        wheel_scroll_velocity_ +=
+            (velocity - wheel_scroll_velocity_) * kWheelVelocitySmoothing;
+      } else {
+        wheel_scroll_velocity_ = velocity;
+        has_wheel_velocity_sample_ = true;
+      }
+    }
+    last_wheel_scroll_delta_ = precise_delta;
+    last_wheel_motion_timestamp_ = event->timestamp;
+  }
 #else
   constexpr int kScrollingTurbo = 25;
+  const int scrolling_changed_value = event->preciseY * kScrollingTurbo;
 #endif
-  if (!items_.empty()) {
-    const int kScrollingChangedValue = event->preciseY * kScrollingTurbo;
-    ScrollWith(kScrollingChangedValue, &event->mouseX, &event->mouseY);
-  }
+  if (!items_.empty() && scrolling_changed_value != 0)
+    ScrollWith(scrolling_changed_value, &event->mouseX, &event->mouseY);
 
+  return true;
+}
+
+bool FlexItemsWidget::OnMouseWheelPhase(MouseWheelPhaseEvent* event) {
+#if BUILDFLAG(IS_MAC)
+  if (!activate_)
+    return true;
+
+  switch (event->phase) {
+    case MouseWheelPhase::kBegin:
+      StopInertialScrolling();
+      wheel_scroll_remainder_ = 0.f;
+      wheel_scroll_velocity_ = 0.f;
+      last_wheel_scroll_delta_ = 0.f;
+      last_wheel_motion_timestamp_ = event->timestamp;
+      has_wheel_velocity_sample_ = false;
+      wheel_gesture_active_ = true;
+      break;
+    case MouseWheelPhase::kEnd: {
+      const bool has_recent_velocity =
+          has_wheel_velocity_sample_ &&
+          event->timestamp - last_wheel_motion_timestamp_ <=
+              kWheelVelocitySampleTimeoutMs;
+      const float release_velocity = wheel_scroll_velocity_;
+      wheel_scroll_remainder_ = 0.f;
+      wheel_scroll_velocity_ = 0.f;
+      last_wheel_scroll_delta_ = 0.f;
+      last_wheel_motion_timestamp_ = 0;
+      has_wheel_velocity_sample_ = false;
+      wheel_gesture_active_ = false;
+
+      if (has_recent_velocity)
+        StartInertialScrolling(release_velocity);
+      else
+        StopInertialScrolling();
+      break;
+    }
+    case MouseWheelPhase::kCancel:
+      StopInertialScrolling();
+      wheel_scroll_remainder_ = 0.f;
+      wheel_scroll_velocity_ = 0.f;
+      last_wheel_scroll_delta_ = 0.f;
+      last_wheel_motion_timestamp_ = 0;
+      has_wheel_velocity_sample_ = false;
+      wheel_gesture_active_ = false;
+      break;
+    case MouseWheelPhase::kNativeMomentum:
+      StopInertialScrolling();
+      wheel_scroll_velocity_ = 0.f;
+      last_wheel_scroll_delta_ = 0.f;
+      last_wheel_motion_timestamp_ = 0;
+      has_wheel_velocity_sample_ = false;
+      wheel_gesture_active_ = false;
+      break;
+  }
+#endif
   return true;
 }
 

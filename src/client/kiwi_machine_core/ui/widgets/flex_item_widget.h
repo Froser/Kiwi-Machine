@@ -15,6 +15,7 @@
 
 #include <kiwi_nes.h>
 #include <atomic>
+#include <cstdint>
 
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
@@ -38,6 +39,7 @@ class FlexItemWidget : public Widget {
     TriggerCallback on_trigger_callback;
     std::atomic<SDL_Texture*> image_texture = nullptr;
     bool requesting_or_requested_texture_ = false;
+    uint64_t texture_request_generation = 0;
     int image_width = 0;
     int image_height = 0;
   };
@@ -51,6 +53,7 @@ class FlexItemWidget : public Widget {
                           LoadImageCallback image_loader,
                           TriggerCallback on_trigger);
   ~FlexItemWidget() override;
+  void EvictImageTextures();
 
   // If an item has been filtered, it won't be displayed, and won't participant
   // in layout.

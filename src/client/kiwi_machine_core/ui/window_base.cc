@@ -222,6 +222,14 @@ void WindowBase::HandleMouseWheelEvent(SDL_MouseWheelEvent* event) {
   }
 }
 
+void WindowBase::HandleMouseWheelPhaseEvent(MouseWheelPhaseEvent* event) {
+  for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
+    Widget* widget = iter->get();
+    if (widget->HandleMouseWheelPhaseEvent(event))
+      break;
+  }
+}
+
 void WindowBase::HandleMousePressedEvent(SDL_MouseButtonEvent* event) {
   for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
     Widget* widget = iter->get();

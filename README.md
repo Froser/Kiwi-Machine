@@ -89,7 +89,10 @@ If you want to use the ROM resources prepared for you by Kiwi-Machine instead of
 2. Compile `package_manager` first according to the method described next, run it with the command line `--workspace={Path-To-KiwiMachine-Workspace}`, and package the ROM into a pak file.
 3. Build the main KiwiMachine, and specify `-DKIWI_PACKAGE_DIR={Path-To-KiwiMachine-Workspace}/out/output` in CMake, so it will automatically copy the pak files you generated to the resource directory.
 
-If you are compiling for Android, you need to manually copy the pak files to the asset directory.
+For Android, the `debug` and `release` variants package the single ROM configured
+by `kiwi.demoRomZip`. The `debugAllRoms` and `releaseAllRoms` variants package
+all ROM sets from `kiwi.allRomsDirectory` using the same package layout as the
+PC client.
 
 ## Automatic Build
 
