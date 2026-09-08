@@ -218,6 +218,7 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
  protected:
   std::string GetLocalizedString() override;
   std::string GetCollateStringHint() override;
+  std::vector<std::string> GetFilterStrings() override;
   bool IsTitleMatchedFilter(const std::string& filter,
                             int& similarity) override;
 
@@ -236,34 +237,19 @@ std::string ROMTitleUpdater::GetCollateStringHint() {
   return GetROMLocalizedCollateStringHint(preset_rom_);
 }
 
+std::vector<std::string> ROMTitleUpdater::GetFilterStrings() {
+  return {GetLocalizedString(), preset_rom_.name,
+          language_conversion::KanaToRomaji(GetCollateStringHint())};
+}
+
 bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
                                            int& similarity) {
-  // |filter| is what the user typed; it must appear as an ordered subsequence
-  // of the candidate title. Note the argument order: HasString(haystack,
-  // needle).
-  // 1) Match the localized (possibly Chinese/Japanese) title so users can
-  //    search by the name shown on screen.
-  std::string localized_title = GetLocalizedString();
-  if (HasString(localized_title, filter)) {
-    similarity = static_cast<int>(localized_title.size()) -
-                 static_cast<int>(filter.size());
-    return true;
-  }
-
-  // 2) Match the ROM's internal (English) name.
-  if (HasString(preset_rom_.name, filter)) {
-    similarity = static_cast<int>(std::string_view(preset_rom_.name).size()) -
-                 static_cast<int>(filter.size());
-    return true;
-  }
-
-  // 3) Match the romanized collate hint (e.g. Japanese kana -> romaji), so
-  //    users can also search by pronunciation.
-  std::string hint = language_conversion::KanaToRomaji(GetCollateStringHint());
-  if (HasString(hint, filter)) {
-    similarity =
-        static_cast<int>(hint.size()) - static_cast<int>(filter.size());
-    return true;
+  for (const std::string& candidate : GetFilterStrings()) {
+    if (HasString(candidate, filter)) {
+      similarity =
+          static_cast<int>(candidate.size()) - static_cast<int>(filter.size());
+      return true;
+    }
   }
 
   return false;

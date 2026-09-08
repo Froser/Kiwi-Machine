@@ -14,6 +14,7 @@
 #define UTILITY_LOCALIZATION_H_
 
 #include <string>
+#include <vector>
 
 #include "build/kiwi_defines.h"
 #include "resources/string_resources.h"
@@ -44,6 +45,9 @@ class LocalizedStringUpdater {
 
   // The collate string is used for comparison.
   virtual std::string GetCollateStringHint() = 0;
+
+  // Returns immutable text snapshots that may be matched on another thread.
+  virtual std::vector<std::string> GetFilterStrings();
 
   // Tests if a filter matches this string. It is used in filtering.
   virtual bool IsTitleMatchedFilter(const std::string& filter,

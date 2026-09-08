@@ -15,6 +15,10 @@
 
 #include <kiwi_nes.h>
 
+#include <atomic>
+#include <cstdint>
+#include <memory>
+
 #include "models/nes_runtime.h"
 #include "ui/widgets/flex_item_widget.h"
 #include "ui/widgets/widget.h"
@@ -113,13 +117,20 @@ class FlexItemsWidget : public Widget {
                                                         bool is_finger_gesture);
 
   void OnFilter(const std::string& filter);
-  std::vector<FlexItemWidget*> CalculateFilteredResult(
-      const std::string& filter);
+  void EnsureUniqueFilterSearchIndex();
+  void RebuildFilterSearchIndex();
+  static void DispatchFilteredResult(std::weak_ptr<int> weak_lifetime,
+                                     FlexItemsWidget* widget,
+                                     uint64_t request_id,
+                                     const std::vector<size_t>& item_indices);
+  void ApplyFilteredResult(uint64_t request_id,
+                           const std::vector<size_t>& item_indices);
 
  protected:
   void Paint() override;
   void PostPaint() override;
   void OnWindowResized() override;
+  void OnLocaleChanged() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnMouseMove(SDL_MouseMotionEvent* event) override;
   bool OnMouseWheel(SDL_MouseWheelEvent* event) override;
@@ -177,6 +188,11 @@ class FlexItemsWidget : public Widget {
   FilterWidget* filter_widget_ = nullptr;
   // If filter_contents_ is empty, show all results.
   std::string filter_contents_;
+  std::shared_ptr<std::vector<std::vector<std::string>>> filter_search_index_ =
+      std::make_shared<std::vector<std::vector<std::string>>>();
+  std::shared_ptr<std::atomic<uint64_t>> filter_request_id_ =
+      std::make_shared<std::atomic<uint64_t>>(0);
+  std::shared_ptr<int> filter_lifetime_token_ = std::make_shared<int>(0);
 
   Timer gesture_locked_timer_;
   MouseButton gesture_locked_button_ = MouseButton::kLeftButton;

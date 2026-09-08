@@ -70,6 +70,11 @@ const char* GetROMLocalizedCollateStringHint(
 LocalizedStringUpdater::LocalizedStringUpdater() = default;
 LocalizedStringUpdater::~LocalizedStringUpdater() = default;
 
+std::vector<std::string> LocalizedStringUpdater::GetFilterStrings() {
+  return {GetLocalizedString(),
+          language_conversion::KanaToRomaji(GetCollateStringHint())};
+}
+
 const char* ToLanguageCode(SupportedLanguage language) {
   switch (language) {
     case SupportedLanguage::kEnglish:
