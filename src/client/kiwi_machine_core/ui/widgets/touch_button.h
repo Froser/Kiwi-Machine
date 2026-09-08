@@ -28,6 +28,8 @@ class TouchButton : public Widget {
     kActionA,
     kActionB,
     kActionAB,
+    kSelect,
+    kStart,
     kPause,
   };
 

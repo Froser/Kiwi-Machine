@@ -22,6 +22,7 @@ interface VirtualControllerProps {
   onButtonPress?: (button: ControllerButton) => void;
   onButtonRelease?: (button: ControllerButton) => void;
   onMenuButtonClick?: () => void;
+  swapAB?: boolean;
 }
 
 const diagonalButtonMap: Record<DiagonalButton, ControllerButton[]> = {
@@ -33,11 +34,12 @@ const diagonalButtonMap: Record<DiagonalButton, ControllerButton[]> = {
 
 const allButtons: AllButtonType[] = ['up', 'down', 'left', 'right', 'a', 'b', 'select', 'start', 'up-left', 'up-right', 'down-left', 'down-right'];
 
-export default function VirtualController({ onButtonPress, onButtonRelease, onMenuButtonClick }: VirtualControllerProps) {
+export default function VirtualController({ onButtonPress, onButtonRelease, onMenuButtonClick, swapAB = false }: VirtualControllerProps) {
   const [activeButtons, setActiveButtons] = useState<Set<ControllerButton>>(new Set());
   const [isVisible, setIsVisible] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const touchToButtonMap = useRef<Map<number, AllButtonType>>(new Map());
+  const onButtonReleaseRef = useRef(onButtonRelease);
   const buttonRefs = useRef<Record<AllButtonType, HTMLButtonElement | null>>({
     up: null,
     down: null,
@@ -201,6 +203,20 @@ export default function VirtualController({ onButtonPress, onButtonRelease, onMe
   const isActive = (button: ControllerButton) => activeButtons.has(button);
 
   useEffect(() => {
+    onButtonReleaseRef.current = onButtonRelease;
+  }, [onButtonRelease]);
+
+  useEffect(() => {
+    touchToButtonMap.current.clear();
+    setActiveButtons(prev => {
+      prev.forEach(button => {
+        onButtonReleaseRef.current?.(button);
+      });
+      return new Set();
+    });
+  }, [swapAB]);
+
+  useEffect(() => {
     const handleGlobalMouseUp = () => {
       setActiveButtons(prev => {
         prev.forEach(button => {
@@ -220,6 +236,8 @@ export default function VirtualController({ onButtonPress, onButtonRelease, onMe
   if (!isVisible) {
     return null;
   }
+
+  const actionButtons: ControllerButton[] = swapAB ? ['a', 'b'] : ['b', 'a'];
 
   return (
     <div 
@@ -316,24 +334,20 @@ export default function VirtualController({ onButtonPress, onButtonRelease, onMe
           </div>
 
           <div className="virtual-action-buttons">
-            <button
-              ref={(el) => buttonRefs.current.b = el}
-              className={`virtual-action-btn ${isActive('b') ? 'active' : ''}`}
-              onMouseDown={(e) => handleMouseDown('b', e)}
-              onMouseUp={() => handleMouseUp('b')}
-              onMouseLeave={() => handleMouseUp('b')}
-            >
-              B
-            </button>
-            <button
-              ref={(el) => buttonRefs.current.a = el}
-              className={`virtual-action-btn ${isActive('a') ? 'active' : ''}`}
-              onMouseDown={(e) => handleMouseDown('a', e)}
-              onMouseUp={() => handleMouseUp('a')}
-              onMouseLeave={() => handleMouseUp('a')}
-            >
-              A
-            </button>
+            {actionButtons.map(button => (
+              <button
+                key={button}
+                ref={(el) => {
+                  buttonRefs.current[button] = el;
+                }}
+                className={`virtual-action-btn ${isActive(button) ? 'active' : ''}`}
+                onMouseDown={(e) => handleMouseDown(button, e)}
+                onMouseUp={() => handleMouseUp(button)}
+                onMouseLeave={() => handleMouseUp(button)}
+              >
+                {button.toUpperCase()}
+              </button>
+            ))}
           </div>
         </div>
 

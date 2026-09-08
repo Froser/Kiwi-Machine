@@ -109,10 +109,20 @@
     "zh": "P1:",
     "ja": "P1:"
   },
+  "IDR_IN_GAME_MENU_SWAP_AB_P1": {
+    "default": "P1 Swap A/B",
+    "zh": "P1 交换 A/B",
+    "ja": "P1 A/B入れ替え"
+  },
   "IDR_IN_GAME_MENU_P2": {
     "default": "P2:",
     "zh": "P2:",
     "ja": "P2:"
+  },
+  "IDR_IN_GAME_MENU_SWAP_AB_P2": {
+    "default": "P2 Swap A/B",
+    "zh": "P2 交换 A/B",
+    "ja": "P2 A/B入れ替え"
   },
   "IDR_IN_GAME_MENU_SMALL": {
     "default": "Small",

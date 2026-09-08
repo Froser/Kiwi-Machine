@@ -61,20 +61,22 @@ bool SaveConfigOnIOThread(const kiwi::base::FilePath& profile_path,
 }  // namespace
 
 #if KIWI_MOBILE
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
-                                   window_scale,
-                                   is_fullscreen,
-                                   volume,
-                                   last_index,
-                                   is_stretch_mode,
-                                   language);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(NESConfig::Data,
+                                                window_scale,
+                                                is_fullscreen,
+                                                volume,
+                                                last_index,
+                                                is_stretch_mode,
+                                                language,
+                                                swap_ab);
 #else
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NESConfig::Data,
-                                   window_scale,
-                                   is_fullscreen,
-                                   volume,
-                                   last_index,
-                                   language);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(NESConfig::Data,
+                                                window_scale,
+                                                is_fullscreen,
+                                                volume,
+                                                last_index,
+                                                language,
+                                                swap_ab);
 #endif
 
 NESConfig::NESConfig(const kiwi::base::FilePath& profile_path)

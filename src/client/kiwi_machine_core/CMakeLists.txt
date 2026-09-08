@@ -205,7 +205,12 @@ add_custom_command(
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_audio_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS resources/audio/files.json
+        DEPENDS
+        resources/audio/files.json
+        resources/audio/back.mp3
+        resources/audio/select.mp3
+        resources/audio/start.mp3
+        resources/audio/startup.mp3
         VERBATIM
 )
 

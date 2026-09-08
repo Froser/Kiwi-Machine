@@ -303,33 +303,30 @@ GNU General Public License for more details.
 }
 
 .virtual-center-btn {
-  width: min(80px, 18vw);
-  height: min(32px, 7vw);
-  background: linear-gradient(180deg, #5a5a5a 0%, #3a3a3a 100%);
-  border: 2px solid #222;
-  border-radius: 16px;
+  width: min(88px, 20vw);
+  height: min(34px, 8vw);
+  background: rgba(24, 29, 27, 0.82);
+  border: 2px solid #8f9993;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #888;
-  font-size: calc(min(80px, 18vw) * 0.15);
+  color: #f5f7f5;
+  font-size: calc(min(88px, 20vw) * 0.15);
   font-weight: bold;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0;
   cursor: pointer;
-  box-shadow: 
-    inset 0 2px 4px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition: all 0.1s ease;
+  box-shadow: none;
+  transition: transform 0.1s ease, background-color 0.1s ease;
   opacity: 1;
 }
 
 .virtual-center-btn:active,
 .virtual-center-btn.active {
-  transform: translateY(1px);
-  box-shadow: 
-    inset 0 3px 6px rgba(0, 0, 0, 0.5),
-    inset 0 0 0 rgba(255, 255, 255, 0.1);
+  transform: scale(0.92);
+  background: rgba(24, 29, 27, 1);
+  box-shadow: none;
   opacity: 1;
 }
 
@@ -339,9 +336,15 @@ GNU General Public License for more details.
 .landscape .virtual-dpad-btn.active,
 .landscape .virtual-action-btn,
 .landscape .virtual-action-btn:active,
-.landscape .virtual-action-btn.active,
-.landscape .virtual-center-btn,
+.landscape .virtual-action-btn.active {
+  opacity: 0.4;
+}
+
+.landscape .virtual-center-btn {
+  opacity: 0.28;
+}
+
 .landscape .virtual-center-btn:active,
 .landscape .virtual-center-btn.active {
-  opacity: 0.4;
+  opacity: 1;
 }

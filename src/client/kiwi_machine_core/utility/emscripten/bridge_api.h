@@ -38,6 +38,12 @@ EMSCRIPTEN_KEEPALIVE
 void JoystickButtonUp(int button);
 
 EMSCRIPTEN_KEEPALIVE
+void SetABSwapEnabled(int player, int enabled);
+
+EMSCRIPTEN_KEEPALIVE
+int IsABSwapEnabled(int player);
+
+EMSCRIPTEN_KEEPALIVE
 void SyncFilesystem();
 
 };

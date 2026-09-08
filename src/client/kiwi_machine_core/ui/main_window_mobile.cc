@@ -27,6 +27,9 @@
 namespace {
 constexpr int kDefaultWindowWidth = Canvas::kNESFrameDefaultWidth;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
+constexpr int kCenterButtonWidth = 88;
+constexpr int kCenterButtonHeight = 34;
+constexpr float kCenterButtonOpacity = .28f;
 }  // namespace
 
 bool MainWindow::IsLandscape() {
@@ -107,10 +110,10 @@ void MainWindow::CreateVirtualTouchButtons() {
   }
 
   {
-    constexpr float kScaling = .5f;
     {
       std::unique_ptr<TouchButton> vtb_select = std::make_unique<TouchButton>(
-          this, image_resources::ImageID::kVtbSelect);
+          this, image_resources::ImageID::kVtbSelect,
+          TouchButton::VisualStyle::kSelect);
       vtb_select_ = vtb_select.get();
       vtb_select->set_finger_down_callback(kiwi::base::BindRepeating(
           &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
@@ -119,9 +122,9 @@ void MainWindow::CreateVirtualTouchButtons() {
           &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
           0, kiwi::nes::ControllerButton::kSelect, false));
       SDL_Rect bounds = vtb_select->bounds();
-      bounds.w *= window_scale() * kScaling;
-      bounds.h *= window_scale() * kScaling;
-      vtb_select->set_opacity(.4f);
+      bounds.w = kCenterButtonWidth * window_scale();
+      bounds.h = kCenterButtonHeight * window_scale();
+      vtb_select->set_opacity(kCenterButtonOpacity);
       vtb_select->set_bounds(bounds);
       vtb_select->set_visible(false);
       AddWidget(std::move(vtb_select));
@@ -129,7 +132,8 @@ void MainWindow::CreateVirtualTouchButtons() {
 
     {
       std::unique_ptr<TouchButton> vtb_start = std::make_unique<TouchButton>(
-          this, image_resources::ImageID::kVtbStart);
+          this, image_resources::ImageID::kVtbStart,
+          TouchButton::VisualStyle::kStart);
       vtb_start_ = vtb_start.get();
       vtb_start->set_finger_down_callback(kiwi::base::BindRepeating(
           &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
@@ -138,9 +142,9 @@ void MainWindow::CreateVirtualTouchButtons() {
           &MainWindow::SetVirtualJoystickButton, kiwi::base::Unretained(this),
           0, kiwi::nes::ControllerButton::kStart, false));
       SDL_Rect bounds = vtb_start->bounds();
-      bounds.w *= window_scale() * kScaling;
-      bounds.h *= window_scale() * kScaling;
-      vtb_start->set_opacity(.4f);
+      bounds.w = kCenterButtonWidth * window_scale();
+      bounds.h = kCenterButtonHeight * window_scale();
+      vtb_start->set_opacity(kCenterButtonOpacity);
       vtb_start->set_bounds(bounds);
       vtb_start->set_visible(false);
       AddWidget(std::move(vtb_start));
@@ -239,20 +243,20 @@ void MainWindow::LayoutVirtualTouchButtons() {
     const int kSpacing = 6 * window_scale();
     const int safe_right = safe_bounds.x + safe_bounds.w;
     const int action_bottom = safe_bounds.y + safe_bounds.h - kPaddingY;
+    SDL_Rect right_bounds;
+    right_bounds.h = right_bounds.w = kSize;
+    right_bounds.x = safe_right - right_bounds.w - kPaddingX;
+    right_bounds.y = action_bottom - right_bounds.h;
+
+    SDL_Rect left_bounds = right_bounds;
+    left_bounds.x = safe_right - left_bounds.w * 2 - kPaddingX - kSpacing;
+    const bool swap_ab = IsABSwapped(0);
     if (vtb_a_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = safe_right - bounds.w - kPaddingX;
-      bounds.y = action_bottom - bounds.h;
-      vtb_a_->set_bounds(bounds);
+      vtb_a_->set_bounds(swap_ab ? left_bounds : right_bounds);
     }
 
     if (vtb_b_) {
-      SDL_Rect bounds;
-      bounds.h = bounds.w = kSize;
-      bounds.x = safe_right - bounds.w * 2 - kPaddingX - kSpacing;
-      bounds.y = action_bottom - bounds.h;
-      vtb_b_->set_bounds(bounds);
+      vtb_b_->set_bounds(swap_ab ? right_bounds : left_bounds);
     }
 
     if (vtb_ab_) {
@@ -267,19 +271,25 @@ void MainWindow::LayoutVirtualTouchButtons() {
 
   {
     const int kMiddleSpacing = 4 * window_scale();
+    const int kButtonWidth = kCenterButtonWidth * window_scale();
+    const int kButtonHeight = kCenterButtonHeight * window_scale();
     const int kPaddingBottom =
         styles::main_window::GetJoystickSelectStartButtonMarginBottom(
             window_scale(), is_landscape, no_safe_area_insets);
     const int safe_center_x = safe_bounds.x + safe_bounds.w / 2;
     if (vtb_select_) {
       SDL_Rect bounds = vtb_select_->bounds();
+      bounds.w = kButtonWidth;
+      bounds.h = kButtonHeight;
       bounds.x = safe_center_x - bounds.w - kMiddleSpacing;
       bounds.y = safe_bounds.y + safe_bounds.h - bounds.h - kPaddingBottom;
       vtb_select_->set_bounds(bounds);
     }
 
     if (vtb_start_) {
-      SDL_Rect bounds = vtb_select_->bounds();
+      SDL_Rect bounds = vtb_start_->bounds();
+      bounds.w = kButtonWidth;
+      bounds.h = kButtonHeight;
       bounds.x = safe_center_x + kMiddleSpacing;
       bounds.y = safe_bounds.y + safe_bounds.h - bounds.h - kPaddingBottom;
       vtb_start_->set_bounds(bounds);
