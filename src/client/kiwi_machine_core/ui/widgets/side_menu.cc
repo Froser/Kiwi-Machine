@@ -118,7 +118,8 @@ void SideMenu::Paint() {
       kBorderColor);
 
   for (int i = 0; i < button_items_.size(); ++i) {
-    const SDL_Rect button_bounds = MapToWindow(buttons_bounds_map_[i]);
+    const SDL_Rect button_bounds =
+        MapLocalBoundsToWindow(buttons_bounds_map_[i]);
     const int kIconSize = kIconSizeScale * button_bounds.h;
     const int kIconTop = button_bounds.y + (button_bounds.h - kIconSize) / 2;
     const int kIconLeft = button_bounds.x + SCALED(kIconSpacing);
@@ -166,7 +167,8 @@ void SideMenu::Paint() {
   }
 
   for (int i = menu_items_.size() - 1; i >= 0; --i) {
-    const SDL_Rect global_item_rect = MapToWindow(items_bounds_map_[i]);
+    const SDL_Rect global_item_rect =
+        MapLocalBoundsToWindow(items_bounds_map_[i]);
     const int kIconSize = kIconSizeScale * global_item_rect.h;
     const int kIconLeft = global_item_rect.x + SCALED(kIconSpacing);
     const int kIconTop =
@@ -199,11 +201,11 @@ void SideMenu::Paint() {
         selection_current_rect_in_global_ = selection_target_rect_in_global_;
       }
 
-      SDL_Rect global_selection_rect =
-          MapToWindow(Lerp(selection_current_rect_in_global_,
-                           selection_target_rect_in_global_, percentage));
+      SDL_Rect global_selection_rect = MapLocalBoundsToWindow(
+          Lerp(selection_current_rect_in_global_,
+               selection_target_rect_in_global_, percentage));
       SDL_Rect global_target_selection_rect =
-          MapToWindow(selection_target_rect_in_global_);
+          MapLocalBoundsToWindow(selection_target_rect_in_global_);
 
       draw_list->AddRectFilled(
           ImVec2(global_selection_rect.x, global_selection_rect.y),
@@ -334,7 +336,8 @@ void SideMenu::UpdateHoverState() {
     FindItemIndexByMousePosition(mouse_x, mouse_y, hovered_menu_index);
     if (hovered_menu_index < 0) {
       for (int i = 0; i < buttons_bounds_map_.size(); ++i) {
-        const SDL_Rect button_bounds = MapToWindow(buttons_bounds_map_[i]);
+        const SDL_Rect button_bounds =
+            MapLocalBoundsToWindow(buttons_bounds_map_[i]);
         if (Contains(button_bounds, mouse_x, mouse_y)) {
           hovered_button_index = i;
           break;
@@ -524,6 +527,13 @@ void SideMenu::SetIndex(int index) {
   timer_.Reset();
 }
 
+SDL_Rect SideMenu::MapLocalBoundsToWindow(const SDL_Rect& local_bounds) {
+  const SDL_Rect widget_bounds = bounds();
+  return MapToWindow(SDL_Rect{widget_bounds.x + local_bounds.x,
+                              widget_bounds.y + local_bounds.y, local_bounds.w,
+                              local_bounds.h});
+}
+
 void SideMenu::EnterIndex(int index) {
   SetIndex(triggered_index_);
   menu_items_[index].callbacks.enter_callback.Run();
@@ -543,7 +553,7 @@ bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
   // There's no intersection between each item's bounds, so we can find the
   // target item easily
   for (int i = 0; i < items_bounds_map_.size(); ++i) {
-    SDL_Rect bounds_to_window = MapToWindow(items_bounds_map_[i]);
+    SDL_Rect bounds_to_window = MapLocalBoundsToWindow(items_bounds_map_[i]);
     if (Contains(bounds_to_window, x_in_window, y_in_window)) {
       index_out = i;
       return true;
@@ -554,7 +564,7 @@ bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
 
 void SideMenu::FindButtonAndTrigger(int x_in_window, int y_in_window) {
   for (int i = 0; i < buttons_bounds_map_.size(); ++i) {
-    SDL_Rect bounds_to_window = MapToWindow(buttons_bounds_map_[i]);
+    SDL_Rect bounds_to_window = MapLocalBoundsToWindow(buttons_bounds_map_[i]);
     if (Contains(bounds_to_window, x_in_window, y_in_window)) {
       const ButtonCallbacks& callbacks = button_items_[i].callbacks;
       if (callbacks.trigger_callback)

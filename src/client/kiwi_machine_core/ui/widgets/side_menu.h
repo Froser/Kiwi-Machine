@@ -99,6 +99,7 @@ class SideMenu : public Widget {
   void TriggerCurrentItem();
   void UpdateHoverState();
   void UpdateHoverAnimations();
+  SDL_Rect MapLocalBoundsToWindow(const SDL_Rect& local_bounds);
   bool FindItemIndexByMousePosition(int x_in_window,
                                     int y_in_window,
                                     int& index_out);

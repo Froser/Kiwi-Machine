@@ -16,6 +16,7 @@
 #include <cfloat>
 #include <cmath>
 
+#include "build/kiwi_defines.h"
 #include "ui/main_window.h"
 #include "utility/fonts.h"
 #include "utility/localization.h"
@@ -63,11 +64,21 @@ ImU32 ColorWithOpacity(int red,
 }
 
 PreferredFontSize GetTitleFontSize(float scale) {
+#if KIWI_ANDROID
+  return PreferredFontSize::k4x;
+#elif KIWI_IOS
+  return PreferredFontSize::k3x;
+#else
   return scale < .85f ? PreferredFontSize::k1x : PreferredFontSize::k2x;
+#endif
 }
 
 PreferredFontSize GetStatusFontSize() {
+#if KIWI_MOBILE
+  return PreferredFontSize::k2x;
+#else
   return PreferredFontSize::k1x;
+#endif
 }
 
 ImVec2 RotateAround(const ImVec2& point, const ImVec2& center, float radians) {
