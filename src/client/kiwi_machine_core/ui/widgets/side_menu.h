@@ -57,15 +57,16 @@ class SideMenu : public Widget {
                  ButtonCallbacks callbacks,
                  SDL_KeyCode hotkey);
 
-  void set_activate(bool activate) { activate_ = activate; }
+  void set_activate(bool activate);
   bool activate() { return activate_; }
+  bool expanded() const { return activate_ || pointer_expanded_; }
   void invalidate() { bounds_valid_ = false; }
   void set_auto_trigger_first_item(bool trigger) {
     auto_trigger_first_menu_ = trigger;
   }
 
   int GetSuggestedCollapsedWidth();
-  int GetMinExtendedWidth();
+  int GetSuggestedExtendedWidth(int available_width);
   void Layout();
   void SetIndex(int index);
   int current_index() { return current_index_; }
@@ -96,6 +97,9 @@ class SideMenu : public Widget {
                              int y_in_window);
   void EnterIndex(int index);
   void TriggerCurrentItem();
+  void UpdateHoverState();
+  void UpdateHoverAnimations();
+  SDL_Rect MapLocalBoundsToWindow(const SDL_Rect& local_bounds);
   bool FindItemIndexByMousePosition(int x_in_window,
                                     int y_in_window,
                                     int& index_out);
@@ -145,9 +149,19 @@ class SideMenu : public Widget {
   int current_index_ = 0;
   int triggered_index_ = 0;
   bool activate_ = false;
+  bool pointer_inside_ = false;
+  bool pointer_expanded_ = false;
+  bool pointer_collapse_pending_ = false;
+  bool suppress_pointer_expansion_ = false;
+  Timer pointer_leave_timer_;
   Timer timer_;
   SDL_Rect selection_current_rect_in_global_;
   SDL_Rect selection_target_rect_in_global_;
+  int hovered_menu_index_ = -1;
+  int hovered_button_index_ = -1;
+  std::vector<float> menu_hover_opacities_;
+  std::vector<float> button_hover_opacities_;
+  Timer hover_frame_timer_;
 
   bool mouse_locked_ = false;
 };

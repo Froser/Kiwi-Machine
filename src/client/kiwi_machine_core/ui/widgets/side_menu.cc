@@ -12,6 +12,8 @@
 
 #include "ui/widgets/side_menu.h"
 
+#include <algorithm>
+
 #include "models/nes_runtime.h"
 #include "ui/main_window.h"
 #include "ui/styles.h"
@@ -27,14 +29,51 @@ const int kButtonHeight = styles::side_menu::GetButtonHeight();
 const int kItemMarginBottom = styles::side_menu::GetMarginBottom();
 constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
+constexpr int kHoverAnimationMs = 180;
+constexpr int kPointerCollapseDelayMs = 120;
 constexpr int kIconSpacing = 4;
 constexpr float kIconSizeScale = .7f;
-constexpr ImColor kBackgroundColor = ImColor(21, 149, 5);
+constexpr ImU32 kBackgroundColor = IM_COL32(244, 252, 227, 255);
+constexpr ImU32 kBorderColor = IM_COL32(116, 184, 22, 255);
+constexpr ImU32 kDividerColor = IM_COL32(216, 245, 162, 255);
+constexpr ImU32 kTextColor = IM_COL32(52, 58, 64, 255);
+constexpr ImU32 kMutedIconColor = IM_COL32(73, 80, 87, 255);
+constexpr ImU32 kSelectedBackgroundColor = IM_COL32(216, 245, 162, 255);
+constexpr ImU32 kHoverFillColor = IM_COL32(233, 250, 200, 255);
+constexpr ImU32 kAccentColor = IM_COL32(116, 184, 22, 255);
+constexpr ImU32 kAccentTextColor = IM_COL32(92, 148, 13, 255);
 const PreferredFontSize kPreferredFontSize(
     styles::side_menu::GetPreferredFontSize());
 
 #define SCALED(x) \
   static_cast<int>((main_window_->window_scale() >= 3.f ? (x) : ((x) / 1.5f)))
+
+namespace {
+
+ImU32 ColorWithOpacity(ImU32 color, float opacity) {
+  const int alpha = static_cast<int>(255.f * std::clamp(opacity, 0.f, 1.f));
+  return (color & ~IM_COL32_A_MASK) |
+         (static_cast<ImU32>(alpha) << IM_COL32_A_SHIFT);
+}
+
+ImU32 BlendColor(ImU32 from, ImU32 to, float progress) {
+  progress = std::clamp(progress, 0.f, 1.f);
+  auto blend_channel = [progress](int shift) {
+    return [=](ImU32 from_color, ImU32 to_color) {
+      const float from_channel = (from_color >> shift) & 0xff;
+      const float to_channel = (to_color >> shift) & 0xff;
+      return static_cast<ImU32>(from_channel +
+                                (to_channel - from_channel) * progress);
+    };
+  };
+  const ImU32 red = blend_channel(IM_COL32_R_SHIFT)(from, to);
+  const ImU32 green = blend_channel(IM_COL32_G_SHIFT)(from, to);
+  const ImU32 blue = blend_channel(IM_COL32_B_SHIFT)(from, to);
+  const ImU32 alpha = blend_channel(IM_COL32_A_SHIFT)(from, to);
+  return IM_COL32(red, green, blue, alpha);
+}
+
+}  // namespace
 
 SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
     : Widget(main_window), main_window_(main_window) {
@@ -46,56 +85,110 @@ SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
 
 SideMenu::~SideMenu() = default;
 
+void SideMenu::set_activate(bool activate) {
+  if (activate_ == activate)
+    return;
+
+  if (activate) {
+    pointer_expanded_ = false;
+    pointer_collapse_pending_ = false;
+  } else {
+    pointer_expanded_ = false;
+    pointer_collapse_pending_ = false;
+    suppress_pointer_expansion_ = pointer_inside_;
+  }
+  activate_ = activate;
+}
+
 void SideMenu::Paint() {
   Layout();
+  UpdateHoverState();
+  UpdateHoverAnimations();
 
-  SDL_Rect kBoundsToWindow = MapToWindow(bounds());
-  ImGui::GetWindowDrawList()->AddRectFilled(
-      ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
-      ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  const SDL_Rect kBoundsToWindow = MapToWindow(bounds());
+  draw_list->AddRectFilled(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
+                           ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
+                                  kBoundsToWindow.y + kBoundsToWindow.h),
+                           kBackgroundColor);
+  draw_list->AddLine(
+      ImVec2(kBoundsToWindow.x + kBoundsToWindow.w - 1, kBoundsToWindow.y),
+      ImVec2(kBoundsToWindow.x + kBoundsToWindow.w - 1,
              kBoundsToWindow.y + kBoundsToWindow.h),
-      kBackgroundColor);
+      kBorderColor);
 
   for (int i = 0; i < button_items_.size(); ++i) {
-    int kIconSize = kIconSizeScale * buttons_bounds_map_[i].h;
-    int kIconTop = buttons_bounds_map_[i].y;
-    int kIconLeft = SCALED(kIconSpacing) + buttons_bounds_map_[i].x;
+    const SDL_Rect button_bounds =
+        MapLocalBoundsToWindow(buttons_bounds_map_[i]);
+    const int kIconSize = kIconSizeScale * button_bounds.h;
+    const int kIconTop = button_bounds.y + (button_bounds.h - kIconSize) / 2;
+    const int kIconLeft = button_bounds.x + SCALED(kIconSpacing);
+    const float hover_opacity = button_hover_opacities_[i];
 
-    if (activate_) {
+    if (hover_opacity > 0.f) {
+      draw_list->AddRectFilled(ImVec2(button_bounds.x, button_bounds.y),
+                               ImVec2(button_bounds.x + button_bounds.w,
+                                      button_bounds.y + button_bounds.h),
+                               ColorWithOpacity(kHoverFillColor, hover_opacity),
+                               SCALED(4));
+    }
+
+    draw_list->AddLine(
+        ImVec2(button_bounds.x, button_bounds.y + button_bounds.h - 1),
+        ImVec2(button_bounds.x + button_bounds.w,
+               button_bounds.y + button_bounds.h - 1),
+        kDividerColor);
+
+    if (expanded()) {
       std::string contents =
           button_items_[i].string_updater->GetLocalizedString();
       ScopedFont font = GetPreferredFont(kPreferredFontSize, contents.c_str());
-      ImVec2 text_size = ImGui::CalcTextSize(contents.c_str());
-      SDL_Rect button_bounds = MapToWindow(buttons_bounds_map_[i]);
-      int text_top = button_bounds.y + (kIconSize - text_size.y) / 2;
-      ImGui::GetWindowDrawList()->AddText(
-          font.GetFont(), font.GetFontSize(),
-          ImVec2(kIconLeft + kIconSize + SCALED(kIconSpacing), text_top),
-          ImColor(255, 255, 255), contents.c_str());
+      const ImVec2 text_size = ImGui::CalcTextSize(contents.c_str());
+      int text_top = button_bounds.y + (button_bounds.h - text_size.y) / 2;
+      const float text_left = kIconLeft + kIconSize + SCALED(kIconSpacing);
+      const ImVec4 text_clip(
+          text_left, button_bounds.y,
+          button_bounds.x + button_bounds.w - SCALED(kIconSpacing),
+          button_bounds.y + button_bounds.h);
+      draw_list->AddText(
+          font.GetFont(), font.GetFontSize(), ImVec2(text_left, text_top),
+          BlendColor(kTextColor, kAccentTextColor, hover_opacity),
+          contents.c_str(), nullptr, 0.f, &text_clip);
     }
 
-    image_resources::ImageID icon = button_items_[i].icon;
-    SDL_Texture* icon_texture = GetImage(window()->renderer(), icon);
-    SDL_Rect icon_rect_to_window =
-        MapToWindow(SDL_Rect{kIconLeft, kIconTop, kIconSize, kIconSize});
-    ImGui::GetWindowDrawList()->AddImage(
+    SDL_Texture* icon_texture =
+        GetImage(window()->renderer(), button_items_[i].icon);
+    draw_list->AddImage(
         reinterpret_cast<ImTextureID>(icon_texture),
-        ImVec2(icon_rect_to_window.x, icon_rect_to_window.y),
-        ImVec2(icon_rect_to_window.x + icon_rect_to_window.w,
-               icon_rect_to_window.y + icon_rect_to_window.h));
+        ImVec2(kIconLeft, kIconTop),
+        ImVec2(kIconLeft + kIconSize, kIconTop + kIconSize), ImVec2(0, 0),
+        ImVec2(1, 1),
+        BlendColor(kMutedIconColor, kAccentTextColor, hover_opacity));
   }
 
   for (int i = menu_items_.size() - 1; i >= 0; --i) {
-    int kIconSize = kIconSizeScale * items_bounds_map_[i].h;
-    int kIconLeft = SCALED(kIconSpacing) + items_bounds_map_[i].x;
-    int kIconTop =
-        items_bounds_map_[i].y + (items_bounds_map_[i].h - kIconSize) / 2;
+    const SDL_Rect global_item_rect =
+        MapLocalBoundsToWindow(items_bounds_map_[i]);
+    const int kIconSize = kIconSizeScale * global_item_rect.h;
+    const int kIconLeft = global_item_rect.x + SCALED(kIconSpacing);
+    const int kIconTop =
+        global_item_rect.y + (global_item_rect.h - kIconSize) / 2;
 
     std::string menu_content =
         menu_items_[i].string_updater->GetLocalizedString();
     ScopedFont font =
         GetPreferredFont(kPreferredFontSize, menu_content.c_str());
-    if (i == current_index_) {
+    const bool selected = i == current_index_;
+    const float hover_opacity = selected ? 0.f : menu_hover_opacities_[i];
+    if (hover_opacity > 0.f) {
+      draw_list->AddRectFilled(ImVec2(global_item_rect.x, global_item_rect.y),
+                               ImVec2(global_item_rect.x + global_item_rect.w,
+                                      global_item_rect.y + global_item_rect.h),
+                               ColorWithOpacity(kHoverFillColor, hover_opacity),
+                               SCALED(4));
+    }
+
+    if (selected) {
       // Animation
       if (SDL_RectEmpty(&selection_current_rect_in_global_)) {
         selection_current_rect_in_global_ = items_bounds_map_[i];
@@ -108,60 +201,68 @@ void SideMenu::Paint() {
         selection_current_rect_in_global_ = selection_target_rect_in_global_;
       }
 
-      SDL_Rect global_selection_rect =
-          MapToWindow(Lerp(selection_current_rect_in_global_,
-                           selection_target_rect_in_global_, percentage));
+      SDL_Rect global_selection_rect = MapLocalBoundsToWindow(
+          Lerp(selection_current_rect_in_global_,
+               selection_target_rect_in_global_, percentage));
       SDL_Rect global_target_selection_rect =
-          MapToWindow(selection_target_rect_in_global_);
+          MapLocalBoundsToWindow(selection_target_rect_in_global_);
 
-      if (activate_) {
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            ImVec2(global_selection_rect.x, global_selection_rect.y),
-            ImVec2(global_selection_rect.x + global_selection_rect.w,
-                   global_selection_rect.y + global_selection_rect.h),
-            ImColor(255, 255, 255));
+      draw_list->AddRectFilled(
+          ImVec2(global_selection_rect.x, global_selection_rect.y),
+          ImVec2(global_selection_rect.x + global_selection_rect.w,
+                 global_selection_rect.y + global_selection_rect.h),
+          kSelectedBackgroundColor);
+      const int accent_height =
+          static_cast<int>(global_selection_rect.h * .56f);
+      const int accent_top = global_selection_rect.y +
+                             (global_selection_rect.h - accent_height) / 2;
+      draw_list->AddRectFilled(ImVec2(global_selection_rect.x, accent_top),
+                               ImVec2(global_selection_rect.x + SCALED(3),
+                                      accent_top + accent_height),
+                               kAccentColor, SCALED(2),
+                               ImDrawFlags_RoundCornersRight);
 
+      if (expanded()) {
         // Calculates text area
-        ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
-        int text_top = global_target_selection_rect.y +
-                       (global_target_selection_rect.h - text_size.y) / 2;
-        ImGui::GetWindowDrawList()->AddText(
-            font.GetFont(), font.GetFontSize(),
-            ImVec2(kIconLeft + kIconSize + SCALED(kIconSpacing), text_top),
-            kBackgroundColor, menu_content.c_str());
-      } else {
-        // A deactivated side menu doesn't paint its text, and has a smaller
-        // selection area.
-        ImGui::GetWindowDrawList()->AddRectFilled(
-            ImVec2(global_selection_rect.x, global_selection_rect.y),
-            ImVec2(global_selection_rect.x + global_selection_rect.w,
-                   global_selection_rect.y + global_selection_rect.h),
-            ImColor(255, 255, 255));
+        const ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
+        const int text_top = global_target_selection_rect.y +
+                             (global_target_selection_rect.h - text_size.y) / 2;
+        const float text_left = kIconLeft + kIconSize + SCALED(kIconSpacing);
+        const ImVec4 text_clip(
+            text_left, global_target_selection_rect.y,
+            global_target_selection_rect.x + global_target_selection_rect.w -
+                SCALED(kIconSpacing),
+            global_target_selection_rect.y + global_target_selection_rect.h);
+        draw_list->AddText(font.GetFont(), font.GetFontSize(),
+                           ImVec2(text_left, text_top), kAccentTextColor,
+                           menu_content.c_str(), nullptr, 0.f, &text_clip);
       }
-    } else if (activate_) {
-      SDL_Rect global_item_rect = MapToWindow(items_bounds_map_[i]);
+    } else if (expanded()) {
       // Calculates text area
-      ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
-      int text_top =
+      const ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
+      const int text_top =
           global_item_rect.y + (global_item_rect.h - text_size.y) / 2;
-      ImGui::GetWindowDrawList()->AddText(
-          font.GetFont(), font.GetFontSize(),
-          ImVec2(kIconLeft + kIconSize + SCALED(kIconSpacing), text_top),
-          ImColor(255, 255, 255), menu_content.c_str());
+      const float text_left = kIconLeft + kIconSize + SCALED(kIconSpacing);
+      const ImVec4 text_clip(
+          text_left, global_item_rect.y,
+          global_item_rect.x + global_item_rect.w - SCALED(kIconSpacing),
+          global_item_rect.y + global_item_rect.h);
+      draw_list->AddText(
+          font.GetFont(), font.GetFontSize(), ImVec2(text_left, text_top),
+          BlendColor(kTextColor, kAccentTextColor, hover_opacity),
+          menu_content.c_str(), nullptr, 0.f, &text_clip);
     }
 
-    // Paint icon
-    image_resources::ImageID icon = (i == current_index_)
-                                        ? menu_items_[i].highlight_icon
-                                        : menu_items_[i].icon;
-    SDL_Texture* icon_texture = GetImage(window()->renderer(), icon);
-    SDL_Rect icon_rect_to_window =
-        MapToWindow(SDL_Rect{kIconLeft, kIconTop, kIconSize, kIconSize});
-    ImGui::GetWindowDrawList()->AddImage(
-        reinterpret_cast<ImTextureID>(icon_texture),
-        ImVec2(icon_rect_to_window.x, icon_rect_to_window.y),
-        ImVec2(icon_rect_to_window.x + icon_rect_to_window.w,
-               icon_rect_to_window.y + icon_rect_to_window.h));
+    // Use the monochrome source for every state and tint it consistently.
+    SDL_Texture* icon_texture =
+        GetImage(window()->renderer(), menu_items_[i].icon);
+    draw_list->AddImage(reinterpret_cast<ImTextureID>(icon_texture),
+                        ImVec2(kIconLeft, kIconTop),
+                        ImVec2(kIconLeft + kIconSize, kIconTop + kIconSize),
+                        ImVec2(0, 0), ImVec2(1, 1),
+                        selected ? kAccentTextColor
+                                 : BlendColor(kMutedIconColor, kAccentTextColor,
+                                              hover_opacity));
   }
 }
 
@@ -198,12 +299,100 @@ void SideMenu::AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
 int SideMenu::GetSuggestedCollapsedWidth() {
   const int item_x = SCALED(kItemSpacing.x);
   const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
-  return (item_x + SCALED(kIconSpacing)) * 2 +
-         item_height * kIconSizeScale;
+  return (item_x + SCALED(kIconSpacing)) * 2 + item_height * kIconSizeScale;
 }
 
-int SideMenu::GetMinExtendedWidth() {
-  return 100;
+int SideMenu::GetSuggestedExtendedWidth(int available_width) {
+#if KIWI_ANDROID
+  constexpr float kWidthRatio = .13f;
+  constexpr int kMinWidth = 260;
+  constexpr int kMaxWidth = 340;
+#elif KIWI_IOS
+  constexpr float kWidthRatio = .14f;
+  constexpr int kMinWidth = 108;
+  constexpr int kMaxWidth = 136;
+#else
+  constexpr float kWidthRatio = .125f;
+  constexpr int kMinWidth = 104;
+  constexpr int kMaxWidth = 148;
+#endif
+  return std::clamp(static_cast<int>(available_width * kWidthRatio), kMinWidth,
+                    kMaxWidth);
+}
+
+void SideMenu::UpdateHoverState() {
+#if KIWI_MOBILE
+  return;
+#else
+  int hovered_menu_index = -1;
+  int hovered_button_index = -1;
+  const ImVec2 mouse_position = ImGui::GetIO().MousePos;
+  const int mouse_x = static_cast<int>(mouse_position.x);
+  const int mouse_y = static_cast<int>(mouse_position.y);
+
+  const SDL_Rect global_bounds = MapToWindow(bounds());
+  const bool pointer_inside = Contains(global_bounds, mouse_x, mouse_y);
+  if (pointer_inside) {
+    FindItemIndexByMousePosition(mouse_x, mouse_y, hovered_menu_index);
+    if (hovered_menu_index < 0) {
+      for (int i = 0; i < buttons_bounds_map_.size(); ++i) {
+        const SDL_Rect button_bounds =
+            MapLocalBoundsToWindow(buttons_bounds_map_[i]);
+        if (Contains(button_bounds, mouse_x, mouse_y)) {
+          hovered_button_index = i;
+          break;
+        }
+      }
+    }
+  }
+
+  if (pointer_inside) {
+    pointer_collapse_pending_ = false;
+    if (!activate_ && !suppress_pointer_expansion_)
+      pointer_expanded_ = true;
+  } else {
+    if (pointer_inside_) {
+      suppress_pointer_expansion_ = false;
+      if (pointer_expanded_) {
+        pointer_collapse_pending_ = true;
+        pointer_leave_timer_.Reset();
+      }
+    }
+    if (pointer_collapse_pending_ &&
+        pointer_leave_timer_.ElapsedInMilliseconds() >=
+            kPointerCollapseDelayMs) {
+      pointer_expanded_ = false;
+      pointer_collapse_pending_ = false;
+    }
+  }
+  pointer_inside_ = pointer_inside;
+  hovered_menu_index_ = hovered_menu_index;
+  hovered_button_index_ = hovered_button_index;
+#endif
+}
+
+void SideMenu::UpdateHoverAnimations() {
+  if (menu_hover_opacities_.size() != menu_items_.size())
+    menu_hover_opacities_.resize(menu_items_.size(), 0.f);
+  if (button_hover_opacities_.size() != button_items_.size())
+    button_hover_opacities_.resize(button_items_.size(), 0.f);
+
+  const int elapsed_ms =
+      std::min(hover_frame_timer_.ElapsedInMillisecondsAndReset(), 50);
+  const float opacity_step = elapsed_ms / static_cast<float>(kHoverAnimationMs);
+  auto update_opacity = [opacity_step](float& opacity, bool hovered) {
+    if (hovered)
+      opacity = std::min(1.f, opacity + opacity_step);
+    else
+      opacity = std::max(0.f, opacity - opacity_step);
+  };
+
+  for (int i = 0; i < menu_hover_opacities_.size(); ++i) {
+    update_opacity(menu_hover_opacities_[i],
+                   i == hovered_menu_index_ && i != current_index_);
+  }
+  for (int i = 0; i < button_hover_opacities_.size(); ++i)
+    update_opacity(button_hover_opacities_[i], i == hovered_button_index_);
 }
 
 bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
@@ -266,6 +455,12 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
 
 bool SideMenu::HandleMouseOrFingerDown() {
   if (!activate_) {
+#if !KIWI_MOBILE
+    if (pointer_expanded_) {
+      mouse_locked_ = true;
+      return true;
+    }
+#endif
     PlayEffect(audio_resources::AudioID::kSelect);
     main_window_->ChangeFocus(MainWindow::MainFocus::kSideMenu);
     return true;
@@ -278,18 +473,14 @@ bool SideMenu::HandleMouseOrFingerDown() {
 bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
                                      int x_in_window,
                                      int y_in_window) {
-  if (activate_ && mouse_locked_) {
+  if ((activate_ || pointer_expanded_) && mouse_locked_) {
     if (button == MouseButton::kLeftButton) {
-      int index_before_released = current_index_;
       int index = 0;
       // Finds menu item first.
       if (FindItemIndexByMousePosition(x_in_window, y_in_window, index)) {
-        // If the highlight item doesn't change, trigger it.
-        if (index_before_released != index) {
+        if (current_index_ != index)
           SetIndex(index);
-        } else {
-          TriggerCurrentItem();
-        }
+        TriggerCurrentItem();
       } else {
         // If there's no menu item found, find button and trigger if any.
         FindButtonAndTrigger(x_in_window, y_in_window);
@@ -309,20 +500,19 @@ void SideMenu::Layout() {
 
   items_bounds_map_.resize(menu_items_.size());
   buttons_bounds_map_.resize(button_items_.size());
-  const SDL_Rect bounds_to_window = MapToWindow(bounds());
-  const int item_x = bounds_to_window.x + SCALED(kItemSpacing.x);
-  const int item_width = bounds_to_window.w - SCALED(kItemSpacing.x);
+  const SDL_Rect local_bounds = GetLocalBounds();
+  const int item_x = local_bounds.x + SCALED(kItemSpacing.x);
+  const int item_width = local_bounds.w - SCALED(kItemSpacing.x);
   const int button_height = SCALED(kButtonHeight + kItemSpacing.y * 2);
   const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
 
-  int y = bounds_to_window.y + SCALED(kItemMarginBottom);
+  int y = local_bounds.y + SCALED(kItemMarginBottom);
   for (size_t i = 0; i < button_items_.size(); ++i) {
     buttons_bounds_map_[i] = SDL_Rect{item_x, y, item_width, button_height};
     y += button_height;
   }
 
-  y = bounds_to_window.y + bounds_to_window.h - SCALED(kItemMarginBottom) -
-      item_height;
+  y = local_bounds.y + local_bounds.h - SCALED(kItemMarginBottom) - item_height;
   for (int i = static_cast<int>(menu_items_.size()) - 1; i >= 0; --i) {
     items_bounds_map_[i] = SDL_Rect{item_x, y, item_width, item_height};
     y -= item_height;
@@ -337,9 +527,18 @@ void SideMenu::SetIndex(int index) {
   timer_.Reset();
 }
 
+SDL_Rect SideMenu::MapLocalBoundsToWindow(const SDL_Rect& local_bounds) {
+  const SDL_Rect widget_bounds = bounds();
+  return MapToWindow(SDL_Rect{widget_bounds.x + local_bounds.x,
+                              widget_bounds.y + local_bounds.y, local_bounds.w,
+                              local_bounds.h});
+}
+
 void SideMenu::EnterIndex(int index) {
   SetIndex(triggered_index_);
   menu_items_[index].callbacks.enter_callback.Run();
+  if (activate_)
+    main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
 }
 
 void SideMenu::TriggerCurrentItem() {
@@ -354,7 +553,7 @@ bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
   // There's no intersection between each item's bounds, so we can find the
   // target item easily
   for (int i = 0; i < items_bounds_map_.size(); ++i) {
-    SDL_Rect bounds_to_window = MapToWindow(items_bounds_map_[i]);
+    SDL_Rect bounds_to_window = MapLocalBoundsToWindow(items_bounds_map_[i]);
     if (Contains(bounds_to_window, x_in_window, y_in_window)) {
       index_out = i;
       return true;
@@ -365,7 +564,7 @@ bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
 
 void SideMenu::FindButtonAndTrigger(int x_in_window, int y_in_window) {
   for (int i = 0; i < buttons_bounds_map_.size(); ++i) {
-    SDL_Rect bounds_to_window = MapToWindow(buttons_bounds_map_[i]);
+    SDL_Rect bounds_to_window = MapLocalBoundsToWindow(buttons_bounds_map_[i]);
     if (Contains(bounds_to_window, x_in_window, y_in_window)) {
       const ButtonCallbacks& callbacks = button_items_[i].callbacks;
       if (callbacks.trigger_callback)

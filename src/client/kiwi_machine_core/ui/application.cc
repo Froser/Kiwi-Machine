@@ -386,7 +386,7 @@ void Application::InitializeImGui() {
       [](SDL_Event* event) { ImGui_ImplSDL2_ProcessEvent(event); }));
 
   InitializeStyles();
-  InitializeSystemFonts();
+  InitializeStartupFonts();
 }
 
 void Application::UninitializeImGui() {

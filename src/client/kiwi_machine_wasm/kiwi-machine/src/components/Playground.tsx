@@ -50,6 +50,7 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
   const [showControl, setShowControl] = useState(false);
   const [isSplashFinished, setIsSplashFinished] = useState(false);
   const [showCanvas, setShowCanvas] = useState(false);
+  const [swapAB, setSwapAB] = useState<[boolean, boolean]>([false, false]);
   const isMobile = isMobileDevice();
 
   useEffect(() => {
@@ -159,12 +160,27 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
       if (iframeWindow) {
         (iframeWindow as any).KiwiMachineCallback = {
           onSplashFinished: () => {
+            const emulatorService = CreateEmulatorService(iframeWindow);
+            setSwapAB([
+              emulatorService.isABSwapEnabled(0),
+              emulatorService.isABSwapEnabled(1)
+            ]);
             setIsSplashFinished(true);
             if (onEmulatorReady) {
               onEmulatorReady();
             }
           },
           onVolumeChanged: (data: { volume: number }) => {
+          },
+          onABSwapChanged: (player: number, enabled: boolean) => {
+            if (player !== 0 && player !== 1) {
+              return;
+            }
+            setSwapAB(current => {
+              const next: [boolean, boolean] = [current[0], current[1]];
+              next[player] = enabled;
+              return next;
+            });
           },
           onSaveStateSucceeded: (slot: number) => {
             setToastMessage('保存成功');
@@ -198,6 +214,20 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
     };
   }, [onEmulatorReady, setShowToast, setToastMessage]);
 
+  useEffect(() => {
+    if (!showControl || !isSplashFinished) {
+      return;
+    }
+    const currentWindow = frameRef.current?.contentWindow;
+    if (currentWindow) {
+      const emulatorService = CreateEmulatorService(currentWindow);
+      setSwapAB([
+        emulatorService.isABSwapEnabled(0),
+        emulatorService.isABSwapEnabled(1)
+      ]);
+    }
+  }, [showControl, isSplashFinished]);
+
   const handleSplashFinished = () => {
     setShowCanvas(true);
   };
@@ -214,6 +244,25 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
     if (currentWindow) {
       CreateEmulatorService(currentWindow).joystickButtonUp(controllerButtonToJoystickButton[button]);
     }
+  };
+
+  const handleSwapABChange = (player: number, enabled: boolean) => {
+    if (player !== 0 && player !== 1) {
+      return;
+    }
+    const currentWindow = frameRef.current?.contentWindow;
+    if (!currentWindow) {
+      return;
+    }
+    const emulatorService = CreateEmulatorService(currentWindow);
+    if (!emulatorService.setABSwapEnabled(player, enabled)) {
+      return;
+    }
+    setSwapAB(current => {
+      const next: [boolean, boolean] = [current[0], current[1]];
+      next[player] = enabled;
+      return next;
+    });
   };
 
   return (
@@ -235,6 +284,7 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
         onButtonPress={handleButtonPress} 
         onButtonRelease={handleButtonRelease}
         onMenuButtonClick={() => setShowControl(!showControl)}
+        swapAB={swapAB[0]}
       />
 
       {!isMobileDevice() && <div className="playground-float-group">
@@ -277,6 +327,8 @@ export default function Playground({setFrameRef, showManualModal, showAboutModal
         setShowAboutModal={setShowAboutModal}
         showFps={showFps}
         setShowFps={setShowFps}
+        swapAB={swapAB}
+        onSwapABChange={handleSwapABChange}
         onClose={focusIframe}
       />
     </div>

@@ -75,6 +75,7 @@ class MainWindow : public WindowBase,
     virtual void OnSaveStateFailed(int slot);
     virtual void OnLoadStateSucceeded(int slot);
     virtual void OnLoadStateFailed(int slot);
+    virtual void OnABSwapChanged(int player, bool enabled);
   };
 
  public:
@@ -95,6 +96,8 @@ class MainWindow : public WindowBase,
   float GetFPS_WASM();
   void JoystickButtonDown_WASM(kiwi::nes::ControllerButton button);
   void JoystickButtonUp_WASM(kiwi::nes::ControllerButton button);
+  void SetABSwapped_WASM(int player, bool swapped);
+  bool IsABSwapped_WASM(int player) const;
   void SaveState_WASM(int slot);
   void LoadState_WASM(int slot);
   void DeleteState_WASM(int slot);
@@ -105,6 +108,7 @@ class MainWindow : public WindowBase,
 
   float window_scale() { return ui_scale_; }
   bool is_fullscreen() { return config_->data().is_fullscreen; }
+  bool IsABSwapped(int player) const;
   bool IsLandscape();
 #if KIWI_MOBILE
   bool is_stretch_mode() { return config_->data().is_stretch_mode; }
@@ -112,6 +116,7 @@ class MainWindow : public WindowBase,
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
+  int GetMainMenuContentLeft();
   void ChangeFocus(MainFocus focus);
 
   void AddObserver(Observer* observer);
@@ -166,6 +171,10 @@ class MainWindow : public WindowBase,
                                 bool pressed);
   bool IsVirtualJoystickButtonPressed(int which,
                                       kiwi::nes::ControllerButton button);
+  kiwi::nes::ControllerButton MapPhysicalInputButton(
+      int controller_id,
+      kiwi::nes::ControllerButton button) const;
+  void SetABSwapped(int player, bool swapped);
   void CloseInGameMenu();
   void FlexLayout(bool animate = true);
   FlexItemsWidget* GetMainItemsWidget();

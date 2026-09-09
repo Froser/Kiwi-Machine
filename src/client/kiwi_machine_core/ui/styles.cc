@@ -43,6 +43,14 @@ PreferredFontSize GetDetailFontSize() {
 #endif
 }
 
+PreferredFontSize GetDetailMetaFontSize() {
+#if KIWI_ANDROID
+  return PreferredFontSize::k2x;
+#else
+  return PreferredFontSize::k1x;
+#endif
+}
+
 PreferredFontSize GetFilterFontSize() {
   return GetDetailFontSize();
 }

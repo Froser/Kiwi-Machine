@@ -44,6 +44,8 @@ ImU32 GetAccentColor(TouchButton::VisualStyle style) {
       return kActionBColor;
     case TouchButton::VisualStyle::kActionAB:
       return kActionABColor;
+    case TouchButton::VisualStyle::kSelect:
+    case TouchButton::VisualStyle::kStart:
     case TouchButton::VisualStyle::kPause:
     case TouchButton::VisualStyle::kImage:
       return kControlBorderColor;
@@ -59,6 +61,10 @@ const char* GetActionLabel(TouchButton::VisualStyle style) {
       return "B";
     case TouchButton::VisualStyle::kActionAB:
       return "A+B";
+    case TouchButton::VisualStyle::kSelect:
+      return "SELECT";
+    case TouchButton::VisualStyle::kStart:
+      return "START";
     case TouchButton::VisualStyle::kPause:
     case TouchButton::VisualStyle::kImage:
       return "";
@@ -86,6 +92,10 @@ TouchButton::TouchButton(WindowBase* window_base,
                      &texture_height_);
     b.w = texture_width_;
     b.h = texture_height_;
+  } else if (visual_style_ == VisualStyle::kSelect ||
+             visual_style_ == VisualStyle::kStart) {
+    b.w = 88;
+    b.h = 34;
   } else {
     b.w = 64;
     b.h = 64;
@@ -103,11 +113,27 @@ void TouchButton::Paint() {
     const float radius = std::min(rect.w, rect.h) * (pressed ? .41f : .46f);
     const ImVec2 center(rect.x + rect.w / 2.f, rect.y + rect.h / 2.f);
     ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
-    draw_list->AddCircleFilled(center, radius,
-                               WithAlpha(kControlFillColor, alpha * .82f), 48);
-    draw_list->AddCircle(center, radius,
-                         WithAlpha(GetAccentColor(visual_style_), alpha), 48,
-                         std::max(2.f, radius * .065f));
+    const bool center_button = visual_style_ == VisualStyle::kSelect ||
+                               visual_style_ == VisualStyle::kStart;
+    if (center_button) {
+      const float inset = pressed ? std::min(rect.w, rect.h) * .06f : 0.f;
+      const ImVec2 button_min(rect.x + inset, rect.y + inset);
+      const ImVec2 button_max(rect.x + rect.w - inset, rect.y + rect.h - inset);
+      const float rounding = (button_max.y - button_min.y) / 2.f;
+      draw_list->AddRectFilled(button_min, button_max,
+                               WithAlpha(kControlFillColor, alpha * .82f),
+                               rounding);
+      draw_list->AddRect(button_min, button_max,
+                         WithAlpha(GetAccentColor(visual_style_), alpha),
+                         rounding, 0,
+                         std::max(2.f, std::min(rect.w, rect.h) * .06f));
+    } else {
+      draw_list->AddCircleFilled(
+          center, radius, WithAlpha(kControlFillColor, alpha * .82f), 48);
+      draw_list->AddCircle(center, radius,
+                           WithAlpha(GetAccentColor(visual_style_), alpha), 48,
+                           std::max(2.f, radius * .065f));
+    }
 
     if (visual_style_ == VisualStyle::kPause) {
       const float bar_height = radius * .72f;
@@ -127,10 +153,11 @@ void TouchButton::Paint() {
     const char* label = GetActionLabel(visual_style_);
     ScopedFont font(
         GetPreferredFont(PreferredFontSize::k4x, FontType::kSystemDefault));
-    float font_size = std::min(font.GetFontSize(), radius * .95f);
+    float font_size = std::min(font.GetFontSize(),
+                               center_button ? rect.h * .42f : radius * .95f);
     ImVec2 text_size =
         font.GetFont()->CalcTextSizeA(font_size, FLT_MAX, 0.f, label);
-    const float max_text_width = radius * 1.35f;
+    const float max_text_width = center_button ? rect.w * .72f : radius * 1.35f;
     if (text_size.x > max_text_width) {
       font_size *= max_text_width / text_size.x;
       text_size = font.GetFont()->CalcTextSizeA(font_size, FLT_MAX, 0.f, label);
@@ -138,7 +165,9 @@ void TouchButton::Paint() {
     draw_list->AddText(
         font.GetFont(), font_size,
         ImVec2(center.x - text_size.x / 2.f, center.y - text_size.y / 2.f),
-        WithAlpha(kControlTextColor, pressed ? 1.f : std::max(.9f, opacity_)),
+        WithAlpha(
+            kControlTextColor,
+            center_button ? alpha : (pressed ? 1.f : std::max(.9f, opacity_))),
         label);
     return;
   }

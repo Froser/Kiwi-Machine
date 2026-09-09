@@ -61,7 +61,7 @@ constexpr std::array<int, 7> kMenuStringIds = {
     string_resources::IDR_IN_GAME_MENU_BACK_TO_MAIN,
 };
 
-constexpr std::array<int, 5> kSettingsStringIds = {
+constexpr std::array<int, 7> kSettingsStringIds = {
     string_resources::IDR_IN_GAME_MENU_VOLUME,
 #if KIWI_MOBILE
     string_resources::IDR_IN_GAME_MENU_SCALING_MODE,
@@ -69,7 +69,9 @@ constexpr std::array<int, 5> kSettingsStringIds = {
     string_resources::IDR_IN_GAME_MENU_WINDOW_MODE,
 #endif
     string_resources::IDR_IN_GAME_MENU_P1,
+    string_resources::IDR_IN_GAME_MENU_SWAP_AB_P1,
     string_resources::IDR_IN_GAME_MENU_P2,
+    string_resources::IDR_IN_GAME_MENU_SWAP_AB_P2,
     string_resources::IDR_IN_GAME_MENU_LANGUAGE,
 };
 
@@ -304,8 +306,10 @@ void InGameMenu::Close() {
 void InGameMenu::Show() {
   page_ = Page::kMainMenu;
   focus_.area = FocusArea::kMenu;
+  focus_.settings_item = SettingsItem::kVolume;
   focus_.confirm_action = false;
   menu_scroll_offset_ = 0.f;
+  settings_scroll_offset_ = 0.f;
   has_layout_ = false;
   SetFirstSelection();
   if (focus_.menu_item == MenuItem::kLoadAutoSave)
@@ -364,7 +368,17 @@ bool InGameMenu::OnMouseMove(SDL_MouseMotionEvent* event) {
 }
 
 bool InGameMenu::OnMouseWheel(SDL_MouseWheelEvent* event) {
-  if (!has_layout_ || last_layout_.mode != LayoutMode::kSinglePane ||
+  if (!has_layout_)
+    return true;
+
+  if (last_layout_.visible_page == Page::kSettings &&
+      last_layout_.settings_content_height > last_layout_.detail.h) {
+    settings_scroll_offset_ -= event->preciseY * last_layout_.row_height;
+    ClampSettingsScroll(last_layout_);
+    return true;
+  }
+
+  if (last_layout_.mode != LayoutMode::kSinglePane ||
       page_ != Page::kMainMenu ||
       last_layout_.menu_content_height <= last_layout_.navigation.h) {
     return true;
@@ -441,6 +455,10 @@ bool InGameMenu::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
       pressed_target_.index == static_cast<int>(SettingsItem::kVolume)) {
     SetVolumeFromPoint(
         point.x, last_layout_.setting_values[ToIndex(SettingsItem::kVolume)]);
+  } else if (last_layout_.visible_page == Page::kSettings &&
+             last_layout_.settings_content_height > last_layout_.detail.h) {
+    settings_scroll_offset_ -= point.y - last_touch_position_.y;
+    ClampSettingsScroll(last_layout_);
   } else if (last_layout_.mode == LayoutMode::kSinglePane &&
              page_ == Page::kMainMenu &&
              last_layout_.menu_content_height > last_layout_.navigation.h) {
@@ -670,8 +688,18 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
       break;
     case Page::kMainMenu: {
       if (layout.mode == LayoutMode::kTwoPane) {
+#if KIWI_MOBILE
+        const std::string& action_text =
+            text.menu_items[ToIndex(focus_.menu_item)];
+        const float text_width =
+            MeasureText(action_text, layout.font_size, 0.f).x;
+        const float width =
+            std::min(std::max(240.f, text_width + layout.padding * 2.f),
+                     layout.detail.w - layout.padding * 2.f);
+#else
         const float width =
             std::min(240.f, layout.detail.w - 2.f * layout.padding);
+#endif
         layout.contextual_action = MakeRect(
             layout.detail.x + (layout.detail.w - width) / 2.f,
             layout.detail.y + (layout.detail.h - layout.row_height) / 2.f,
@@ -852,7 +880,10 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
     required_height += row_heights[i];
   }
 
-  float y = inner.y + std::max(0.f, (inner.h - required_height) / 2.f);
+  layout.settings_content_height = required_height + layout.padding * 2.f;
+  ClampSettingsScroll(layout);
+  float y = inner.y + std::max(0.f, (inner.h - required_height) / 2.f) -
+            settings_scroll_offset_;
   for (size_t i = 0; i < kSettingsItemCount; ++i) {
     const float row_height = row_heights[i];
     layout.setting_items[i] = MakeRect(inner.x, y, inner.w, row_height);
@@ -1093,6 +1124,7 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
 void InGameMenu::DrawSettings(const FrameText& text,
                               const FrameLayout& layout) {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  draw_list->PushClipRect(RectMin(layout.detail), RectMax(layout.detail), true);
   for (size_t i = 0; i < kSettingsItemCount; ++i) {
     SettingsItem item = static_cast<SettingsItem>(i);
     const bool selected = page_ == Page::kSettings &&
@@ -1149,6 +1181,21 @@ void InGameMenu::DrawSettings(const FrameText& text,
                    GetSecondaryFontSize(layout.font_size), kTextColor,
                    layout.padding / 2.f, true, true, FontType::kSystemDefault);
   }
+  if (layout.settings_content_height > layout.detail.h) {
+    const float track_height =
+        std::max(1.f, layout.detail.h - layout.padding * 2.f);
+    const float thumb_height = std::max(
+        24.f, track_height * layout.detail.h / layout.settings_content_height);
+    const float max_scroll = layout.settings_content_height - layout.detail.h;
+    const float thumb_y =
+        layout.detail.y + layout.padding +
+        (track_height - thumb_height) * settings_scroll_offset_ / max_scroll;
+    const float thumb_x = RectRight(layout.detail) - 4.f;
+    draw_list->AddRectFilled(ImVec2(thumb_x, thumb_y),
+                             ImVec2(thumb_x + 2.f, thumb_y + thumb_height),
+                             kMutedTextColor, 1.f);
+  }
+  draw_list->PopClipRect();
 }
 
 void InGameMenu::DrawConfirmation(const FrameText& text,
@@ -1203,10 +1250,15 @@ void InGameMenu::DrawContextualAction(const FrameText& text,
   const bool hovered = hovered_target_.type == HitTargetType::kContextualAction;
   DrawButtonBackground(layout.contextual_action, false, hovered, primary,
                        danger);
+#if KIWI_MOBILE
+  constexpr bool kWrapText = false;
+#else
+  constexpr bool kWrapText = true;
+#endif
   DrawTextInRect(text.menu_items[ToIndex(item)], layout.contextual_action,
                  layout.font_size,
                  primary ? kBrandOnColor : (danger ? kDangerColor : kTextColor),
-                 layout.padding, true, true);
+                 layout.padding, true, kWrapText);
 }
 
 bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* keyboard,
@@ -1434,6 +1486,8 @@ void InGameMenu::ExecuteConfirmation() {
 void InGameMenu::OpenPage(Page page) {
   page_ = page;
   focus_.area = page == Page::kMainMenu ? FocusArea::kMenu : FocusArea::kDetail;
+  if (page == Page::kSettings)
+    ScrollSettingsSelectionIntoView();
   if (page == Page::kStateBrowser &&
       state_preview_.status == StatePreview::Status::kEmpty) {
     RefreshStatePreview();
@@ -1467,6 +1521,7 @@ void InGameMenu::MoveSettingsSelection(int delta) {
               static_cast<int>(kSettingsItemCount);
   focus_.settings_item = static_cast<SettingsItem>(selection);
   PlayEffect(audio_resources::AudioID::kSelect);
+  ScrollSettingsSelectionIntoView();
 }
 
 void InGameMenu::MoveMenuItemTo(MenuItem item) {
@@ -1574,18 +1629,18 @@ InGameMenu::HitTarget InGameMenu::HitTest(const FrameLayout& layout,
     for (size_t i = 0; i < kSettingsItemCount; ++i) {
       SettingsItem item = static_cast<SettingsItem>(i);
       if (CanStepSetting(item, StepDirection::kPrevious) &&
-          PointInRect(layout.setting_previous[i], x, y)) {
+          PointInClippedRect(layout.setting_previous[i], layout.detail, x, y)) {
         return {HitTargetType::kSettingPrevious, static_cast<int>(i)};
       }
       if (CanStepSetting(item, StepDirection::kNext) &&
-          PointInRect(layout.setting_next[i], x, y)) {
+          PointInClippedRect(layout.setting_next[i], layout.detail, x, y)) {
         return {HitTargetType::kSettingNext, static_cast<int>(i)};
       }
       if (item == SettingsItem::kVolume &&
-          PointInRect(layout.setting_values[i], x, y)) {
+          PointInClippedRect(layout.setting_values[i], layout.detail, x, y)) {
         return {HitTargetType::kSettingValue, static_cast<int>(i)};
       }
-      if (PointInRect(layout.setting_items[i], x, y))
+      if (PointInClippedRect(layout.setting_items[i], layout.detail, x, y))
         return {HitTargetType::kSettingItem, static_cast<int>(i)};
     }
   } else if (PointInRect(layout.contextual_action, x, y)) {
@@ -1693,6 +1748,13 @@ void InGameMenu::ClampMenuScroll(const FrameLayout& layout) {
   menu_scroll_offset_ = std::clamp(menu_scroll_offset_, 0.f, max_scroll);
 }
 
+void InGameMenu::ClampSettingsScroll(const FrameLayout& layout) {
+  const float max_scroll =
+      std::max(0.f, layout.settings_content_height - layout.detail.h);
+  settings_scroll_offset_ =
+      std::clamp(settings_scroll_offset_, 0.f, max_scroll);
+}
+
 void InGameMenu::ScrollMenuSelectionIntoView() {
   if (!has_layout_ || last_layout_.mode != LayoutMode::kSinglePane)
     return;
@@ -1705,6 +1767,20 @@ void InGameMenu::ScrollMenuSelectionIntoView() {
   else if (RectBottom(item) > bottom)
     menu_scroll_offset_ += RectBottom(item) - bottom;
   ClampMenuScroll(last_layout_);
+}
+
+void InGameMenu::ScrollSettingsSelectionIntoView() {
+  if (!has_layout_ || last_layout_.visible_page != Page::kSettings)
+    return;
+  const SDL_Rect& item =
+      last_layout_.setting_items[ToIndex(focus_.settings_item)];
+  const float top = last_layout_.detail.y + last_layout_.padding;
+  const float bottom = RectBottom(last_layout_.detail) - last_layout_.padding;
+  if (item.y < top)
+    settings_scroll_offset_ -= top - item.y;
+  else if (RectBottom(item) > bottom)
+    settings_scroll_offset_ += RectBottom(item) - bottom;
+  ClampSettingsScroll(last_layout_);
 }
 
 void InGameMenu::RefreshStatePreview() {
@@ -1886,6 +1962,12 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
                  ? current_iter != controllers.begin()
                  : current_iter + 1 != controllers.end();
     }
+    case SettingsItem::kSwapABP1:
+    case SettingsItem::kSwapABP2: {
+      const int player = item == SettingsItem::kSwapABP1 ? 0 : 1;
+      const bool swapped = main_window_->IsABSwapped(player);
+      return direction == StepDirection::kPrevious ? swapped : !swapped;
+    }
     case SettingsItem::kLanguage:
       return static_cast<int>(SupportedLanguage::kMax) > 1;
     case SettingsItem::kMax:
@@ -1941,6 +2023,13 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
       return controller_name
                  ? controller_name
                  : GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NONE);
+    }
+    case SettingsItem::kSwapABP1:
+    case SettingsItem::kSwapABP2: {
+      const int player = item == SettingsItem::kSwapABP1 ? 0 : 1;
+      return GetLocalizedString(main_window_->IsABSwapped(player)
+                                    ? string_resources::IDR_IN_GAME_MENU_ON
+                                    : string_resources::IDR_IN_GAME_MENU_OFF);
     }
     case SettingsItem::kLanguage:
       switch (GetCurrentSupportedLanguage()) {

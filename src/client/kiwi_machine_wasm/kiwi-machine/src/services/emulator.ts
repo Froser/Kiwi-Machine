@@ -60,6 +60,23 @@ class EmulatorService {
     });
   }
 
+  setABSwapEnabled(player: number, enabled: boolean): boolean {
+    const module = (this.window as any).Module;
+    if (module && module._SetABSwapEnabled) {
+      module._SetABSwapEnabled(player, enabled ? 1 : 0);
+      return true;
+    }
+    return false;
+  }
+
+  isABSwapEnabled(player: number): boolean {
+    const module = (this.window as any).Module;
+    if (module && module._IsABSwapEnabled) {
+      return module._IsABSwapEnabled(player) !== 0;
+    }
+    return false;
+  }
+
   saveState(slot: number) {
     this.window.postMessage({
       type: 'saveState',

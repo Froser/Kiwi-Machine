@@ -1,4 +1,9 @@
 {
+  "IDR_SPLASH_LOADING_GAME_LIBRARY": {
+    "default": "Loading game library",
+    "zh": "正在载入游戏库",
+    "ja": "ゲームライブラリを読み込み中"
+  },
   "IDR_IN_GAME_MENU_PAUSED": {
     "default": "Game Paused",
     "zh": "游戏已暂停",
@@ -109,10 +114,20 @@
     "zh": "P1:",
     "ja": "P1:"
   },
+  "IDR_IN_GAME_MENU_SWAP_AB_P1": {
+    "default": "P1 Swap A/B",
+    "zh": "P1 交换 A/B",
+    "ja": "P1 A/B入れ替え"
+  },
   "IDR_IN_GAME_MENU_P2": {
     "default": "P2:",
     "zh": "P2:",
     "ja": "P2:"
+  },
+  "IDR_IN_GAME_MENU_SWAP_AB_P2": {
+    "default": "P2 Swap A/B",
+    "zh": "P2 交换 A/B",
+    "ja": "P2 A/B入れ替え"
   },
   "IDR_IN_GAME_MENU_SMALL": {
     "default": "Small",
@@ -263,6 +278,16 @@
     "default": "Current filter: %s",
     "zh": "当前筛选：%s",
     "ja": "現在のフィルタ:%s"
+  },
+  "IDR_ITEMS_WIDGET_CURRENT_SELECTION": {
+    "default": "Current selection",
+    "zh": "当前选择",
+    "ja": "現在の選択"
+  },
+  "IDR_ITEMS_WIDGET_READY_TO_PLAY": {
+    "default": "Ready to play",
+    "zh": "可运行",
+    "ja": "プレイ可能"
   },
   "IDR_SIDE_MENU_ABOUT": {
     "default": "About",

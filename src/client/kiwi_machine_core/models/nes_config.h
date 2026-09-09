@@ -14,6 +14,8 @@
 #define NES_CONFIG_H_
 
 #include <kiwi_nes.h>
+
+#include <array>
 #include <string>
 
 #include "build/kiwi_defines.h"
@@ -29,6 +31,7 @@ class NESConfig : public kiwi::base::RefCounted<NESConfig> {
     float volume = 1.f;
     int last_index = 0;
     int language = -1;  // -1 means automatic (follows system's locale)
+    std::array<bool, 2> swap_ab = {};
 #if KIWI_MOBILE
     bool is_stretch_mode = true;
 #endif
@@ -41,6 +44,7 @@ class NESConfig : public kiwi::base::RefCounted<NESConfig> {
   explicit NESConfig(const kiwi::base::FilePath& profile_path);
 
   Data& data() { return data_; }
+  const Data& data() const { return data_; }
 
   // LoadConfigAndWait will block current thread, read config from disk device.
   void LoadConfigAndWait();

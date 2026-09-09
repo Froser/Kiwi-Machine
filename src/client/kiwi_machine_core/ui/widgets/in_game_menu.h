@@ -45,7 +45,9 @@ class InGameMenu : public Widget {
     kVolume,
     kWindowMode,
     kJoyP1,
+    kSwapABP1,
     kJoyP2,
+    kSwapABP2,
     kLanguage,
 
     kMax,
@@ -174,6 +176,7 @@ class InGameMenu : public Widget {
     float row_height = 0.f;
     float padding = 0.f;
     float menu_content_height = 0.f;
+    float settings_content_height = 0.f;
 
     SDL_Rect safe_area = {};
     SDL_Rect panel = {};
@@ -281,7 +284,9 @@ class InGameMenu : public Widget {
   void UpdatePointerFocus(const HitTarget& target, InputModality modality);
   void ActivateHitTarget(const HitTarget& target, float x);
   void ClampMenuScroll(const FrameLayout& layout);
+  void ClampSettingsScroll(const FrameLayout& layout);
   void ScrollMenuSelectionIntoView();
+  void ScrollSettingsSelectionIntoView();
   void SetFirstSelection();
 
   void RequestAutoSavedStateCount();
@@ -325,6 +330,7 @@ class InGameMenu : public Widget {
   FrameLayout last_layout_;
   bool has_layout_ = false;
   float menu_scroll_offset_ = 0.f;
+  float settings_scroll_offset_ = 0.f;
   HitTarget hovered_target_;
   HitTarget pressed_target_;
   bool mouse_pressed_ = false;

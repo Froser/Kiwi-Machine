@@ -26,6 +26,8 @@ interface ControlPanelProps {
   setShowAboutModal: Dispatch<SetStateAction<boolean>>;
   showFps: boolean;
   setShowFps: Dispatch<SetStateAction<boolean>>;
+  swapAB: readonly [boolean, boolean];
+  onSwapABChange: (player: number, enabled: boolean) => void;
   onClose?: () => void;
 }
 
@@ -38,6 +40,8 @@ export default function ControlPanel({
   setShowAboutModal,
   showFps,
   setShowFps,
+  swapAB,
+  onSwapABChange,
   onClose
 }: ControlPanelProps) {
   const handleClose = () => {
@@ -93,6 +97,20 @@ export default function ControlPanel({
                 setShowAboutModal(true);
                 onClose?.();
               }}/>
+            </div>
+            <div className="control-panel-row">
+              <Checkbox
+                id="swapABP1Checkbox"
+                label="P1 交换 A/B"
+                checked={swapAB[0]}
+                onChange={(checked) => onSwapABChange(0, checked)}
+              />
+              <Checkbox
+                id="swapABP2Checkbox"
+                label="P2 交换 A/B"
+                checked={swapAB[1]}
+                onChange={(checked) => onSwapABChange(1, checked)}
+              />
             </div>
             <div className="control-panel-row control-panel-row-single">
               <Checkbox 

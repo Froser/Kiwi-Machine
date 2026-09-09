@@ -52,6 +52,9 @@ class ScopedFont {
 };
 
 void InitializeSystemFonts();
+// Registers only the fonts needed before asynchronous resource loading
+// finishes, so the splash can render localized text immediately.
+void InitializeStartupFonts();
 void InitializeFonts();
 ScopedFont GetPreferredFont(PreferredFontSize size,
                             FontType default_type = FontType::kDefault);

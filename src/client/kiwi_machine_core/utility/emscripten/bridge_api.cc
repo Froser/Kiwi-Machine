@@ -29,6 +29,7 @@ class BridgeMainWindowObserver : public MainWindow::Observer {
   void OnSaveStateFailed(int slot) override;
   void OnLoadStateSucceeded(int slot) override;
   void OnLoadStateFailed(int slot) override;
+  void OnABSwapChanged(int player, bool enabled) override;
 
  public:
   static BridgeMainWindowObserver* Setup();
@@ -82,6 +83,12 @@ void BridgeMainWindowObserver::OnLoadStateFailed(int slot) {
   }}, slot);
 }
 
+void BridgeMainWindowObserver::OnABSwapChanged(int player, bool enabled) {
+  EM_ASM({if (window.KiwiMachineCallback && window.KiwiMachineCallback.onABSwapChanged) {
+    window.KiwiMachineCallback.onABSwapChanged($0, !!$1);
+  }}, player, enabled);
+}
+
 }  // namespace
 
 extern "C" {
@@ -128,6 +135,20 @@ void JoystickButtonUp(int button) {
       static_cast<kiwi::nes::ControllerButton>(button);
   MainWindow* main_window = MainWindow::GetInstance();
   main_window->JoystickButtonUp_WASM(b);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void SetABSwapEnabled(int player, int enabled) {
+  if (player < 0 || player > 1)
+    return;
+  MainWindow::GetInstance()->SetABSwapped_WASM(player, enabled != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int IsABSwapEnabled(int player) {
+  if (player < 0 || player > 1)
+    return 0;
+  return MainWindow::GetInstance()->IsABSwapped_WASM(player) ? 1 : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE
