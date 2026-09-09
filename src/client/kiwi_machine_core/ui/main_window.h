@@ -116,6 +116,7 @@ class MainWindow : public WindowBase,
   SDL_Rect Scaled(const SDL_Rect& rect);
   ImVec2 Scaled(const ImVec2& vec2);
   int Scaled(int i);
+  int GetMainMenuContentLeft();
   void ChangeFocus(MainFocus focus);
 
   void AddObserver(Observer* observer);

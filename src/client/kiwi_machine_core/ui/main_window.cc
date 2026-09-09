@@ -69,10 +69,15 @@ constexpr int kDefaultWindowWidth =
     Canvas::kNESFrameDefaultWidth + kWindowPadding * 2;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
-constexpr int kSideMenuAnimationMs = 50;
+constexpr int kSideMenuAnimationMs = 180;
 constexpr int kSplashTimeoutMs = 2000;
 constexpr float kMinUIScale = 1.f;
 constexpr float kMaxUIScale = 4.f;
+
+float EaseOutQuadratic(float progress) {
+  progress = std::clamp(progress, 0.f, 1.f);
+  return 1.f - (1.f - progress) * (1.f - progress);
+}
 
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
@@ -334,6 +339,8 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
     // If the main window has menu, it won't show splash for speeding up.
     ShowSplash(kiwi::base::DoNothing());
   }
+  // The splash is rendered by the main loop while ROM packages and game
+  // metadata are initialized on the IO thread.
   Application::Get()->Initialize(
       kiwi::base::BindOnce(&MainWindow::InitializeDebugROMsOnIOThread,
                            kiwi::base::Unretained(this)),
@@ -483,20 +490,20 @@ void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
 void MainWindow::CloseSplash() {
   if (splash_) {
     int ms = splash_->GetElapsedMs();
-    if (ms > kSplashTimeoutMs) {
-      main_stack_widget_->set_visible(true);
-      RemoveWidgetLater(splash_);
-      // Notify observers that splash is finished
-      for (auto* observer : observers_) {
-        observer->OnSplashFinished();
-      }
-    } else {
+    if (ms < kSplashTimeoutMs) {
       kiwi::base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
           FROM_HERE,
           kiwi::base::BindOnce(&MainWindow::CloseSplash,
                                kiwi::base::Unretained(this)),
           kiwi::base::Milliseconds(kSplashTimeoutMs - ms));
+      return;
     }
+
+    if (!splash_->is_closing()) {
+      main_stack_widget_->set_visible(true);
+      splash_->StartClosing();
+    }
+    // Render() removes the splash after all transition frames are presented.
   } else {
     main_stack_widget_->set_visible(true);
     // Notify observers that splash is finished
@@ -521,6 +528,10 @@ ImVec2 MainWindow::Scaled(const ImVec2& vec2) {
 
 int MainWindow::Scaled(int i) {
   return i * window_scale();
+}
+
+int MainWindow::GetMainMenuContentLeft() {
+  return contents_card_widget_ ? contents_card_widget_->bounds().x : 0;
 }
 
 void MainWindow::ChangeFocus(MainFocus focus) {
@@ -751,6 +762,17 @@ void MainWindow::HandleDropFileEvent(SDL_DropEvent* event) {
 void MainWindow::Render() {
   WindowBase::Render();
 
+  if (splash_ && splash_->is_closing() &&
+      splash_->GetRemainingCloseAnimationMs() == 0) {
+    Splash* splash_to_remove = splash_;
+    splash_ = nullptr;
+    splash_to_remove->set_visible(false);
+    RemoveWidgetLater(splash_to_remove);
+    for (auto* observer : observers_) {
+      observer->OnSplashFinished();
+    }
+  }
+
   // Handles animations here
   if (side_menu_) {
 #if KIWI_MOBILE
@@ -770,19 +792,28 @@ void MainWindow::Render() {
     }
 #endif
 
-    float percentage = side_menu_timer_.ElapsedInMilliseconds() /
-                       static_cast<float>(kSideMenuAnimationMs);
-    if (percentage >= 1.f)
-      percentage = 1.f;
-
-    int side_menu_width =
-        Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
 #if KIWI_MOBILE
     const SDL_Rect layout_bounds = GetSafeAreaClientBounds();
 #else
     const SDL_Rect client_bounds = GetClientBounds();
     const SDL_Rect layout_bounds = {0, 0, client_bounds.w, client_bounds.h};
 #endif
+    const int desired_side_menu_width =
+        side_menu_->expanded()
+            ? side_menu_->GetSuggestedExtendedWidth(layout_bounds.w)
+            : side_menu_->GetSuggestedCollapsedWidth();
+    if (desired_side_menu_width != side_menu_target_width_) {
+      side_menu_original_width_ = side_menu_->bounds().w;
+      side_menu_target_width_ = desired_side_menu_width;
+      side_menu_timer_.Reset();
+    }
+
+    float percentage = side_menu_timer_.ElapsedInMilliseconds() /
+                       static_cast<float>(kSideMenuAnimationMs);
+    percentage = EaseOutQuadratic(percentage);
+
+    int side_menu_width =
+        Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
     SDL_Rect side_menu_target_bounds = SDL_Rect{
         layout_bounds.x, layout_bounds.y, side_menu_width, layout_bounds.h};
     SDL_Rect side_menu_current_bounds = side_menu_->bounds();
@@ -1626,20 +1657,17 @@ void MainWindow::FlexLayout(bool animate) {
   int left_width = side_menu_->GetSuggestedCollapsedWidth();
   int right_width = client_bounds.w - left_width;
 
-  // An activated side menu needs more space.
-  int extended_width =
-      client_bounds.w * .15f < side_menu_->GetMinExtendedWidth()
-          ? side_menu_->GetMinExtendedWidth()
-          : client_bounds.w * .15f;
+  const int extended_width =
+      side_menu_->GetSuggestedExtendedWidth(client_bounds.w);
 
   side_menu_target_width_ =
-      side_menu_->activate() ? extended_width : left_width;
+      side_menu_->expanded() ? extended_width : left_width;
   if (animate) {
     side_menu_timer_.Reset();
     side_menu_original_width_ = side_menu_->bounds().w;
     if (side_menu_original_width_ <= 0) {
       side_menu_original_width_ =
-          side_menu_->activate() ? left_width : extended_width;
+          side_menu_->expanded() ? left_width : extended_width;
     }
   } else {
     side_menu_original_width_ = side_menu_target_width_;

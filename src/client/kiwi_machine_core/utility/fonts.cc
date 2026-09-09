@@ -109,8 +109,32 @@ void InitializeSystemFonts() {
   RegisterSystemFont();
 }
 
+void InitializeStartupFonts() {
+  ImGui::GetIO().Fonts->Clear();
+  g_fonts.fill(nullptr);
+  InitializeSystemFonts();
+
+  switch (GetCurrentSupportedLanguage()) {
+#if !DISABLE_CHINESE_FONT
+    case SupportedLanguage::kSimplifiedChinese:
+      RegisterFont(FontType::kDefaultSimplifiedChinese,
+                   font_resources::FontID::kDengb, kDefaultFontSize);
+      break;
+#endif
+#if !DISABLE_JAPANESE_FONT
+    case SupportedLanguage::kJapanese:
+      RegisterFont(FontType::kDefaultJapanese, font_resources::FontID::kYumindb,
+                   kDefaultFontSize);
+      break;
+#endif
+    default:
+      break;
+  }
+}
+
 void InitializeFonts() {
   ImGui::GetIO().Fonts->Clear();
+  g_fonts.fill(nullptr);
   InitializeSystemFonts();
 
 #if !DISABLE_CHINESE_FONT

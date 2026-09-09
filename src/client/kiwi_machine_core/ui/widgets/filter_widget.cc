@@ -41,8 +41,8 @@ constexpr int kControllerRepeatDelayMs = 180;
 
 // Keep the search action visually aligned with InGameMenu's primary buttons.
 constexpr ImU32 kButtonTextColor = IM_COL32(245, 247, 245, 255);
-constexpr ImU32 kButtonBrandColor = IM_COL32(101, 216, 75, 255);
-constexpr ImU32 kButtonBrandOnColor = IM_COL32(16, 40, 12, 255);
+constexpr ImU32 kButtonBrandColor = IM_COL32(148, 216, 45, 255);
+constexpr ImU32 kButtonBrandOnColor = IM_COL32(43, 63, 14, 255);
 constexpr float kButtonCornerRadius = 8.f;
 
 #if KIWI_MOBILE
@@ -451,11 +451,11 @@ void FilterWidget::DrawControllerKeyboard(float top, float width) {
       const bool selected =
           row == controller_row_ && column == controller_column_;
       draw_list->AddRectFilled(
-          min, max, selected ? ImColor(227, 179, 65) : ImColor(36, 40, 56),
+          min, max, selected ? ImColor(216, 245, 162) : ImColor(45, 54, 60),
           4.f);
-      draw_list->AddRect(
-          min, max, selected ? ImColor(255, 226, 140) : ImColor(75, 81, 105),
-          4.f);
+      draw_list->AddRect(min, max,
+                         selected ? ImColor(130, 201, 30) : ImColor(84, 98, 91),
+                         4.f);
 
       const char* label = kControllerKeys[row][column];
       ImVec2 label_size = ImGui::CalcTextSize(label);
@@ -463,7 +463,7 @@ void FilterWidget::DrawControllerKeyboard(float top, float width) {
           font.GetFont(), font.GetFontSize(),
           ImVec2(x + (key_width - label_size.x) / 2,
                  y + (key_height - label_size.y) / 2),
-          selected ? ImColor(20, 20, 20) : ImColor(235, 237, 244), label);
+          selected ? ImColor(50, 61, 56) : ImColor(235, 239, 237), label);
     }
   }
 }

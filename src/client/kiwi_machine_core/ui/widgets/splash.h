@@ -13,12 +13,10 @@
 #ifndef UI_WIDGETS_SPLASH_H_
 #define UI_WIDGETS_SPLASH_H_
 
-#include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
 #include "utility/timer.h"
 
 class MainWindow;
-class StackWidget;
 class Splash : public Widget {
  public:
   explicit Splash(MainWindow* main_window);
@@ -26,6 +24,9 @@ class Splash : public Widget {
 
  public:
   int GetElapsedMs();
+  void StartClosing();
+  bool is_closing() const { return closing_; }
+  int GetRemainingCloseAnimationMs();
 
  protected:
   void Paint() override;
@@ -37,7 +38,10 @@ class Splash : public Widget {
  private:
   MainWindow* main_window_ = nullptr;
   bool first_paint_ = true;
+  bool closing_ = false;
+  int close_animation_elapsed_ms_ = 0;
   Timer timer_;
+  Timer closing_timer_;
 };
 
 #endif  // UI_WIDGETS_SPLASH_H_

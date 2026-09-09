@@ -15,6 +15,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <set>
 
@@ -34,8 +35,28 @@ const int kItemSelectedHighlightedSize =
     styles::flex_items_widget::GetItemHighlightedSize();
 constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
+#if KIWI_ANDROID
+constexpr int kDetailWidgetMargin = 48;
+constexpr int kDetailWidgetPadding = 16;
+constexpr int kDetailWidgetLineSpacing = 8;
+constexpr int kDetailWidgetAccentWidth = 8;
+constexpr float kDetailWidgetCornerRadius = 10.f;
+constexpr float kDetailWidgetMaxWidthRatio = .8f;
+#elif KIWI_IOS
+constexpr int kDetailWidgetMargin = 20;
+constexpr int kDetailWidgetPadding = 8;
+constexpr int kDetailWidgetLineSpacing = 4;
+constexpr int kDetailWidgetAccentWidth = 4;
+constexpr float kDetailWidgetCornerRadius = 6.f;
+constexpr float kDetailWidgetMaxWidthRatio = .75f;
+#else
 constexpr int kDetailWidgetMargin = 25;
-constexpr int kDetailWidgetPadding = 5;
+constexpr int kDetailWidgetPadding = 10;
+constexpr int kDetailWidgetLineSpacing = 4;
+constexpr int kDetailWidgetAccentWidth = 4;
+constexpr float kDetailWidgetCornerRadius = 6.f;
+constexpr float kDetailWidgetMaxWidthRatio = .55f;
+#endif
 constexpr int kFilterWidgetMargin = kDetailWidgetMargin;
 constexpr int kFilterWidgetPadding = kDetailWidgetPadding;
 constexpr int kItemHoverDurationMs = 1000;
@@ -43,6 +64,61 @@ constexpr int kTextureCacheMarginRows = 2;
 constexpr float kMinimumFlingVelocity = 120.f;
 constexpr float kInertialDeceleration = 4.5f;
 constexpr int kMaximumInertialFrameMs = 50;
+constexpr ImU32 kLibraryBackgroundColor = IM_COL32(244, 252, 227, 255);
+constexpr ImU32 kBackgroundLimeColor = IM_COL32(116, 184, 22, 34);
+constexpr ImU32 kBackgroundSkyColor = IM_COL32(56, 174, 201, 28);
+constexpr ImU32 kBackgroundCoralColor = IM_COL32(230, 125, 100, 24);
+constexpr ImU32 kDetailBackgroundColor = IM_COL32(33, 42, 47, 238);
+constexpr ImU32 kDetailBorderColor = IM_COL32(72, 85, 79, 255);
+constexpr ImU32 kDetailAccentColor = IM_COL32(130, 201, 30, 255);
+constexpr ImU32 kDetailMetaColor = IM_COL32(192, 235, 117, 255);
+constexpr ImU32 kDetailTextColor = IM_COL32(248, 249, 250, 255);
+constexpr float kTwoPi = 6.28318530718f;
+
+enum class BackgroundShape {
+  kCircle,
+  kPlus,
+  kDiamond,
+  kPixels,
+};
+
+struct BackgroundParticle {
+  BackgroundShape shape;
+  float x_ratio;
+  float phase;
+  float duration_seconds;
+  float size_ratio;
+  ImU32 color;
+};
+
+constexpr BackgroundParticle kBackgroundParticles[] = {
+    {BackgroundShape::kCircle, .06f, .12f, 17.f, .012f, kBackgroundLimeColor},
+    {BackgroundShape::kPlus, .19f, .68f, 21.f, .016f, kBackgroundSkyColor},
+    {BackgroundShape::kDiamond, .33f, .34f, 19.f, .014f, kBackgroundCoralColor},
+    {BackgroundShape::kPixels, .47f, .86f, 24.f, .013f, kBackgroundLimeColor},
+    {BackgroundShape::kPlus, .61f, .47f, 18.f, .012f, kBackgroundCoralColor},
+    {BackgroundShape::kCircle, .74f, .05f, 22.f, .017f, kBackgroundSkyColor},
+    {BackgroundShape::kPixels, .87f, .58f, 20.f, .014f, kBackgroundLimeColor},
+    {BackgroundShape::kDiamond, .96f, .27f, 16.f, .011f, kBackgroundSkyColor},
+    {BackgroundShape::kCircle, .13f, .79f, 23.f, .018f, kBackgroundCoralColor},
+    {BackgroundShape::kDiamond, .27f, .03f, 18.f, .010f, kBackgroundLimeColor},
+    {BackgroundShape::kPixels, .39f, .55f, 20.f, .016f, kBackgroundSkyColor},
+    {BackgroundShape::kCircle, .54f, .22f, 15.f, .011f, kBackgroundLimeColor},
+    {BackgroundShape::kPlus, .68f, .91f, 25.f, .015f, kBackgroundCoralColor},
+    {BackgroundShape::kDiamond, .79f, .41f, 19.f, .013f, kBackgroundSkyColor},
+    {BackgroundShape::kPlus, .91f, .73f, 22.f, .018f, kBackgroundLimeColor},
+    {BackgroundShape::kPixels, .99f, .15f, 17.f, .010f, kBackgroundCoralColor},
+};
+
+#if KIWI_MOBILE
+constexpr size_t kBackgroundParticleCount = 8;
+constexpr float kBackgroundMaximumShapeRadius = 18.f;
+constexpr float kBackgroundMaximumDrift = 6.f;
+#else
+constexpr size_t kBackgroundParticleCount = 16;
+constexpr float kBackgroundMaximumShapeRadius = 24.f;
+constexpr float kBackgroundMaximumDrift = 14.f;
+#endif
 
 #if BUILDFLAG(IS_MAC)
 constexpr float kWheelVelocitySmoothing = 0.35f;
@@ -65,6 +141,95 @@ int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   int rhs_x2 = rhs.x + rhs.w;
 
   return std::min(lhs_x2, rhs_x2) - std::max(lhs.x, rhs.x);
+}
+
+void DrawBackgroundShape(ImDrawList* draw_list,
+                         BackgroundShape shape,
+                         const ImVec2& center,
+                         float radius,
+                         float angle,
+                         ImU32 color,
+                         float thickness) {
+  const ImVec2 axis_x(std::cos(angle) * radius, std::sin(angle) * radius);
+  const ImVec2 axis_y(-std::sin(angle) * radius, std::cos(angle) * radius);
+  switch (shape) {
+    case BackgroundShape::kCircle:
+      draw_list->AddCircle(center, radius, color, 24, thickness);
+      break;
+    case BackgroundShape::kPlus:
+      draw_list->AddLine(ImVec2(center.x - axis_x.x, center.y - axis_x.y),
+                         ImVec2(center.x + axis_x.x, center.y + axis_x.y),
+                         color, thickness);
+      draw_list->AddLine(ImVec2(center.x - axis_y.x, center.y - axis_y.y),
+                         ImVec2(center.x + axis_y.x, center.y + axis_y.y),
+                         color, thickness);
+      break;
+    case BackgroundShape::kDiamond: {
+      const ImVec2 points[] = {
+          ImVec2(center.x + axis_y.x, center.y + axis_y.y),
+          ImVec2(center.x + axis_x.x, center.y + axis_x.y),
+          ImVec2(center.x - axis_y.x, center.y - axis_y.y),
+          ImVec2(center.x - axis_x.x, center.y - axis_x.y),
+      };
+      draw_list->AddPolyline(points, 4, color, ImDrawFlags_Closed, thickness);
+      break;
+    }
+    case BackgroundShape::kPixels: {
+      const float pixel_size = radius * .42f;
+      const float offset = radius * .58f;
+      for (int y = -1; y <= 1; y += 2) {
+        for (int x = -1; x <= 1; x += 2) {
+          const ImVec2 pixel_center(center.x + axis_x.x * x * offset / radius +
+                                        axis_y.x * y * offset / radius,
+                                    center.y + axis_x.y * x * offset / radius +
+                                        axis_y.y * y * offset / radius);
+          draw_list->AddRectFilled(ImVec2(pixel_center.x - pixel_size * .5f,
+                                          pixel_center.y - pixel_size * .5f),
+                                   ImVec2(pixel_center.x + pixel_size * .5f,
+                                          pixel_center.y + pixel_size * .5f),
+                                   color);
+        }
+      }
+      break;
+    }
+  }
+}
+
+void DrawLibraryBackground(ImDrawList* draw_list,
+                           const SDL_Rect& bounds,
+                           float elapsed_seconds) {
+  const ImVec2 bounds_min(bounds.x, bounds.y);
+  const ImVec2 bounds_max(bounds.x + bounds.w, bounds.y + bounds.h);
+  draw_list->AddRectFilled(bounds_min, bounds_max, kLibraryBackgroundColor);
+
+  if (bounds.w <= 0 || bounds.h <= 0)
+    return;
+
+  const float minimum_extent = static_cast<float>(std::min(bounds.w, bounds.h));
+  const float line_thickness = std::clamp(minimum_extent / 800.f, 1.f, 2.f);
+  const float drift =
+      std::min(static_cast<float>(bounds.w) * .008f, kBackgroundMaximumDrift);
+
+  draw_list->PushClipRect(bounds_min, bounds_max, true);
+  for (size_t i = 0; i < kBackgroundParticleCount; ++i) {
+    const BackgroundParticle& particle = kBackgroundParticles[i];
+    const float progress = std::fmod(
+        elapsed_seconds / particle.duration_seconds + particle.phase, 1.f);
+    const float radius = std::clamp(minimum_extent * particle.size_ratio, 7.f,
+                                    kBackgroundMaximumShapeRadius);
+    const float angle =
+        elapsed_seconds * kTwoPi / (particle.duration_seconds * 1.8f) +
+        particle.phase * kTwoPi;
+    const float x =
+        bounds.x + bounds.w * particle.x_ratio +
+        std::sin(elapsed_seconds * kTwoPi / particle.duration_seconds +
+                 particle.phase * kTwoPi) *
+            drift;
+    const float y = bounds.y - radius + progress * (bounds.h + radius * 2.f);
+    DrawBackgroundShape(draw_list, particle.shape, ImVec2(x, y), radius, angle,
+                        particle.color, line_thickness);
+  }
+  draw_list->PopClipRect();
 }
 
 std::vector<size_t> CalculateFilteredResultOnIOThread(
@@ -244,6 +409,7 @@ void FlexItemsWidget::ScrollWith(int scrolling_delta,
     size_t item_index;
     bool current_index_exceeded_bottom;
     if (FindItemIndexByMousePosition(*mouse_x, *mouse_y, item_index)) {
+      current_index_ = item_index;
       current_index_exceeded_bottom = HighlightItem(
           items_[item_index], LayoutOption::kDoNotAdjustScrolling);
     } else {
@@ -778,55 +944,93 @@ void FlexItemsWidget::PaintDetails() {
     return;
 
   FlexItemWidget* item = items_[current_index_];
-  std::string title = item->current_data()->title_updater->GetLocalizedString();
-  std::string hint =
-      item->current_data()->title_updater->GetCollateStringHint();
+  const std::string title =
+      item->current_data()->title_updater->GetLocalizedString();
+  const std::string& selection_label =
+      GetLocalizedString(string_resources::IDR_ITEMS_WIDGET_CURRENT_SELECTION);
 
-  PreferredFontSize preferred_font_size =
-      styles::flex_items_widget::GetDetailFontSize();
-  ScopedFont font = GetPreferredFont(preferred_font_size, title.c_str());
-  ImVec2 text_size = ImGui::CalcTextSize(title.c_str());
-  SDL_Rect text_bounds_top =
-      MapToWindow({static_cast<int>(bounds().w - kDetailWidgetMargin -
-                                    kDetailWidgetPadding * 2 - text_size.x),
-                   kDetailWidgetMargin,
-                   static_cast<int>(text_size.x + kDetailWidgetPadding * 2),
-                   static_cast<int>(text_size.y + kDetailWidgetPadding * 2)});
-  SDL_Rect text_bounds_bottom =
-      MapToWindow({static_cast<int>(bounds().w - kDetailWidgetMargin -
-                                    kDetailWidgetPadding * 2 - text_size.x),
-                   static_cast<int>(bounds().h - kDetailWidgetMargin -
-                                    kDetailWidgetPadding * 2 - text_size.y),
-                   static_cast<int>(text_size.x + kDetailWidgetPadding * 2),
-                   static_cast<int>(text_size.y + kDetailWidgetPadding * 2)});
+  ScopedFont title_font(GetPreferredFont(
+      styles::flex_items_widget::GetDetailFontSize(), title.c_str()));
+  ScopedFont meta_font(
+      GetPreferredFont(styles::flex_items_widget::GetDetailMetaFontSize(),
+                       selection_label.c_str()));
+  ImFont* title_im_font = title_font.GetFont();
+  ImFont* meta_im_font = meta_font.GetFont();
+  const float title_font_size = title_font.GetFontSize();
+  const float meta_font_size = meta_font.GetFontSize();
+  const ImVec2 natural_title_size = title_im_font->CalcTextSizeA(
+      title_font_size, FLT_MAX, 0.f, title.c_str());
+  const ImVec2 selection_label_size = meta_im_font->CalcTextSizeA(
+      meta_font_size, FLT_MAX, 0.f, selection_label.c_str());
 
-  const SDL_Rect* kTextBounds = nullptr;
+  const int desired_content_width = static_cast<int>(
+      std::ceil(std::max(natural_title_size.x, selection_label_size.x)));
+  const int available_panel_width =
+      std::max(1, bounds().w - kDetailWidgetMargin * 2);
+  const int max_panel_width = std::min(
+      available_panel_width,
+      std::max(1, static_cast<int>(bounds().w * kDetailWidgetMaxWidthRatio)));
+  const int panel_width = std::min(
+      max_panel_width, desired_content_width + kDetailWidgetPadding * 2 +
+                           kDetailWidgetAccentWidth);
+  const float title_wrap_width = std::max(
+      1, panel_width - kDetailWidgetPadding * 2 - kDetailWidgetAccentWidth);
+  const ImVec2 title_size = title_im_font->CalcTextSizeA(
+      title_font_size, FLT_MAX, title_wrap_width, title.c_str());
+  const int panel_height =
+      static_cast<int>(std::ceil(selection_label_size.y + title_size.y)) +
+      kDetailWidgetPadding * 2 + kDetailWidgetLineSpacing;
+  const int panel_x = bounds().w - kDetailWidgetMargin - panel_width;
+  const SDL_Rect panel_bounds_top =
+      MapToWindow({panel_x, kDetailWidgetMargin, panel_width, panel_height});
+  const SDL_Rect panel_bounds_bottom =
+      MapToWindow({panel_x, bounds().h - kDetailWidgetMargin - panel_height,
+                   panel_width, panel_height});
+
+  const SDL_Rect* panel_bounds = nullptr;
   if (last_detail_widget_position_ == kTop) {
-    if (Intersect(MapToWindow(current_item_target_bounds_), text_bounds_top)) {
-      kTextBounds = &text_bounds_bottom;
+    if (Intersect(MapToWindow(current_item_target_bounds_), panel_bounds_top)) {
+      panel_bounds = &panel_bounds_bottom;
       last_detail_widget_position_ = kBottom;
     } else {
-      kTextBounds = &text_bounds_top;
+      panel_bounds = &panel_bounds_top;
     }
   } else {
     if (Intersect(MapToWindow(current_item_target_bounds_),
-                  text_bounds_bottom)) {
-      kTextBounds = &text_bounds_top;
+                  panel_bounds_bottom)) {
+      panel_bounds = &panel_bounds_top;
       last_detail_widget_position_ = kTop;
     } else {
-      kTextBounds = &text_bounds_bottom;
+      panel_bounds = &panel_bounds_bottom;
     }
   }
 
-  ImGui::GetWindowDrawList()->AddRectFilled(
-      ImVec2(kTextBounds->x, kTextBounds->y),
-      ImVec2(kTextBounds->x + kTextBounds->w, kTextBounds->y + kTextBounds->h),
-      ImColor(0.f, 0.f, 0.f, .7f));
-  ImGui::GetWindowDrawList()->AddText(
-      font.GetFont(), font.GetFontSize(),
-      ImVec2(kTextBounds->x + kDetailWidgetPadding,
-             kTextBounds->y + kDetailWidgetPadding),
-      ImColor(1.f, 1.f, 1.f), title.c_str());
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  const ImVec2 panel_min(panel_bounds->x, panel_bounds->y);
+  const ImVec2 panel_max(panel_bounds->x + panel_bounds->w,
+                         panel_bounds->y + panel_bounds->h);
+  draw_list->AddRectFilled(panel_min, panel_max, kDetailBackgroundColor,
+                           kDetailWidgetCornerRadius);
+  draw_list->AddRect(panel_min, panel_max, kDetailBorderColor,
+                     kDetailWidgetCornerRadius);
+  draw_list->AddRectFilled(
+      panel_min, ImVec2(panel_min.x + kDetailWidgetAccentWidth, panel_max.y),
+      kDetailAccentColor, kDetailWidgetCornerRadius,
+      ImDrawFlags_RoundCornersLeft);
+
+  const float text_left =
+      panel_min.x + kDetailWidgetAccentWidth + kDetailWidgetPadding;
+  float text_top = panel_min.y + kDetailWidgetPadding;
+  draw_list->AddText(meta_im_font, meta_font_size, ImVec2(text_left, text_top),
+                     kDetailMetaColor, selection_label.c_str());
+  text_top += selection_label_size.y + kDetailWidgetLineSpacing;
+
+  const ImVec4 title_clip(text_left, text_top,
+                          panel_max.x - kDetailWidgetPadding,
+                          text_top + title_size.y);
+  draw_list->AddText(title_im_font, title_font_size,
+                     ImVec2(text_left, text_top), kDetailTextColor,
+                     title.c_str(), nullptr, title_wrap_width, &title_clip);
 }
 
 void FlexItemsWidget::PaintFilter() {
@@ -1038,11 +1242,8 @@ void FlexItemsWidget::Paint() {
   }
 
   SDL_Rect rect_in_window = MapToWindow(GetLocalBounds());
-  ImGui::GetWindowDrawList()->AddRectFilled(
-      ImVec2(rect_in_window.x, rect_in_window.y),
-      ImVec2(rect_in_window.x + rect_in_window.w,
-             rect_in_window.y + rect_in_window.h),
-      ImColor(48, 48, 48));
+  DrawLibraryBackground(ImGui::GetWindowDrawList(), rect_in_window,
+                        static_cast<float>(ImGui::GetTime()));
 }
 
 void FlexItemsWidget::EnsureUniqueFilterSearchIndex() {
