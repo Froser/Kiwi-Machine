@@ -25,6 +25,7 @@
 #include "nes/components/mesen_hd_pack/hd_pack_types.h"
 #include "utility/texture_parser/texture_parser.h"
 
+// Parses and verifies a Mesen texture pack, then creates its renderer.
 class MesenTextureParser final : public TextureParser {
  public:
   MesenTextureParser(std::string archive_root,
@@ -34,12 +35,11 @@ class MesenTextureParser final : public TextureParser {
 
   TextureType type() const override { return TextureType::kMesen; }
   bool Verify(std::span<const uint8_t> rom_data) const override;
+  std::unique_ptr<TextureRenderer> CreateTextureRenderer(
+      std::span<const uint8_t> rom_data,
+      TextureResourceProvider& resources) const override;
 
   bool definition_valid() const { return definition_valid_; }
-  const std::string& archive_root() const { return archive_root_; }
-  const kiwi::nes::mesen_hd_pack::HdPackData& data() const {
-    return pack_data_;
-  }
   const std::vector<kiwi::nes::mesen_hd_pack::ParseError>& parse_errors()
       const {
     return parse_errors_;
@@ -64,6 +64,9 @@ class MesenTextureParserCollection final : public TextureParser {
 
   TextureType type() const override { return TextureType::kMesen; }
   bool Verify(std::span<const uint8_t> rom_data) const override;
+  std::unique_ptr<TextureRenderer> CreateTextureRenderer(
+      std::span<const uint8_t> rom_data,
+      TextureResourceProvider& resources) const override;
 
   std::size_t size() const { return parsers_.size(); }
 

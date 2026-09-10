@@ -14,7 +14,11 @@
 #define UTILITY_TEXTURE_PARSER_TEXTURE_PARSER_H_
 
 #include <cstdint>
+#include <memory>
 #include <span>
+
+class TextureRenderer;
+class TextureResourceProvider;
 
 enum class TextureType {
   kMesen,
@@ -33,6 +37,12 @@ class TextureParser {
   // Verifies that the texture pack supports |rom_data|. Implementations must
   // not load or decode texture resources during this call.
   virtual bool Verify(std::span<const uint8_t> rom_data) const = 0;
+
+  // Creates a renderer after verifying |rom_data| and loading the required
+  // resources through |resources|.
+  virtual std::unique_ptr<TextureRenderer> CreateTextureRenderer(
+      std::span<const uint8_t> rom_data,
+      TextureResourceProvider& resources) const = 0;
 };
 
 #endif  // UTILITY_TEXTURE_PARSER_TEXTURE_PARSER_H_

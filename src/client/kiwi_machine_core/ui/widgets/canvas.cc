@@ -166,11 +166,13 @@ bool Canvas::ZapperTest(Input input) {
     }
   }
 
-  if (details.original_x < 0 || details.original_x >= frame_->width() ||
-      details.original_y < 0 || details.original_y >= frame_->height())
+  if (details.original_x < 0 || details.original_x >= kNESFrameDefaultWidth ||
+      details.original_y < 0 || details.original_y >= kNESFrameDefaultHeight) {
     return false;
+  }
 
-  size_t data_index = frame_->width() * details.original_y + details.original_x;
+  const size_t data_index =
+      kNESFrameDefaultWidth * details.original_y + details.original_x;
   kiwi::nes::Color color = frame_->GetCurrentFrame()[data_index];
   return IsColorBrightEnough(color & 0xff, (color >> 8) & 0xff,
                              (color >> 16) & 0xff);

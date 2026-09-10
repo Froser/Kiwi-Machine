@@ -48,6 +48,7 @@
 #include "utility/localization.h"
 #include "utility/logging.h"
 #include "utility/math.h"
+#include "utility/texture_renderer.h"
 #include "utility/zip_reader.h"
 
 DEFINE_bool(enable_debug, false, "Shows a menu bar at the top of the window.");
@@ -55,14 +56,6 @@ DEFINE_bool(enable_debug, false, "Shows a menu bar at the top of the window.");
 namespace {
 
 MainWindow* g_main_window_instance = nullptr;
-
-kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
-                                   size_t data_size) {
-  kiwi::nes::Bytes bytes;
-  bytes.resize(data_size);
-  memcpy(bytes.data(), data, data_size);
-  return bytes;
-}
 
 constexpr int kWindowPadding = 50;
 constexpr int kDefaultWindowWidth =
@@ -1011,8 +1004,8 @@ void MainWindow::InitializeUI() {
                                               default_selection.edition),
             default_selection.rom->boxart_width,
             default_selection.rom->boxart_height, false,
-            kiwi::base::BindRepeating(&LoadPresetROM, *default_selection.rom,
-                                      RomPart::kBoxArt),
+            kiwi::base::BindRepeating(&LoadPresetROMBoxArt,
+                                      *default_selection.rom),
             kiwi::base::BindRepeating(
                 &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
                 std::ref(*default_selection.rom), default_selection.edition));
@@ -1028,8 +1021,7 @@ void MainWindow::InitializeUI() {
                                                 selection.edition),
               selection.rom->boxart_width, selection.rom->boxart_height,
               is_hd_edition,
-              kiwi::base::BindRepeating(&LoadPresetROM, *selection.rom,
-                                        RomPart::kBoxArt),
+              kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *selection.rom),
               kiwi::base::BindRepeating(
                   &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
                   std::ref(*selection.rom), selection.edition));
@@ -1251,6 +1243,7 @@ void MainWindow::LoadTestRomIfSpecified() {
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
+  canvas_->frame()->SetTextureRenderer(nullptr);
 
   runtime_data_->emulator->LoadAndRun(
       rom_path, kiwi::base::BindOnce(
@@ -2012,18 +2005,28 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
 
   Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
-      kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), RomPart::kContent),
+      kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), edition),
       kiwi::base::BindOnce(
           [](MainWindow* this_window,
              scoped_refptr<kiwi::nes::Emulator> emulator,
              preset_roms::PresetROM& rom, preset_roms::ROMEdition edition,
-             bool load_from_finger_gesture, kiwi::nes::Bytes rom_data) {
-            emulator->LoadAndRun(
-                ReadFromRawBinary(rom_data.data(), rom_data.size()),
-                kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                                     kiwi::base::Unretained(this_window),
-                                     GetROMEditionTitle(rom, edition),
-                                     load_from_finger_gesture));
+             bool load_from_finger_gesture, LoadedPresetROM loaded_rom) {
+            kiwi::nes::Emulator::LoadCallback callback = kiwi::base::BindOnce(
+                &MainWindow::OnRomLoaded, kiwi::base::Unretained(this_window),
+                GetROMEditionTitle(rom, edition), load_from_finger_gesture);
+            kiwi::nes::Emulator::LoadOptions load_options;
+            std::unique_ptr<TextureRenderer> texture_renderer;
+            if (edition == preset_roms::ROMEdition::kHD) {
+              load_options.capture_ppu_texture_metadata = true;
+              load_options.uses_chr_ram =
+                  loaded_rom.texture_renderer &&
+                  loaded_rom.texture_renderer->IsUseChrRam();
+              texture_renderer = std::move(loaded_rom.texture_renderer);
+            }
+            this_window->canvas_->frame()->SetTextureRenderer(
+                std::move(texture_renderer));
+            emulator->LoadAndRun(loaded_rom.rom_data, std::move(callback),
+                                 load_options);
           },
           kiwi::base::Unretained(this),
           kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom),

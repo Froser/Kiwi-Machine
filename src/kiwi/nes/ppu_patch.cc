@@ -47,13 +47,13 @@ void PPUPatch::Reset() {
 
 void PPUPatch::Set(uint32_t rom_crc) {
   switch (rom_crc) {
-    case 0x3a4d4d10: // Mike Tyson's Punch-Out!! (Europe)
-    case 0x92a2185c: // Mike Tyson's Punch-Out!! (USA)
-    case 0x25551f3f: // Mike Tyson's Punch-Out!! (Europe) (Rev A)
-    case 0x2c818014: // Mike Tyson's Punch-Out!! (Japan, USA) (Rev A)
-    case 0xb95e9e7f: // Punch-Out!! (USA)
-    case 0x84382231: // Punch-Out!! (Japan) (Gold Edition)
-    case 0xd229fd5c: // Punch-Out!! (Europe)
+    case 0x3a4d4d10:  // Mike Tyson's Punch-Out!! (Europe)
+    case 0x92a2185c:  // Mike Tyson's Punch-Out!! (USA)
+    case 0x25551f3f:  // Mike Tyson's Punch-Out!! (Europe) (Rev A)
+    case 0x2c818014:  // Mike Tyson's Punch-Out!! (Japan, USA) (Rev A)
+    case 0xb95e9e7f:  // Punch-Out!! (USA)
+    case 0x84382231:  // Punch-Out!! (Japan) (Gold Edition)
+    case 0xd229fd5c:  // Punch-Out!! (Europe)
       Reset();
       data_address_patch = PUNCH_OUT_data_address_patch;
       break;

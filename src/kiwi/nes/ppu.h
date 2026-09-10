@@ -14,13 +14,14 @@
 #define NES_PPU_H_
 
 #include <array>
+#include <memory>
 
 #include "base/check.h"
 #include "nes/cpu_bus.h"
 #include "nes/emulator_states.h"
 #include "nes/palette.h"
-#include "nes/ppu_observer.h"
 #include "nes/ppu_patch.h"
+#include "nes/ppu_texture_capture.h"
 #include "nes/registers.h"
 #include "nes/types.h"
 
@@ -28,6 +29,7 @@ namespace kiwi {
 namespace nes {
 class CPU;
 class PPUBus;
+class PPUObserver;
 
 class PPU : public Device, public EmulatorStates::SerializableState {
  public:
@@ -43,6 +45,7 @@ class PPU : public Device, public EmulatorStates::SerializableState {
 
  public:
   void SetPatch(uint32_t crc);
+  void SetTextureMetadataCapture(bool enabled, bool uses_chr_ram);
   // Power up and reset states:
   // See https://www.nesdev.org/wiki/PPU_power_up_state for more details.
   void PowerUp();
@@ -120,7 +123,10 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   ALWAYS_INLINE void IncreaseScanline();
 
   ALWAYS_INLINE void NMIChange();
+  ALWAYS_INLINE Color GetTextureBackdropColor();
 
+  void PopulateTextureTileData(Address pattern_address,
+                               PPUTextureTile* texture_tile);
   void SetPalette(PPUModel model);
 
  private:
@@ -150,12 +156,20 @@ class PPU : public Device, public EmulatorStates::SerializableState {
   bool is_even_frame_ = false;
   std::unique_ptr<Palette> palette_;
   std::array<Color, Palette::kColorCount> palette_colors_{};
+  // Converted display color for the universal background palette entry.
+  Color texture_backdrop_color_ = 0;
+  // PPUBus revision from which |texture_backdrop_color_| was calculated.
+  uint64_t texture_backdrop_palette_revision_ = 0;
+  // Indicates whether |texture_backdrop_color_| has been initialized.
+  bool texture_backdrop_color_valid_ = false;
 
   enum { kMaxBufferSize = 2 };
   size_t current_buffer_index_ = 0;
   Colors screenbuffers_[kMaxBufferSize];
 
   PPUPatch patch_;
+  // Collects format-neutral tile metadata for the current frame when enabled.
+  PPUTextureCapture texture_capture_;
   uint32_t crc_;
 
   PPUObserver* observer_ = nullptr;

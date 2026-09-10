@@ -41,6 +41,23 @@ TEST(PPUBusTest, MirrorsUniversalBackgroundPaletteEntries) {
   EXPECT_EQ(bus.Read(0x3f0c), 0x23);
 }
 
+TEST(PPUBusTest, TracksVisibleUniversalBackgroundColorChanges) {
+  PPUBus bus;
+  const uint64_t initial_revision = bus.backdrop_revision();
+
+  bus.Write(0x3f00, 0x12);
+  EXPECT_EQ(bus.ReadUniversalBackgroundColor(), 0x12);
+  EXPECT_GT(bus.backdrop_revision(), initial_revision);
+
+  const uint64_t visible_color_revision = bus.backdrop_revision();
+  bus.Write(0x3f10, 0x52);
+  EXPECT_EQ(bus.ReadUniversalBackgroundColor(), 0x12);
+  EXPECT_EQ(bus.backdrop_revision(), visible_color_revision);
+
+  bus.Write(0x3f01, 0x23);
+  EXPECT_EQ(bus.backdrop_revision(), visible_color_revision);
+}
+
 }  // namespace testing
 }  // namespace nes
 }  // namespace kiwi

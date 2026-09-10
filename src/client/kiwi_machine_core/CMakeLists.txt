@@ -139,6 +139,9 @@ set(Sources
         utility/texture_parser/mesen_texture_parser.cc
         utility/texture_parser/mesen_texture_parser.h
         utility/texture_parser/texture_parser.h
+        utility/texture_parser/texture_resource_provider.h
+        utility/texture_renderer.cc
+        utility/texture_renderer.h
         utility/timer.cc
         utility/timer.h
         utility/fps_counter.cc

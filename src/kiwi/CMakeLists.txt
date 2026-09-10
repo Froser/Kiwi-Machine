@@ -226,6 +226,8 @@ set(nes_sources
         nes/ppu_bus.h
         nes/ppu_patch.cc
         nes/ppu_patch.h
+        nes/ppu_texture_capture.cc
+        nes/ppu_texture_capture.h
         nes/ppu.cc
         nes/ppu.h
         nes/registers.h

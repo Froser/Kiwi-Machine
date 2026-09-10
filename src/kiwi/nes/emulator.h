@@ -13,6 +13,8 @@
 #ifndef NES_EMULATOR_H_
 #define NES_EMULATOR_H_
 
+#include <memory>
+
 #include "nes/nes_export.h"
 
 #include "base/functional/callback.h"
@@ -41,6 +43,16 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   using ResetCallback = base::OnceClosure;
   using SaveStateCallback = base::OnceCallback<void(Bytes)>;
 
+  struct LoadOptions {
+    constexpr LoadOptions(bool capture_texture_metadata = false,
+                          bool texture_uses_chr_ram = false)
+        : capture_ppu_texture_metadata(capture_texture_metadata),
+          uses_chr_ram(texture_uses_chr_ram) {}
+
+    bool capture_ppu_texture_metadata;
+    bool uses_chr_ram;
+  };
+
   enum class RunningState {
     kStopped,
     kPaused,
@@ -66,7 +78,9 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   // emulator.
   virtual void LoadFromFile(const base::FilePath& rom_path,
                             LoadCallback callback) = 0;
-  virtual void LoadFromBinary(const Bytes& data, LoadCallback callback) = 0;
+  virtual void LoadFromBinary(const Bytes& data,
+                              LoadCallback callback,
+                              const LoadOptions& options = {}) = 0;
 
   // Gets currently loaded ROM's data. Returns nullptr if no ROM has been
   // loaded.
@@ -91,7 +105,8 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual void LoadAndRun(const base::FilePath& rom_path,
                           LoadCallback = base::DoNothing()) = 0;
   virtual void LoadAndRun(const Bytes& data,
-                          LoadCallback = base::DoNothing()) = 0;
+                          LoadCallback = base::DoNothing(),
+                          const LoadOptions& options = {}) = 0;
 
   // Steps one CPU cycle. Because Run() will start a working task runner to run
   // cycles, Step() should be called only when the emulator is not running.

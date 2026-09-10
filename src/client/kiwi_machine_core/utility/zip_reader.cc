@@ -16,7 +16,10 @@
 #include <SDL_image.h>
 
 #include <algorithm>
+#include <cstring>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
@@ -27,6 +30,8 @@
 #include "ui/application.h"
 #include "utility/localization.h"
 #include "utility/texture_parser/mesen_texture_parser.h"
+#include "utility/texture_parser/texture_resource_provider.h"
+#include "utility/texture_renderer.h"
 
 #if KIWI_ANDROID
 #include "third_party/SDL2/src/core/android/SDL_android.h"
@@ -124,6 +129,29 @@ std::unordered_set<std::string> GetZipEntries(unzFile file) {
   return entries;
 }
 
+class ZipTextureResourceProvider final : public TextureResourceProvider {
+ public:
+  explicit ZipTextureResourceProvider(unzFile file)
+      : file_(file), file_paths_(GetZipEntries(file)) {}
+  ~ZipTextureResourceProvider() override = default;
+
+  const std::unordered_set<std::string>& GetFilePaths() const override {
+    return file_paths_;
+  }
+
+  std::optional<kiwi::nes::Bytes> ReadFile(std::string_view path) override {
+    kiwi::nes::Bytes data;
+    if (!ReadFileFromZip(file_, std::string(path), data)) {
+      return std::nullopt;
+    }
+    return data;
+  }
+
+ private:
+  unzFile file_;
+  std::unordered_set<std::string> file_paths_;
+};
+
 std::vector<std::string> FindMesenHDTexturePackRoots(
     std::string_view archive_root,
     const std::unordered_set<std::string>& archive_entries) {
@@ -145,23 +173,23 @@ std::vector<std::string> FindMesenHDTexturePackRoots(
   return pack_roots;
 }
 
-std::unique_ptr<TextureParser> CreateTextureParser(
-    unzFile file,
+std::vector<std::unique_ptr<MesenTextureParser>> CreateMesenTextureParsers(
+    TextureResourceProvider& resources,
     const nlohmann::json& manifest) {
   const auto texture = manifest.find("texture");
   if (texture == manifest.end() || !texture->is_object()) {
-    return nullptr;
+    return {};
   }
 
   const auto path = texture->find("path");
   const auto type = texture->find("type");
   if (path == texture->end() || !path->is_string() || type == texture->end() ||
       !type->is_string()) {
-    return nullptr;
+    return {};
   }
   const std::string texture_type = type->get<std::string>();
-  if (texture_type != "mesen" && texture_type != "musen") {
-    return nullptr;
+  if (texture_type != "mesen") {
+    return {};
   }
 
   std::string archive_root = path->get<std::string>();
@@ -171,26 +199,51 @@ std::unique_ptr<TextureParser> CreateTextureParser(
     archive_root.pop_back();
   }
 
-  const std::unordered_set<std::string> archive_entries = GetZipEntries(file);
+  const std::unordered_set<std::string>& archive_entries =
+      resources.GetFilePaths();
   std::vector<std::unique_ptr<MesenTextureParser>> parsers;
   for (const std::string& pack_root :
        FindMesenHDTexturePackRoots(archive_root, archive_entries)) {
-    kiwi::nes::Bytes hires_contents;
-    if (!ReadFileFromZip(file, pack_root + "/hires.txt", hires_contents)) {
+    std::optional<kiwi::nes::Bytes> hires_contents =
+        resources.ReadFile(pack_root + "/hires.txt");
+    if (!hires_contents) {
       continue;
     }
     const char* hires_data =
-        hires_contents.empty()
+        hires_contents->empty()
             ? ""
-            : reinterpret_cast<const char*>(hires_contents.data());
+            : reinterpret_cast<const char*>(hires_contents->data());
     parsers.push_back(std::make_unique<MesenTextureParser>(
-        pack_root, std::string_view(hires_data, hires_contents.size()),
+        pack_root, std::string_view(hires_data, hires_contents->size()),
         archive_entries));
   }
+  if (parsers.empty()) {
+    return {};
+  }
+  return parsers;
+}
+
+std::unique_ptr<TextureParser> CreateTextureParser(
+    TextureResourceProvider& resources,
+    const nlohmann::json& manifest) {
+  std::vector<std::unique_ptr<MesenTextureParser>> parsers =
+      CreateMesenTextureParsers(resources, manifest);
   if (parsers.empty()) {
     return nullptr;
   }
   return std::make_unique<MesenTextureParserCollection>(std::move(parsers));
+}
+
+std::unique_ptr<TextureRenderer> LoadTextureRenderer(
+    TextureResourceProvider& resources,
+    const nlohmann::json& manifest,
+    std::span<const uint8_t> rom_data) {
+  std::unique_ptr<TextureParser> parser =
+      CreateTextureParser(resources, manifest);
+  if (!parser) {
+    return nullptr;
+  }
+  return parser->CreateTextureRenderer(rom_data, resources);
 }
 
 unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
@@ -249,6 +302,14 @@ scoped_refptr<Unz> OpenUnz(const kiwi::base::FilePath& file) {
 #else
   return kiwi::base::MakeRefCounted<Unz>(unzOpen(file.AsUTF8Unsafe().c_str()));
 #endif
+}
+
+scoped_refptr<Unz> OpenPresetROMArchive(
+    const preset_roms::PresetROM& rom_data) {
+  scoped_refptr<Unz> archive = kiwi::base::MakeRefCounted<Unz>(nullptr);
+  archive->data = rom_data.zip_data_loader.Run(rom_data.file_pos);
+  archive->unz = unzOpenFromMemory(archive->data.data(), archive->data.size());
+  return archive;
 }
 
 std::vector<preset_roms::Package*> g_packages;
@@ -344,6 +405,12 @@ kiwi::nes::Bytes LoadZipDataFromFilePos(scoped_refptr<Unz> f,
 
 }  // namespace
 
+LoadedPresetROM::LoadedPresetROM() = default;
+LoadedPresetROM::~LoadedPresetROM() = default;
+LoadedPresetROM::LoadedPresetROM(LoadedPresetROM&&) noexcept = default;
+LoadedPresetROM& LoadedPresetROM::operator=(LoadedPresetROM&&) noexcept =
+    default;
+
 void InitializePresetROM(preset_roms::PresetROM& rom_data) {
   if (!rom_data.title_loaded) {
     kiwi::nes::Bytes zip_data_container =
@@ -386,12 +453,12 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
                 rom_version.value()["width"], rom_version.value()["height"]);
           }
         }
-        texture_parser = CreateTextureParser(file, manifest_json);
+        ZipTextureResourceProvider resources(file);
+        texture_parser = CreateTextureParser(resources, manifest_json);
       } else {
         // A zip file doesn't have a manifest should load image immediately, to
         // get its boxart size, and it will only has one rom.
-        kiwi::nes::Bytes boxart_data =
-            LoadPresetROM(rom_data, RomPart::kBoxArt);
+        kiwi::nes::Bytes boxart_data = LoadPresetROMBoxArt(rom_data);
         SDL_RWops* rw =
             SDL_RWFromConstMem(boxart_data.data(), boxart_data.size());
         SDL_Surface* surface = IMG_Load_RW(rw, true);
@@ -508,43 +575,63 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
   }
 }
 
-kiwi::nes::Bytes LoadPresetROM(const preset_roms::PresetROM& rom_data,
-                               RomPart part) {
+kiwi::nes::Bytes LoadPresetROMBoxArt(const preset_roms::PresetROM& rom_data) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();
   SDL_assert(io_task_runner->RunsTasksInCurrentSequence());
 
   kiwi::nes::Bytes result;
-  kiwi::nes::Bytes zip_data_container =
-      rom_data.zip_data_loader.Run(rom_data.file_pos);
-  kiwi::nes::Byte* zip_data = zip_data_container.data();
-  size_t zip_size = zip_data_container.size();
+  scoped_refptr<Unz> archive = OpenPresetROMArchive(rom_data);
+  if (!*archive) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to get file pointer");
+    return result;
+  }
 
-  unzFile file =
-      unzOpenFromMemory(const_cast<kiwi::nes::Byte*>(zip_data), zip_size);
-  if (file) {
-    switch (part) {
-      case RomPart::kBoxArt:
-        if (!ReadFileFromZip(file, std::string(rom_data.name) + ".jpg",
-                             result)) {
-          SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                       "Failed to get boxart for name %s", rom_data.name);
-        }
-        break;
-      case RomPart::kContent:
-        if (!ReadFileFromZip(file, std::string(rom_data.name) + ".nes",
-                             result)) {
-          SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                       "Failed to get rom data for name %s", rom_data.name);
-        }
-        break;
-      default:
-        break;
+  if (!ReadFileFromZip(*archive, std::string(rom_data.name) + ".jpg", result)) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "Failed to get boxart for name %s", rom_data.name);
+  }
+  return result;
+}
+
+LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
+                              preset_roms::ROMEdition edition) {
+  scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
+      Application::Get()->GetIOTaskRunner();
+  SDL_assert(io_task_runner->RunsTasksInCurrentSequence());
+
+  LoadedPresetROM result;
+  scoped_refptr<Unz> archive = OpenPresetROMArchive(rom_data);
+  if (!*archive) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to get file pointer");
+    return result;
+  }
+
+  if (!ReadFileFromZip(*archive, std::string(rom_data.name) + ".nes",
+                       result.rom_data)) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "Failed to get rom data for name %s", rom_data.name);
+    return result;
+  }
+
+  if (edition == preset_roms::ROMEdition::kHD) {
+    kiwi::nes::Bytes manifest;
+    if (ReadFileFromZip(*archive, "manifest.json", manifest)) {
+      manifest.push_back(0);
+      const nlohmann::json manifest_json =
+          nlohmann::json::parse(manifest.data(), nullptr, false);
+      if (!manifest_json.is_discarded()) {
+        ZipTextureResourceProvider resources(*archive);
+        result.texture_renderer =
+            LoadTextureRenderer(resources, manifest_json, result.rom_data);
+      }
     }
 
-    unzClose(file);
-  } else {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to get file pointer");
+    if (!result.texture_renderer) {
+      SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                   "Failed to load HD texture data for name %s", rom_data.name);
+      result.rom_data.clear();
+    }
   }
   return result;
 }

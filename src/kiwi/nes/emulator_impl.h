@@ -49,14 +49,18 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void PowerOff() override;
   void LoadFromFile(const base::FilePath& rom_path,
                     LoadCallback callback) override;
-  void LoadFromBinary(const Bytes& data, LoadCallback callback) override;
+  void LoadFromBinary(const Bytes& data,
+                      LoadCallback callback,
+                      const LoadOptions& options) override;
   const RomData* GetRomData() override;
   void Run() override;
   void RunOneFrame() override;
   void Pause() override;
   void LoadAndRun(const base::FilePath& rom_path,
                   LoadCallback callback) override;
-  void LoadAndRun(const Bytes& data, LoadCallback callback) override;
+  void LoadAndRun(const Bytes& data,
+                  LoadCallback callback,
+                  const LoadOptions& options) override;
   void Unload(UnloadCallback callback) override;
   void Reset(ResetCallback reset_callback) override;
   void Step() override;
@@ -81,7 +85,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void OnPPUScanlineEnd(int scanline) override;
   void OnPPUFrameStart() override;
   void OnPPUFrameEnd() override;
-  void OnRenderReady(const Colors& swapbuffer) override;
+  void OnRenderReady(const PPUFrameData& frame) override;
 
   // CPUObserver:
   void OnCPUNMI() override;
@@ -117,9 +121,11 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
 
  private:
   bool LoadFromFileOnProperThread(const base::FilePath& rom_path);
-  bool LoadFromBinaryOnProperThread(const Bytes& data);
+  bool LoadFromBinaryOnProperThread(const Bytes& data,
+                                    const LoadOptions& options);
   bool HandleLoadedResult(Cartridge::LoadResult load_result,
-                          scoped_refptr<Cartridge> cartridge);
+                          scoped_refptr<Cartridge> cartridge,
+                          const LoadOptions& options);
   void StepInternal();
   void RunOneFrameOnProperThread();
   void PowerOffOnProperThread();

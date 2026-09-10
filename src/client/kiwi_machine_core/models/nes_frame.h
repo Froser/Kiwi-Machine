@@ -16,12 +16,14 @@
 #include <SDL.h>
 #include <kiwi_nes.h>
 #include <chrono>
+#include <memory>
 #include <set>
 
 #include "models/nes_runtime.h"
 #include "utility/timer.h"
 
 class WindowBase;
+class TextureRenderer;
 
 class NESFrameObserver {
  public:
@@ -43,8 +45,9 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   void RemoveObserver(NESFrameObserver* observer);
 
   // RenderDevice:
-  void Render(int width, int height, const kiwi::nes::Colors& buffer) override;
+  void Render(const kiwi::nes::PPUFrameData& frame) override;
   bool NeedRender() override;
+  void SetTextureRenderer(std::unique_ptr<TextureRenderer> texture_renderer);
 
   int width() { return render_width_; }
   int height() { return render_height_; }
@@ -53,10 +56,16 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   const Buffer& GetCurrentFrame();
 
  private:
+  bool EnsureTexture(int width, int height);
+  bool RenderTextureFrame(const kiwi::nes::PPUFrameData& frame);
+  void NotifyObservers();
+  void UpdateTexture(int width, int height, const kiwi::nes::Colors& buffer);
+
   WindowBase* window_ = nullptr;
   NESRuntime::Data* runtime_data_ = nullptr;
 
   SDL_Texture* screen_texture_ = nullptr;
+  std::unique_ptr<TextureRenderer> texture_renderer_;
   int render_width_ = 0;   // UI thread access only
   int render_height_ = 0;  // UI thread access only
   Timer frame_elapsed_counter_;

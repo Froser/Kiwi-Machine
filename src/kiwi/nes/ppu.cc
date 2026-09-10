@@ -16,6 +16,7 @@
 #include "nes/mapper.h"
 #include "nes/palette.h"
 #include "nes/ppu_bus.h"
+#include "nes/ppu_observer.h"
 #include "nes/registers.h"
 
 namespace kiwi {
@@ -39,6 +40,39 @@ PPU::~PPU() = default;
 void PPU::SetPatch(uint32_t crc) {
   crc_ = crc;
   patch_.Set(crc);
+}
+
+void PPU::SetTextureMetadataCapture(bool enabled, bool uses_chr_ram) {
+  texture_capture_.SetEnabled(enabled, uses_chr_ram);
+}
+
+void PPU::PopulateTextureTileData(Address pattern_address,
+                                  PPUTextureTile* texture_tile) {
+  const Address tile_address = pattern_address & 0x1ff0;
+  texture_tile->tile_index = tile_address / 16;
+  if (!texture_capture_.uses_chr_ram()) {
+    texture_tile->source = PPUTextureTile::Source::kChrRom;
+    return;
+  }
+
+  texture_tile->source = PPUTextureTile::Source::kChrRam;
+  for (size_t index = 0; index < texture_tile->chr_data.size(); ++index) {
+    texture_tile->chr_data[index] =
+        ppu_bus_->Read(static_cast<Address>(tile_address + index));
+  }
+}
+
+Color PPU::GetTextureBackdropColor() {
+  const uint64_t palette_revision = ppu_bus_->backdrop_revision();
+  if (!texture_backdrop_color_valid_ ||
+      texture_backdrop_palette_revision_ != palette_revision) {
+    const Byte backdrop_index = ppu_bus_->ReadUniversalBackgroundColor();
+    DCHECK(backdrop_index < palette_colors_.size());
+    texture_backdrop_color_ = palette_colors_[backdrop_index];
+    texture_backdrop_palette_revision_ = palette_revision;
+    texture_backdrop_color_valid_ = true;
+  }
+  return texture_backdrop_color_;
 }
 
 void PPU::PowerUp() {
@@ -123,6 +157,12 @@ void PPU::Step() {
         const int y = scanline_;
         bool is_background_opaque = false;
         bool is_sprite_opaque = false;
+        const bool capture_texture_metadata = texture_capture_.enabled();
+        if (capture_texture_metadata && x == 0 && y == 0) {
+          texture_capture_.BeginFrame();
+        }
+        const bool capture_texture_layers =
+            capture_texture_metadata && !(patch_.mask_top_scanline && y == 0);
 
         if (is_render_background()) {
           // Data address decoding:
@@ -159,8 +199,10 @@ void PPU::Step() {
             Address pixel_address = 0x2000 | (data_address & 0x0fff);
             Byte tile = ppu_bus_->Read(pixel_address);
             // Gets tile address with fine Y scroll
-            pixel_address = (tile << 4) + ((data_address >> 12) & 0x7);
-            pixel_address += background_pattern_table_base_address();
+            const Byte y_fine = (data_address >> 12) & 0x7;
+            const Address pattern_tile_address =
+                (tile << 4) + background_pattern_table_base_address();
+            pixel_address = pattern_tile_address + y_fine;
 
             Byte pattern = ppu_bus_->Read(pixel_address);
             // Combines the tile and get background color index.
@@ -180,8 +222,32 @@ void PPU::Step() {
                                         ((data_address >> 2) & 0x07);
             Byte attribute = ppu_bus_->Read(attribute_address);
             int shift = ((data_address >> 4) & 4) | (data_address & 2);
+            const Byte palette_offset = ((attribute >> shift) & 0x3) << 2;
             // Extract and set the upper two bits for the color
-            background_color |= ((attribute >> shift) & 0x3) << 2;
+            background_color |= palette_offset;
+
+            if (capture_texture_layers) {
+              Color texture_color = 0;
+              if (is_background_opaque) {
+                const Byte background_color_index =
+                    ppu_bus_->ReadPalette(background_color);
+                DCHECK(background_color_index < palette_colors_.size());
+                texture_color = palette_colors_[background_color_index];
+              }
+              PPUTextureTile* texture_tile =
+                  texture_capture_.CaptureBackgroundTilePixel(
+                      x, y, temp_x_fine, y_fine, pattern_tile_address,
+                      palette_offset >> 2, texture_color, is_background_opaque);
+              if (texture_tile) {
+                PopulateTextureTileData(pattern_tile_address, texture_tile);
+                texture_tile->palette = {
+                    ppu_bus_->ReadPalette(0),
+                    ppu_bus_->ReadPalette(0x01 | palette_offset),
+                    ppu_bus_->ReadPalette(0x02 | palette_offset),
+                    ppu_bus_->ReadPalette(0x03 | palette_offset),
+                };
+              }
+            }
           }
 
           // Increment/wrap coarse X:
@@ -221,8 +287,10 @@ void PPU::Step() {
             // |+------- Flip sprite horizontally
             // +-------- Flip sprite vertically
             int length = (is_long_sprite()) ? 16 : 8;
-            int x_shift = (x - sprite_x) % 8,
-                y_offset = (y - sprite_y) % length;
+            const int texture_offset_x = (x - sprite_x) % 8;
+            const int texture_offset_y = (y - sprite_y) % 8;
+            int x_shift = texture_offset_x;
+            int y_offset = (y - sprite_y) % length;
 
             if ((attribute & 0x40) == 0)  // If NOT flipping horizontally
               x_shift ^= 7;
@@ -249,21 +317,49 @@ void PPU::Step() {
             ppu_bus_->SetCurrentPatternState(
                 PPUBus::CurrentPatternType::kSprite,
                 registers_.PPUCTRL.H && is_render_enabled(), x);
-            sprite_color = (ppu_bus_->Read(pattern_address) >> (x_shift)) & 1;
-            sprite_color |=
+            Byte candidate_sprite_color =
+                (ppu_bus_->Read(pattern_address) >> x_shift) & 1;
+            candidate_sprite_color |=
                 ((ppu_bus_->Read(pattern_address + 8) >> (x_shift)) & 1) << 1;
+            const bool candidate_is_opaque = candidate_sprite_color != 0;
+            const Byte sprite_palette = attribute & 0x3;
+            const Byte palette_offset = sprite_palette << 2;
+            const Byte candidate_palette_index =
+                0x10 | palette_offset | candidate_sprite_color;
 
-            // If |sprite_color| is 0, it means this pixel is transparent.
-            is_sprite_opaque = (sprite_color != 0);
-            if (!is_sprite_opaque) {
-              sprite_color = 0;
-              continue;
+            if (capture_texture_layers) {
+              Color texture_color = 0;
+              if (candidate_is_opaque) {
+                const Byte sprite_color_index =
+                    ppu_bus_->ReadPalette(candidate_palette_index);
+                DCHECK(sprite_color_index < palette_colors_.size());
+                texture_color = palette_colors_[sprite_color_index];
+              }
+              PPUTextureTile* texture_tile =
+                  texture_capture_.CaptureSpriteTilePixel(
+                      x, y, static_cast<Byte>(texture_offset_x),
+                      static_cast<Byte>(texture_offset_y), i, pattern_address,
+                      sprite_palette, attribute & 0x40, attribute & 0x80,
+                      attribute & 0x20, texture_color, candidate_is_opaque);
+              if (texture_tile) {
+                PopulateTextureTileData(pattern_address, texture_tile);
+                texture_tile->palette = {
+                    0xff,
+                    ppu_bus_->ReadPalette(0x11 | palette_offset),
+                    ppu_bus_->ReadPalette(0x12 | palette_offset),
+                    ppu_bus_->ReadPalette(0x13 | palette_offset),
+                };
+              }
             }
 
+            // If |sprite_color| is 0, it means this pixel is transparent.
+            if (!candidate_is_opaque || is_sprite_opaque) {
+              continue;
+            }
+            is_sprite_opaque = true;
+
             // Select sprite palette
-            sprite_color |= 0x10;
-            // bits 2-3
-            sprite_color |= (attribute & 0x3) << 2;
+            sprite_color = candidate_palette_index;
             // Gets priority of the sprite pixel.
             is_sprite_foreground = !(attribute & 0x20);
 
@@ -287,8 +383,7 @@ void PPU::Step() {
         }
 
         // Map |palette_index| to PPU memory map's Palette RAM address.
-        const Byte color_index =
-            ppu_bus_->Read(static_cast<Address>(palette_index | 0x3f00));
+        const Byte color_index = ppu_bus_->ReadPalette(palette_index);
         DCHECK(color_index < palette_colors_.size());
         const Color bgra = patch_.mask_top_scanline && y == 0
                                ? palette_colors_[0x0f]
@@ -298,6 +393,13 @@ void PPU::Step() {
                screenbuffers_[current_buffer_index_].size());
         screenbuffers_[current_buffer_index_][y * kScanlineVisibleDots + x] =
             bgra;
+
+        if (capture_texture_metadata) {
+          const Color backdrop_color = patch_.mask_top_scanline && y == 0
+                                           ? bgra
+                                           : GetTextureBackdropColor();
+          texture_capture_.CaptureBackdropPixel(x, y, backdrop_color);
+        }
 
         if (cycles_ == kScanlineVisibleDots &&
             is_render_background()) {  // Dot 256
@@ -378,7 +480,16 @@ void PPU::Step() {
         pipeline_state_ = PipelineState::kVerticalBlank;
 
         if (observer_) {
-          observer_->OnRenderReady(screenbuffers_[current_buffer_index_]);
+          PPUFrameData frame;
+          frame.native_pixels = &screenbuffers_[current_buffer_index_];
+          if (texture_capture_.enabled()) {
+            frame.type = PPUFrameData::Type::kTextureMetadata;
+            frame.texture_backdrop_pixels = texture_capture_.backdrop_pixels();
+            frame.texture_background_tiles =
+                texture_capture_.background_tiles();
+            frame.texture_sprite_tiles = texture_capture_.sprite_tiles();
+          }
+          observer_->OnRenderReady(frame);
           current_buffer_index_ = (current_buffer_index_ + 1) % kMaxBufferSize;
         }
       }
@@ -532,6 +643,7 @@ void PPU::SetPalette(PPUModel model) {
   DCHECK(palette_);
   for (int index = 0; index < Palette::kColorCount; ++index)
     palette_colors_[index] = palette_->GetColorBGRA(index);
+  texture_backdrop_color_valid_ = false;
 }
 
 Byte PPU::GetStatus() {
