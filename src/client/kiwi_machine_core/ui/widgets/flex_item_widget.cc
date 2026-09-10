@@ -37,6 +37,7 @@ FlexItemWidget::FlexItemWidget(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
     int image_height,
+    bool is_hd_edition,
     LoadImageCallback image_loader,
     TriggerCallback on_trigger)
     : Widget(main_window),
@@ -52,6 +53,7 @@ FlexItemWidget::FlexItemWidget(
   default_data->image_loader = image_loader;
   default_data->image_width = image_width;
   default_data->image_height = image_height;
+  default_data->is_hd_edition = is_hd_edition;
   current_data_ = default_data.get();
   sub_data_.push_back(std::move(default_data));
 
@@ -61,6 +63,8 @@ FlexItemWidget::FlexItemWidget(
 
   badge_texture_ =
       GetImage(window()->renderer(), image_resources::ImageID::kItemBadge);
+  hd_badge_texture_ =
+      GetImage(window()->renderer(), image_resources::ImageID::kHdBadge);
 }
 
 FlexItemWidget::~FlexItemWidget() {
@@ -155,11 +159,13 @@ void FlexItemWidget::AddSubItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
     int image_height,
+    bool is_hd_edition,
     LoadImageCallback image_loader,
     TriggerCallback on_trigger) {
   std::unique_ptr<Data> data = std::make_unique<Data>();
   data->image_width = image_width;
   data->image_height = image_height;
+  data->is_hd_edition = is_hd_edition;
   data->image_loader = image_loader;
   data->title_updater = std::move(title_updater);
   data->on_trigger_callback = on_trigger;
@@ -215,15 +221,21 @@ void FlexItemWidget::Paint() {
                        ImColor(255, 255, 255), 0, 0, .3f);
   }
 
+  int badge_right = kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin;
+  if (current_data()->is_hd_edition) {
+    draw_list->AddImage(
+        reinterpret_cast<ImTextureID>(hd_badge_texture_),
+        ImVec2(badge_right - kBadgeSize, kBoundsToWindow.y + kBadgeMargin),
+        ImVec2(badge_right, kBoundsToWindow.y + kBadgeMargin + kBadgeSize));
+    badge_right -= kBadgeSize + kBadgeMargin;
+  }
+
   if (has_sub_items()) {
     // Draw a badge icon if it has sub items.
     draw_list->AddImage(
         reinterpret_cast<ImTextureID>(badge_texture_),
-        ImVec2(
-            kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin - kBadgeSize,
-            kBoundsToWindow.y + kBadgeMargin),
-        ImVec2(kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin,
-               kBoundsToWindow.y + kBadgeMargin + kBadgeSize));
+        ImVec2(badge_right - kBadgeSize, kBoundsToWindow.y + kBadgeMargin),
+        ImVec2(badge_right, kBoundsToWindow.y + kBadgeMargin + kBadgeSize));
   }
 
   // Items can be empty, because we can use filter.

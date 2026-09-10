@@ -38,6 +38,7 @@ set(Sources
     ../nes/mappers/mapper075_unittest.cc
     ../nes/mappers/mapper087_unittest.cc
     ../nes/mappers/mapper185_unittest.cc
+    ../nes/components/mesen_hd_pack/hires_parser_unittest.cc
     ../nes/palette_unittest.cc
     ../nes/ppu_unittest.cc
     ../nes/ppu_bus_unittest.cc
@@ -49,6 +50,7 @@ add_executable(kiwi_unittests ${Sources})
 # Link against required libraries
 target_link_libraries(kiwi_unittests PRIVATE
     kiwi_static
+    mesen_hd_pack
     gtest_main
     glog::glog
 )

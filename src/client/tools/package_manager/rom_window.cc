@@ -47,6 +47,9 @@ ROMWindow::ROMWindow(SDL_Renderer* renderer,
 
   window_id_ = g_window_id++;
   for (auto& rom : roms_) {
+    if (!rom.has_hd_texture) {
+      RefreshHDTextureInfo(rom);
+    }
     if (!rom.boxart_data.empty()) {
       FillCoverData(rom, rom.boxart_data);
     }
@@ -209,12 +212,19 @@ void ROMWindow::Paint() {
             rom.nes_data = std::move(*rom_contents);
             if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") != 0)
               rom.key = path.BaseName().RemoveExtension().AsUTF8Unsafe();
+            RefreshHDTextureInfo(rom);
           }
         }
         ClearDroppedROM();
       }
 
-      ImGui::SameLine();
+      if (rom.has_hd_texture) {
+        ImGui::Text(U8("是否存在高清素材：是（类型：%s）"),
+                    rom.texture_type);
+      } else {
+        ImGui::TextUnformatted(U8("是否存在高清素材：否"));
+      }
+
       if (ImGui::Button(GetUniqueName(U8("测试"), id).c_str())) {
         kiwi::base::FilePath kiwi_machine_path_from_cmdline;
         if (!FLAGS_km_path.empty()) {

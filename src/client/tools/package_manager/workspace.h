@@ -13,7 +13,8 @@
 #ifndef WORKSPACE_H_
 #define WORKSPACE_H_
 
-#include "../third_party/nlohmann_json/json.hpp"
+#include <string>
+
 #include "base/files/file_path.h"
 
 struct Workspace {
@@ -21,6 +22,7 @@ struct Workspace {
     std::string nes_roms_dir;
     std::string zipped_nes_dir;
     std::string nes_boxarts_dir;
+    std::string mesen_hd_textures_dir;
   };
   char workspace_dir[1024] = {};
 
@@ -33,6 +35,7 @@ struct Workspace {
   kiwi::base::FilePath GetZippedPath();
   kiwi::base::FilePath GetPackageOutputPath();
   kiwi::base::FilePath GetNESBoxartsPath();
+  kiwi::base::FilePath GetMesenHDTexturesPath();
 
  private:
   kiwi::base::FilePath workspace_path_;

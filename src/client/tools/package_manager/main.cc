@@ -15,6 +15,7 @@
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <gflags/gflags.h>
 #include <imgui.h>
+#include <map>
 #include <set>
 #include <string>
 

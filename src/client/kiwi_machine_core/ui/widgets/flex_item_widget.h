@@ -42,6 +42,7 @@ class FlexItemWidget : public Widget {
     uint64_t texture_request_generation = 0;
     int image_width = 0;
     int image_height = 0;
+    bool is_hd_edition = false;
   };
 
  public:
@@ -50,6 +51,7 @@ class FlexItemWidget : public Widget {
                           std::unique_ptr<LocalizedStringUpdater> title_updater,
                           int image_width,
                           int image_height,
+                          bool is_hd_edition,
                           LoadImageCallback image_loader,
                           TriggerCallback on_trigger);
   ~FlexItemWidget() override;
@@ -75,6 +77,7 @@ class FlexItemWidget : public Widget {
   void AddSubItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
                   int image_width,
                   int image_height,
+                  bool is_hd_edition,
                   LoadImageCallback image_loader,
                   TriggerCallback on_trigger);
   bool has_sub_items() { return sub_data_.size() > 1; }
@@ -93,6 +96,7 @@ class FlexItemWidget : public Widget {
   FlexItemsWidget* parent_ = nullptr;
   Data* current_data_ = nullptr;
   SDL_Texture* badge_texture_ = nullptr;
+  SDL_Texture* hd_badge_texture_ = nullptr;
   LoadingWidget loading_widget_;
 
   // Location

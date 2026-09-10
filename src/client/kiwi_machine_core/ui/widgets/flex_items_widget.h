@@ -39,12 +39,14 @@ class FlexItemsWidget : public Widget {
   size_t AddItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
                  int image_width,
                  int image_height,
+                 bool is_hd_edition,
                  FlexItemWidget::LoadImageCallback image_loader,
                  FlexItemWidget::TriggerCallback on_trigger);
   void AddSubItem(size_t item_index,
                   std::unique_ptr<LocalizedStringUpdater> title_updater,
                   int image_width,
                   int image_height,
+                  bool is_hd_edition,
                   FlexItemWidget::LoadImageCallback image_loader,
                   FlexItemWidget::TriggerCallback on_trigger);
 

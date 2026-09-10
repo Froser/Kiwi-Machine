@@ -136,6 +136,9 @@ set(Sources
         utility/logging.h
         utility/math.cc
         utility/math.h
+        utility/texture_parser/mesen_texture_parser.cc
+        utility/texture_parser/mesen_texture_parser.h
+        utility/texture_parser/texture_parser.h
         utility/timer.cc
         utility/timer.h
         utility/fps_counter.cc
@@ -239,6 +242,7 @@ KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Kiwi::kiwi_static imgui
+        mesen_hd_pack
         gflags_nothreads_static
         SDL2_image
         SDL2_mixer

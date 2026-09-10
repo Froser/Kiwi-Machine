@@ -16,6 +16,7 @@
 #include <gflags/gflags.h>
 #include <kiwi_nes.h>
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -28,6 +29,11 @@ enum class Region {
   kJapan,
   kUSA,
   kCN,  // Rare, almost bootleg
+};
+
+enum class ROMEdition {
+  kOriginal,
+  kHD,
 };
 
 struct PresetROM {
@@ -48,6 +54,9 @@ struct PresetROM {
 
   // ROM's region
   Region region = Region::kUnknown;
+
+  // Whether a validated texture pack is available as a separate HD edition.
+  bool hd_edition_available = false;
 
   // Whether its data or cover is loaded
   bool title_loaded = false;

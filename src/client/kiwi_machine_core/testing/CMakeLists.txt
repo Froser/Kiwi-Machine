@@ -18,6 +18,7 @@ set(Sources
     test_main.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/algorithm_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/math_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/utility/texture_parser/mesen_texture_parser_unittest.cc
 )
 
 # Create test executable

@@ -215,9 +215,18 @@ bool StringUpdater::IsTitleMatchedFilter(const std::string& filter,
   return false;
 }
 
+std::string GetROMEditionTitle(const preset_roms::PresetROM& rom,
+                               preset_roms::ROMEdition edition) {
+  std::string title = GetROMLocalizedTitle(rom);
+  if (edition == preset_roms::ROMEdition::kHD)
+    title.append(" [HD]");
+  return title;
+}
+
 class ROMTitleUpdater : public LocalizedStringUpdater {
  public:
-  explicit ROMTitleUpdater(const preset_roms::PresetROM& preset_rom);
+  ROMTitleUpdater(const preset_roms::PresetROM& preset_rom,
+                  preset_roms::ROMEdition edition);
   ~ROMTitleUpdater() override = default;
 
  protected:
@@ -229,17 +238,22 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
 
  private:
   const preset_roms::PresetROM& preset_rom_;
+  preset_roms::ROMEdition edition_;
 };
 
-ROMTitleUpdater::ROMTitleUpdater(const preset_roms::PresetROM& preset_rom)
-    : preset_rom_(preset_rom) {}
+ROMTitleUpdater::ROMTitleUpdater(const preset_roms::PresetROM& preset_rom,
+                                 preset_roms::ROMEdition edition)
+    : preset_rom_(preset_rom), edition_(edition) {}
 
 std::string ROMTitleUpdater::GetLocalizedString() {
-  return GetROMLocalizedTitle(preset_rom_);
+  return GetROMEditionTitle(preset_rom_, edition_);
 }
 
 std::string ROMTitleUpdater::GetCollateStringHint() {
-  return GetROMLocalizedCollateStringHint(preset_rom_);
+  std::string title = GetROMLocalizedCollateStringHint(preset_rom_);
+  if (edition_ == preset_roms::ROMEdition::kHD)
+    title.append(" HD");
+  return title;
 }
 
 std::vector<std::string> ROMTitleUpdater::GetFilterStrings() {
@@ -967,52 +981,58 @@ void MainWindow::InitializeUI() {
               return false;
             });
 
+        std::vector<preset_roms::PresetROM*> ordered_roms;
         if (priority_rom != roms.end()) {
-          preset_roms::PresetROM& target_rom = **priority_rom;
-          size_t main_item_index = items_widget->AddItem(
-              std::make_unique<ROMTitleUpdater>(target_rom),
-              target_rom.boxart_width, target_rom.boxart_height,
-              kiwi::base::BindRepeating(&LoadPresetROM, target_rom,
-                                        RomPart::kBoxArt),
-              kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                        kiwi::base::Unretained(this),
-                                        std::ref(target_rom)));
-          // Removes the first rom, and puts remaining roms to the alternative
-          // rom's list.
-          roms.erase(priority_rom);
-          for (auto* alternative_rom : roms) {
-            items_widget->AddSubItem(
-                main_item_index,
-                std::make_unique<ROMTitleUpdater>(*alternative_rom),
-                alternative_rom->boxart_width, alternative_rom->boxart_height,
-                kiwi::base::BindRepeating(&LoadPresetROM, *alternative_rom,
-                                          RomPart::kBoxArt),
-                kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                          kiwi::base::Unretained(this),
-                                          std::ref(*alternative_rom)));
+          ordered_roms.push_back(*priority_rom);
+          for (preset_roms::PresetROM* candidate : roms) {
+            if (candidate != *priority_rom)
+              ordered_roms.push_back(candidate);
           }
-
         } else {
-          // No priority rom found. Uses default order.
-          size_t main_item_index = items_widget->AddItem(
-              std::make_unique<ROMTitleUpdater>(rom), rom.boxart_width,
-              rom.boxart_height,
-              kiwi::base::BindRepeating(&LoadPresetROM, rom, RomPart::kBoxArt),
-              kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                        kiwi::base::Unretained(this),
-                                        std::ref(rom)));
+          ordered_roms = std::move(roms);
+        }
 
-          for (auto& alternative_rom : rom.alternates) {
-            items_widget->AddSubItem(
-                main_item_index,
-                std::make_unique<ROMTitleUpdater>(alternative_rom),
-                alternative_rom.boxart_width, alternative_rom.boxart_height,
-                kiwi::base::BindRepeating(&LoadPresetROM, alternative_rom,
-                                          RomPart::kBoxArt),
-                kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                          kiwi::base::Unretained(this),
-                                          std::ref(alternative_rom)));
+        struct ROMSelection {
+          preset_roms::PresetROM* rom;
+          preset_roms::ROMEdition edition;
+        };
+        std::vector<ROMSelection> selections;
+        for (preset_roms::PresetROM* candidate : ordered_roms) {
+          selections.push_back({candidate, preset_roms::ROMEdition::kOriginal});
+          if (candidate->hd_edition_available) {
+            selections.push_back({candidate, preset_roms::ROMEdition::kHD});
           }
+        }
+
+        SDL_assert(!selections.empty());
+        const ROMSelection& default_selection = selections.front();
+        size_t main_item_index = items_widget->AddItem(
+            std::make_unique<ROMTitleUpdater>(*default_selection.rom,
+                                              default_selection.edition),
+            default_selection.rom->boxart_width,
+            default_selection.rom->boxart_height, false,
+            kiwi::base::BindRepeating(&LoadPresetROM, *default_selection.rom,
+                                      RomPart::kBoxArt),
+            kiwi::base::BindRepeating(
+                &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+                std::ref(*default_selection.rom), default_selection.edition));
+
+        for (size_t selection_index = 1; selection_index < selections.size();
+             ++selection_index) {
+          const ROMSelection& selection = selections[selection_index];
+          const bool is_hd_edition =
+              selection.edition == preset_roms::ROMEdition::kHD;
+          items_widget->AddSubItem(
+              main_item_index,
+              std::make_unique<ROMTitleUpdater>(*selection.rom,
+                                                selection.edition),
+              selection.rom->boxart_width, selection.rom->boxart_height,
+              is_hd_edition,
+              kiwi::base::BindRepeating(&LoadPresetROM, *selection.rom,
+                                        RomPart::kBoxArt),
+              kiwi::base::BindRepeating(
+                  &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+                  std::ref(*selection.rom), selection.edition));
         }
       }
 
@@ -1983,8 +2003,11 @@ void MainWindow::OnResume() {
 }
 
 void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
+                                 preset_roms::ROMEdition edition,
                                  bool load_from_finger_gesture) {
   SDL_assert(runtime_data_->emulator);
+  SDL_assert(edition == preset_roms::ROMEdition::kOriginal ||
+             rom.hd_edition_available);
   SetLoading(true);
 
   Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
@@ -1993,18 +2016,18 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
       kiwi::base::BindOnce(
           [](MainWindow* this_window,
              scoped_refptr<kiwi::nes::Emulator> emulator,
-             preset_roms::PresetROM& rom, bool load_from_finger_gesture,
-             kiwi::nes::Bytes rom_data) {
+             preset_roms::PresetROM& rom, preset_roms::ROMEdition edition,
+             bool load_from_finger_gesture, kiwi::nes::Bytes rom_data) {
             emulator->LoadAndRun(
                 ReadFromRawBinary(rom_data.data(), rom_data.size()),
                 kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
                                      kiwi::base::Unretained(this_window),
-                                     GetROMLocalizedTitle(rom),
+                                     GetROMEditionTitle(rom, edition),
                                      load_from_finger_gesture));
           },
           kiwi::base::Unretained(this),
           kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom),
-          load_from_finger_gesture));
+          edition, load_from_finger_gesture));
 }
 
 void MainWindow::OnLoadDebugROM(kiwi::base::FilePath rom_path) {

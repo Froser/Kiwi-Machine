@@ -291,12 +291,13 @@ size_t FlexItemsWidget::AddItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
     int image_height,
+    bool is_hd_edition,
     FlexItemWidget::LoadImageCallback image_loader,
     FlexItemWidget::TriggerCallback on_trigger) {
   if (image_width && image_height) {
     std::unique_ptr<FlexItemWidget> item = std::make_unique<FlexItemWidget>(
         main_window_, this, std::move(title_updater), image_width, image_height,
-        image_loader, on_trigger);
+        is_hd_edition, image_loader, on_trigger);
     std::vector<std::string> filter_strings = item->GetFilterStrings();
     items_.push_back(item.get());
     all_items_.push_back(item.get());
@@ -317,11 +318,13 @@ void FlexItemsWidget::AddSubItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
     int image_height,
+    bool is_hd_edition,
     FlexItemWidget::LoadImageCallback image_loader,
     FlexItemWidget::TriggerCallback on_trigger) {
   SDL_assert(item_index < items_.size());
   items_[item_index]->AddSubItem(std::move(title_updater), image_width,
-                                 image_height, image_loader, on_trigger);
+                                 image_height, is_hd_edition, image_loader,
+                                 on_trigger);
   EnsureUniqueFilterSearchIndex();
   (*filter_search_index_)[item_index] = items_[item_index]->GetFilterStrings();
 }

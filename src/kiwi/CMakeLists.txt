@@ -29,6 +29,8 @@ include_directories(${zlib_BINARY_DIR})
 include_directories(${glog_SOURCE_DIR}/src)
 include_directories(${glog_BINARY_DIR}/..)
 
+add_subdirectory(nes)
+
 # Sources for base
 set(base_sources
         base/atomic_ref_count.h

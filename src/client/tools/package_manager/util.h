@@ -42,7 +42,9 @@ struct ROM {
   std::vector<uint8_t> nes_data;
   char nes_file_name[MAX]{0};
 
-  bool has_boxarts_size_hint;
+  bool has_boxarts_size_hint = false;
+  bool has_hd_texture = false;
+  char texture_type[MAX]{0};
 
  private:
   SDL_Texture* boxart_texture_ = nullptr;
@@ -59,6 +61,7 @@ void ReplaceAndAppendUnsafe(char* original_string,
                             const char* append_string);
 
 [[nodiscard]] ROMS ReadZipFromFile(const kiwi::base::FilePath& path);
+void RefreshHDTextureInfo(ROM& rom);
 kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
                               const ROMS& roms);
 std::vector<kiwi::base::FilePath> PackZip(

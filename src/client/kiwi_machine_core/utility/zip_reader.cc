@@ -14,6 +14,11 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
+
+#include <algorithm>
+#include <memory>
+#include <string_view>
+#include <unordered_set>
 #include <utility>
 
 #include "preset_roms/preset_roms.h"
@@ -21,6 +26,7 @@
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "ui/application.h"
 #include "utility/localization.h"
+#include "utility/texture_parser/mesen_texture_parser.h"
 
 #if KIWI_ANDROID
 #include "third_party/SDL2/src/core/android/SDL_android.h"
@@ -80,6 +86,111 @@ bool ReadFileFromZip(unzFile file,
     return false;
 
   return ReadCurrentFileFromZip(file, data);
+}
+
+bool GetCurrentZipFileName(unzFile file, std::string* filename) {
+  unz_file_info file_info = {};
+  if (unzGetCurrentFileInfo(file, &file_info, nullptr, 0, nullptr, 0, nullptr,
+                            0) != UNZ_OK) {
+    return false;
+  }
+
+  std::vector<char> filename_buffer(file_info.size_filename + 1, 0);
+  if (unzGetCurrentFileInfo(file, &file_info, filename_buffer.data(),
+                            filename_buffer.size(), nullptr, 0, nullptr,
+                            0) != UNZ_OK) {
+    return false;
+  }
+  *filename = filename_buffer.data();
+  return true;
+}
+
+std::unordered_set<std::string> GetZipEntries(unzFile file) {
+  std::unordered_set<std::string> entries;
+  int located = unzGoToFirstFile(file);
+  while (located == UNZ_OK) {
+    std::string filename;
+    if (!GetCurrentZipFileName(file, &filename)) {
+      entries.clear();
+      break;
+    }
+    std::replace(filename.begin(), filename.end(), '\\', '/');
+    entries.insert(std::move(filename));
+    located = unzGoToNextFile(file);
+  }
+  if (located != UNZ_END_OF_LIST_OF_FILE) {
+    entries.clear();
+  }
+  return entries;
+}
+
+std::vector<std::string> FindMesenHDTexturePackRoots(
+    std::string_view archive_root,
+    const std::unordered_set<std::string>& archive_entries) {
+  constexpr std::string_view kHiresSuffix = "/hires.txt";
+  const std::string path_prefix = std::string(archive_root) + "/";
+  std::vector<std::string> pack_roots;
+  for (const std::string& entry : archive_entries) {
+    if (entry.compare(0, path_prefix.size(), path_prefix) != 0 ||
+        entry.size() < kHiresSuffix.size() ||
+        entry.compare(entry.size() - kHiresSuffix.size(), kHiresSuffix.size(),
+                      kHiresSuffix) != 0) {
+      continue;
+    }
+    pack_roots.push_back(entry.substr(0, entry.size() - kHiresSuffix.size()));
+  }
+  std::sort(pack_roots.begin(), pack_roots.end());
+  pack_roots.erase(std::unique(pack_roots.begin(), pack_roots.end()),
+                   pack_roots.end());
+  return pack_roots;
+}
+
+std::unique_ptr<TextureParser> CreateTextureParser(
+    unzFile file,
+    const nlohmann::json& manifest) {
+  const auto texture = manifest.find("texture");
+  if (texture == manifest.end() || !texture->is_object()) {
+    return nullptr;
+  }
+
+  const auto path = texture->find("path");
+  const auto type = texture->find("type");
+  if (path == texture->end() || !path->is_string() || type == texture->end() ||
+      !type->is_string()) {
+    return nullptr;
+  }
+  const std::string texture_type = type->get<std::string>();
+  if (texture_type != "mesen" && texture_type != "musen") {
+    return nullptr;
+  }
+
+  std::string archive_root = path->get<std::string>();
+  std::replace(archive_root.begin(), archive_root.end(), '\\', '/');
+  while (!archive_root.empty() &&
+         (archive_root.back() == '/' || archive_root.back() == '\\')) {
+    archive_root.pop_back();
+  }
+
+  const std::unordered_set<std::string> archive_entries = GetZipEntries(file);
+  std::vector<std::unique_ptr<MesenTextureParser>> parsers;
+  for (const std::string& pack_root :
+       FindMesenHDTexturePackRoots(archive_root, archive_entries)) {
+    kiwi::nes::Bytes hires_contents;
+    if (!ReadFileFromZip(file, pack_root + "/hires.txt", hires_contents)) {
+      continue;
+    }
+    const char* hires_data =
+        hires_contents.empty()
+            ? ""
+            : reinterpret_cast<const char*>(hires_contents.data());
+    parsers.push_back(std::make_unique<MesenTextureParser>(
+        pack_root, std::string_view(hires_data, hires_contents.size()),
+        archive_entries));
+  }
+  if (parsers.empty()) {
+    return nullptr;
+  }
+  return std::make_unique<MesenTextureParserCollection>(std::move(parsers));
 }
 
 unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
@@ -249,6 +360,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
           i18n_names;
       // Boxarts width and height
       std::map<std::string, std::pair<int, int>> boxarts_sizes;
+      std::unique_ptr<TextureParser> texture_parser;
 
       bool success = ReadFileFromZip(file, "manifest.json", manifest);
       bool has_manifest = !manifest.empty();
@@ -274,6 +386,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
                 rom_version.value()["width"], rom_version.value()["height"]);
           }
         }
+        texture_parser = CreateTextureParser(file, manifest_json);
       } else {
         // A zip file doesn't have a manifest should load image immediately, to
         // get its boxart size, and it will only has one rom.
@@ -308,17 +421,31 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
 
       // Find alternative roms.
       int located = unzGoToFirstFile(file);
-      kiwi::base::FilePath alter_rom_path;
-      std::string filename;
-      filename.resize(kFileNameMaxLength);
       while (located == UNZ_OK) {
-        unz_file_info fi;
-        unzGetCurrentFileInfo(file, &fi, filename.data(), filename.size(),
-                              nullptr, 0, nullptr, 0);
-        alter_rom_path = kiwi::base::FilePath::FromUTF8Unsafe(filename.c_str());
+        std::string filename;
+        if (!GetCurrentZipFileName(file, &filename)) {
+          break;
+        }
 
-        if (alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe() ==
-            kiwi::base::StringPiece(rom_data.name)) {
+        const kiwi::base::FilePath alter_rom_path =
+            kiwi::base::FilePath::FromUTF8Unsafe(filename);
+        if (kiwi::base::CompareCaseInsensitiveASCII(
+                alter_rom_path.Extension(), FILE_PATH_LITERAL(".nes")) != 0) {
+          located = unzGoToNextFile(file);
+          continue;
+        }
+
+        bool texture_verified = false;
+        if (texture_parser) {
+          kiwi::nes::Bytes rom_contents;
+          texture_verified = ReadCurrentFileFromZip(file, rom_contents) &&
+                             texture_parser->Verify(rom_contents);
+        }
+
+        const std::string alter_name =
+            alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
+        if (alter_name == kiwi::base::StringPiece(rom_data.name)) {
+          rom_data.hd_edition_available = texture_verified;
           located = unzGoToNextFile(file);
           continue;
         }
@@ -331,53 +458,46 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
                          .AsUTF8Unsafe() == kiwi::base::StringPiece(lhs.name);
             });
 
-        std::string alter_rom_name = alter_rom_path.BaseName().AsUTF8Unsafe();
-        if (alter_rom_name != "manifest.json") {
-          std::string alter_name =
-              alter_rom_path.BaseName().RemoveExtension().AsUTF8Unsafe();
-
-          // Finds corresponding i18n names, and store these names.
-          auto alter_i18n_names = i18n_names.find(alter_name);
-          std::unordered_map<std::string, std::string> names;
-          if (alter_i18n_names != i18n_names.end()) {
-            names = alter_i18n_names->second;
-          }
-
-          // Finds boxart image size
-          auto alter_boxart_size = boxarts_sizes.find(alter_name);
-          int alter_boxart_width = 0;
-          int alter_boxart_height = 0;
-          if (alter_boxart_size != boxarts_sizes.end()) {
-            alter_boxart_width = std::get<0>(alter_boxart_size->second);
-            alter_boxart_height = std::get<1>(alter_boxart_size->second);
-          }
-
-          if (alternative_rom_iter != rom_data.alternates.end()) {
-            // Use the existing alternative rom struct.
-            alternative_rom_iter->i18n_names = names;
-            alternative_rom_iter->boxart_width = alter_boxart_width;
-            alternative_rom_iter->boxart_height = alter_boxart_height;
-          } else {
-            preset_roms::PresetROM alternative_rom;
-            alternative_rom.title_loaded = true;
-            alternative_rom.file_pos = rom_data.file_pos;
-            alternative_rom.zip_data_loader = rom_data.zip_data_loader;
-
-            // Boxart image size
-            alternative_rom.boxart_width = alter_boxart_width;
-            alternative_rom.boxart_height = alter_boxart_height;
-
-            // Leaky name
-            std::string rom_name =
-                alter_rom_path.RemoveExtension().BaseName().AsUTF8Unsafe();
-            alternative_rom.name = new char[rom_name.size() + 1];
-            strcpy(const_cast<char*>(alternative_rom.name), rom_name.c_str());
-            alternative_rom.i18n_names = names;
-            alternative_rom.region = GuessROMRegion(rom_name);
-            rom_data.alternates.push_back(std::move(alternative_rom));
-          }
+        // Finds corresponding i18n names, and store these names.
+        auto alter_i18n_names = i18n_names.find(alter_name);
+        std::unordered_map<std::string, std::string> names;
+        if (alter_i18n_names != i18n_names.end()) {
+          names = alter_i18n_names->second;
         }
 
+        // Finds boxart image size
+        auto alter_boxart_size = boxarts_sizes.find(alter_name);
+        int alter_boxart_width = 0;
+        int alter_boxart_height = 0;
+        if (alter_boxart_size != boxarts_sizes.end()) {
+          alter_boxart_width = std::get<0>(alter_boxart_size->second);
+          alter_boxart_height = std::get<1>(alter_boxart_size->second);
+        }
+
+        if (alternative_rom_iter != rom_data.alternates.end()) {
+          // Use the existing alternative rom struct.
+          alternative_rom_iter->i18n_names = names;
+          alternative_rom_iter->boxart_width = alter_boxart_width;
+          alternative_rom_iter->boxart_height = alter_boxart_height;
+          alternative_rom_iter->hd_edition_available = texture_verified;
+        } else {
+          preset_roms::PresetROM alternative_rom;
+          alternative_rom.title_loaded = true;
+          alternative_rom.file_pos = rom_data.file_pos;
+          alternative_rom.zip_data_loader = rom_data.zip_data_loader;
+          alternative_rom.hd_edition_available = texture_verified;
+
+          // Boxart image size
+          alternative_rom.boxart_width = alter_boxart_width;
+          alternative_rom.boxart_height = alter_boxart_height;
+
+          // Leaky name
+          alternative_rom.name = new char[alter_name.size() + 1];
+          strcpy(const_cast<char*>(alternative_rom.name), alter_name.c_str());
+          alternative_rom.i18n_names = names;
+          alternative_rom.region = GuessROMRegion(alter_name);
+          rom_data.alternates.push_back(std::move(alternative_rom));
+        }
         located = unzGoToNextFile(file);
       }
       unzClose(file);

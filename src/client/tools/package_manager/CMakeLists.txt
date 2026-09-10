@@ -76,6 +76,7 @@ endif ()
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Kiwi::kiwi_static
+        mesen_hd_pack
         gflags_nothreads_static
         imgui
         SDL2-static

@@ -40,8 +40,9 @@ class Splash;
 class FpsCounter;
 
 namespace preset_roms {
+enum class ROMEdition;
 struct PresetROM;
-}
+}  // namespace preset_roms
 
 class FullscreenMask;
 class MainWindow : public WindowBase,
@@ -209,6 +210,7 @@ class MainWindow : public WindowBase,
   void OnResume();
   bool IsPause();
   void OnLoadPresetROM(preset_roms::PresetROM& rom,
+                       preset_roms::ROMEdition edition,
                        bool load_from_finger_gesture);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
   void OnToggleAudioEnabled();
