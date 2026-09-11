@@ -159,8 +159,11 @@ void PPU::Step() {
         bool is_background_opaque = false;
         bool is_sprite_opaque = false;
         const bool capture_texture_metadata = texture_capture_.enabled();
-        if (capture_texture_metadata && x == 0 && y == 0) {
-          texture_capture_.BeginFrame();
+        if (capture_texture_metadata && x == 0) {
+          if (y == 0) {
+            texture_capture_.BeginFrame();
+          }
+          texture_capture_.CaptureScroll(y, data_address_, fine_scroll_pos_x_);
         }
         const bool capture_texture_layers =
             capture_texture_metadata && !(patch_.mask_top_scanline && y == 0);
@@ -499,6 +502,7 @@ void PPU::Step() {
             frame.texture_background_tiles =
                 texture_capture_.background_tiles();
             frame.texture_sprite_tiles = texture_capture_.sprite_tiles();
+            frame.texture_scroll_offsets = texture_capture_.scroll_offsets();
             for (size_t index = 0; index < texture_ppu_palette.size();
                  ++index) {
               texture_ppu_palette[index] =

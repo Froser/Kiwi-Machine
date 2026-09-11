@@ -35,6 +35,9 @@ class MesenTextureParser final : public TextureParser {
 
   TextureType type() const override { return TextureType::kMesen; }
   bool Verify(std::span<const uint8_t> rom_data) const override;
+  bool HasRomPatch(std::span<const uint8_t> rom_data) const override;
+  bool ApplyRomPatch(std::vector<uint8_t>* rom_data,
+                     TextureResourceProvider& resources) const override;
   std::unique_ptr<TextureRenderer> CreateTextureRenderer(
       std::span<const uint8_t> rom_data,
       TextureResourceProvider& resources) const override;
@@ -64,6 +67,9 @@ class MesenTextureParserCollection final : public TextureParser {
 
   TextureType type() const override { return TextureType::kMesen; }
   bool Verify(std::span<const uint8_t> rom_data) const override;
+  bool HasRomPatch(std::span<const uint8_t> rom_data) const override;
+  bool ApplyRomPatch(std::vector<uint8_t>* rom_data,
+                     TextureResourceProvider& resources) const override;
   std::unique_ptr<TextureRenderer> CreateTextureRenderer(
       std::span<const uint8_t> rom_data,
       TextureResourceProvider& resources) const override;

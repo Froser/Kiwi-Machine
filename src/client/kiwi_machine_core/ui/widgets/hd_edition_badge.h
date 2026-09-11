@@ -21,6 +21,11 @@ struct ImDrawList;
 
 class HDEditionBadge {
  public:
+  enum class Presentation {
+    kCoverOverlay,
+    kStandalone,
+  };
+
   HDEditionBadge() = default;
   ~HDEditionBadge() = default;
 
@@ -29,7 +34,8 @@ class HDEditionBadge {
              const SDL_Rect& cover_bounds,
              bool animate,
              float opacity = 1.f,
-             bool draw_cover_frame = true);
+             bool draw_cover_frame = true,
+             Presentation presentation = Presentation::kCoverOverlay);
 
  private:
   Timer animation_timer_;

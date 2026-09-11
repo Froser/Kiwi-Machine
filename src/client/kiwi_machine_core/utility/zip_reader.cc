@@ -234,18 +234,6 @@ std::unique_ptr<TextureParser> CreateTextureParser(
   return std::make_unique<MesenTextureParserCollection>(std::move(parsers));
 }
 
-std::unique_ptr<TextureRenderer> LoadTextureRenderer(
-    TextureResourceProvider& resources,
-    const nlohmann::json& manifest,
-    std::span<const uint8_t> rom_data) {
-  std::unique_ptr<TextureParser> parser =
-      CreateTextureParser(resources, manifest);
-  if (!parser) {
-    return nullptr;
-  }
-  return parser->CreateTextureRenderer(rom_data, resources);
-}
-
 unzFile unzOpenFromMemory(kiwi::nes::Byte* data, size_t size) {
   SDL_RWops* ops = SDL_RWFromMem(const_cast<kiwi::nes::Byte*>(data), size);
 
@@ -622,8 +610,30 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
           nlohmann::json::parse(manifest.data(), nullptr, false);
       if (!manifest_json.is_discarded()) {
         ZipTextureResourceProvider resources(*archive);
-        result.texture_renderer =
-            LoadTextureRenderer(resources, manifest_json, result.rom_data);
+        std::unique_ptr<TextureParser> parser =
+            CreateTextureParser(resources, manifest_json);
+        if (parser && parser->Verify(result.rom_data)) {
+          const bool rom_patch_required =
+              parser->HasRomPatch(result.rom_data);
+          if (!rom_patch_required ||
+              edition == preset_roms::ROMEdition::kHD) {
+            result.texture_renderer =
+                parser->CreateTextureRenderer(result.rom_data, resources);
+          }
+
+          if (result.texture_renderer && rom_patch_required) {
+            // Keep the patched bytes as the emulator input. Its resulting CRC
+            // intentionally gives non-switchable editions separate saves.
+            if (!parser->ApplyRomPatch(&result.rom_data, resources)) {
+              SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                           "Failed to apply HD texture ROM patch for name %s",
+                           rom_data.name);
+              result.texture_renderer.reset();
+            }
+          } else if (result.texture_renderer) {
+            result.hd_texture_toggle_available = true;
+          }
+        }
       }
     }
 

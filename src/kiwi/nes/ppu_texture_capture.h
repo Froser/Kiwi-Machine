@@ -68,6 +68,11 @@ struct NES_EXPORT PPUTextureTileCommand {
   Byte oam_index = 0;
 };
 
+struct NES_EXPORT PPUTextureScroll {
+  int32_t x = 0;
+  int32_t y = 0;
+};
+
 // Records format-neutral texture metadata without changing the native frame.
 class NES_EXPORT PPUTextureCapture {
   friend class PPU;
@@ -155,12 +160,27 @@ class NES_EXPORT PPUTextureCapture {
     backdrop_pixels_[static_cast<size_t>(y) * 256 + x] = color;
   }
 
+  ALWAYS_INLINE void CaptureScroll(int y,
+                                   Address data_address,
+                                   Byte fine_scroll_x) {
+    PPUTextureScroll& scroll = scroll_offsets_[y];
+    scroll.x = ((data_address & 0x001f) << 3) | fine_scroll_x |
+               ((data_address & 0x0400) ? 0x100 : 0);
+    scroll.y = ((data_address & 0x03e0) >> 2) | ((data_address & 0x7000) >> 12);
+    if (data_address & 0x0800) {
+      scroll.y += 240;
+    }
+  }
+
   const Colors& backdrop_pixels() const { return backdrop_pixels_; }
   const std::vector<PPUTextureTileCommand>& background_tiles() const {
     return background_tiles_;
   }
   const std::vector<PPUTextureTileCommand>& sprite_tiles() const {
     return sprite_tiles_;
+  }
+  const std::array<PPUTextureScroll, 240>& scroll_offsets() const {
+    return scroll_offsets_;
   }
 
   // Sentinel used when no command currently owns a column or OAM entry.
@@ -212,6 +232,8 @@ class NES_EXPORT PPUTextureCapture {
   std::vector<PPUTextureTileCommand> background_tiles_;
   // Coalesced sprite commands for the current frame.
   std::vector<PPUTextureTileCommand> sprite_tiles_;
+  // PPU scroll coordinates captured at the start of each visible scanline.
+  std::array<PPUTextureScroll, 240> scroll_offsets_;
   // Latest command covering each screen column, or |kNoTextureCommand|.
   std::array<size_t, 256> background_command_indices_;
   // Latest command for each OAM entry, or |kNoTextureCommand|.

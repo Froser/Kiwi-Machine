@@ -131,6 +131,8 @@ set(Sources
         utility/fonts.h
         utility/images.cc
         utility/images.h
+        utility/ips.cc
+        utility/ips.h
         utility/key_mapping_util.cc
         utility/key_mapping_util.h
         utility/localization.cc

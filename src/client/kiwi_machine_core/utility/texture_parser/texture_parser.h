@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <vector>
 
 class TextureRenderer;
 class TextureResourceProvider;
@@ -37,6 +38,13 @@ class TextureParser {
   // Verifies that the texture pack supports |rom_data|. Implementations must
   // not load or decode texture resources during this call.
   virtual bool Verify(std::span<const uint8_t> rom_data) const = 0;
+
+  // Returns whether the matching texture pack requires a ROM patch.
+  virtual bool HasRomPatch(std::span<const uint8_t> rom_data) const = 0;
+
+  // Applies the matching texture pack's ROM patch transactionally.
+  virtual bool ApplyRomPatch(std::vector<uint8_t>* rom_data,
+                             TextureResourceProvider& resources) const = 0;
 
   // Creates a renderer after verifying |rom_data| and loading the required
   // resources through |resources|.

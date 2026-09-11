@@ -52,6 +52,7 @@ struct LoadedPresetROM {
 
   kiwi::nes::Bytes rom_data;
   std::unique_ptr<TextureRenderer> texture_renderer;
+  bool hd_texture_toggle_available = false;
 };
 
 // Loads the playable ROM and its texture renderer when one is available.

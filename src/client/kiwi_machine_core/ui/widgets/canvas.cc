@@ -29,8 +29,8 @@ constexpr int kHDTextureHintDurationMs = 3000;
 constexpr int kHDTextureHintFadeInMs = 220;
 constexpr int kHDTextureHintFadeOutMs = 360;
 constexpr float kHDTextureHintMaximumWidthRatio = .92f;
-constexpr float kHDTextureHintBadgeWidth = 84.f;
-constexpr float kHDTextureHintBadgeHeight = 44.f;
+constexpr float kHDTextureHintBadgeWidth = 52.f;
+constexpr float kHDTextureHintBadgeHeight = 24.f;
 
 bool IsColorBrightEnough(int r, int g, int b) {
   float luminance = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -269,7 +269,8 @@ void Canvas::PaintHDTextureToggleHint() {
       static_cast<int>(kHDTextureHintBadgeWidth),
       static_cast<int>(kHDTextureHintBadgeHeight),
   };
-  hd_texture_hint_badge_.Paint(draw_list, badge_bounds, true, alpha, false);
+  hd_texture_hint_badge_.Paint(draw_list, badge_bounds, true, alpha, false,
+                               HDEditionBadge::Presentation::kStandalone);
 
   const float text_left = box_min.x + horizontal_padding +
                           kHDTextureHintBadgeWidth + content_spacing;

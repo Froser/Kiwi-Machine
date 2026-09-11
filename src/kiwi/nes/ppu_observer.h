@@ -41,6 +41,8 @@ struct PPUFrameData {
   std::span<const PPUTextureTileCommand> texture_background_tiles;
   // Sprite tile commands with their original OAM ordering information.
   std::span<const PPUTextureTileCommand> texture_sprite_tiles;
+  // PPU scroll coordinates captured at the start of each visible scanline.
+  std::span<const PPUTextureScroll> texture_scroll_offsets;
   // Snapshot of $3F00-$3F1F used by Mesen PPU memory conditions.
   std::span<const Byte> texture_ppu_palette;
 };

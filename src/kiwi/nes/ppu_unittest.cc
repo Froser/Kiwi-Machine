@@ -46,8 +46,12 @@ class FrameSizePPUObserver : public PPUObserver {
     frame_type = frame.type;
     has_texture_metadata = !frame.texture_backdrop_pixels.empty() &&
                            !frame.texture_background_tiles.empty() &&
+                           frame.texture_scroll_offsets.size() == 240 &&
                            frame.texture_ppu_palette.size() == 0x20;
     background_tile_count = frame.texture_background_tiles.size();
+    if (!frame.texture_scroll_offsets.empty()) {
+      first_scroll = frame.texture_scroll_offsets.front();
+    }
     if (frame.texture_ppu_palette.size() == 0x20) {
       sampled_palette_value = frame.texture_ppu_palette[0x13];
     }
@@ -60,6 +64,7 @@ class FrameSizePPUObserver : public PPUObserver {
   size_t frame_size = 0;
   size_t background_tile_count = 0;
   Byte sampled_palette_value = 0;
+  PPUTextureScroll first_scroll;
   bool has_texture_metadata = false;
 };
 
@@ -148,6 +153,8 @@ TEST_F(PPURenderingTest, TextureMetadataDoesNotChangePPUFrame) {
   ppu.SetTextureMetadataCapture(true, true);
   ppu.SetTextureMetadataCapture(true, true);
   ppu.SetObserver(&observer);
+  ppu.Write(static_cast<Address>(PPURegister::PPUSCROL), 5);
+  ppu.Write(static_cast<Address>(PPURegister::PPUSCROL), 9);
   ppu.Write(static_cast<Address>(PPURegister::PPUMASK), 0x0a);
 
   constexpr int kMaxSteps = 262 * 341;
@@ -159,6 +166,8 @@ TEST_F(PPURenderingTest, TextureMetadataDoesNotChangePPUFrame) {
   EXPECT_EQ(observer.frame_type, PPUFrameData::Type::kTextureMetadata);
   EXPECT_TRUE(observer.has_texture_metadata);
   EXPECT_EQ(observer.sampled_palette_value, 0x25);
+  EXPECT_EQ(observer.first_scroll.x, 5);
+  EXPECT_EQ(observer.first_scroll.y, 9);
   EXPECT_LT(observer.background_tile_count, 256u * 240u);
 }
 

@@ -127,6 +127,23 @@ bool NESFrame::RenderTextureFrame(const kiwi::nes::PPUFrameData& frame) {
         render_height_,
     };
     rendered = texture_renderer_->RenderFrame(frame, target);
+    if (rendered) {
+      const uint32_t scale = texture_renderer_->GetScale();
+      const uint32_t sample_offset = scale / 2;
+      last_rendered_frame_.resize(static_cast<size_t>(frame.width) *
+                                  frame.height);
+      for (int y = 0; y < frame.height; ++y) {
+        const kiwi::nes::Color* source =
+            target.pixels +
+            static_cast<size_t>(y * scale + sample_offset) * target.stride +
+            sample_offset;
+        kiwi::nes::Color* destination =
+            last_rendered_frame_.data() + static_cast<size_t>(y) * frame.width;
+        for (int x = 0; x < frame.width; ++x) {
+          destination[x] = source[static_cast<size_t>(x) * scale];
+        }
+      }
+    }
   }
   SDL_UnlockTexture(screen_texture_);
 
@@ -148,6 +165,7 @@ void NESFrame::UpdateTexture(int width,
   int result = SDL_UpdateTexture(screen_texture_, nullptr, buffer.data(),
                                  render_width_ * sizeof(buffer[0]));
   SDL_assert(result == 0);
+  last_rendered_frame_ = buffer;
   NotifyObservers();
 }
 
@@ -165,6 +183,9 @@ bool NESFrame::NeedRender() {
 }
 
 const NESFrame::Buffer& NESFrame::GetLastFrame() {
+  if (!last_rendered_frame_.empty()) {
+    return last_rendered_frame_;
+  }
   return runtime_data_->emulator->GetLastFrame();
 }
 

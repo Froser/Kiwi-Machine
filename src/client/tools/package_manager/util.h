@@ -62,6 +62,9 @@ void ReplaceAndAppendUnsafe(char* original_string,
 
 [[nodiscard]] ROMS ReadZipFromFile(const kiwi::base::FilePath& path);
 void RefreshHDTextureInfo(ROM& rom);
+kiwi::base::FilePath AddMesenHDTexturePackToMatchedZip(
+    const kiwi::base::FilePath& texture_pack_path,
+    const kiwi::base::FilePath& zipped_path);
 kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
                               const ROMS& roms);
 std::vector<kiwi::base::FilePath> PackZip(

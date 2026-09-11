@@ -73,6 +73,7 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   std::atomic_bool hd_texture_rendering_enabled_ = false;
   int render_width_ = 0;   // UI thread access only
   int render_height_ = 0;  // UI thread access only
+  Buffer last_rendered_frame_;
   Timer frame_elapsed_counter_;
   std::set<NESFrameObserver*> observers_;
 };

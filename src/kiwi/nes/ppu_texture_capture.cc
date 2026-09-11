@@ -43,6 +43,7 @@ void PPUTextureCapture::SetEnabled(bool enabled, bool uses_chr_ram) {
 void PPUTextureCapture::BeginFrame() {
   background_tiles_.clear();
   sprite_tiles_.clear();
+  scroll_offsets_.fill(PPUTextureScroll{});
   background_command_indices_.fill(kNoTextureCommand);
   sprite_command_indices_.fill(kNoTextureCommand);
 }

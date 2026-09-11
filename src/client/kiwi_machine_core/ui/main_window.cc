@@ -2020,11 +2020,14 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
              scoped_refptr<kiwi::nes::Emulator> emulator,
              preset_roms::PresetROM& rom, preset_roms::ROMEdition edition,
              bool load_from_finger_gesture, LoadedPresetROM loaded_rom) {
-            const bool hd_available = loaded_rom.texture_renderer != nullptr;
+            const bool has_hd_renderer =
+                loaded_rom.texture_renderer != nullptr;
             const bool hd_enabled =
-                hd_available && edition == preset_roms::ROMEdition::kHD;
+                has_hd_renderer && edition == preset_roms::ROMEdition::kHD;
             this_window->current_game_title_ = GetROMLocalizedTitle(rom);
-            this_window->hd_texture_available_ = hd_available;
+            this_window->hd_texture_available_ =
+                has_hd_renderer &&
+                loaded_rom.hd_texture_toggle_available;
             this_window->hd_texture_enabled_ = hd_enabled;
             kiwi::nes::Emulator::LoadCallback callback = kiwi::base::BindOnce(
                 &MainWindow::OnRomLoaded, kiwi::base::Unretained(this_window),
@@ -2033,7 +2036,7 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
                                     : preset_roms::ROMEdition::kOriginal),
                 load_from_finger_gesture);
             kiwi::nes::Emulator::LoadOptions load_options;
-            if (hd_available) {
+            if (has_hd_renderer) {
               load_options.capture_ppu_texture_metadata = true;
               load_options.uses_chr_ram =
                   loaded_rom.texture_renderer->IsUseChrRam();

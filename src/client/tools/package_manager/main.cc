@@ -30,6 +30,8 @@
 DEFINE_string(km_path, "", "Kiwi-Machine executable/bundle directory.");
 DEFINE_string(zipped_path, "", "Input path for zipped files.");
 DEFINE_string(output_path, "", "Output path for packaged files.");
+DEFINE_string(add_mesen_hd_texture, "",
+              "Add a Mesen HD Texture Pack to its SHA-1-matched ROM ZIP.");
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -732,6 +734,24 @@ int WINAPI wWinMain(HINSTANCE hInstance,
 int main(int argc, char **argv) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 #endif
+
+    if (!FLAGS_add_mesen_hd_texture.empty()) {
+        if (FLAGS_zipped_path.empty()) {
+            fprintf(stderr,
+                    "--add_mesen_hd_texture requires --zipped_path.\n");
+            return 1;
+        }
+        kiwi::base::FilePath updated_zip = AddMesenHDTexturePackToMatchedZip(
+                kiwi::base::FilePath::FromUTF8Unsafe(
+                        FLAGS_add_mesen_hd_texture),
+                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_zipped_path));
+        if (updated_zip.empty())
+            return 1;
+
+        printf("Done. Updated ZIP:\n%s\n",
+               updated_zip.AsUTF8Unsafe().c_str());
+        return 0;
+    }
 
     if (!FLAGS_zipped_path.empty() && !FLAGS_output_path.empty()) {
         kiwi::base::FilePath zipped_path =

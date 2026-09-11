@@ -456,6 +456,24 @@ int LevenshteinDistance(const std::string& s1, const std::string& s2) {
   return dp[m][n];
 }
 
+std::string NormalizePackageNameForSimilarity(std::string name) {
+  name = kiwi::base::ToLowerASCII(name);
+  const size_t region_suffix = name.rfind(" (");
+  if (region_suffix != std::string::npos && name.back() == ')') {
+    name.erase(region_suffix);
+  }
+  const size_t subtitle = name.find(" - ");
+  if (subtitle != std::string::npos) {
+    name.erase(subtitle);
+  }
+
+  std::erase_if(name, [](char character) {
+    return !((character >= 'a' && character <= 'z') ||
+             (character >= '0' && character <= '9'));
+  });
+  return name;
+}
+
 std::string RemoveQuote(const std::string& str) {
   if (str.empty())
     return str;
@@ -798,11 +816,13 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
   return result;
 }
 
-kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
-                              const ROMS& roms) {
+namespace {
+
+kiwi::base::FilePath WriteZipWithTextureIndex(
+    const kiwi::base::FilePath& save_dir,
+    const ROMS& roms,
+    const MesenHDTexturePackIndex& texture_index) {
   kiwi::base::FilePath package_name;
-  const MesenHDTexturePackIndex texture_index =
-      BuildMesenHDTexturePackIndex(GetWorkspace().GetMesenHDTexturesPath());
   const MesenHDTexturePack* texture_pack = nullptr;
 
   // Generate manifest.json
@@ -897,6 +917,74 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
 
   zipClose(zf, nullptr);
   return kiwi::base::FilePath::FromUTF8Unsafe(output);
+}
+
+}  // namespace
+
+kiwi::base::FilePath AddMesenHDTexturePackToMatchedZip(
+    const kiwi::base::FilePath& texture_pack_path,
+    const kiwi::base::FilePath& zipped_path) {
+  const MesenHDTexturePackIndex texture_index =
+      BuildMesenHDTexturePackIndex(texture_pack_path);
+  if (texture_index.packs.size() != 1) {
+    std::fprintf(stderr,
+                 "Expected exactly one valid Mesen HD Pack under: %s\n",
+                 texture_pack_path.AsUTF8Unsafe().c_str());
+    return kiwi::base::FilePath();
+  }
+
+  const std::string texture_pack_name = NormalizePackageNameForSimilarity(
+      texture_pack_path.BaseName().AsUTF8Unsafe());
+  std::vector<std::pair<int, kiwi::base::FilePath>> zip_files;
+  const auto add_zip_file = [&zip_files, &texture_pack_name](
+                                const kiwi::base::FilePath& zip_file) {
+    const std::string zip_name = NormalizePackageNameForSimilarity(
+        zip_file.BaseName().RemoveExtension().AsUTF8Unsafe());
+    zip_files.emplace_back(
+        LevenshteinDistance(texture_pack_name, zip_name), zip_file);
+  };
+  if (kiwi::base::DirectoryExists(zipped_path)) {
+    kiwi::base::FileEnumerator files(
+        zipped_path, true, kiwi::base::FileEnumerator::FILES,
+        FILE_PATH_LITERAL("*.zip"));
+    for (kiwi::base::FilePath current = files.Next(); !current.empty();
+         current = files.Next()) {
+      add_zip_file(current);
+    }
+  } else if (kiwi::base::PathExists(zipped_path)) {
+    add_zip_file(zipped_path);
+  }
+  std::stable_sort(zip_files.begin(), zip_files.end(),
+                   [](const auto& lhs, const auto& rhs) {
+                     return lhs.first < rhs.first;
+                   });
+
+  for (const auto& candidate : zip_files) {
+    const kiwi::base::FilePath& zip_file = candidate.second;
+    ROMS roms = ReadZipFromFile(zip_file);
+    const MesenHDTexturePack* matched_pack = nullptr;
+    for (const ROM& rom : roms) {
+      if (!MatchMesenHDTexturePack(rom.nes_data, texture_index,
+                                   &matched_pack)) {
+        return kiwi::base::FilePath();
+      }
+    }
+    if (!matched_pack) {
+      continue;
+    }
+    return WriteZipWithTextureIndex(zip_file.DirName(), roms, texture_index);
+  }
+
+  std::fprintf(stderr, "No ROM ZIP matches Mesen HD Pack: %s\n",
+               texture_pack_path.AsUTF8Unsafe().c_str());
+  return kiwi::base::FilePath();
+}
+
+kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
+                              const ROMS& roms) {
+  const MesenHDTexturePackIndex texture_index =
+      BuildMesenHDTexturePackIndex(GetWorkspace().GetMesenHDTexturesPath());
+  return WriteZipWithTextureIndex(save_dir, roms, texture_index);
 }
 
 kiwi::base::FilePath PackZip(

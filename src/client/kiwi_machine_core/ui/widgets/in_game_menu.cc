@@ -815,6 +815,8 @@ void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
     layout.state_metadata = MakeRect(controls.x, y, controls.w, text_height);
     y += text_height + gap;
     const float button_width = action_height;
+    layout.state_selector =
+        MakeRect(controls.x, y, controls.w, action_height);
     layout.state_previous =
         MakeRect(controls.x, y, button_width, action_height);
     layout.state_next = MakeRect(RectRight(controls) - button_width, y,
@@ -846,6 +848,7 @@ void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
     layout.state_metadata = MakeRect(inner.x, y, inner.w, text_height);
     y += text_height + gap;
     const float button_width = action_height;
+    layout.state_selector = MakeRect(inner.x, y, inner.w, action_height);
     layout.state_previous = MakeRect(inner.x, y, button_width, action_height);
     layout.state_next = MakeRect(RectRight(inner) - button_width, y,
                                  button_width, action_height);
@@ -1088,8 +1091,13 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
   const bool previous_hovered =
       hovered_target_.type == HitTargetType::kStatePrevious;
   const bool next_hovered = hovered_target_.type == HitTargetType::kStateNext;
+  const bool selector_selected =
+      page_ == Page::kStateBrowser &&
+      focus_.area == FocusArea::kStateSelector;
   const bool can_step_previous = CanStepState(StepDirection::kPrevious);
   const bool can_step_next = CanStepState(StepDirection::kNext);
+  DrawButtonBackground(layout.state_selector, selector_selected, false, false,
+                       false);
   DrawButtonBackground(layout.state_previous, false, previous_hovered, false,
                        false, can_step_previous);
   DrawButtonBackground(layout.state_next, false, next_hovered, false, false,
@@ -1101,6 +1109,13 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
   DrawChevron(layout.state_next, false,
               !can_step_next ? kMutedTextColor
                              : (next_hovered ? kBrandColor : kTextColor));
+  draw_list->AddRectFilled(RectMin(layout.state_position),
+                           RectMax(layout.state_position), kPanelMutedColor);
+  if (selector_selected) {
+    draw_list->AddRectFilled(RectMin(layout.state_position),
+                             RectMax(layout.state_position),
+                             IM_COL32(101, 216, 75, 76));
+  }
   draw_list->AddRect(RectMin(layout.state_position),
                      RectMax(layout.state_position), kBorderColor);
   DrawTextInRect(text.state_position, layout.state_position,
@@ -1382,14 +1397,24 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
   }
 
   if (page_ == Page::kStateBrowser) {
-    if (action == NavigationAction::kLeft) {
+    if (action == NavigationAction::kLeft &&
+        focus_.area == FocusArea::kStateSelector) {
       StepState(StepDirection::kPrevious);
-    } else if (action == NavigationAction::kRight) {
+    } else if (action == NavigationAction::kRight &&
+               focus_.area == FocusArea::kStateSelector) {
       StepState(StepDirection::kNext);
-    } else if (action == NavigationAction::kActivate) {
+    } else if (action == NavigationAction::kDown &&
+               focus_.area == FocusArea::kStateSelector) {
+      focus_.area = FocusArea::kDetail;
+      PlayEffect(audio_resources::AudioID::kSelect);
+    } else if (action == NavigationAction::kUp &&
+               focus_.area == FocusArea::kDetail) {
+      focus_.area = FocusArea::kStateSelector;
+      PlayEffect(audio_resources::AudioID::kSelect);
+    } else if (action == NavigationAction::kActivate &&
+               focus_.area == FocusArea::kDetail) {
       ExecuteStateAction();
-    } else if (action == NavigationAction::kBack ||
-               action == NavigationAction::kUp) {
+    } else if (action == NavigationAction::kBack) {
       PlayEffect(audio_resources::AudioID::kBack);
       ReturnToMenu();
     }
@@ -1485,7 +1510,13 @@ void InGameMenu::ExecuteConfirmation() {
 
 void InGameMenu::OpenPage(Page page) {
   page_ = page;
-  focus_.area = page == Page::kMainMenu ? FocusArea::kMenu : FocusArea::kDetail;
+  if (page == Page::kMainMenu) {
+    focus_.area = FocusArea::kMenu;
+  } else if (page == Page::kStateBrowser) {
+    focus_.area = FocusArea::kStateSelector;
+  } else {
+    focus_.area = FocusArea::kDetail;
+  }
   if (page == Page::kSettings)
     ScrollSettingsSelectionIntoView();
   if (page == Page::kStateBrowser &&
@@ -1616,6 +1647,9 @@ InGameMenu::HitTarget InGameMenu::HitTest(const FrameLayout& layout,
         PointInRect(layout.state_previous, x, y)) {
       return {HitTargetType::kStatePrevious};
     }
+    if (PointInRect(layout.state_position, x, y)) {
+      return {HitTargetType::kStatePosition};
+    }
     if (CanStepState(StepDirection::kNext) &&
         PointInRect(layout.state_next, x, y)) {
       return {HitTargetType::kStateNext};
@@ -1662,6 +1696,12 @@ void InGameMenu::UpdatePointerFocus(const HitTarget& target,
              target.type == HitTargetType::kSettingValue ||
              target.type == HitTargetType::kSettingNext) {
     focus_.settings_item = static_cast<SettingsItem>(target.index);
+  } else if (target.type == HitTargetType::kStatePrevious ||
+             target.type == HitTargetType::kStatePosition ||
+             target.type == HitTargetType::kStateNext) {
+    focus_.area = FocusArea::kStateSelector;
+  } else if (target.type == HitTargetType::kStateAction) {
+    focus_.area = FocusArea::kDetail;
   } else if (target.type == HitTargetType::kConfirmationCancel) {
     focus_.confirm_action = false;
   } else if (target.type == HitTargetType::kConfirmationAccept) {
@@ -1691,6 +1731,9 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
       if (page_ == Page::kMainMenu)
         OpenPage(Page::kStateBrowser);
       StepState(StepDirection::kPrevious);
+      break;
+    case HitTargetType::kStatePosition:
+      focus_.area = FocusArea::kStateSelector;
       break;
     case HitTargetType::kStateNext:
       if (page_ == Page::kMainMenu)
