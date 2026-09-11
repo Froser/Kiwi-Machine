@@ -52,13 +52,12 @@ PPUTextureTile* PPUTextureCapture::CreateBackgroundTileCommand(
     int y,
     Byte tile_x,
     Byte tile_y,
-    Address pattern_address,
+    uint32_t tile_index,
     Byte palette_slot,
     Color color,
     bool opaque) {
   const int tile_origin_x = x - tile_x;
   const int tile_origin_y = y - tile_y;
-  const uint32_t tile_index = (pattern_address & 0x1ff0) / 16;
   const PPUTextureTile::Source source = uses_chr_ram_
                                             ? PPUTextureTile::Source::kChrRam
                                             : PPUTextureTile::Source::kChrRom;
@@ -87,7 +86,7 @@ PPUTextureTile* PPUTextureCapture::CreateSpriteTileCommand(
     Byte tile_x,
     Byte tile_y,
     Byte oam_index,
-    Address pattern_address,
+    uint32_t tile_index,
     Byte palette_slot,
     bool horizontal_mirroring,
     bool vertical_mirroring,
@@ -96,7 +95,6 @@ PPUTextureTile* PPUTextureCapture::CreateSpriteTileCommand(
     bool opaque) {
   const int tile_origin_x = x - tile_x;
   const int tile_origin_y = y - tile_y;
-  const uint32_t tile_index = (pattern_address & 0x1ff0) / 16;
   const PPUTextureTile::Source source = uses_chr_ram_
                                             ? PPUTextureTile::Source::kChrRam
                                             : PPUTextureTile::Source::kChrRom;

@@ -614,7 +614,7 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
     return result;
   }
 
-  if (edition == preset_roms::ROMEdition::kHD) {
+  if (rom_data.hd_edition_available) {
     kiwi::nes::Bytes manifest;
     if (ReadFileFromZip(*archive, "manifest.json", manifest)) {
       manifest.push_back(0);
@@ -627,7 +627,8 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
       }
     }
 
-    if (!result.texture_renderer) {
+    if (!result.texture_renderer &&
+        edition == preset_roms::ROMEdition::kHD) {
       SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                    "Failed to load HD texture data for name %s", rom_data.name);
       result.rom_data.clear();

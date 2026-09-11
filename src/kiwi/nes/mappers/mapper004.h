@@ -33,6 +33,7 @@ class Mapper004 : public Mapper {
 
   void WriteCHR(Address address, Byte value) override;
   Byte ReadCHR(Address address) override;
+  uint32_t GetAbsoluteCHRAddress(Address address) override;
 
   // Some games (such as SMB3), has no extended RAM, but still write data to
   // $6000-$7fff, so this mapper allocated a dedicate PRG RAM area here.

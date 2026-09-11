@@ -15,11 +15,13 @@
 #include <SDL.h>
 #include <SDL_image.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -97,7 +99,8 @@ bool RenderBackgroundTile(TextureRenderer& renderer,
                           const kiwi::nes::PPUTextureTile& tile,
                           kiwi::nes::Color original_color,
                           kiwi::nes::Colors* output,
-                          size_t output_stride = 0) {
+                          size_t output_stride = 0,
+                          std::span<const kiwi::nes::Byte> ppu_palette = {}) {
   constexpr int kWidth = 256;
   constexpr int kHeight = 240;
   kiwi::nes::Colors backdrop_pixels(kWidth * kHeight, original_color);
@@ -114,6 +117,7 @@ bool RenderBackgroundTile(TextureRenderer& renderer,
   frame.height = kHeight;
   frame.texture_backdrop_pixels = backdrop_pixels;
   frame.texture_background_tiles = background_tiles;
+  frame.texture_ppu_palette = ppu_palette;
   if (output_stride != 0) {
     constexpr kiwi::nes::Color kPaddingColor = 0xff123456;
     const int output_width = frame.width * renderer.GetScale();
@@ -128,6 +132,22 @@ bool RenderBackgroundTile(TextureRenderer& renderer,
     return renderer.RenderFrame(frame, target);
   }
   return renderer.RenderFrame(frame, output);
+}
+
+kiwi::nes::PPUTextureTileCommand MakeTileCommand(
+    uint32_t tile_index,
+    std::array<kiwi::nes::Byte, 4> palette,
+    int x,
+    int y) {
+  kiwi::nes::PPUTextureTileCommand command;
+  command.tile.tile_index = tile_index;
+  command.tile.palette = palette;
+  command.x = x;
+  command.y = y;
+  command.visible_mask = std::numeric_limits<uint64_t>::max();
+  command.opaque_mask = command.visible_mask;
+  command.native_colors.fill(0xff000000);
+  return command;
 }
 
 TEST(MesenTextureParserTest, VerifiesRomWithoutLoadingTextureResources) {
@@ -310,6 +330,194 @@ TEST(MesenTextureParserTest, MatchesChrRamByAllSixteenTileBytes) {
   tile.chr_data.back() = 0xff;
   EXPECT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
   EXPECT_EQ(output[0], 0xff000000u);
+}
+
+TEST(MesenTextureParserTest, MatchesDonkeyKongSpatialConditions) {
+  constexpr std::string_view kDefinition = R"(
+<ver>101
+<scale>1
+<supportedRom>A9993E364706816ABA3E25717850C26C9CD0D89D
+<img>tiles.png
+<condition>near,tileNearby,8,0,43,0F112233
+<condition>fixed,tileAtPosition,16,0,44,0F112233
+<condition>sprite,spriteNearby,0,8,48,FF112233
+[near&fixed&sprite]<tile>0,42,0F112233,0,0,1,N
+<tile>0,42,0F112233,8,0,1,N
+)";
+  const std::unordered_set<std::string> archive_entries = {
+      "textures/mesen/hires.txt",
+      "textures/mesen/tiles.png",
+  };
+  MesenTextureParser parser("textures/mesen", kDefinition, archive_entries);
+  constexpr std::array<uint8_t, 3> kAbc = {'a', 'b', 'c'};
+
+  constexpr uint32_t kImageWidth = 16;
+  constexpr uint32_t kImageHeight = 8;
+  kiwi::nes::Colors pixels(kImageWidth * kImageHeight, 0xff00aa00);
+  for (uint32_t y = 0; y < kImageHeight; ++y) {
+    std::fill_n(pixels.begin() + y * kImageWidth + 8, 8, 0xffaa0000);
+  }
+  FakeTextureResourceProvider resources;
+  resources.AddFile("textures/mesen/tiles.png",
+                    EncodePng(kImageWidth, kImageHeight, pixels));
+  std::unique_ptr<TextureRenderer> renderer =
+      parser.CreateTextureRenderer(kAbc, resources);
+  ASSERT_TRUE(renderer);
+
+  constexpr std::array<kiwi::nes::Byte, 4> kBackgroundPalette = {
+      0x0f, 0x11, 0x22, 0x33};
+  constexpr std::array<kiwi::nes::Byte, 4> kSpritePalette = {
+      0xff, 0x11, 0x22, 0x33};
+  std::vector<kiwi::nes::PPUTextureTileCommand> background_tiles = {
+      MakeTileCommand(0x2a, kBackgroundPalette, 0, 0),
+      MakeTileCommand(0x2b, kBackgroundPalette, 8, 0),
+      MakeTileCommand(0x2c, kBackgroundPalette, 16, 0),
+  };
+  std::vector<kiwi::nes::PPUTextureTileCommand> sprite_tiles = {
+      MakeTileCommand(0x30, kSpritePalette, 0, 8),
+  };
+  kiwi::nes::Colors backdrop_pixels(256 * 240, 0xff000000);
+  kiwi::nes::PPUFrameData frame;
+  frame.type = kiwi::nes::PPUFrameData::Type::kTextureMetadata;
+  frame.native_pixels = &backdrop_pixels;
+  frame.texture_backdrop_pixels = backdrop_pixels;
+  frame.texture_background_tiles = background_tiles;
+  frame.texture_sprite_tiles = sprite_tiles;
+  kiwi::nes::Colors output;
+
+  ASSERT_TRUE(renderer->RenderFrame(frame, &output));
+  EXPECT_EQ(output[0], 0xff00aa00u);
+
+  sprite_tiles.clear();
+  frame.texture_sprite_tiles = sprite_tiles;
+  ASSERT_TRUE(renderer->RenderFrame(frame, &output));
+  EXPECT_EQ(output[0], 0xffaa0000u);
+}
+
+TEST(MesenTextureParserTest, MatchesFrameRangeCondition) {
+  constexpr std::string_view kDefinition = R"(
+<ver>101
+<scale>1
+<supportedRom>A9993E364706816ABA3E25717850C26C9CD0D89D
+<img>tiles.png
+<condition>odd,frameRange,2,1
+[odd]<tile>0,42,0F112233,0,0,1,N
+<tile>0,42,0F112233,8,0,1,N
+)";
+  const std::unordered_set<std::string> archive_entries = {
+      "textures/mesen/hires.txt",
+      "textures/mesen/tiles.png",
+  };
+  MesenTextureParser parser("textures/mesen", kDefinition, archive_entries);
+  constexpr std::array<uint8_t, 3> kAbc = {'a', 'b', 'c'};
+
+  constexpr uint32_t kImageWidth = 16;
+  constexpr uint32_t kImageHeight = 8;
+  kiwi::nes::Colors pixels(kImageWidth * kImageHeight, 0xff00aa00);
+  for (uint32_t y = 0; y < kImageHeight; ++y) {
+    std::fill_n(pixels.begin() + y * kImageWidth + 8, 8, 0xffaa0000);
+  }
+  FakeTextureResourceProvider resources;
+  resources.AddFile("textures/mesen/tiles.png",
+                    EncodePng(kImageWidth, kImageHeight, pixels));
+  std::unique_ptr<TextureRenderer> renderer =
+      parser.CreateTextureRenderer(kAbc, resources);
+  ASSERT_TRUE(renderer);
+
+  kiwi::nes::PPUTextureTile tile;
+  tile.tile_index = 0x2a;
+  tile.palette = {0x0f, 0x11, 0x22, 0x33};
+  kiwi::nes::Colors output;
+  ASSERT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
+  EXPECT_EQ(output[0], 0xffaa0000u);
+  ASSERT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
+  EXPECT_EQ(output[0], 0xff00aa00u);
+}
+
+TEST(MesenTextureParserTest, MatchesPPUPaletteMemoryConditions) {
+  constexpr std::string_view kDefinition = R"(
+<ver>103
+<scale>1
+<supportedRom>A9993E364706816ABA3E25717850C26C9CD0D89D
+<img>tiles.png
+<condition>fade,ppuMemoryCheckConstant,3F13,==,25,3F
+<condition>same,ppuMemoryCheck,3F13,==,3F01
+[fade&same]<tile>0,2A,0F112233,0,0,1,N
+<tile>0,2A,0F112233,8,0,1,N
+)";
+  const std::unordered_set<std::string> archive_entries = {
+      "textures/mesen/hires.txt",
+      "textures/mesen/tiles.png",
+  };
+  MesenTextureParser parser("textures/mesen", kDefinition, archive_entries);
+  constexpr std::array<uint8_t, 3> kAbc = {'a', 'b', 'c'};
+
+  constexpr uint32_t kImageWidth = 16;
+  constexpr uint32_t kImageHeight = 8;
+  kiwi::nes::Colors pixels(kImageWidth * kImageHeight, 0xff00aa00);
+  for (uint32_t y = 0; y < kImageHeight; ++y) {
+    std::fill_n(pixels.begin() + y * kImageWidth + 8, 8, 0xffaa0000);
+  }
+  FakeTextureResourceProvider resources;
+  resources.AddFile("textures/mesen/tiles.png",
+                    EncodePng(kImageWidth, kImageHeight, pixels));
+  std::unique_ptr<TextureRenderer> renderer =
+      parser.CreateTextureRenderer(kAbc, resources);
+  ASSERT_TRUE(renderer);
+
+  kiwi::nes::PPUTextureTile tile;
+  tile.tile_index = 0x2a;
+  tile.palette = {0x0f, 0x11, 0x22, 0x33};
+  std::array<kiwi::nes::Byte, 0x20> ppu_palette = {};
+  kiwi::nes::Colors output;
+
+  ppu_palette[0x13] = 0x25;
+  ppu_palette[0x01] = 0x25;
+  ASSERT_TRUE(
+      RenderBackgroundTile(*renderer, tile, 0xff000000, &output, 0,
+                           ppu_palette));
+  EXPECT_EQ(output[0], 0xff00aa00u);
+
+  ppu_palette[0x01] = 0x15;
+  ASSERT_TRUE(
+      RenderBackgroundTile(*renderer, tile, 0xff000000, &output, 0,
+                           ppu_palette));
+  EXPECT_EQ(output[0], 0xffaa0000u);
+}
+
+TEST(MesenTextureParserTest, DrawsConditionalBackgroundLayer) {
+  constexpr std::string_view kDefinition = R"(
+<ver>101
+<scale>1
+<supportedRom>A9993E364706816ABA3E25717850C26C9CD0D89D
+<condition>screen,tileAtPosition,0,0,42,0F112233
+[screen]<background>background.png,1,0,0
+)";
+  const std::unordered_set<std::string> archive_entries = {
+      "textures/mesen/hires.txt",
+      "textures/mesen/background.png",
+  };
+  MesenTextureParser parser("textures/mesen", kDefinition, archive_entries);
+  constexpr std::array<uint8_t, 3> kAbc = {'a', 'b', 'c'};
+
+  FakeTextureResourceProvider resources;
+  resources.AddFile(
+      "textures/mesen/background.png",
+      EncodePng(256, 240, kiwi::nes::Colors(256 * 240, 0xff00aa00)));
+  std::unique_ptr<TextureRenderer> renderer =
+      parser.CreateTextureRenderer(kAbc, resources);
+  ASSERT_TRUE(renderer);
+
+  kiwi::nes::PPUTextureTile tile;
+  tile.tile_index = 42;
+  tile.palette = {0x0f, 0x11, 0x22, 0x33};
+  kiwi::nes::Colors output;
+  ASSERT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
+  EXPECT_EQ(output[8], 0xff00aa00u);
+
+  tile.tile_index = 43;
+  ASSERT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
+  EXPECT_EQ(output[8], 0xff000000u);
 }
 
 }  // namespace

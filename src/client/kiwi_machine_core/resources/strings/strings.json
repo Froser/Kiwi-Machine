@@ -4,6 +4,16 @@
     "zh": "正在载入游戏库",
     "ja": "ゲームライブラリを読み込み中"
   },
+  "IDR_HD_TEXTURE_TOGGLE_KEYBOARD_HINT": {
+    "default": "HD switching available · Press Tab to switch",
+    "zh": "本游戏支持实时切换高清素材 · 按下 Tab 切换",
+    "ja": "HD切り替え対応 · Tabキーを押して切り替え"
+  },
+  "IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT": {
+    "default": "HD switching available · Press RB to switch",
+    "zh": "本游戏支持实时切换高清素材 · 按下 RB 切换",
+    "ja": "HD切り替え対応 · RBボタンを押して切り替え"
+  },
   "IDR_IN_GAME_MENU_PAUSED": {
     "default": "Game Paused",
     "zh": "游戏已暂停",

@@ -15,6 +15,7 @@
 
 #include <SDL.h>
 #include <kiwi_nes.h>
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <set>
@@ -48,6 +49,9 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   void Render(const kiwi::nes::PPUFrameData& frame) override;
   bool NeedRender() override;
   void SetTextureRenderer(std::unique_ptr<TextureRenderer> texture_renderer);
+  void SetHDTextureRenderingEnabled(bool enabled);
+  bool IsHDTextureRenderingEnabled() const;
+  bool HasHDTextureRenderer() const;
 
   int width() { return render_width_; }
   int height() { return render_height_; }
@@ -66,6 +70,7 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
 
   SDL_Texture* screen_texture_ = nullptr;
   std::unique_ptr<TextureRenderer> texture_renderer_;
+  std::atomic_bool hd_texture_rendering_enabled_ = false;
   int render_width_ = 0;   // UI thread access only
   int render_height_ = 0;  // UI thread access only
   Timer frame_elapsed_counter_;

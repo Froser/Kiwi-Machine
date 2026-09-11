@@ -45,8 +45,12 @@ class FrameSizePPUObserver : public PPUObserver {
   void OnRenderReady(const PPUFrameData& frame) override {
     frame_type = frame.type;
     has_texture_metadata = !frame.texture_backdrop_pixels.empty() &&
-                           !frame.texture_background_tiles.empty();
+                           !frame.texture_background_tiles.empty() &&
+                           frame.texture_ppu_palette.size() == 0x20;
     background_tile_count = frame.texture_background_tiles.size();
+    if (frame.texture_ppu_palette.size() == 0x20) {
+      sampled_palette_value = frame.texture_ppu_palette[0x13];
+    }
     if (frame.native_pixels) {
       frame_size = frame.native_pixels->size();
     }
@@ -55,6 +59,7 @@ class FrameSizePPUObserver : public PPUObserver {
   PPUFrameData::Type frame_type = PPUFrameData::Type::kNativePixels;
   size_t frame_size = 0;
   size_t background_tile_count = 0;
+  Byte sampled_palette_value = 0;
   bool has_texture_metadata = false;
 };
 
@@ -97,6 +102,7 @@ TEST_F(PPURenderingTest, MasksConfiguredTopOverscanLine) {
   PPUBus bus;
   bus.SetMapper(cartridge->mapper());
   cartridge->mapper()->WriteCHR(0x0000, 0xff);
+  bus.Write(0x3f13, 0x25);
   cartridge->mapper()->WriteCHR(0x0001, 0xff);
 
   auto render_top_rows = [&bus](uint32_t crc) {
@@ -136,9 +142,10 @@ TEST_F(PPURenderingTest, TextureMetadataDoesNotChangePPUFrame) {
   PPUBus bus;
   bus.SetMapper(cartridge->mapper());
   cartridge->mapper()->WriteCHR(0x0000, 0xff);
-
   PPU ppu(&bus);
   FrameSizePPUObserver observer;
+  bus.Write(0x3f13, 0x25);
+  ppu.SetTextureMetadataCapture(true, true);
   ppu.SetTextureMetadataCapture(true, true);
   ppu.SetObserver(&observer);
   ppu.Write(static_cast<Address>(PPURegister::PPUMASK), 0x0a);
@@ -151,6 +158,7 @@ TEST_F(PPURenderingTest, TextureMetadataDoesNotChangePPUFrame) {
   EXPECT_EQ(observer.frame_size, 256u * 240u);
   EXPECT_EQ(observer.frame_type, PPUFrameData::Type::kTextureMetadata);
   EXPECT_TRUE(observer.has_texture_metadata);
+  EXPECT_EQ(observer.sampled_palette_value, 0x25);
   EXPECT_LT(observer.background_tile_count, 256u * 240u);
 }
 

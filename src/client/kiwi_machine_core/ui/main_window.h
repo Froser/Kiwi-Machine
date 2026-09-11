@@ -213,6 +213,7 @@ class MainWindow : public WindowBase,
                        preset_roms::ROMEdition edition,
                        bool load_from_finger_gesture);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
+  void OnToggleHDTextureRendering();
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
   bool IsAudioEnabled();
@@ -320,6 +321,9 @@ class MainWindow : public WindowBase,
   std::unique_ptr<NESAudio> audio_;
   scoped_refptr<NESConfig> config_;
   float ui_scale_ = 1.f;
+  std::string current_game_title_;
+  bool hd_texture_available_ = false;
+  bool hd_texture_enabled_ = false;
 
   bool virtual_controller_button_states_[2][static_cast<int>(
       kiwi::nes::ControllerButton::kMax)]{false};

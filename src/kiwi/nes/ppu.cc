@@ -49,7 +49,8 @@ void PPU::SetTextureMetadataCapture(bool enabled, bool uses_chr_ram) {
 void PPU::PopulateTextureTileData(Address pattern_address,
                                   PPUTextureTile* texture_tile) {
   const Address tile_address = pattern_address & 0x1ff0;
-  texture_tile->tile_index = tile_address / 16;
+  texture_tile->tile_index =
+      ppu_bus_->GetMapper()->GetAbsoluteCHRAddress(tile_address) / 16;
   if (!texture_capture_.uses_chr_ram()) {
     texture_tile->source = PPUTextureTile::Source::kChrRom;
     return;
@@ -234,9 +235,13 @@ void PPU::Step() {
                 DCHECK(background_color_index < palette_colors_.size());
                 texture_color = palette_colors_[background_color_index];
               }
+              const uint32_t texture_tile_index =
+                  ppu_bus_->GetMapper()->GetAbsoluteCHRAddress(
+                      pattern_tile_address & 0x1ff0) /
+                  16;
               PPUTextureTile* texture_tile =
                   texture_capture_.CaptureBackgroundTilePixel(
-                      x, y, temp_x_fine, y_fine, pattern_tile_address,
+                      x, y, temp_x_fine, y_fine, texture_tile_index,
                       palette_offset >> 2, texture_color, is_background_opaque);
               if (texture_tile) {
                 PopulateTextureTileData(pattern_tile_address, texture_tile);
@@ -335,10 +340,15 @@ void PPU::Step() {
                 DCHECK(sprite_color_index < palette_colors_.size());
                 texture_color = palette_colors_[sprite_color_index];
               }
+              const uint32_t texture_tile_index =
+                  ppu_bus_->GetMapper()->GetAbsoluteCHRAddress(
+                      pattern_address & 0x1ff0) /
+                  16;
               PPUTextureTile* texture_tile =
                   texture_capture_.CaptureSpriteTilePixel(
                       x, y, static_cast<Byte>(texture_offset_x),
-                      static_cast<Byte>(texture_offset_y), i, pattern_address,
+                      static_cast<Byte>(texture_offset_y), i,
+                      texture_tile_index,
                       sprite_palette, attribute & 0x40, attribute & 0x80,
                       attribute & 0x20, texture_color, candidate_is_opaque);
               if (texture_tile) {
@@ -481,6 +491,7 @@ void PPU::Step() {
 
         if (observer_) {
           PPUFrameData frame;
+          std::array<Byte, 0x20> texture_ppu_palette;
           frame.native_pixels = &screenbuffers_[current_buffer_index_];
           if (texture_capture_.enabled()) {
             frame.type = PPUFrameData::Type::kTextureMetadata;
@@ -488,6 +499,12 @@ void PPU::Step() {
             frame.texture_background_tiles =
                 texture_capture_.background_tiles();
             frame.texture_sprite_tiles = texture_capture_.sprite_tiles();
+            for (size_t index = 0; index < texture_ppu_palette.size();
+                 ++index) {
+              texture_ppu_palette[index] =
+                  ppu_bus_->ReadPalette(static_cast<Byte>(index));
+            }
+            frame.texture_ppu_palette = texture_ppu_palette;
           }
           observer_->OnRenderReady(frame);
           current_buffer_index_ = (current_buffer_index_ + 1) % kMaxBufferSize;

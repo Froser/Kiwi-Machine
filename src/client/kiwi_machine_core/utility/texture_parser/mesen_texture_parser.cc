@@ -24,6 +24,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -211,6 +212,80 @@ MesenTileLookupKey MakeMesenTileLookupKey(
   return key;
 }
 
+bool TileMatches(const kiwi::nes::PPUTextureTile& actual,
+                 const kiwi::nes::mesen_hd_pack::TileKey& expected,
+                 bool ignore_palette) {
+  MesenTileLookupKey actual_key = MakeMesenTileLookupKey(actual);
+  MesenTileLookupKey expected_key = MakeMesenTileLookupKey(expected);
+  if (ignore_palette) {
+    expected_key.palette = actual_key.palette;
+  }
+  return actual_key == expected_key;
+}
+
+bool HasMatchingTile(
+    const kiwi::nes::PPUTextureTileCommand* command,
+    const kiwi::nes::mesen_hd_pack::TileConditionData& condition) {
+  return command &&
+         TileMatches(command->tile, condition.tile, condition.ignore_palette);
+}
+
+bool HasMatchingTile(
+    std::span<const kiwi::nes::PPUTextureTileCommand> commands,
+    int x,
+    int y,
+    const kiwi::nes::mesen_hd_pack::TileConditionData& condition) {
+  if (x < 0 || x >= kScreenWidth || y < 0 || y >= kScreenHeight) {
+    return false;
+  }
+  return std::any_of(
+      commands.begin(), commands.end(),
+      [x, y, &condition](const kiwi::nes::PPUTextureTileCommand& command) {
+        const int tile_x = x - command.x;
+        const int tile_y = y - command.y;
+        return tile_x >= 0 && tile_x < 8 && tile_y >= 0 && tile_y < 8 &&
+               (command.visible_mask &
+                (uint64_t{1} << (static_cast<size_t>(tile_y) * 8 + tile_x))) &&
+               TileMatches(command.tile, condition.tile,
+                           condition.ignore_palette);
+      });
+}
+
+bool CompareMemoryValues(
+    uint8_t left,
+    uint8_t right,
+    kiwi::nes::mesen_hd_pack::ComparisonOperator comparison) {
+  using kiwi::nes::mesen_hd_pack::ComparisonOperator;
+  switch (comparison) {
+    case ComparisonOperator::kEqual:
+      return left == right;
+    case ComparisonOperator::kNotEqual:
+      return left != right;
+    case ComparisonOperator::kGreaterThan:
+      return left > right;
+    case ComparisonOperator::kLessThan:
+      return left < right;
+    case ComparisonOperator::kGreaterThanOrEqual:
+      return left >= right;
+    case ComparisonOperator::kLessThanOrEqual:
+      return left <= right;
+  }
+  return false;
+}
+
+std::optional<uint8_t> ReadPPUPalette(
+    const kiwi::nes::PPUFrameData& frame,
+    uint32_t address) {
+  constexpr uint32_t kPaletteBaseAddress = 0x3f00;
+  constexpr uint32_t kPPUAddressSpaceSize = 0x4000;
+  constexpr size_t kPaletteSize = 0x20;
+  if (address < kPaletteBaseAddress || address >= kPPUAddressSpaceSize ||
+      frame.texture_ppu_palette.size() != kPaletteSize) {
+    return std::nullopt;
+  }
+  return frame.texture_ppu_palette[address & (kPaletteSize - 1)];
+}
+
 class MesenTextureRenderer final : public TextureRenderer {
  private:
   static constexpr size_t kNoRule = std::numeric_limits<size_t>::max();
@@ -221,6 +296,13 @@ class MesenTextureRenderer final : public TextureRenderer {
     bool fully_transparent = true;
   };
 
+  struct PreparedBackground {
+    kiwi::nes::Colors pixels;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    bool fully_opaque = false;
+  };
+
   struct MatchCache {
     MesenTileLookupKey key;
     size_t rule_index = kNoRule;
@@ -229,7 +311,8 @@ class MesenTextureRenderer final : public TextureRenderer {
 
  public:
   MesenTextureRenderer(HdPackData pack_data,
-                       std::vector<MesenTextureImage> images)
+                       std::vector<MesenTextureImage> images,
+                       std::vector<MesenTextureImage> background_images)
       : pack_data_(std::move(pack_data)) {
     const uint32_t tile_size = 8 * scale();
     prepared_rules_.reserve(pack_data_.tiles.size());
@@ -262,6 +345,19 @@ class MesenTextureRenderer final : public TextureRenderer {
         rules_[key].push_back(index);
       }
     }
+
+    prepared_backgrounds_.reserve(pack_data_.backgrounds.size());
+    for (MesenTextureImage& image : background_images) {
+      PreparedBackground prepared_background;
+      prepared_background.width = image.width;
+      prepared_background.height = image.height;
+      prepared_background.pixels = std::move(image.pixels);
+      prepared_background.fully_opaque = std::all_of(
+          prepared_background.pixels.begin(),
+          prepared_background.pixels.end(),
+          [](kiwi::nes::Color color) { return (color >> 24) == 0xff; });
+      prepared_backgrounds_.push_back(std::move(prepared_background));
+    }
   }
 
   ~MesenTextureRenderer() override = default;
@@ -277,6 +373,8 @@ class MesenTextureRenderer final : public TextureRenderer {
   uint32_t scale() const { return pack_data_.scale; }
 
   bool DrawTile(const kiwi::nes::PPUTextureTileCommand& command,
+                const kiwi::nes::PPUFrameData& frame,
+                uint64_t frame_number,
                 kiwi::nes::Color* output,
                 size_t output_stride) const {
     const kiwi::nes::PPUTextureTile& tile = command.tile;
@@ -292,7 +390,8 @@ class MesenTextureRenderer final : public TextureRenderer {
     }
 
     bool cacheable = true;
-    const size_t rule_index = FindMatchingRule(key, tile, &cacheable);
+    const size_t rule_index =
+        FindMatchingRule(key, command, frame, frame_number, &cacheable);
     if (cacheable) {
       cache.key = key;
       cache.rule_index = rule_index;
@@ -328,6 +427,9 @@ class MesenTextureRenderer final : public TextureRenderer {
     }
 
     BlitBackdrop(frame, target);
+    const uint64_t frame_number = frame_number_++;
+    BuildSpatialIndex(frame);
+    DrawBackgrounds(frame, frame_number, 0, target);
 
     std::vector<const kiwi::nes::PPUTextureTileCommand*> sprites;
     sprites.reserve(frame.texture_sprite_tiles.size());
@@ -339,25 +441,107 @@ class MesenTextureRenderer final : public TextureRenderer {
 
     for (const kiwi::nes::PPUTextureTileCommand* sprite : sprites) {
       if (sprite->tile.background_priority) {
-        DrawCommand(*sprite, true, target);
+        DrawCommand(*sprite, frame, frame_number, true, target);
       }
     }
+    DrawBackgrounds(frame, frame_number, 10, target);
 
     for (const kiwi::nes::PPUTextureTileCommand& background :
          frame.texture_background_tiles) {
-      DrawCommand(background, render_original_tiles(), target);
+      DrawCommand(background, frame, frame_number, render_original_tiles(),
+                  target);
     }
+    DrawBackgrounds(frame, frame_number, 20, target);
 
     for (const kiwi::nes::PPUTextureTileCommand* sprite : sprites) {
       if (!sprite->tile.background_priority) {
-        DrawCommand(*sprite, true, target);
+        DrawCommand(*sprite, frame, frame_number, true, target);
       }
     }
+    DrawBackgrounds(frame, frame_number, 30, target);
 
     return true;
   }
 
  private:
+  void BuildSpatialIndex(const kiwi::nes::PPUFrameData& frame) const {
+    background_at_pixel_.fill(nullptr);
+    for (const kiwi::nes::PPUTextureTileCommand& command :
+         frame.texture_background_tiles) {
+      IndexBackgroundCommand(command);
+    }
+  }
+
+  void IndexBackgroundCommand(
+      const kiwi::nes::PPUTextureTileCommand& command) const {
+    for (int tile_y = 0; tile_y < 8; ++tile_y) {
+      const int y = command.y + tile_y;
+      if (y < 0 || y >= kScreenHeight) {
+        continue;
+      }
+      for (int tile_x = 0; tile_x < 8; ++tile_x) {
+        const int x = command.x + tile_x;
+        const size_t pixel_index = static_cast<size_t>(tile_y) * 8 + tile_x;
+        if (x < 0 || x >= kScreenWidth ||
+            (command.visible_mask & (uint64_t{1} << pixel_index)) == 0) {
+          continue;
+        }
+        const size_t screen_index = static_cast<size_t>(y) * kScreenWidth + x;
+        background_at_pixel_[screen_index] = &command;
+      }
+    }
+  }
+
+  void DrawBackgrounds(const kiwi::nes::PPUFrameData& frame,
+                       uint64_t frame_number,
+                       uint8_t priority,
+                       const TextureRenderTarget& target) const {
+    for (size_t index = 0; index < pack_data_.backgrounds.size(); ++index) {
+      const auto& background = pack_data_.backgrounds[index];
+      if (background.priority != priority ||
+          !BackgroundConditionsMatch(background, frame, frame_number)) {
+        continue;
+      }
+      const PreparedBackground& prepared = prepared_backgrounds_[index];
+      const uint32_t source_x = background.image_left * scale();
+      const uint32_t source_y = background.image_top * scale();
+      if (prepared.width < source_x + target.width ||
+          prepared.height < source_y + target.height) {
+        continue;
+      }
+      for (int y = 0; y < target.height; ++y) {
+        kiwi::nes::Color* destination =
+            target.pixels + static_cast<size_t>(y) * target.stride;
+        const kiwi::nes::Color* source =
+            prepared.pixels.data() +
+            static_cast<size_t>(source_y + y) * prepared.width + source_x;
+        if (prepared.fully_opaque && background.brightness == 1.f &&
+            background.blend_mode ==
+                kiwi::nes::mesen_hd_pack::BackgroundBlendMode::kAlpha) {
+          std::copy_n(source, target.width, destination);
+          continue;
+        }
+        for (int x = 0; x < target.width; ++x) {
+          kiwi::nes::Color color = source[x];
+          if (background.brightness != 1.f) {
+            color = AdjustBrightness(color, background.brightness);
+          }
+          destination[x] = AlphaBlend(destination[x], color);
+        }
+      }
+    }
+  }
+
+  bool BackgroundConditionsMatch(
+      const kiwi::nes::mesen_hd_pack::BackgroundRule& background,
+      const kiwi::nes::PPUFrameData& frame,
+      uint64_t frame_number) const {
+    TileRule condition_holder;
+    condition_holder.conditions = background.conditions;
+    kiwi::nes::PPUTextureTileCommand command;
+    return ConditionsMatch(condition_holder, command, frame, frame_number);
+  }
+
   void BlitBackdrop(const kiwi::nes::PPUFrameData& frame,
                     const TextureRenderTarget& target) const {
     const size_t output_width = frame.width * scale();
@@ -383,9 +567,12 @@ class MesenTextureRenderer final : public TextureRenderer {
   }
 
   void DrawCommand(const kiwi::nes::PPUTextureTileCommand& command,
+                   const kiwi::nes::PPUFrameData& frame,
+                   uint64_t frame_number,
                    bool render_original,
                    const TextureRenderTarget& target) const {
-    if (!DrawTile(command, target.pixels, target.stride) && render_original) {
+    if (!DrawTile(command, frame, frame_number, target.pixels, target.stride) &&
+        render_original) {
       BlitOriginalTile(command, target.pixels, target.stride);
     }
   }
@@ -419,7 +606,9 @@ class MesenTextureRenderer final : public TextureRenderer {
   }
 
   size_t FindMatchingRule(MesenTileLookupKey key,
-                          const kiwi::nes::PPUTextureTile& tile,
+                          const kiwi::nes::PPUTextureTileCommand& command,
+                          const kiwi::nes::PPUFrameData& frame,
+                          uint64_t frame_number,
                           bool* cacheable) const {
     const std::vector<size_t>* candidates = nullptr;
     const auto exact = rules_.find(key);
@@ -441,7 +630,7 @@ class MesenTextureRenderer final : public TextureRenderer {
       if (!rule.conditions.empty()) {
         *cacheable = false;
       }
-      if (ConditionsMatch(rule, tile)) {
+      if (ConditionsMatch(rule, command, frame, frame_number)) {
         return rule_index;
       }
     }
@@ -449,8 +638,11 @@ class MesenTextureRenderer final : public TextureRenderer {
   }
 
   bool ConditionsMatch(const TileRule& rule,
-                       const kiwi::nes::PPUTextureTile& tile) const {
+                       const kiwi::nes::PPUTextureTileCommand& command,
+                       const kiwi::nes::PPUFrameData& frame,
+                       uint64_t frame_number) const {
     using namespace kiwi::nes::mesen_hd_pack;
+    const kiwi::nes::PPUTextureTile& tile = command.tile;
     for (const ConditionRef& condition_ref : rule.conditions) {
       if (condition_ref.condition_index >= pack_data_.conditions.size()) {
         return false;
@@ -475,6 +667,75 @@ class MesenTextureRenderer final : public TextureRenderer {
               std::get_if<SpritePaletteConditionData>(&condition.data);
           result = sprite_palette &&
                    sprite_palette->palette_index == tile.sprite_palette;
+          break;
+        }
+        case ConditionType::kTileAtPosition:
+        case ConditionType::kTileNearby:
+        case ConditionType::kSpriteAtPosition:
+        case ConditionType::kSpriteNearby: {
+          const auto* tile_condition =
+              std::get_if<TileConditionData>(&condition.data);
+          if (!tile_condition) {
+            break;
+          }
+          const bool nearby =
+              condition.type == ConditionType::kTileNearby ||
+              condition.type == ConditionType::kSpriteNearby;
+          const bool sprite =
+              condition.type == ConditionType::kSpriteAtPosition ||
+              condition.type == ConditionType::kSpriteNearby;
+          int x = tile_condition->x;
+          int y = tile_condition->y;
+          if (nearby) {
+            const int x_sign =
+                sprite && tile.horizontal_mirroring ? -1 : 1;
+            const int y_sign = sprite && tile.vertical_mirroring ? -1 : 1;
+            x = command.x + tile_condition->x * x_sign;
+            y = command.y + tile_condition->y * y_sign;
+          }
+          if (sprite) {
+            result = HasMatchingTile(frame.texture_sprite_tiles, x, y,
+                                     *tile_condition);
+          } else if (x >= 0 && x < kScreenWidth && y >= 0 &&
+                     y < kScreenHeight) {
+            result = HasMatchingTile(
+                background_at_pixel_[static_cast<size_t>(y) * kScreenWidth +
+                                     x],
+                *tile_condition);
+          }
+          break;
+        }
+        case ConditionType::kFrameRange: {
+          const auto* frame_range =
+              std::get_if<FrameRangeConditionData>(&condition.data);
+          result = frame_range && frame_range->divisor != 0 &&
+                   frame_number % frame_range->divisor >=
+                       frame_range->compare_value;
+          break;
+        }
+        case ConditionType::kPpuMemoryCheck:
+        case ConditionType::kPpuMemoryCheckConstant: {
+          const auto* memory =
+              std::get_if<MemoryConditionData>(&condition.data);
+          if (!memory) {
+            break;
+          }
+          const std::optional<uint8_t> left =
+              ReadPPUPalette(frame, memory->left_operand);
+          const bool compares_constant =
+              condition.type == ConditionType::kPpuMemoryCheckConstant;
+          const std::optional<uint8_t> right =
+              compares_constant
+                  ? std::optional<uint8_t>(
+                        static_cast<uint8_t>(memory->right_operand))
+                  : ReadPPUPalette(frame, memory->right_operand);
+          result = left && right &&
+                   CompareMemoryValues(
+                       static_cast<uint8_t>(*left & memory->mask),
+                       compares_constant
+                           ? *right
+                           : static_cast<uint8_t>(*right & memory->mask),
+                       memory->comparison);
           break;
         }
         default:
@@ -605,6 +866,7 @@ class MesenTextureRenderer final : public TextureRenderer {
 
   HdPackData pack_data_;
   std::vector<PreparedRule> prepared_rules_;
+  std::vector<PreparedBackground> prepared_backgrounds_;
   std::unordered_map<MesenTileLookupKey,
                      std::vector<size_t>,
                      MesenTileLookupKeyHash>
@@ -615,6 +877,10 @@ class MesenTextureRenderer final : public TextureRenderer {
       default_rules_;
   mutable MatchCache background_cache_;
   mutable MatchCache sprite_cache_;
+  mutable uint64_t frame_number_ = 0;
+  mutable std::array<const kiwi::nes::PPUTextureTileCommand*,
+                     kScreenWidth * kScreenHeight>
+      background_at_pixel_{};
   bool uses_chr_ram_ = false;
 };
 
@@ -679,6 +945,22 @@ std::unique_ptr<TextureRenderer> MesenTextureParser::CreateTextureRenderer(
     }
   }
 
+  std::vector<MesenTextureImage> background_images;
+  background_images.reserve(pack_data_.backgrounds.size());
+  for (const auto& background : pack_data_.backgrounds) {
+    std::optional<kiwi::nes::Bytes> image_data = resources.ReadFile(
+        JoinArchivePath(archive_root_, background.image_file));
+    if (!image_data) {
+      return nullptr;
+    }
+    std::optional<MesenTextureImage> image =
+        DecodeMesenTextureImage(*image_data);
+    if (!image) {
+      return nullptr;
+    }
+    background_images.push_back(std::move(*image));
+  }
+
   const uint64_t tile_size = static_cast<uint64_t>(pack_data_.scale) * 8;
   for (const TileRule& rule : pack_data_.tiles) {
     if (rule.image_index >= images.size()) {
@@ -691,7 +973,8 @@ std::unique_ptr<TextureRenderer> MesenTextureParser::CreateTextureRenderer(
     }
   }
 
-  return std::make_unique<MesenTextureRenderer>(pack_data_, std::move(images));
+  return std::make_unique<MesenTextureRenderer>(
+      pack_data_, std::move(images), std::move(background_images));
 }
 
 bool MesenTextureParser::HasRequiredResources(

@@ -66,6 +66,19 @@ TEST_F(Mapper004Test, MapsEveryCHRWindowInBothModes) {
   }
 }
 
+TEST_F(Mapper004Test, ReportsAbsoluteCHRAddressesForHDTextureLookup) {
+  auto cartridge = LoadMapper(4, 8, 16);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  WriteMMC3Register(mapper, 2, 9);
+  EXPECT_EQ(mapper->GetAbsoluteCHRAddress(0x1150), 9u * k1K + 0x150);
+
+  mapper->WritePRG(0x8000, 0x80);
+  WriteMMC3Register(mapper, 2, 12, 0x80);
+  EXPECT_EQ(mapper->GetAbsoluteCHRAddress(0x0150), 12u * k1K + 0x150);
+}
+
 TEST_F(Mapper004Test, SupportsCHRRAMAndExtendedRAMBoundaries) {
   auto cartridge = LoadMapper(4, 8, 0);
   ASSERT_TRUE(cartridge);

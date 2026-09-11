@@ -96,6 +96,8 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
 
   // Append new virtual methods here to preserve existing vtable slots.
   virtual bool NeedsM2CycleIRQ() const;
+  // Maps a PPU pattern-table address to its absolute byte offset in CHR-ROM.
+  virtual uint32_t GetAbsoluteCHRAddress(Address address);
 
  protected:
   void ForceUseExtendedRAM();

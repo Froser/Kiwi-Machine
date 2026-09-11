@@ -54,7 +54,7 @@ struct LoadedPresetROM {
   std::unique_ptr<TextureRenderer> texture_renderer;
 };
 
-// Loads the playable ROM and, for an HD edition, its texture renderer.
+// Loads the playable ROM and its texture renderer when one is available.
 // This function must be called on the IO thread.
 [[nodiscard]] LoadedPresetROM LoadPresetROM(
     const preset_roms::PresetROM& rom_data,

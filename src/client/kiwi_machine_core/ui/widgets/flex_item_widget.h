@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cstdint>
 
+#include "ui/widgets/hd_edition_badge.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
 #include "utility/localization.h"
@@ -96,7 +97,7 @@ class FlexItemWidget : public Widget {
   FlexItemsWidget* parent_ = nullptr;
   Data* current_data_ = nullptr;
   SDL_Texture* badge_texture_ = nullptr;
-  SDL_Texture* hd_badge_texture_ = nullptr;
+  HDEditionBadge hd_edition_badge_;
   LoadingWidget loading_widget_;
 
   // Location

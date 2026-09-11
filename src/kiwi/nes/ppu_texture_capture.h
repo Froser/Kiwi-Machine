@@ -87,16 +87,15 @@ class NES_EXPORT PPUTextureCapture {
       int y,
       Byte tile_x,
       Byte tile_y,
-      Address pattern_address,
+      uint32_t tile_index,
       Byte palette_slot,
       Color color,
       bool opaque) {
     const int tile_origin_x = x - tile_x;
     const int tile_origin_y = y - tile_y;
-    const uint32_t tile_index = (pattern_address & 0x1ff0) / 16;
     const size_t command_index = background_command_indices_[x];
     if (command_index == kNoTextureCommand) {
-      return CreateBackgroundTileCommand(x, y, tile_x, tile_y, pattern_address,
+      return CreateBackgroundTileCommand(x, y, tile_x, tile_y, tile_index,
                                          palette_slot, color, opaque);
     }
 
@@ -104,7 +103,7 @@ class NES_EXPORT PPUTextureCapture {
     if (command.x != tile_origin_x || command.y != tile_origin_y ||
         command.tile.tile_index != tile_index ||
         command.palette_slot != palette_slot) {
-      return CreateBackgroundTileCommand(x, y, tile_x, tile_y, pattern_address,
+      return CreateBackgroundTileCommand(x, y, tile_x, tile_y, tile_index,
                                          palette_slot, color, opaque);
     }
 
@@ -118,7 +117,7 @@ class NES_EXPORT PPUTextureCapture {
       Byte tile_x,
       Byte tile_y,
       Byte oam_index,
-      Address pattern_address,
+      uint32_t tile_index,
       Byte palette_slot,
       bool horizontal_mirroring,
       bool vertical_mirroring,
@@ -127,11 +126,10 @@ class NES_EXPORT PPUTextureCapture {
       bool opaque) {
     const int tile_origin_x = x - tile_x;
     const int tile_origin_y = y - tile_y;
-    const uint32_t tile_index = (pattern_address & 0x1ff0) / 16;
     const size_t command_index = sprite_command_indices_[oam_index];
     if (command_index == kNoTextureCommand) {
       return CreateSpriteTileCommand(x, y, tile_x, tile_y, oam_index,
-                                     pattern_address, palette_slot,
+                                     tile_index, palette_slot,
                                      horizontal_mirroring, vertical_mirroring,
                                      background_priority, color, opaque);
     }
@@ -144,7 +142,7 @@ class NES_EXPORT PPUTextureCapture {
         command.tile.vertical_mirroring != vertical_mirroring ||
         command.tile.background_priority != background_priority) {
       return CreateSpriteTileCommand(x, y, tile_x, tile_y, oam_index,
-                                     pattern_address, palette_slot,
+                                     tile_index, palette_slot,
                                      horizontal_mirroring, vertical_mirroring,
                                      background_priority, color, opaque);
     }
@@ -187,7 +185,7 @@ class NES_EXPORT PPUTextureCapture {
                                               int y,
                                               Byte tile_x,
                                               Byte tile_y,
-                                              Address pattern_address,
+                                              uint32_t tile_index,
                                               Byte palette_slot,
                                               Color color,
                                               bool opaque);
@@ -196,7 +194,7 @@ class NES_EXPORT PPUTextureCapture {
                                           Byte tile_x,
                                           Byte tile_y,
                                           Byte oam_index,
-                                          Address pattern_address,
+                                          uint32_t tile_index,
                                           Byte palette_slot,
                                           bool horizontal_mirroring,
                                           bool vertical_mirroring,

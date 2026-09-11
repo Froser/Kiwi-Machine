@@ -63,8 +63,6 @@ FlexItemWidget::FlexItemWidget(
 
   badge_texture_ =
       GetImage(window()->renderer(), image_resources::ImageID::kItemBadge);
-  hd_badge_texture_ =
-      GetImage(window()->renderer(), image_resources::ImageID::kHdBadge);
 }
 
 FlexItemWidget::~FlexItemWidget() {
@@ -221,17 +219,14 @@ void FlexItemWidget::Paint() {
                        ImColor(255, 255, 255), 0, 0, .3f);
   }
 
-  int badge_right = kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin;
-  if (current_data()->is_hd_edition) {
-    draw_list->AddImage(
-        reinterpret_cast<ImTextureID>(hd_badge_texture_),
-        ImVec2(badge_right - kBadgeSize, kBoundsToWindow.y + kBadgeMargin),
-        ImVec2(badge_right, kBoundsToWindow.y + kBadgeMargin + kBadgeSize));
-    badge_right -= kBadgeSize + kBadgeMargin;
-  }
+  const bool is_selected = !parent_->empty() && parent_->IsItemSelected(this);
+  if (current_data()->is_hd_edition)
+    hd_edition_badge_.Paint(draw_list, kBoundsToWindow, is_selected);
 
   if (has_sub_items()) {
     // Draw a badge icon if it has sub items.
+    const int badge_right =
+        kBoundsToWindow.x + kBoundsToWindow.w - kBadgeMargin;
     draw_list->AddImage(
         reinterpret_cast<ImTextureID>(badge_texture_),
         ImVec2(badge_right - kBadgeSize, kBoundsToWindow.y + kBadgeMargin),
@@ -241,7 +236,7 @@ void FlexItemWidget::Paint() {
   // Items can be empty, because we can use filter.
   if (!parent_->empty()) {
     // Highlight selected item.
-    if (parent_->IsItemSelected(this)) {
+    if (is_selected) {
       int elapsed = fade_timer_.ElapsedInMilliseconds();
       int rgb = static_cast<int>(512 * elapsed / kFadeDurationInMs) % 512;
       if (rgb > 255)

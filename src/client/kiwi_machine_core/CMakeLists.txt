@@ -79,6 +79,8 @@ set(Sources
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
         ui/widgets/flex_items_widget.h
+        ui/widgets/hd_edition_badge.cc
+        ui/widgets/hd_edition_badge.h
         ui/widgets/performance_widget.cc
         ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc

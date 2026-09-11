@@ -34,6 +34,21 @@ NESFrame::~NESFrame() {
 void NESFrame::SetTextureRenderer(
     std::unique_ptr<TextureRenderer> texture_renderer) {
   texture_renderer_ = std::move(texture_renderer);
+  hd_texture_rendering_enabled_.store(texture_renderer_ != nullptr,
+                                      std::memory_order_release);
+}
+
+void NESFrame::SetHDTextureRenderingEnabled(bool enabled) {
+  hd_texture_rendering_enabled_.store(enabled && texture_renderer_ != nullptr,
+                                      std::memory_order_release);
+}
+
+bool NESFrame::IsHDTextureRenderingEnabled() const {
+  return hd_texture_rendering_enabled_.load(std::memory_order_acquire);
+}
+
+bool NESFrame::HasHDTextureRenderer() const {
+  return texture_renderer_ != nullptr;
 }
 
 void NESFrame::AddObserver(NESFrameObserver* observer) {
@@ -50,7 +65,8 @@ void NESFrame::Render(const kiwi::nes::PPUFrameData& frame) {
   }
 
   if (frame.type == kiwi::nes::PPUFrameData::Type::kTextureMetadata &&
-      texture_renderer_ && RenderTextureFrame(frame)) {
+      texture_renderer_ && IsHDTextureRenderingEnabled() &&
+      RenderTextureFrame(frame)) {
     return;
   }
   UpdateTexture(frame.width, frame.height, *frame.native_pixels);
