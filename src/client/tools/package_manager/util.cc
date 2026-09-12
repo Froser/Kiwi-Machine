@@ -20,9 +20,7 @@
 #include <optional>
 #include <regex>
 #include <set>
-#include <span>
 #include <string_view>
-#include <unordered_map>
 
 #include "../third_party/libjpeg-turbo-jpeg-9f/jpeglib.h"
 #include "../third_party/nlohmann_json/json.hpp"
@@ -30,7 +28,6 @@
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "kiwi_nes.h"
-#include "nes/components/mesen_hd_pack/hires_parser.h"
 #include "nes/components/mesen_hd_pack/rom_hash.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/zip.h"
@@ -120,50 +117,49 @@ bool ReadCurrentFileFromZip(unzFile file, std::vector<uint8_t>& data) {
   return read;
 }
 
-bool GetCurrentZipFileName(unzFile file, std::string* filename) {
-  unz_file_info file_info = {};
-  if (unzGetCurrentFileInfo(file, &file_info, nullptr, 0, nullptr, 0, nullptr,
-                            0) != UNZ_OK) {
-    return false;
+std::optional<nlohmann::json> CollectRomSha1s(
+    const kiwi::base::FilePath& zip_path) {
+  unzFile file = unzOpen(zip_path.AsUTF8Unsafe().c_str());
+  if (!file) {
+    return std::nullopt;
   }
 
-  std::vector<char> filename_buffer(file_info.size_filename + 1, 0);
-  if (unzGetCurrentFileInfo(file, &file_info, filename_buffer.data(),
-                            filename_buffer.size(), nullptr, 0, nullptr,
-                            0) != UNZ_OK) {
-    return false;
-  }
-  *filename = filename_buffer.data();
-  return true;
-}
-
-bool ZipContainsFilesAtPath(unzFile file, std::string archive_path) {
-  std::replace(archive_path.begin(), archive_path.end(), '\\', '/');
-  while (!archive_path.empty() && archive_path.front() == '/') {
-    archive_path.erase(archive_path.begin());
-  }
-  while (!archive_path.empty() && archive_path.back() == '/') {
-    archive_path.pop_back();
-  }
-  if (archive_path.empty()) {
-    return false;
-  }
-
-  const std::string path_prefix = archive_path + "/";
+  nlohmann::json sha1s = nlohmann::json::object();
   int located = unzGoToFirstFile(file);
   while (located == UNZ_OK) {
-    std::string filename;
-    if (!GetCurrentZipFileName(file, &filename)) {
-      return false;
+    unz_file_info file_info{};
+    if (unzGetCurrentFileInfo(file, &file_info, nullptr, 0, nullptr, 0, nullptr,
+                              0) != UNZ_OK) {
+      unzClose(file);
+      return std::nullopt;
     }
-    std::replace(filename.begin(), filename.end(), '\\', '/');
-    if (filename.size() > path_prefix.size() &&
-        filename.compare(0, path_prefix.size(), path_prefix) == 0) {
-      return true;
+    std::vector<char> filename(file_info.size_filename + 1, 0);
+    if (unzGetCurrentFileInfo(file, &file_info, filename.data(),
+                              filename.size(), nullptr, 0, nullptr, 0) !=
+        UNZ_OK) {
+      unzClose(file);
+      return std::nullopt;
+    }
+
+    kiwi::base::FilePath rom_path =
+        kiwi::base::FilePath::FromUTF8Unsafe(filename.data());
+    if (kiwi::base::CompareCaseInsensitiveASCII(
+            rom_path.Extension(), FILE_PATH_LITERAL(".nes")) == 0) {
+      std::vector<uint8_t> rom_data;
+      if (!ReadCurrentFileFromZip(file, rom_data)) {
+        unzClose(file);
+        return std::nullopt;
+      }
+      sha1s[rom_path.RemoveExtension().BaseName().AsUTF8Unsafe()] =
+          kiwi::nes::mesen_hd_pack::CalculateSha1Hex(rom_data);
     }
     located = unzGoToNextFile(file);
   }
-  return false;
+  unzClose(file);
+  if (located != UNZ_END_OF_LIST_OF_FILE || sha1s.empty()) {
+    return std::nullopt;
+  }
+  return sha1s;
 }
 
 bool WriteToZip(zipFile zf,
@@ -181,187 +177,6 @@ bool WriteToZip(zipFile zf,
     return false;
 
   zipCloseFileInZip(zf);
-  return true;
-}
-
-struct MesenHDTexturePack {
-  kiwi::base::FilePath directory;
-  std::vector<std::string> resources;
-};
-
-struct MesenHDTexturePackIndex {
-  std::vector<MesenHDTexturePack> packs;
-  std::unordered_map<std::string, size_t> pack_by_rom_sha1;
-};
-
-constexpr char kMesenTextureArchivePath[] = "textures/mesen";
-
-std::string GetMesenHDTextureArchivePath(const MesenHDTexturePack& pack) {
-  std::string archive_path =
-      std::string(kMesenTextureArchivePath) + "/" +
-      pack.directory.BaseName().AsUTF8Unsafe();
-  std::replace(archive_path.begin(), archive_path.end(), '\\', '/');
-  return archive_path;
-}
-
-void SetMesenHDTextureManifestFields(nlohmann::json* manifest) {
-  (*manifest)["texture"] = {
-      {"path", kMesenTextureArchivePath},
-      {"type", "mesen"},
-  };
-}
-
-std::string SerializeManifest(const nlohmann::json& manifest) {
-  std::string contents = manifest.dump(2);
-  SDL_assert(contents.find('\r') == std::string::npos);
-  for (size_t i = 0; i < contents.length(); ++i) {
-    if (contents[i] == '\n') {
-      contents.replace(i, 1, "\r\n");
-      ++i;
-    }
-  }
-  return contents;
-}
-
-MesenHDTexturePackIndex BuildMesenHDTexturePackIndex(
-    const kiwi::base::FilePath& textures_dir) {
-  MesenHDTexturePackIndex index;
-  if (textures_dir.empty() || !kiwi::base::DirectoryExists(textures_dir)) {
-    return index;
-  }
-
-  kiwi::base::FileEnumerator files(
-      textures_dir, true, kiwi::base::FileEnumerator::FILES,
-      FILE_PATH_LITERAL("hires.txt"),
-      kiwi::base::FileEnumerator::FolderSearchPolicy::ALL);
-  for (kiwi::base::FilePath hires_path = files.Next(); !hires_path.empty();
-       hires_path = files.Next()) {
-    std::optional<std::vector<uint8_t>> hires_contents =
-        kiwi::base::ReadFileToBytes(hires_path);
-    if (!hires_contents) {
-      std::fprintf(stderr, "Failed to read Mesen HD Pack definition: %s\n",
-                   hires_path.AsUTF8Unsafe().c_str());
-      continue;
-    }
-
-    const char* contents =
-        hires_contents->empty()
-            ? ""
-            : reinterpret_cast<const char*>(hires_contents->data());
-    kiwi::nes::mesen_hd_pack::HdPackData pack_data;
-    std::vector<kiwi::nes::mesen_hd_pack::ParseError> errors;
-    kiwi::nes::mesen_hd_pack::HiresParser parser;
-    if (!parser.Parse(std::string_view(contents, hires_contents->size()),
-                      &pack_data, &errors)) {
-      for (const auto& error : errors) {
-        std::fprintf(stderr, "%s:%zu: %s\n", hires_path.AsUTF8Unsafe().c_str(),
-                     error.line, error.message.c_str());
-      }
-      continue;
-    }
-    if (pack_data.supported_rom_sha1s.empty()) {
-      std::fprintf(stderr, "Mesen HD Pack has no <supportedRom> entry: %s\n",
-                   hires_path.AsUTF8Unsafe().c_str());
-      continue;
-    }
-
-    std::set<std::string> resources = {"hires.txt"};
-    resources.insert(pack_data.image_files.begin(),
-                     pack_data.image_files.end());
-    for (const auto& background : pack_data.backgrounds) {
-      resources.insert(background.image_file);
-    }
-    for (const auto& patch : pack_data.patches) {
-      resources.insert(patch.file);
-    }
-    for (const auto& bgm : pack_data.bgm_tracks) {
-      resources.insert(bgm.file);
-    }
-    for (const auto& sfx : pack_data.sfx_tracks) {
-      resources.insert(sfx.file);
-    }
-
-    const kiwi::base::FilePath pack_directory = hires_path.DirName();
-    if (kiwi::base::PathExists(
-            pack_directory.Append(FILE_PATH_LITERAL("palette.dat")))) {
-      resources.insert("palette.dat");
-    }
-
-    bool resources_exist = true;
-    for (const std::string& resource : resources) {
-      const kiwi::base::FilePath resource_path =
-          pack_directory.Append(kiwi::base::FilePath::FromUTF8Unsafe(resource));
-      if (!kiwi::base::PathExists(resource_path)) {
-        std::fprintf(stderr, "Mesen HD Pack resource does not exist: %s\n",
-                     resource_path.AsUTF8Unsafe().c_str());
-        resources_exist = false;
-      }
-    }
-    if (!resources_exist) {
-      continue;
-    }
-
-    const size_t pack_index = index.packs.size();
-    index.packs.push_back(
-        {pack_directory,
-         std::vector<std::string>(resources.begin(), resources.end())});
-    for (const std::string& sha1 : pack_data.supported_rom_sha1s) {
-      const auto [existing, inserted] =
-          index.pack_by_rom_sha1.emplace(sha1, pack_index);
-      if (!inserted && existing->second != pack_index) {
-        std::fprintf(
-            stderr, "Multiple Mesen HD Packs target ROM SHA-1 %s; using %s\n",
-            sha1.c_str(),
-            index.packs[existing->second].directory.AsUTF8Unsafe().c_str());
-      }
-    }
-  }
-  return index;
-}
-
-bool MatchMesenHDTexturePack(std::span<const uint8_t> rom_data,
-                             const MesenHDTexturePackIndex& index,
-                             const MesenHDTexturePack** matched_pack) {
-  const std::string sha1 = kiwi::nes::mesen_hd_pack::CalculateSha1Hex(rom_data);
-  const auto match = index.pack_by_rom_sha1.find(sha1);
-  if (match == index.pack_by_rom_sha1.end()) {
-    return true;
-  }
-
-  const MesenHDTexturePack* pack = &index.packs[match->second];
-  if (*matched_pack && (*matched_pack)->directory != pack->directory) {
-    std::fprintf(
-        stderr,
-        "A ROM ZIP contains ROMs targeted by multiple Mesen HD Packs\n");
-    return false;
-  }
-  *matched_pack = pack;
-  return true;
-}
-
-bool WriteMesenHDTexturePackToZip(zipFile destination,
-                                  const MesenHDTexturePack& pack) {
-  const std::string archive_directory =
-      GetMesenHDTextureArchivePath(pack) + "/";
-  for (const std::string& resource : pack.resources) {
-    const kiwi::base::FilePath resource_path =
-        pack.directory.Append(kiwi::base::FilePath::FromUTF8Unsafe(resource));
-    std::optional<std::vector<uint8_t>> contents =
-        kiwi::base::ReadFileToBytes(resource_path);
-    if (!contents) {
-      return false;
-    }
-
-    std::string archive_path = archive_directory + resource;
-    std::replace(archive_path.begin(), archive_path.end(), '\\', '/');
-    const char* data = contents->empty()
-                           ? ""
-                           : reinterpret_cast<const char*>(contents->data());
-    if (!WriteToZip(destination, archive_path.c_str(), data,
-                    contents->size())) {
-      return false;
-    }
-  }
   return true;
 }
 
@@ -454,24 +269,6 @@ int LevenshteinDistance(const std::string& s1, const std::string& s2) {
     }
   }
   return dp[m][n];
-}
-
-std::string NormalizePackageNameForSimilarity(std::string name) {
-  name = kiwi::base::ToLowerASCII(name);
-  const size_t region_suffix = name.rfind(" (");
-  if (region_suffix != std::string::npos && name.back() == ')') {
-    name.erase(region_suffix);
-  }
-  const size_t subtitle = name.find(" - ");
-  if (subtitle != std::string::npos) {
-    name.erase(subtitle);
-  }
-
-  std::erase_if(name, [](char character) {
-    return !((character >= 'a' && character <= 'z') ||
-             (character >= '0' && character <= '9'));
-  });
-  return name;
 }
 
 std::string RemoveQuote(const std::string& str) {
@@ -679,23 +476,6 @@ void ReplaceAndAppendUnsafe(char* original_string,
   strcat(original_string, append_string);
 }
 
-void RefreshHDTextureInfo(ROM& rom) {
-  rom.has_hd_texture = false;
-  rom.texture_type[0] = '\0';
-  if (rom.nes_data.empty()) {
-    return;
-  }
-
-  const MesenHDTexturePackIndex texture_index =
-      BuildMesenHDTexturePackIndex(GetWorkspace().GetMesenHDTexturesPath());
-  const MesenHDTexturePack* texture_pack = nullptr;
-  if (MatchMesenHDTexturePack(rom.nes_data, texture_index, &texture_pack) &&
-      texture_pack) {
-    rom.has_hd_texture = true;
-    std::snprintf(rom.texture_type, ROM::MAX, "%s", "mesen");
-  }
-}
-
 ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
   static const std::vector<ROM> g_no_result;
   std::vector<ROM> result;
@@ -717,26 +497,10 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
     manifest_data.push_back(0);  // String terminator
     nlohmann::json manifest_json = nlohmann::json::parse(manifest_data.data());
 
-    bool has_hd_texture = false;
-    std::string texture_type;
-    const auto texture = manifest_json.find("texture");
-    if (texture != manifest_json.end() && texture->is_object()) {
-      const auto texture_path = texture->find("path");
-      const auto type = texture->find("type");
-      if (texture_path != texture->end() && texture_path->is_string() &&
-          type != texture->end() && type->is_string()) {
-        texture_type = type->get<std::string>();
-        has_hd_texture =
-            ZipContainsFilesAtPath(file, texture_path->get<std::string>());
-      }
-    }
-
     if (manifest_json.contains("titles")) {
       const auto& titles = manifest_json.at("titles");
       for (const auto& rom_item : titles.items()) {
         ROM rom;
-        rom.has_hd_texture = has_hd_texture;
-        std::snprintf(rom.texture_type, ROM::MAX, "%s", texture_type.c_str());
         if (manifest_json.contains("boxarts")) {
           const auto& boxarts = manifest_json.at("boxarts");
           rom.has_boxarts_size_hint = boxarts.contains(rom_item.key());
@@ -816,22 +580,13 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
   return result;
 }
 
-namespace {
-
-kiwi::base::FilePath WriteZipWithTextureIndex(
-    const kiwi::base::FilePath& save_dir,
-    const ROMS& roms,
-    const MesenHDTexturePackIndex& texture_index) {
+kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
+                              const ROMS& roms) {
   kiwi::base::FilePath package_name;
-  const MesenHDTexturePack* texture_pack = nullptr;
 
   // Generate manifest.json
   nlohmann::json json;
   for (const auto& rom : roms) {
-    if (!MatchMesenHDTexturePack(rom.nes_data, texture_index, &texture_pack)) {
-      return kiwi::base::FilePath();
-    }
-
     nlohmann::json titles;
     if (strlen(rom.zh) > 0)
       titles["zh"] = rom.zh;
@@ -898,15 +653,15 @@ kiwi::base::FilePath WriteZipWithTextureIndex(
     SDL_FreeSurface(surface);
   }
 
-  if (texture_pack && !WriteMesenHDTexturePackToZip(zf, *texture_pack)) {
-    zipClose(zf, nullptr);
-    return kiwi::base::FilePath();
+  std::string manifest_contents = json.dump(2);
+  // Changes \n into \r\n
+  SDL_assert(manifest_contents.find('\r') == std::string::npos);
+  for (size_t i = 0; i < manifest_contents.length(); ++i) {
+    if (manifest_contents[i] == '\n') {
+      manifest_contents.replace(i, 1, "\r\n");
+      i += 1;
+    }
   }
-
-  if (texture_pack) {
-    SetMesenHDTextureManifestFields(&json);
-  }
-  const std::string manifest_contents = SerializeManifest(json);
 
   // Writes manifest
   if (!WriteToZip(zf, "manifest.json", manifest_contents.data(),
@@ -917,74 +672,6 @@ kiwi::base::FilePath WriteZipWithTextureIndex(
 
   zipClose(zf, nullptr);
   return kiwi::base::FilePath::FromUTF8Unsafe(output);
-}
-
-}  // namespace
-
-kiwi::base::FilePath AddMesenHDTexturePackToMatchedZip(
-    const kiwi::base::FilePath& texture_pack_path,
-    const kiwi::base::FilePath& zipped_path) {
-  const MesenHDTexturePackIndex texture_index =
-      BuildMesenHDTexturePackIndex(texture_pack_path);
-  if (texture_index.packs.size() != 1) {
-    std::fprintf(stderr,
-                 "Expected exactly one valid Mesen HD Pack under: %s\n",
-                 texture_pack_path.AsUTF8Unsafe().c_str());
-    return kiwi::base::FilePath();
-  }
-
-  const std::string texture_pack_name = NormalizePackageNameForSimilarity(
-      texture_pack_path.BaseName().AsUTF8Unsafe());
-  std::vector<std::pair<int, kiwi::base::FilePath>> zip_files;
-  const auto add_zip_file = [&zip_files, &texture_pack_name](
-                                const kiwi::base::FilePath& zip_file) {
-    const std::string zip_name = NormalizePackageNameForSimilarity(
-        zip_file.BaseName().RemoveExtension().AsUTF8Unsafe());
-    zip_files.emplace_back(
-        LevenshteinDistance(texture_pack_name, zip_name), zip_file);
-  };
-  if (kiwi::base::DirectoryExists(zipped_path)) {
-    kiwi::base::FileEnumerator files(
-        zipped_path, true, kiwi::base::FileEnumerator::FILES,
-        FILE_PATH_LITERAL("*.zip"));
-    for (kiwi::base::FilePath current = files.Next(); !current.empty();
-         current = files.Next()) {
-      add_zip_file(current);
-    }
-  } else if (kiwi::base::PathExists(zipped_path)) {
-    add_zip_file(zipped_path);
-  }
-  std::stable_sort(zip_files.begin(), zip_files.end(),
-                   [](const auto& lhs, const auto& rhs) {
-                     return lhs.first < rhs.first;
-                   });
-
-  for (const auto& candidate : zip_files) {
-    const kiwi::base::FilePath& zip_file = candidate.second;
-    ROMS roms = ReadZipFromFile(zip_file);
-    const MesenHDTexturePack* matched_pack = nullptr;
-    for (const ROM& rom : roms) {
-      if (!MatchMesenHDTexturePack(rom.nes_data, texture_index,
-                                   &matched_pack)) {
-        return kiwi::base::FilePath();
-      }
-    }
-    if (!matched_pack) {
-      continue;
-    }
-    return WriteZipWithTextureIndex(zip_file.DirName(), roms, texture_index);
-  }
-
-  std::fprintf(stderr, "No ROM ZIP matches Mesen HD Pack: %s\n",
-               texture_pack_path.AsUTF8Unsafe().c_str());
-  return kiwi::base::FilePath();
-}
-
-kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
-                              const ROMS& roms) {
-  const MesenHDTexturePackIndex texture_index =
-      BuildMesenHDTexturePackIndex(GetWorkspace().GetMesenHDTexturesPath());
-  return WriteZipWithTextureIndex(save_dir, roms, texture_index);
 }
 
 kiwi::base::FilePath PackZip(
@@ -1005,63 +692,78 @@ std::vector<kiwi::base::FilePath> PackZip(
     const kiwi::base::FilePath& save_dir) {
   std::vector<kiwi::base::FilePath> result;
   for (const auto& [rom_zip, package_name] : rom_zips) {
+    std::vector<kiwi::base::FilePath> package_files;
+    kiwi::base::File::Info file_info;
+    if (!kiwi::base::GetFileInfo(rom_zip, &file_info)) {
+      continue;
+    }
+    if (file_info.is_directory) {
+      kiwi::base::FileEnumerator files(
+          rom_zip, false, kiwi::base::FileEnumerator::FILES,
+          FILE_PATH_LITERAL("*.zip"));
+      for (kiwi::base::FilePath current = files.Next(); !current.empty();
+           current = files.Next()) {
+        package_files.push_back(std::move(current));
+      }
+    } else if (!file_info.is_symbolic_link) {
+      package_files.push_back(rom_zip);
+    }
+    std::sort(package_files.begin(), package_files.end());
+
+    kiwi::base::FilePath manifest_path =
+        rom_zip.Append(FILE_PATH_LITERAL("manifest.json"));
+    auto maybe_manifest_content = kiwi::base::ReadFileToBytes(manifest_path);
+    nlohmann::json manifest;
+    if (maybe_manifest_content) {
+      manifest = nlohmann::json::parse(maybe_manifest_content->begin(),
+                                       maybe_manifest_content->end(), nullptr,
+                                       false);
+    }
+    if (manifest.is_discarded() || !manifest.is_object()) {
+      manifest = nlohmann::json::parse(g_package_manifest_template);
+    }
+
+    nlohmann::json rom_sha1s = nlohmann::json::object();
+    bool hashes_collected = true;
+    for (const kiwi::base::FilePath& current : package_files) {
+      std::optional<nlohmann::json> hashes = CollectRomSha1s(current);
+      if (!hashes) {
+        hashes_collected = false;
+        break;
+      }
+      rom_sha1s[current.RemoveExtension().BaseName().AsUTF8Unsafe()] =
+          std::move(*hashes);
+    }
+    if (!hashes_collected) {
+      continue;
+    }
+    manifest["rom_sha1s"] = std::move(rom_sha1s);
+
     std::string output = save_dir.Append(package_name).AsUTF8Unsafe();
     zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
     if (!zf) {
       continue;
     }
 
-    // Try to read existed manifest.
-    kiwi::base::FilePath manifest_path =
-        rom_zip.Append(FILE_PATH_LITERAL("manifest.json"));
-    auto maybe_manifest_content = kiwi::base::ReadFileToBytes(manifest_path);
-    bool wrote = false;
-    if (maybe_manifest_content) {
-      wrote = WriteToZip(
-          zf, "manifest.json",
-          reinterpret_cast<const char*>(maybe_manifest_content->data()),
-          maybe_manifest_content->size());
-    }
-    if (!wrote) {
-      wrote =
-          WriteToZip(zf, "manifest.json", g_package_manifest_template.data(),
-                     g_package_manifest_template.size());
-    }
-    if (!wrote) {
-      zipClose(zf, nullptr);
-      continue;
-    }
-
-    kiwi::base::File::Info file_info;
-    kiwi::base::GetFileInfo(rom_zip, &file_info);
-    if (file_info.is_directory) {
-      kiwi::base::FileEnumerator d(rom_zip, false,
-                                   kiwi::base::FileEnumerator::FILES,
-                                   FILE_PATH_LITERAL("*.zip"));
-      for (kiwi::base::FilePath current = d.Next(); !current.empty();
-           current = d.Next()) {
-        std::optional<std::vector<uint8_t>> zip_contents =
-            kiwi::base::ReadFileToBytes(current);
-        SDL_assert(zip_contents);
-        if (!WriteToZip(zf, current.BaseName().AsUTF8Unsafe().c_str(),
-                        reinterpret_cast<const char*>(zip_contents->data()),
-                        zip_contents->size())) {
-          zipClose(zf, nullptr);
-          continue;
-        }
-      }
-    } else if (!file_info.is_symbolic_link) {
+    const std::string manifest_contents = manifest.dump(2);
+    bool wrote = WriteToZip(zf, "manifest.json", manifest_contents.data(),
+                            manifest_contents.size());
+    for (const kiwi::base::FilePath& current : package_files) {
       std::optional<std::vector<uint8_t>> zip_contents =
-          kiwi::base::ReadFileToBytes(rom_zip);
-      SDL_assert(zip_contents);
-      if (!WriteToZip(zf, rom_zip.BaseName().AsUTF8Unsafe().c_str(),
+          kiwi::base::ReadFileToBytes(current);
+      if (!zip_contents ||
+          !WriteToZip(zf, current.BaseName().AsUTF8Unsafe().c_str(),
                       reinterpret_cast<const char*>(zip_contents->data()),
                       zip_contents->size())) {
-        zipClose(zf, nullptr);
-        continue;
+        wrote = false;
+        break;
       }
     }
     zipClose(zf, nullptr);
+    if (!wrote) {
+      std::remove(output.c_str());
+      continue;
+    }
     result.push_back(kiwi::base::FilePath::FromUTF8Unsafe(output));
   }
 

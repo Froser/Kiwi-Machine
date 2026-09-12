@@ -23,6 +23,10 @@
 #include "utility/fonts.h"
 #include "utility/localization.h"
 
+#if KIWI_ANDROID
+#include "third_party/SDL2/src/core/android/SDL_android.h"
+#endif
+
 namespace {
 constexpr int kBrightThreshold = 220;
 constexpr int kHDTextureHintDurationMs = 3000;
@@ -218,13 +222,24 @@ void Canvas::PaintHDTextureToggleHint() {
             kHDTextureHintFadeOutMs;
   }
 
-  const int string_id =
-      last_hd_toggle_input_was_controller_
-          ? string_resources::IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT
-          : string_resources::IDR_HD_TEXTURE_TOGGLE_KEYBOARD_HINT;
+  int string_id = string_resources::IDR_HD_TEXTURE_TOGGLE_TOUCH_HINT;
+#if KIWI_ANDROID
+  if (SDL_IsAndroidTV()) {
+    string_id = string_resources::IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT;
+  }
+#elif !KIWI_MOBILE
+  string_id = last_hd_toggle_input_was_controller_
+                  ? string_resources::IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT
+                  : string_resources::IDR_HD_TEXTURE_TOGGLE_KEYBOARD_HINT;
+#endif
   const std::string& text = GetLocalizedString(string_id);
-  ScopedFont preferred_font = GetPreferredFont(
-      PreferredFontSize::k1x, text.c_str(), FontType::kSystemDefault);
+#if KIWI_MOBILE
+  constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k2x;
+#else
+  constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k1x;
+#endif
+  ScopedFont preferred_font =
+      GetPreferredFont(kHintFontSize, text.c_str(), FontType::kSystemDefault);
   ImFont* font = preferred_font.GetFont();
   float font_size = preferred_font.GetFontSize();
   const SDL_Rect canvas_bounds = MapToWindow(bounds());

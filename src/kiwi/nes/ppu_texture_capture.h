@@ -81,8 +81,8 @@ class NES_EXPORT PPUTextureCapture {
   ~PPUTextureCapture();
 
   void SetEnabled(bool enabled, bool uses_chr_ram);
-  bool enabled() const { return enabled_; }
-  bool uses_chr_ram() const { return uses_chr_ram_; }
+  ALWAYS_INLINE bool enabled() const { return enabled_; }
+  ALWAYS_INLINE bool uses_chr_ram() const { return uses_chr_ram_; }
   void BeginFrame();
 
   // Returns a tile only when a command is created, allowing PPU to populate

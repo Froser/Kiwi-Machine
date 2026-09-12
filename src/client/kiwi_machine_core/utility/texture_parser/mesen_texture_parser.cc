@@ -64,8 +64,11 @@ bool NormalizeArchiveRoot(std::string* archive_root) {
   while (!archive_root->empty() && archive_root->back() == '/') {
     archive_root->pop_back();
   }
-  if (archive_root->empty() || archive_root->front() == '/') {
+  if (!archive_root->empty() && archive_root->front() == '/') {
     return false;
+  }
+  if (archive_root->empty()) {
+    return true;
   }
 
   size_t component_start = 0;
@@ -88,6 +91,9 @@ bool NormalizeArchiveRoot(std::string* archive_root) {
 }
 
 std::string JoinArchivePath(std::string_view root, std::string_view file) {
+  if (root.empty()) {
+    return std::string(file);
+  }
   std::string result(root);
   result.push_back('/');
   result.append(file);
@@ -314,8 +320,8 @@ class MesenTextureRenderer final : public TextureRenderer {
   MesenTextureRenderer(HdPackData pack_data,
                        std::vector<MesenTextureImage> images,
                        std::vector<MesenTextureImage> background_images)
-      : pack_data_(std::move(pack_data)) {
-    const uint32_t tile_size = 8 * scale();
+      : pack_data_(std::move(pack_data)), output_scale_(pack_data_.scale) {
+    const uint32_t tile_size = 8 * texture_scale();
     prepared_rules_.reserve(pack_data_.tiles.size());
     for (size_t index = 0; index < pack_data_.tiles.size(); ++index) {
       const TileRule& rule = pack_data_.tiles[index];
@@ -367,11 +373,33 @@ class MesenTextureRenderer final : public TextureRenderer {
   MesenTextureRenderer& operator=(const MesenTextureRenderer&) = delete;
 
   using TextureRenderer::RenderFrame;
-  uint32_t GetScale() const override { return scale(); }
+  void SetMaximumOutputScale(uint32_t maximum_scale) override {
+    output_scale_ =
+        std::min(texture_scale(), std::max(uint32_t{1}, maximum_scale));
+  }
+  uint32_t GetScale() const override { return output_scale(); }
   bool IsUseChrRam() const override { return uses_chr_ram_; }
 
  private:
-  uint32_t scale() const { return pack_data_.scale; }
+  uint32_t texture_scale() const { return pack_data_.scale; }
+  uint32_t output_scale() const { return output_scale_; }
+
+  uint32_t GetSourceSubpixel(uint32_t output_subpixel) const {
+    return ((output_subpixel * 2 + 1) * texture_scale()) /
+           (output_scale() * 2);
+  }
+
+  uint32_t GetSourceCoordinate(uint32_t output_coordinate) const {
+    return output_coordinate / output_scale() * texture_scale() +
+           GetSourceSubpixel(output_coordinate % output_scale());
+  }
+
+  uint32_t GetSourceTileCoordinate(uint32_t output_coordinate,
+                                   bool mirrored) const {
+    const uint32_t source_coordinate = GetSourceCoordinate(output_coordinate);
+    return mirrored ? 8 * texture_scale() - source_coordinate - 1
+                    : source_coordinate;
+  }
 
   bool DrawTile(const kiwi::nes::PPUTextureTileCommand& command,
                 const kiwi::nes::PPUFrameData& frame,
@@ -420,8 +448,8 @@ class MesenTextureRenderer final : public TextureRenderer {
  public:
   bool RenderFrame(const kiwi::nes::PPUFrameData& frame,
                    const TextureRenderTarget& target) const override {
-    const size_t output_width = frame.width * scale();
-    const size_t output_height = frame.height * scale();
+    const size_t output_width = frame.width * output_scale();
+    const size_t output_height = frame.height * output_scale();
     if (!target.pixels ||
         frame.type != kiwi::nes::PPUFrameData::Type::kTextureMetadata ||
         frame.width != kScreenWidth || frame.height != kScreenHeight ||
@@ -530,13 +558,15 @@ class MesenTextureRenderer final : public TextureRenderer {
       const PreparedBackground& prepared,
       const kiwi::nes::PPUFrameData& frame,
       const TextureRenderTarget& target) const {
-    const int64_t texture_scale = scale();
+    const int64_t source_scale = texture_scale();
+    const bool direct_copy = output_scale() == texture_scale();
     for (int y = 0; y < target.height; ++y) {
       int32_t scroll_x = 0;
       int32_t scroll_y = 0;
       if (!frame.texture_scroll_offsets.empty()) {
         const auto& scroll =
-            frame.texture_scroll_offsets[static_cast<size_t>(y) / scale()];
+            frame.texture_scroll_offsets[static_cast<size_t>(y) /
+                                         output_scale()];
         scroll_x =
             static_cast<int32_t>(scroll.x * background.horizontal_scroll_ratio);
         scroll_y =
@@ -545,39 +575,64 @@ class MesenTextureRenderer final : public TextureRenderer {
 
       const int64_t source_y =
           (static_cast<int64_t>(background.image_top) + scroll_y) *
-              texture_scale +
-          y;
+              source_scale +
+          (direct_copy ? y : GetSourceCoordinate(y));
       if (source_y < 0 || source_y >= prepared.height) {
         continue;
       }
-      const int64_t source_x =
+      const int64_t source_origin_x =
           (static_cast<int64_t>(background.image_left) + scroll_x) *
-          texture_scale;
-      const int64_t first_x = std::max<int64_t>(0, -source_x);
-      const int64_t end_x =
-          std::min<int64_t>(target.width, prepared.width - source_x);
-      if (first_x >= end_x) {
+          source_scale;
+
+      if (direct_copy) {
+        const int64_t first_x = std::max<int64_t>(0, -source_origin_x);
+        const int64_t end_x =
+            std::min<int64_t>(target.width, prepared.width - source_origin_x);
+        if (first_x >= end_x) {
+          continue;
+        }
+
+        kiwi::nes::Color* destination =
+            target.pixels + static_cast<size_t>(y) * target.stride + first_x;
+        const kiwi::nes::Color* source =
+            prepared.pixels.data() +
+            static_cast<size_t>(source_y) * prepared.width + source_origin_x +
+            first_x;
+        const size_t pixel_count = static_cast<size_t>(end_x - first_x);
+        if (prepared.fully_opaque && background.brightness == 1.f &&
+            background.blend_mode ==
+                kiwi::nes::mesen_hd_pack::BackgroundBlendMode::kAlpha) {
+          std::copy_n(source, pixel_count, destination);
+          continue;
+        }
+        for (size_t x = 0; x < pixel_count; ++x) {
+          kiwi::nes::Color color = source[x];
+          if (background.brightness != 1.f) {
+            color = AdjustBrightness(color, background.brightness);
+          }
+          destination[x] = AlphaBlend(destination[x], color);
+        }
         continue;
       }
 
       kiwi::nes::Color* destination =
-          target.pixels + static_cast<size_t>(y) * target.stride + first_x;
-      const kiwi::nes::Color* source =
-          prepared.pixels.data() +
-          static_cast<size_t>(source_y) * prepared.width + source_x + first_x;
-      const size_t pixel_count = static_cast<size_t>(end_x - first_x);
-      if (prepared.fully_opaque && background.brightness == 1.f &&
-          background.blend_mode ==
-              kiwi::nes::mesen_hd_pack::BackgroundBlendMode::kAlpha) {
-        std::copy_n(source, pixel_count, destination);
-        continue;
-      }
-      for (size_t x = 0; x < pixel_count; ++x) {
-        kiwi::nes::Color color = source[x];
+          target.pixels + static_cast<size_t>(y) * target.stride;
+      for (int x = 0; x < target.width; ++x) {
+        const int64_t source_x =
+            source_origin_x + GetSourceCoordinate(x);
+        if (source_x < 0 || source_x >= prepared.width) {
+          continue;
+        }
+        kiwi::nes::Color color =
+            prepared.pixels[static_cast<size_t>(source_y) * prepared.width +
+                            source_x];
         if (background.brightness != 1.f) {
           color = AdjustBrightness(color, background.brightness);
         }
-        destination[x] = AlphaBlend(destination[x], color);
+        destination[x] =
+            prepared.fully_opaque
+                ? color
+                : AlphaBlend(destination[x], color);
       }
     }
   }
@@ -594,23 +649,24 @@ class MesenTextureRenderer final : public TextureRenderer {
 
   void BlitBackdrop(const kiwi::nes::PPUFrameData& frame,
                     const TextureRenderTarget& target) const {
-    const size_t output_width = frame.width * scale();
+    const size_t output_width = frame.width * output_scale();
     for (int y = 0; y < frame.height; ++y) {
       kiwi::nes::Color* first_row =
-          target.pixels + static_cast<size_t>(y * scale()) * target.stride;
+          target.pixels +
+          static_cast<size_t>(y * output_scale()) * target.stride;
       const kiwi::nes::Color* source_row =
           frame.texture_backdrop_pixels.data() +
           static_cast<size_t>(y) * frame.width;
       int run_start = 0;
       for (int x = 1; x <= frame.width; ++x) {
         if (x == frame.width || source_row[x] != source_row[run_start]) {
-          std::fill_n(first_row + run_start * scale(),
-                      static_cast<size_t>(x - run_start) * scale(),
+          std::fill_n(first_row + run_start * output_scale(),
+                      static_cast<size_t>(x - run_start) * output_scale(),
                       source_row[run_start]);
           run_start = x;
         }
       }
-      for (uint32_t row = 1; row < scale(); ++row) {
+      for (uint32_t row = 1; row < output_scale(); ++row) {
         std::copy_n(first_row, output_width, first_row + row * target.stride);
       }
     }
@@ -649,20 +705,22 @@ class MesenTextureRenderer final : public TextureRenderer {
           continue;
         }
         kiwi::nes::Color* destination =
-            output + static_cast<size_t>(screen_y * scale()) * output_stride +
-            screen_x * scale();
+            output +
+            static_cast<size_t>(screen_y * output_scale()) * output_stride +
+            screen_x * output_scale();
         kiwi::nes::Byte* mask =
             sprite_mask
                 ? sprite_mask +
-                      static_cast<size_t>(screen_y * scale()) * output_stride +
-                      screen_x * scale()
+                      static_cast<size_t>(screen_y * output_scale()) *
+                          output_stride +
+                      screen_x * output_scale()
                 : nullptr;
-        for (uint32_t row = 0; row < scale(); ++row) {
+        for (uint32_t row = 0; row < output_scale(); ++row) {
           if (!mask) {
-            std::fill_n(destination, scale(),
+            std::fill_n(destination, output_scale(),
                         command.native_colors[pixel_index]);
           } else {
-            for (uint32_t x = 0; x < scale(); ++x) {
+            for (uint32_t x = 0; x < output_scale(); ++x) {
               if (command.oam_index <= mask[x]) {
                 destination[x] = command.native_colors[pixel_index];
                 mask[x] = command.oam_index;
@@ -868,26 +926,31 @@ class MesenTextureRenderer final : public TextureRenderer {
     }
 
     const kiwi::nes::PPUTextureTile& tile = command.tile;
-    const uint32_t tile_size = 8 * scale();
+    const uint32_t source_tile_size = 8 * texture_scale();
+    const uint32_t output_tile_size = 8 * output_scale();
     if (!sprite_mask &&
         command.visible_mask == std::numeric_limits<uint64_t>::max() &&
         command.x >= 0 && command.x + 8 <= kScreenWidth && command.y >= 0 &&
         command.y + 8 <= kScreenHeight) {
       kiwi::nes::Color* destination =
-          output + static_cast<size_t>(command.y * scale()) * output_stride +
-          command.x * scale();
-      for (uint32_t row = 0; row < tile_size; ++row) {
+          output +
+          static_cast<size_t>(command.y * output_scale()) * output_stride +
+          command.x * output_scale();
+      for (uint32_t row = 0; row < output_tile_size; ++row) {
         const uint32_t source_y =
-            tile.vertical_mirroring ? tile_size - row - 1 : row;
-        const kiwi::nes::Color* source =
-            rule.pixels.data() + static_cast<size_t>(source_y) * tile_size;
-        if (rule.fully_opaque && !tile.horizontal_mirroring) {
-          std::copy_n(source, tile_size, destination);
+            GetSourceTileCoordinate(row, tile.vertical_mirroring);
+        const kiwi::nes::Color* source_row =
+            rule.pixels.data() +
+            static_cast<size_t>(source_y) * source_tile_size;
+        if (rule.fully_opaque && !tile.horizontal_mirroring &&
+            output_scale() == texture_scale()) {
+          std::copy_n(source_row, output_tile_size, destination);
         } else {
-          for (uint32_t x = 0; x < tile_size; ++x) {
+          for (uint32_t x = 0; x < output_tile_size; ++x) {
             const uint32_t source_x =
-                tile.horizontal_mirroring ? tile_size - x - 1 : x;
-            destination[x] = AlphaBlend(destination[x], source[source_x]);
+                GetSourceTileCoordinate(x, tile.horizontal_mirroring);
+            destination[x] =
+                AlphaBlend(destination[x], source_row[source_x]);
           }
         }
         destination += output_stride;
@@ -909,30 +972,27 @@ class MesenTextureRenderer final : public TextureRenderer {
           continue;
         }
         kiwi::nes::Color* destination =
-            output + static_cast<size_t>(screen_y * scale()) * output_stride +
-            screen_x * scale();
+            output +
+            static_cast<size_t>(screen_y * output_scale()) * output_stride +
+            screen_x * output_scale();
         kiwi::nes::Byte* mask =
             sprite_mask
                 ? sprite_mask +
-                      static_cast<size_t>(screen_y * scale()) * output_stride +
-                      screen_x * scale()
+                      static_cast<size_t>(screen_y * output_scale()) *
+                          output_stride +
+                      screen_x * output_scale()
                 : nullptr;
-        const uint32_t source_tile_x =
-            tile.horizontal_mirroring ? 7 - tile_x : tile_x;
-        const uint32_t source_tile_y =
-            tile.vertical_mirroring ? 7 - tile_y : tile_y;
-        for (uint32_t y = 0; y < scale(); ++y) {
-          const uint32_t source_y =
-              source_tile_y * scale() +
-              (tile.vertical_mirroring ? scale() - y - 1 : y);
-          const kiwi::nes::Color* source =
-              rule.pixels.data() + static_cast<size_t>(source_y) * tile_size +
-              source_tile_x * scale();
+        for (uint32_t y = 0; y < output_scale(); ++y) {
+          const uint32_t source_y = GetSourceTileCoordinate(
+              tile_y * output_scale() + y, tile.vertical_mirroring);
+          const kiwi::nes::Color* source_row =
+              rule.pixels.data() +
+              static_cast<size_t>(source_y) * source_tile_size;
           if (mask) {
-            for (uint32_t x = 0; x < scale(); ++x) {
-              const uint32_t source_x =
-                  tile.horizontal_mirroring ? scale() - x - 1 : x;
-              const kiwi::nes::Color color = source[source_x];
+            for (uint32_t x = 0; x < output_scale(); ++x) {
+              const uint32_t source_x = GetSourceTileCoordinate(
+                  tile_x * output_scale() + x, tile.horizontal_mirroring);
+              const kiwi::nes::Color color = source_row[source_x];
               const uint32_t alpha = color >> 24;
               if (alpha == 0 || command.oam_index > mask[x]) {
                 continue;
@@ -943,13 +1003,16 @@ class MesenTextureRenderer final : public TextureRenderer {
               }
             }
             mask += output_stride;
-          } else if (rule.fully_opaque && !tile.horizontal_mirroring) {
-            std::copy_n(source, scale(), destination);
+          } else if (rule.fully_opaque && !tile.horizontal_mirroring &&
+                     output_scale() == texture_scale()) {
+            const uint32_t source_x = tile_x * texture_scale();
+            std::copy_n(source_row + source_x, output_scale(), destination);
           } else {
-            for (uint32_t x = 0; x < scale(); ++x) {
-              const uint32_t source_x =
-                  tile.horizontal_mirroring ? scale() - x - 1 : x;
-              destination[x] = AlphaBlend(destination[x], source[source_x]);
+            for (uint32_t x = 0; x < output_scale(); ++x) {
+              const uint32_t source_x = GetSourceTileCoordinate(
+                  tile_x * output_scale() + x, tile.horizontal_mirroring);
+              destination[x] =
+                  AlphaBlend(destination[x], source_row[source_x]);
             }
           }
           destination += output_stride;
@@ -976,6 +1039,7 @@ class MesenTextureRenderer final : public TextureRenderer {
   mutable std::array<const kiwi::nes::PPUTextureTileCommand*,
                      kScreenWidth * kScreenHeight>
       background_at_pixel_{};
+  uint32_t output_scale_ = 1;
   bool uses_chr_ram_ = false;
 };
 

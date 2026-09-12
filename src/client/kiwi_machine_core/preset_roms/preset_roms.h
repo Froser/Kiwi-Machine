@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/files/file_path.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "utility/localization.h"
 
@@ -55,7 +56,13 @@ struct PresetROM {
   // ROM's region
   Region region = Region::kUnknown;
 
-  // Whether a validated texture pack is available as a separate HD edition.
+  // SHA-1 and independently packaged HD texture metadata.
+  std::string sha1;
+  std::unordered_map<std::string, std::string> sha1_by_name;
+  kiwi::base::FilePath hd_texture_path;
+  bool hd_texture_toggle_available = false;
+
+  // Whether a ROM-patching texture pack needs a separate HD edition.
   bool hd_edition_available = false;
 
   // Whether its data or cover is loaded

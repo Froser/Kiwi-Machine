@@ -24,14 +24,15 @@
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "rom_window.h"
+#include "texture_packager.h"
 #include "util.h"
 #include "workspace.h"
 
 DEFINE_string(km_path, "", "Kiwi-Machine executable/bundle directory.");
 DEFINE_string(zipped_path, "", "Input path for zipped files.");
 DEFINE_string(output_path, "", "Output path for packaged files.");
-DEFINE_string(add_mesen_hd_texture, "",
-              "Add a Mesen HD Texture Pack to its SHA-1-matched ROM ZIP.");
+DEFINE_string(mesen_hd_texture_path, "",
+              "Input directory containing Mesen HD Texture Pack folders.");
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -735,21 +736,24 @@ int main(int argc, char **argv) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 #endif
 
-    if (!FLAGS_add_mesen_hd_texture.empty()) {
-        if (FLAGS_zipped_path.empty()) {
+    if (!FLAGS_mesen_hd_texture_path.empty()) {
+        if (FLAGS_output_path.empty()) {
             fprintf(stderr,
-                    "--add_mesen_hd_texture requires --zipped_path.\n");
+                    "--mesen_hd_texture_path requires --output_path.\n");
             return 1;
         }
-        kiwi::base::FilePath updated_zip = AddMesenHDTexturePackToMatchedZip(
-                kiwi::base::FilePath::FromUTF8Unsafe(
-                        FLAGS_add_mesen_hd_texture),
-                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_zipped_path));
-        if (updated_zip.empty())
+        std::vector<kiwi::base::FilePath> texture_packages =
+                PackMesenHDTextures(
+                        kiwi::base::FilePath::FromUTF8Unsafe(
+                                FLAGS_mesen_hd_texture_path),
+                        kiwi::base::FilePath::FromUTF8Unsafe(
+                                FLAGS_output_path));
+        if (texture_packages.empty())
             return 1;
 
-        printf("Done. Updated ZIP:\n%s\n",
-               updated_zip.AsUTF8Unsafe().c_str());
+        printf("Done. Texture packages:\n");
+        for (const auto& path : texture_packages)
+            printf("%s\n", path.AsUTF8Unsafe().c_str());
         return 0;
     }
 

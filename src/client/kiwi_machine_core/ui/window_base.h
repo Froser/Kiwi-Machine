@@ -64,6 +64,7 @@ class WindowBase {
   virtual void HandleTextEditingEvent(SDL_TextEditingEvent* event);
   virtual void HandleTextInputEvent(SDL_TextInputEvent* event);
   virtual void HandleResizedEvent();
+  virtual void HandleFocusChangedEvent(bool focused);
   virtual void HandleDisplayEvent(SDL_DisplayEvent* event);
   virtual void HandleTouchFingerEvent(SDL_TouchFingerEvent* event);
   virtual void HandleDropFileEvent(SDL_DropEvent* event);

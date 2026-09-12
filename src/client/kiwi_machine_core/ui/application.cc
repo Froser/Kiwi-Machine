@@ -16,6 +16,9 @@
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <imgui.h>
 
+#include <algorithm>
+
+#include "base/files/file_enumerator.h"
 #include "preset_roms/preset_roms.h"
 #include "ui/application.h"
 #include "utility/audio_effects.h"
@@ -37,6 +40,10 @@
 namespace {
 constexpr int kInitializeSDLImageFailed = -2;
 Application* g_app_instance = nullptr;
+
+void ProcessImGuiEvent(SDL_Event* event) {
+  ImGui_ImplSDL2_ProcessEvent(event);
+}
 }  // namespace
 
 DEFINE_string(lang, "", "Sets application's language.");
@@ -87,6 +94,12 @@ Application::Application(int& argc, char** argv) {
 
 Application::~Application() {
   SDL_assert(g_app_instance);
+#if !KIWI_WASM
+  // Initialization can still be running when the splash window is closed.
+  // Join the IO thread while the application services it uses are still alive.
+  io_thread_->Stop();
+  io_thread_.reset();
+#endif
 #if BUILDFLAG(IS_MAC)
   UninitializeMacMouseWheelPhaseMonitor();
 #endif
@@ -140,11 +153,16 @@ void Application::HandleEvent(SDL_Event* event) {
       RemoveGameController(event->cdevice.which);
     } break;
     case SDL_WINDOWEVENT: {
-      if (event->window.event == SDL_WINDOWEVENT_RESIZED ||
-          event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-        WindowBase* target = FindWindowFromID(event->window.windowID);
-        if (target)
+      WindowBase* target = FindWindowFromID(event->window.windowID);
+      if (target) {
+        if (event->window.event == SDL_WINDOWEVENT_RESIZED ||
+            event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
           target->HandleResizedEvent();
+        } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+          target->HandleFocusChangedEvent(true);
+        } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+          target->HandleFocusChangedEvent(false);
+        }
       }
     } break;
     case SDL_DISPLAYEVENT_ORIENTATION: {
@@ -268,14 +286,12 @@ scoped_refptr<kiwi::base::SequencedTaskRunner> Application::GetIOTaskRunner() {
 #endif
 }
 
-void Application::Initialize(kiwi::base::OnceClosure other_io_task,
-                             kiwi::base::OnceClosure callback) {
+void Application::Initialize(kiwi::base::OnceClosure callback) {
   if (!initialized_) {
     GetIOTaskRunner()->PostTaskAndReply(
         FROM_HERE,
         kiwi::base::BindOnce(&Application::InitializeROMs,
-                             kiwi::base::Unretained(this))
-            .Then(std::move(other_io_task)),
+                             kiwi::base::Unretained(this)),
         kiwi::base::BindOnce(&InitializeFonts).Then(std::move(callback)));
     initialized_ = true;
   } else {
@@ -382,8 +398,8 @@ void Application::InitializeImGui() {
   io.IniFilename = nullptr;
   ImGui::StyleColorsClassic();
 
-  kiwi::base::SetPreEventHandlerForSDL2(kiwi::base::BindRepeating(
-      [](SDL_Event* event) { ImGui_ImplSDL2_ProcessEvent(event); }));
+  kiwi::base::SetPreEventHandlerForSDL2(
+      kiwi::base::BindRepeating(&ProcessImGuiEvent));
 
   InitializeStyles();
   InitializeStartupFonts();
@@ -430,7 +446,7 @@ void Application::InitializeRuntimeAndConfigs() {
 void Application::InitializeROMs() {
   // Iterates all pak file for loading package.
   std::vector<kiwi::base::FilePath> file_paths = GetPackagePathList();
-  for (kiwi::base::FilePath file_path : file_paths) {
+  for (const kiwi::base::FilePath& file_path : file_paths) {
     OpenPackageFromFile(file_path);
   }
 
@@ -440,6 +456,10 @@ void Application::InitializeROMs() {
       InitializePresetROM(rom);
     }
   }
+
+  std::vector<kiwi::base::FilePath> texture_paths =
+      GetTexturePackPathList(file_paths);
+  InitializeTexturePacks(texture_paths);
 }
 
 std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
@@ -516,6 +536,36 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
   }
   return list;
 #endif
+}
+
+std::vector<kiwi::base::FilePath> Application::GetTexturePackPathList(
+    const std::vector<kiwi::base::FilePath>& package_paths) {
+  std::vector<kiwi::base::FilePath> paths;
+#if BUILDFLAG(IS_ANDROID)
+  for (const kiwi::base::FilePath& asset :
+       GetAssets(kiwi::base::FilePath(FILE_PATH_LITERAL("textures")))) {
+    if (asset.FinalExtension() == FILE_PATH_LITERAL(".pak")) {
+      paths.push_back(asset);
+    }
+  }
+#else
+  std::set<kiwi::base::FilePath> texture_directories;
+  for (const kiwi::base::FilePath& package_path : package_paths) {
+    texture_directories.insert(
+        package_path.DirName().Append(FILE_PATH_LITERAL("textures")));
+  }
+  for (const kiwi::base::FilePath& directory : texture_directories) {
+    kiwi::base::FileEnumerator texture_enumerator(
+        directory, false, kiwi::base::FileEnumerator::FILES,
+        FILE_PATH_LITERAL("*.pak"));
+    for (kiwi::base::FilePath path = texture_enumerator.Next(); !path.empty();
+         path = texture_enumerator.Next()) {
+      paths.push_back(std::move(path));
+    }
+  }
+#endif
+  std::sort(paths.begin(), paths.end());
+  return paths;
 }
 
 void Application::AddWindowToEventHandler(WindowBase* window) {

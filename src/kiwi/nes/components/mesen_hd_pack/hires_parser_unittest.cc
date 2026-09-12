@@ -104,6 +104,22 @@ TEST(HiresParserTest, ParsesDecimalTileIndexInVersion102) {
   EXPECT_EQ(data.tiles[0].tile.chr_rom_index, 46U);
 }
 
+TEST(HiresParserTest, ParsesBackgroundPriorityInLegacyVersion2) {
+  constexpr std::string_view kDefinition = R"(
+<ver>2
+<scale>4
+<background>background.png,1,0,0,Y
+)";
+
+  HdPackData data;
+  std::vector<ParseError> errors;
+  HiresParser parser;
+  const bool parsed = parser.Parse(kDefinition, &data, &errors);
+  ASSERT_TRUE(parsed);
+  ASSERT_EQ(data.backgrounds.size(), 1U);
+  EXPECT_EQ(data.backgrounds[0].priority, 0);
+}
+
 TEST(RomHashTest, CalculatesKnownSha1Vectors) {
   EXPECT_EQ(CalculateSha1Hex(std::span<const uint8_t>()),
             "DA39A3EE5E6B4B0D3255BFEF95601890AFD80709");

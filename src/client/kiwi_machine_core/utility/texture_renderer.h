@@ -41,6 +41,7 @@ class TextureRenderer {
   TextureRenderer(const TextureRenderer&) = delete;
   TextureRenderer& operator=(const TextureRenderer&) = delete;
 
+  virtual void SetMaximumOutputScale(uint32_t maximum_scale) = 0;
   virtual uint32_t GetScale() const = 0;
   virtual bool IsUseChrRam() const = 0;
   bool RenderFrame(const kiwi::nes::PPUFrameData& frame,

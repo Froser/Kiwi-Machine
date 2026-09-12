@@ -44,6 +44,8 @@ set(Sources
         main.cc
         rom_window.cc
         rom_window.h
+        texture_packager.cc
+        texture_packager.h
         util.cc
         util.h
         workspace.cc

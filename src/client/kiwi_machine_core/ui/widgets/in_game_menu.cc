@@ -512,29 +512,24 @@ InGameMenu::FrameText InGameMenu::BuildFrameText() const {
 
   text.state_title = text.menu_items[ToIndex(focus_.menu_item)];
   if (focus_.menu_item == MenuItem::kLoadAutoSave) {
-    if (current_auto_states_count_ > 0) {
-      text.state_position = std::to_string(which_autosave_state_slot_ + 1) +
-                            " / " + std::to_string(current_auto_states_count_);
-    } else {
+    time_t timestamp = state_preview_.timestamp;
+    if (timestamp) {
+      if (std::tm* local_time = std::localtime(&timestamp)) {
+        char time_buffer[32] = {};
+        if (std::strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M",
+                          local_time)) {
+          text.state_position = time_buffer;
+        }
+      }
+    }
+    if (text.state_position.empty())
       text.state_position =
           GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NO_STATE);
-    }
   } else {
     text.state_position =
         GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SLOT) +
         std::to_string(which_state_ + 1) + " / " +
         std::to_string(NESRuntime::Data::MaxSaveStates);
-  }
-
-  if (focus_.menu_item == MenuItem::kLoadAutoSave && state_preview_.timestamp) {
-    time_t timestamp = state_preview_.timestamp;
-    if (std::tm* local_time = std::localtime(&timestamp)) {
-      char time_buffer[32] = {};
-      if (std::strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M",
-                        local_time)) {
-        text.state_metadata = time_buffer;
-      }
-    }
   }
 
   text.state_action = GetLocalizedString(
@@ -808,11 +803,9 @@ void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
         MakeRect(RectRight(layout.state_preview) + gap, inner.y,
                  inner.w - layout.state_preview.w - gap, inner.h);
     const float controls_height =
-        text_height * 2.f + gap * 3.f + action_height * 2.f;
+        text_height + gap * 2.f + action_height * 2.f;
     float y = controls.y + std::max(0.f, (controls.h - controls_height) / 2.f);
     layout.state_title = MakeRect(controls.x, y, controls.w, text_height);
-    y += text_height;
-    layout.state_metadata = MakeRect(controls.x, y, controls.w, text_height);
     y += text_height + gap;
     const float button_width = action_height;
     layout.state_selector =
@@ -832,7 +825,7 @@ void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
         preview_width * Canvas::kNESFrameDefaultHeight /
         static_cast<float>(Canvas::kNESFrameDefaultWidth);
     const float controls_height =
-        text_height * 2.f + gap * 3.f + action_height * 2.f;
+        text_height + gap * 2.f + action_height * 2.f;
     const float preview_height = std::min(
         natural_preview_height, std::max(0.f, inner.h - controls_height));
     const float fitted_preview_width =
@@ -844,8 +837,6 @@ void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
 
     float y = RectBottom(layout.state_preview) + gap;
     layout.state_title = MakeRect(inner.x, y, inner.w, text_height);
-    y += text_height;
-    layout.state_metadata = MakeRect(inner.x, y, inner.w, text_height);
     y += text_height + gap;
     const float button_width = action_height;
     layout.state_selector = MakeRect(inner.x, y, inner.w, action_height);
@@ -1084,9 +1075,6 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
 
   DrawTextInRect(text.state_title, layout.state_title, layout.font_size,
                  kTextColor, 0.f, false, true);
-  DrawTextInRect(text.state_metadata, layout.state_metadata,
-                 GetSecondaryFontSize(layout.font_size), kMutedTextColor, 0.f,
-                 false, true, FontType::kSystemDefault);
 
   const bool previous_hovered =
       hovered_target_.type == HitTargetType::kStatePrevious;

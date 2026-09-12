@@ -119,6 +119,10 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual void SetIODevices(std::unique_ptr<IODevices> io_devices) = 0;
   virtual IODevices* GetIODevices() = 0;
 
+  // Enables expensive per-pixel metadata collection only while an HD texture
+  // renderer is actively presenting frames.
+  virtual void SetTextureMetadataCaptureEnabled(bool enabled) = 0;
+
   // Saves or loads current states, such as CPU, PPU, APU, cartridge, etc.
   // If save state failed, an empty data will be returned in |callback|.
   virtual void SaveState(SaveStateCallback callback) = 0;

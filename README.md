@@ -1,14 +1,15 @@
 # Kiwi-Machine
 
-### **Visit [Kiwi-Machine Online](https://froser.github.io) For Playing Online**
+### **Visit** **[Kiwi-Machine Online](https://froser.github.io)** **For Playing Online**
 
------
+***
 
-![](kiwi.png)
+![Kiwi Machine logo](kiwi.png)
 
-![](docs/preview.gif)
+![Kiwi Machine gameplay](docs/preview.gif)
 
 ## CICD
+
 [![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_windows.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_windows.yml)
 
 [![Build Kiwi Machine](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_ubuntu.yml/badge.svg)](https://github.com/Froser/Kiwi-Machine/actions/workflows/build_ubuntu.yml)
@@ -55,7 +56,7 @@ In addition, some games use relatively niche Mappers, such as the Japanese versi
 
 Although the core is implemented by myself, I still used some third-party libraries:
 
-- APU: [Nes_Snd_Emu](https://github.com/blarggs-audio-libraries/Nes_Snd_Emu/)
+- APU: [Nes\_Snd\_Emu](https://github.com/blarggs-audio-libraries/Nes_Snd_Emu/)
 - Interface library: ImGui
 - Framework foundation: SDL2
   In addition, there are some common libraries like `zlib`, which I won't list repeatedly here.
@@ -71,28 +72,50 @@ Consistent programming style means that the Kiwi kernel uses asynchronous progra
 
 ### Supported Platforms
 
-- MacOS
+- macOS
 - Windows
 - Linux
 - Android (phone, TV)
 - iOS
 
-```
-**Since ROM resources and code are currently separated, you need to manually copy ROM resource files (*.pak)**
-**If you want the build system to automatically copy, you need to manually specify `-DKIWI_PACKAGE_DIR={your pak storage path}` during CMake build**
-```
+> ROM resources are maintained separately from the source tree. Use the
+> `auto_package` target described below to generate and stage them, or configure
+> CMake with `-DKIWI_PACKAGE_DIR=<directory-containing-rom-paks>` to copy
+> existing ROM PAK files into the desktop application.
 
 ### Preparation Before Building
-If you want to use the ROM resources prepared for you by Kiwi-Machine instead of packing them manually, you need to perform the following operations:
 
-1. Choose a path, take `~/Documents/Kiwi-Machine-Workspace` as an example, and pull the code `git clone https://github.com/Froser/Kiwi-Machine-Workspace.git` in the directory. You can also complete this by running `build/workspace-sync.py`.
-2. Compile `package_manager` first according to the method described next, run it with the command line `--workspace={Path-To-KiwiMachine-Workspace}`, and package the ROM into a pak file.
-3. Build the main KiwiMachine, and specify `-DKIWI_PACKAGE_DIR={Path-To-KiwiMachine-Workspace}/out/output` in CMake, so it will automatically copy the pak files you generated to the resource directory.
+To use the separately maintained Kiwi-Machine workspace:
 
-For Android, the `debug` and `release` variants package the single ROM configured
-by `kiwi.demoRomZip`. The `debugAllRoms` and `releaseAllRoms` variants package
-all ROM sets from `kiwi.allRomsDirectory` using the same package layout as the
-PC client.
+1. Run `python3 build.py workspace` to clone or update
+   `src/third_party/Kiwi-Machine-Workspace`.
+2. Configure a desktop build with `python3 build.py pc`.
+3. Run `cmake --build cmake-build-debug --target auto_package`. This builds
+   `package_manager` and `kiwi_machine`, generates `main.pak`, `specials.pak`,
+   and `textures/*.pak`, then stages them in the desktop application's resource
+   directory.
+
+For manual editing, build the `package_manager` target and launch it with
+`--workspace=<path-to-Kiwi-Machine-Workspace>`.
+
+Android provides the following build variants:
+
+- `debug` and `release` package the single ROM configured by
+  `kiwi.demoRomZip`.
+- `debugAllRoms` and `releaseAllRoms` rebuild all ROM sets from
+  `kiwi.allRomsDirectory`. ROM SHA-1 indexes are generated during packaging so
+  startup does not need to decompress and hash every ROM.
+- `debugNoPakResource` and `releaseNoPakResource` reuse the PAK files staged by
+  a previous all-ROMs build, skipping ROM indexing, packaging, and HD texture
+  synchronization. Run `debugAllRoms` or `releaseAllRoms` once before using
+  these faster incremental variants.
+
+All variants store PAK files uncompressed in the APK for direct random access
+and include standalone HD texture PAKs from
+`kiwi.hdTexturePaksDirectory`. Run the `auto_package` target before a regular
+Android build so this directory is up to date. Set `kiwi.deviceBuildType` in
+`src/client/kiwi_machine_android/gradle.properties` to select the variant used
+by the `app:assembleDevice` and `app:installDevice` tasks.
 
 ## Automatic Build
 
@@ -101,20 +124,21 @@ Kiwi-Machine provides an automated build script `build.py` to simplify the build
 ### Usage
 
 ```bash
-# Build all platforms and sync dependencies
+# Sync the workspace, configure desktop/iOS builds, and build WASM
 python3 build.py
 
-# Build specific platform
-python3 build.py pc        # Build PC platform (Debug and Release)
-python3 build.py ios       # Build iOS platform (Debug and Release, macOS only)
-python3 build.py wasm      # Build WebAssembly platform (Debug and Release)
+# Configure or build a specific platform
+python3 build.py pc        # Configure desktop Debug and Release
+python3 build.py ios       # Configure iOS Simulator Debug and Release (macOS only)
+python3 build.py wasm      # Configure and build WebAssembly Debug and Release
 python3 build.py workspace # Sync workspace dependencies
-python3 build.py all       # Build all platforms and sync dependencies
+python3 build.py all       # Run the same workflow as the no-argument command
 python3 build.py help      # Print help information
 
-# Actually build the projects after CMake configuration
-python3 build.py pc --build        # Build PC platform and compile projects
-python3 build.py all --build       # Build all platforms and compile projects
+# Compile desktop/iOS projects after CMake configuration
+python3 build.py pc --build
+python3 build.py ios --build
+python3 build.py all --build
 
 # Generate CLion configuration files
 python3 build.py pc --clion        # Generate CLion config for PC platform
@@ -125,7 +149,9 @@ python3 build.py all --clion       # Generate CLion config for all platforms
 
 ### Build Flag
 
-By default, `build.py` will only configure the CMake projects without actually compiling them. Use the `--build` flag to actually compile the projects after CMake configuration:
+For desktop and iOS builds, `build.py` configures CMake without compiling by
+default. Pass `--build` to compile those targets. The WASM workflow always
+configures and builds both Debug and Release.
 
 ```bash
 # Only configure CMake projects (default)
@@ -144,7 +170,7 @@ If you are using CLion as your IDE, you **must** use the `--clion` flag when run
 python3 build.py --clion
 ```
 
-### New Cleanup Commands
+### Cleanup Commands
 
 The build script also provides cleanup commands to remove generated files:
 
@@ -158,27 +184,28 @@ python3 build.py --cleanup
 
 ### Features
 
-- **PC Build**: Automatically builds both Debug and Release configurations for your current platform (Windows, macOS, Linux)
-- **iOS Build**: Creates Xcode projects for iOS devices (only available on macOS)
-- **WebAssembly Build**: Installs Emscripten SDK if needed and builds both Debug and Release configurations
+- **PC Build**: Configures Debug and Release for Windows, macOS, or Linux, and compiles them when `--build` is present
+- **iOS Build**: Configures Debug and Release projects for the iOS Simulator on macOS, and compiles them when `--build` is present
+- **WebAssembly Build**: Installs the Emscripten SDK if needed and builds both Debug and Release configurations
 - **Workspace Sync**: Automatically syncs dependencies using `workspace-sync.py`
-- **Apple Silicon Support**: On Apple Silicon machines, additional Intel architecture builds are created for compatibility
+- **Apple Silicon Support**: Creates additional Intel Debug and Release configurations for compatibility
 
 ### Build Output
 
 The script creates the following build directories:
+
 - `cmake-build-debug`: Debug build for current platform
 - `cmake-build-release`: Release build for current platform
 - `cmake-build-intel-debug` (Apple Silicon only): Debug build for Intel architecture
 - `cmake-build-intel-release` (Apple Silicon only): Release build for Intel architecture
-- `cmake-build-ios-debug`: iOS Debug build for real devices
-- `cmake-build-ios-release`: iOS Release build for real devices
+- `cmake-build-ios-debug`: iOS Simulator Debug build
+- `cmake-build-ios-release`: iOS Simulator Release build
 - `cmake-build-emscripten-debug`: WebAssembly Debug build
 - `cmake-build-emscripten-release`: WebAssembly Release build
 
 ## Manual Build
 
-### MacOS, Windows, Linux Build Methods
+### macOS, Windows, Linux Build Methods
 
 You can build directly using CMake. The main products are `kiwi` and `kiwi_machine`.
 
@@ -216,15 +243,19 @@ Build method:
 
 ### Product Introduction
 
-- kiwi: Emulator kernel.
-- kiwi-machine: Emulator executable program running on desktop.
+- `kiwi` / `kiwi_static`: shared and static NES emulator libraries.
+- `kiwi_machine`: emulator application used by the desktop and mobile clients.
 
 ### Building Your Own Game Collection
 
 Kiwi Machine is designed in an arcade mode, with a large number of preset games that I only included after testing:
-![](docs/games.png)
+![Kiwi Machine game library](docs/games.png)
 
-During the build process, Kiwi Machine will read all files under `src/client/kiwi_machine/build/nes` and write them into the product binary file.
+Game archives live under
+`src/third_party/Kiwi-Machine-Workspace/zipped/nes`. The packaging step stores
+the root collection in `main.pak` and each direct child collection in a
+separate PAK such as `specials.pak`. The PAK files remain external resources;
+they are not embedded in the executable.
 
 For example:
 
@@ -233,17 +264,39 @@ For example:
 - `Bomber Man II (Japan).nes` is the main ROM file.
 - `Bomber Man II (Japan).jpg` is the ROM cover file.
 
-You can put multiple nes and jpg files in the `.zip` file, which will be treated as another version of the game.
+You can put multiple matching `.nes` and `.jpg` pairs in a ZIP file; each pair
+is exposed as another version of the game.
 
-For example, I've organized many games' Japanese, English, and even Chinese versions. When they are selected, there's a marker on them, and you can press the `SELECT` button to switch between versions:
-> ![](docs/multi_version.png)
+For example, I've organized many games' Japanese, English, and even Chinese
+versions. A game with multiple versions displays a stacked-card icon in the
+top-right corner. Click or tap the icon to switch without launching the game,
+or press the configured `SELECT` button. The icon animates on the selected
+game to make the action discoverable:
+
+> ![Multiple ROM versions](docs/multi_version.png)
 
 In addition, you can also put other similar sets of files into the zip, which represent another version of the game. For example, the American version of `Rock Man` is called `Mega Man`, so they can be put into the same zip file. Kiwi-Machine provides a package manager tool to facilitate you to package resources yourself.
+
+### HD Texture Packs
+
+Kiwi-Machine supports standalone
+[Mesen HD Packs](https://www.mesen.ca/docs/hdpacks.html). Compatible games are
+matched by ROM SHA-1 and display an `HD` badge in the game library. HD editions
+are prioritized while preserving the original ROM's localized title and search
+aliases.
+
+![Super Mario Bros. HD texture pack](docs/hd_texture.png)
+
+Some packs support switching between HD and original graphics while the game
+is running. Press `Tab` on a keyboard or `RB` on a controller. On Android
+phones and tablets, use the `HD / Original` control in the top-right corner:
+
+![HD and Original texture controls on Android](docs/android.png)
 
 ### Building Debug ROMs
 
 NES emulators are complex projects, and to test whether the emulator accurately simulates physical machines, Kiwi Machine supports custom debug ROMs.
-![](docs/debug_roms.png)
+![Debug ROM menu](docs/debug_roms.png)
 
 Add `--enable_debug` to the startup parameters to evoke the menu bar and turn off the splash screen.
 Add `--debug_roms=your debug path` to the startup parameters, and Kiwi Machine will display these ROMs in the debug directory after startup.
@@ -256,16 +309,14 @@ If you write your own emulator based on the Kiwi kernel, you can use `find_packa
 
 There are two targets in Kiwi: `Kiwi::kiwi` is a dynamic library, and `Kiwi::kiwi_static` is a static library.
 
-Taking Kiwi Machine as an example, it uses Kiwi's static library target:
+For a target in a checkout of this repository, add the provided CMake module
+directory and link either the shared or static Kiwi target:
 
-```CMake
-target_link_libraries(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static imgui gflags_nothreads_static SDL2_image SDL2_mixer)
-target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
-target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
-target_include_directories(${PROJECT_NAME}
-        PRIVATE
-        "../../third_party/imgui"
-)
+```cmake
+list(APPEND CMAKE_MODULE_PATH "<path-to-Kiwi-Machine>/build/cmake")
+find_package(Kiwi REQUIRED)
+
+target_link_libraries(your_emulator PRIVATE Kiwi::kiwi_static)
 ```
 
 After the project dependencies are completed, you can directly include all related content by `#include <kiwi_nes.h>`.
@@ -284,9 +335,9 @@ After creation, you need to call its `PowerOn()` method for initialization:
 emulator->PowerOn();
 ```
 
-`PowerOn()` will initialize the emulator's power-on state and create the emulator's working thread. All public methods of the `kiwi::nes::Emulator` class should be called in the UI thread, which is your main thread, and it will be dispatched internally to the emulator's working thread. All emulator callbacks will only be returned in the thread where you called them.
-
-This design means you only need to care about calling emulator methods in the UI thread, and callback functions will only return in the UI thread. You don't need to create new threads or use complex locks to maintain synchronization; Kiwi's internal mechanisms ensure no competition occurs.
+`PowerOn()` initializes the emulator state and its task runners. The public
+`kiwi::nes::Emulator` API is thread-safe. Call `PowerOff()` before releasing
+the final emulator reference.
 
 ### Reading NES Files
 
@@ -295,10 +346,15 @@ The Emulator class has a series of LoadFromXXX functions that can read an NES RO
 ```C++
   virtual void LoadFromFile(const base::FilePath& rom_path,
                             LoadCallback callback) = 0;
-  virtual void LoadFromBinary(const Bytes& data, LoadCallback callback) = 0;
+  virtual void LoadFromBinary(
+      const Bytes& data,
+      LoadCallback callback,
+      const LoadOptions& options = {}) = 0;
 ```
 
-The above two functions should be called in the UI thread, and when they finish reading, the `callback` will be called back in the UI thread.
+`LoadCallback` receives a `bool` indicating whether the ROM loaded
+successfully. `LoadOptions` can enable PPU texture metadata capture for HD
+renderers.
 
 ### Outputting Results
 
@@ -312,50 +368,56 @@ Here, Kiwi abstracts a device layer called `IODevices`, representing the IO devi
 
 You need to implement these three abstract devices in order to fully interact with the emulator. If you only implement `RenderDevice`, you can only see the screen, but the emulator cannot respond to keyboard input or produce sound.
 
-Taking `RenderDevice` as an example, you need to implement the following two pure virtual methods, `Render()` and `NeedRender()`:
+Taking `IODevices::RenderDevice` as an example, implement `NeedRender()` and
+consume the current `PPUFrameData` in `Render()`:
 
 ```C++
-  class NES_EXPORT RenderDevice {
-   public:
-    using Buffer = Colors;
-
-   public:
-    RenderDevice();
-    virtual ~RenderDevice();
-
-   public:
-    virtual void Render(int width, int height, const Buffer* buffer) = 0;
-    virtual bool NeedRender() = 0;
-  };
+class MyRenderDevice : public kiwi::nes::IODevices::RenderDevice {
+ public:
+  bool NeedRender() override;
+  void Render(const kiwi::nes::PPUFrameData& frame) override;
+};
 ```
 
-After implementation, set it to the emulator through `Emulator::SetIODevices()`. When the emulator produces a frame, it will first call back `NeedRender()` to query if rendering is needed. If it returns `true`, it will call `Render()`, passing the frame's width, height, and specific content.
+After implementation, add it to an `IODevices` instance and pass that instance
+to `Emulator::SetIODevices()`. For native rendering, `frame.width`,
+`frame.height`, and `frame.native_pixels` describe the frame. When texture
+metadata capture is enabled, the same structure also exposes the tile and
+scroll metadata used by an HD renderer.
 
 ### Running the Virtual Machine
 
-After the NES file is loaded, you can start the emulator. We need to call `Emulator::Run()` in the `LoadCallback` when reading the NES file to start it working.
+After the NES file is loaded, call `Emulator::Run()` to enter the running
+state, then call `Emulator::RunOneFrame()` from the host's frame loop.
 
 To simplify the call, the emulator also provides a shortcut method:
 
 ```C++
   virtual void LoadAndRun(const base::FilePath& rom_path,
-                          base::OnceClosure callback = base::DoNothing()) = 0;
+                          LoadCallback callback = base::DoNothing()) = 0;
   virtual void LoadAndRun(const Bytes& data,
-                          base::OnceClosure callback = base::DoNothing()) = 0;
+                          LoadCallback callback = base::DoNothing(),
+                          const LoadOptions& options = {}) = 0;
 ```
 
-This means that when a ROM is read successfully, it will call `Emulator::Run()`, and then call `callback`.
+When loading succeeds, `LoadAndRun()` calls `Run()` before invoking the
+callback. The host must still call `RunOneFrame()` to advance emulation.
 
 ## Resource Packaging
 
-Kiwi-Machine provides an NES packaging tool located at `src/tools/package_manager`. You can package your favorite NES games into resources, as shown on the cover of this document.
+Kiwi-Machine provides an NES packaging tool at
+`src/client/tools/package_manager`. You can use it to build your own game
+resource collection.
 
-This repository does not contain NES resources. If you need to obtain NES resources, you can clone `https://github.com/Froser/kiwi-machine-workspace` using git.
-Open the package manager's GUI interface for packaging by running `package_manager --workspace {Kiwi-Machine's Workspace path}`.
+This repository does not contain NES resources. If you need to obtain NES
+resources, clone
+`https://github.com/Froser/Kiwi-Machine-Workspace.git`. Open the package
+manager's GUI by running
+`package_manager --workspace=<path-to-Kiwi-Machine-Workspace>`.
 
 ### Auto Package
 
-Kiwi-Machine also provides an automated packaging target `auto_package` to simplify the packaging process. This target automatically packages all subdirectories under `zipped/nes` in the workspace and copies the generated `.pak` files to the same directory as `kiwi_machine`.
+Kiwi-Machine also provides an automated packaging target `auto_package` to simplify the packaging process. This target packages all subdirectories under `zipped/nes` and every Mesen HD texture directory under `extras/mesen_hd_textures`.
 
 To use `auto_package`:
 
@@ -365,6 +427,20 @@ cmake --build <build_dir> --target auto_package
 ```
 
 The `auto_package` target will:
+
 1. Check if `src/third_party/Kiwi-Machine-Workspace` exists
-2. Process each subdirectory under `zipped/nes` and package it into `.pak` files
-3. Copy all generated `.pak` files to the resources directory of `kiwi_machine`
+2. Process each subdirectory under `zipped/nes`, generate its ROM SHA-1 index,
+   and package it into a `.pak` file
+3. Package each direct child of `extras/mesen_hd_textures` as a standalone
+   `.pak` file with a generated `manifest.json` containing the supported ROM
+   SHA-1 values
+4. Replace the old texture output and copy all generated ROM PAKs plus the
+   `textures/` directory to the resources directory of `kiwi_machine`
+
+Texture packages can also be generated directly:
+
+```bash
+package_manager \
+  --mesen_hd_texture_path=<workspace>/extras/mesen_hd_textures \
+  --output_path=<output>/textures
+```

@@ -48,8 +48,7 @@ class Application {
   static Application* Get();
   scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
   // Initialize application's necessary data.
-  void Initialize(kiwi::base::OnceClosure other_io_task,
-                  kiwi::base::OnceClosure callback);
+  void Initialize(kiwi::base::OnceClosure callback);
 
   void Run();
   void AddObserver(ApplicationObserver* observer);
@@ -74,6 +73,8 @@ class Application {
   void InitializeRuntimeAndConfigs();
   void InitializeROMs();
   std::vector<kiwi::base::FilePath> GetPackagePathList();
+  std::vector<kiwi::base::FilePath> GetTexturePackPathList(
+      const std::vector<kiwi::base::FilePath>& package_paths);
 
   // Window management:
   friend class WindowBase;

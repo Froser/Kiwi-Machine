@@ -483,8 +483,9 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
 
   // Set patch config for PPU
   ppu_->SetPatch(cartridge->crc32());
+  texture_metadata_uses_chr_ram_ = options.uses_chr_ram;
   ppu_->SetTextureMetadataCapture(options.capture_ppu_texture_metadata,
-                                  options.uses_chr_ram);
+                                  texture_metadata_uses_chr_ram_);
 
   SetControllerTypes(cartridge->crc32());
 
@@ -547,6 +548,12 @@ void EmulatorImpl::SetIODevices(std::unique_ptr<IODevices> io_devices) {
 
 IODevices* EmulatorImpl::GetIODevices() {
   return io_devices_.get();
+}
+
+void EmulatorImpl::SetTextureMetadataCaptureEnabled(bool enabled) {
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(ppu_);
+  ppu_->SetTextureMetadataCapture(enabled, texture_metadata_uses_chr_ram_);
 }
 
 void EmulatorImpl::SaveState(SaveStateCallback callback) {

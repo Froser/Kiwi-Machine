@@ -16,9 +16,16 @@
 #include <limits>
 #include <utility>
 
+#include "build/kiwi_defines.h"
 #include "nes/ppu_observer.h"
 #include "ui/window_base.h"
 #include "utility/texture_renderer.h"
+
+namespace {
+#if KIWI_ANDROID
+constexpr uint32_t kMaximumHDTextureOutputScale = 2;
+#endif
+}  // namespace
 
 NESFrame::NESFrame(WindowBase* window, NESRuntimeID runtime_id)
     : window_(window) {
@@ -33,7 +40,13 @@ NESFrame::~NESFrame() {
 
 void NESFrame::SetTextureRenderer(
     std::unique_ptr<TextureRenderer> texture_renderer) {
+#if KIWI_ANDROID
+  if (texture_renderer) {
+    texture_renderer->SetMaximumOutputScale(kMaximumHDTextureOutputScale);
+  }
+#endif
   texture_renderer_ = std::move(texture_renderer);
+  last_rendered_frame_.clear();
   hd_texture_rendering_enabled_.store(texture_renderer_ != nullptr,
                                       std::memory_order_release);
 }
@@ -165,7 +178,6 @@ void NESFrame::UpdateTexture(int width,
   int result = SDL_UpdateTexture(screen_texture_, nullptr, buffer.data(),
                                  render_width_ * sizeof(buffer[0]));
   SDL_assert(result == 0);
-  last_rendered_frame_ = buffer;
   NotifyObservers();
 }
 
@@ -183,7 +195,7 @@ bool NESFrame::NeedRender() {
 }
 
 const NESFrame::Buffer& NESFrame::GetLastFrame() {
-  if (!last_rendered_frame_.empty()) {
+  if (IsHDTextureRenderingEnabled() && !last_rendered_frame_.empty()) {
     return last_rendered_frame_;
   }
   return runtime_data_->emulator->GetLastFrame();

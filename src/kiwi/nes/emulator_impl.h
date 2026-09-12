@@ -68,6 +68,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   RunningState GetRunningState() override;
   void SetIODevices(std::unique_ptr<IODevices> io_devices) override;
   IODevices* GetIODevices() override;
+  void SetTextureMetadataCaptureEnabled(bool enabled) override;
   void SaveState(SaveStateCallback callback) override;
   void LoadState(const Bytes& data, LoadCallback callback) override;
   void SetVolume(float volume) override;
@@ -152,6 +153,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   Controller controller1_;
   Controller controller2_;
   std::atomic<RunningState> running_state_ = RunningState::kStopped;
+  bool texture_metadata_uses_chr_ram_ = false;
   std::unique_ptr<IODevices> io_devices_;
 
   DebugPort* debug_port_ = nullptr;

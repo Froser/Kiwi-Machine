@@ -50,6 +50,11 @@ def main():
     if not zipped_path.exists():
         print("Workspace is incomplete. zipped folder not found.")
         return 1
+
+    textures_source_path = workspace_path / "extras" / "mesen_hd_textures"
+    if not textures_source_path.exists():
+        print("Workspace is incomplete. HD texture folder not found.")
+        return 1
     
     # Create output directory if it doesn't exist, and clean it if it does
     output_path = workspace_path / "out"
@@ -62,14 +67,25 @@ def main():
     print(f"  Zipped path: {zipped_path}")
     print(f"  Output path: {output_path}")
     
-    cmd = [
+    package_roms_cmd = [
         str(package_manager_exe),
         f"--zipped_path={zipped_path}",
         f"--output_path={output_path}"
     ]
+    textures_output_path = output_path / "textures"
+    package_textures_cmd = [
+        str(package_manager_exe),
+        f"--mesen_hd_texture_path={textures_source_path}",
+        f"--output_path={textures_output_path}"
+    ]
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            package_roms_cmd, check=True, capture_output=True, text=True
+        )
+        subprocess.run(
+            package_textures_cmd, check=True, capture_output=True, text=True
+        )
         
         # Copy generated files to kiwi_machine output directory
         print(f"\nCopying files to kiwi_machine output directory: {kiwi_machine_output_dir}")
@@ -84,6 +100,13 @@ def main():
             print(f"Successfully copied {len(pak_files)} file(s) to kiwi_machine output directory.")
         else:
             print("No .pak files found to copy.")
+
+        destination_textures_path = kiwi_machine_output_dir / "textures"
+        if destination_textures_path.exists():
+            shutil.rmtree(destination_textures_path)
+        shutil.copytree(textures_output_path, destination_textures_path)
+        texture_files = list(destination_textures_path.glob("*.pak"))
+        print(f"Copied {len(texture_files)} texture package(s) to textures/.")
         
         return result.returncode
     except subprocess.CalledProcessError as e:

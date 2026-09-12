@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Yisi Yu
+// Copyright (C) 2026 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -10,15 +10,18 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef UTILITY_ANDROID_ASSET_H_
-#define UTILITY_ANDROID_ASSET_H_
-
-#include "kiwi/base/files/file_path.h"
+#ifndef TEXTURE_PACKAGER_H_
+#define TEXTURE_PACKAGER_H_
 
 #include <vector>
 
-std::vector<kiwi::base::FilePath> GetAssets();
-std::vector<kiwi::base::FilePath> GetAssets(
-    const kiwi::base::FilePath& directory);
+#include "base/files/file_path.h"
 
-#endif  // UTILITY_ANDROID_ASSET_H_
+// Packages every direct child directory as a standalone Mesen HD texture PAK.
+// Files are stored relative to the child directory and manifest.json is
+// generated at the PAK root.
+std::vector<kiwi::base::FilePath> PackMesenHDTextures(
+    const kiwi::base::FilePath& textures_dir,
+    const kiwi::base::FilePath& output_dir);
+
+#endif  // TEXTURE_PACKAGER_H_

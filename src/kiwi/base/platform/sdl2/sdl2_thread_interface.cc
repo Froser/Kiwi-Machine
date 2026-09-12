@@ -72,13 +72,7 @@ SDL2ThreadInterface::~SDL2ThreadInterface() {
   if (timer_)
     SDL_RemoveTimer(timer_);
 
-  if (thread_) {
-    ExitThread(0);
-
-    int status = 0;
-    SDL_WaitThread(thread_, &status);
-    thread_ = nullptr;
-  }
+  Stop();
   SDL_DestroyMutex(mutex_);
   SDL_DestroySemaphore(sem_);
 }
@@ -103,7 +97,13 @@ bool SDL2ThreadInterface::StartWithOptions(Thread::Options options) {
 }
 
 void SDL2ThreadInterface::Stop() {
+  if (!thread_)
+    return;
+
   ExitThread(0);
+  int status = 0;
+  SDL_WaitThread(thread_, &status);
+  thread_ = nullptr;
 }
 
 scoped_refptr<SingleThreadTaskRunner> SDL2ThreadInterface::task_runner() const {

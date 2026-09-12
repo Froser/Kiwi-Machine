@@ -875,7 +875,8 @@ class ParserImpl {
       return;
     }
     if (tokens.size() > 2) {
-      if (!RequireVersion(101, "Background scrolling") ||
+      if ((data_->version != 2 &&
+           !RequireVersion(101, "Background scrolling")) ||
           !ParseFloatValue(tokens[2], "horizontal scroll ratio",
                            &background.horizontal_scroll_ratio)) {
         return;
@@ -887,7 +888,9 @@ class ParserImpl {
       return;
     }
     if (tokens.size() > 4) {
-      if (!RequireVersion(102, "Background priority")) {
+      // Legacy version 2 packs use the same boolean priority field as
+      // versions 102-105 while retaining their legacy tile rule syntax.
+      if (data_->version != 2 && !RequireVersion(102, "Background priority")) {
         return;
       }
       if (data_->version >= 106) {

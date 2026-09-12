@@ -28,16 +28,13 @@ void from_json(const nlohmann::json& object, Workspace::Manifest& manifest) {
       object.value("zipped_nes_dir", std::string("zipped/nes"));
   manifest.nes_boxarts_dir =
       object.value("nes_boxarts_dir", std::string("boxarts/nes"));
-  manifest.mesen_hd_textures_dir = object.value(
-      "mesen_hd_textures_dir", std::string("extras/mesen_hd_textures"));
 }
 
 // A simple workspace json config:
 // {
 //   "nes_roms_dir": "roms/nes",
 //   "zipped_nes_dir": "zipped/nes",
-//   "nes_boxarts_dir": "boxarts/nes",
-//   "mesen_hd_textures_dir": "extras/mesen_hd_textures"
+//   "nes_boxarts_dir": "boxarts/nes"
 // }
 
 Workspace::Workspace() {
@@ -56,7 +53,6 @@ Workspace::Workspace() {
     manifest_.nes_roms_dir = "roms/nes";
     manifest_.zipped_nes_dir = "zipped/nes";
     manifest_.nes_boxarts_dir = "boxarts/nes";
-    manifest_.mesen_hd_textures_dir = "extras/mesen_hd_textures";
   }
 }
 
@@ -142,15 +138,6 @@ kiwi::base::FilePath Workspace::GetNESBoxartsPath() {
       return kiwi::base::FilePath();
   }
   return nes_boxarts_path;
-}
-
-kiwi::base::FilePath Workspace::GetMesenHDTexturesPath() {
-  kiwi::base::FilePath textures_path = workspace_path_.Append(
-      kiwi::base::FilePath::FromUTF8Unsafe(manifest_.mesen_hd_textures_dir));
-  if (!kiwi::base::DirectoryExists(textures_path)) {
-    return kiwi::base::FilePath();
-  }
-  return textures_path;
 }
 
 Workspace& GetWorkspace() {
