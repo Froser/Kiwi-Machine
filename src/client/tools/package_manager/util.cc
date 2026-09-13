@@ -143,8 +143,10 @@ std::optional<nlohmann::json> CollectRomSha1s(
 
     kiwi::base::FilePath rom_path =
         kiwi::base::FilePath::FromUTF8Unsafe(filename.data());
+    const std::string extension =
+        kiwi::base::FilePath(rom_path.Extension()).AsUTF8Unsafe();
     if (kiwi::base::CompareCaseInsensitiveASCII(
-            rom_path.Extension(), FILE_PATH_LITERAL(".nes")) == 0) {
+            extension, ".nes") == 0) {
       std::vector<uint8_t> rom_data;
       if (!ReadCurrentFileFromZip(file, rom_data)) {
         unzClose(file);

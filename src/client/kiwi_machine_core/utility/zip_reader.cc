@@ -582,8 +582,10 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
 
         const kiwi::base::FilePath alter_rom_path =
             kiwi::base::FilePath::FromUTF8Unsafe(filename);
+        const std::string extension =
+            kiwi::base::FilePath(alter_rom_path.Extension()).AsUTF8Unsafe();
         if (kiwi::base::CompareCaseInsensitiveASCII(
-                alter_rom_path.Extension(), FILE_PATH_LITERAL(".nes")) != 0) {
+                extension, ".nes") != 0) {
           located = unzGoToNextFile(file);
           continue;
         }
