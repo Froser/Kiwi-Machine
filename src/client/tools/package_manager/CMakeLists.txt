@@ -44,6 +44,8 @@ set(Sources
         main.cc
         rom_window.cc
         rom_window.h
+        texture_packager.cc
+        texture_packager.h
         util.cc
         util.h
         workspace.cc
@@ -76,6 +78,7 @@ endif ()
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Kiwi::kiwi_static
+        mesen_hd_pack
         gflags_nothreads_static
         imgui
         SDL2-static

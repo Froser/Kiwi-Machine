@@ -29,6 +29,8 @@ include_directories(${zlib_BINARY_DIR})
 include_directories(${glog_SOURCE_DIR}/src)
 include_directories(${glog_BINARY_DIR}/..)
 
+add_subdirectory(nes)
+
 # Sources for base
 set(base_sources
         base/atomic_ref_count.h
@@ -224,6 +226,8 @@ set(nes_sources
         nes/ppu_bus.h
         nes/ppu_patch.cc
         nes/ppu_patch.h
+        nes/ppu_texture_capture.cc
+        nes/ppu_texture_capture.h
         nes/ppu.cc
         nes/ppu.h
         nes/registers.h

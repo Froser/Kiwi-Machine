@@ -14,6 +14,7 @@
 
 #include <SDL.h>
 
+#include "nes/ppu_observer.h"
 #include "ui/window_base.h"
 
 constexpr int kNametableWidth = 256 * 2;
@@ -60,16 +61,21 @@ void NametableWidget::Paint() {
   }
 }
 
-void NametableWidget::Render(int width, int height, const Buffer& buffer) {
+void NametableWidget::Render(const kiwi::nes::PPUFrameData& frame) {
+  if (!frame.native_pixels) {
+    return;
+  }
+
   // Create texture to show nametable
   if (!screen_texture_) {
     // SDL_assert(frame_->width() > 0 && frame_->height() > 0);
     screen_texture_ =
         SDL_CreateTexture(window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
-                          SDL_TEXTUREACCESS_STREAMING, width, height);
+                          SDL_TEXTUREACCESS_STREAMING, frame.width,
+                          frame.height);
   }
 
-  screen_buffer_ = buffer;
+  screen_buffer_ = *frame.native_pixels;
 }
 
 bool NametableWidget::NeedRender() {

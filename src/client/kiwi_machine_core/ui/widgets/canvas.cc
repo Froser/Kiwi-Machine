@@ -16,11 +16,34 @@
 
 #include <imgui.h>
 
+#include <algorithm>
+#include <cfloat>
+
+#include "resources/string_resources.h"
+#include "utility/fonts.h"
+#include "utility/localization.h"
+
+#if KIWI_ANDROID
+#include "third_party/SDL2/src/core/android/SDL_android.h"
+#endif
+
 namespace {
 constexpr int kBrightThreshold = 220;
+constexpr int kHDTextureHintDurationMs = 3000;
+constexpr int kHDTextureHintFadeInMs = 220;
+constexpr int kHDTextureHintFadeOutMs = 360;
+constexpr float kHDTextureHintMaximumWidthRatio = .92f;
+constexpr float kHDTextureHintBadgeWidth = 52.f;
+constexpr float kHDTextureHintBadgeHeight = 24.f;
+
 bool IsColorBrightEnough(int r, int g, int b) {
   float luminance = 0.299 * r + 0.587 * g + 0.114 * b;
   return luminance > kBrightThreshold;
+}
+
+ImU32 WithAlpha(ImU32 color, float alpha) {
+  return (color & 0x00ffffff) |
+         (static_cast<ImU32>(std::clamp(alpha, 0.f, 1.f) * 255.f) << 24);
 }
 
 }  // namespace
@@ -69,6 +92,7 @@ void Canvas::Paint() {
   SDL_Rect dest_rect = bounds();
   SDL_RenderCopy(window()->renderer(), frame_->texture(), &src_rect,
                  &dest_rect);
+  PaintHDTextureToggleHint();
 }
 
 bool Canvas::IsWindowless() {
@@ -76,6 +100,12 @@ bool Canvas::IsWindowless() {
 }
 
 bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
+  last_hd_toggle_input_was_controller_ = false;
+  if (hd_texture_toggle_available_ && event->keysym.sym == SDLK_TAB &&
+      event->repeat == 0) {
+    InvokeHDTextureToggle();
+    return true;
+  }
 #if !KIWI_WASM
   if (event->keysym.sym == SDLK_ESCAPE) {
     InvokeInGameMenu();
@@ -89,19 +119,43 @@ bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
+  last_hd_toggle_input_was_controller_ = true;
   SDL_GameController* controller =
       SDL_GameControllerFromInstanceID(event->which);
-  if (SDL_GameControllerGetButton(controller,
-                                  SDL_CONTROLLER_BUTTON_LEFTSHOULDER) &&
-      SDL_GameControllerGetButton(controller,
-                                  SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+  const bool left_shoulder = SDL_GameControllerGetButton(
+      controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+  const bool right_shoulder = SDL_GameControllerGetButton(
+      controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+  if (event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
+    right_shoulder_pending_ = true;
+  }
+  if (left_shoulder && right_shoulder) {
+    shoulder_chord_used_ = true;
     InvokeInGameMenu();
     return true;
   }
-  return false;
+  return hd_texture_toggle_available_ &&
+         event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
+}
+
+bool Canvas::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
+  if (event->button != SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
+    return false;
+  }
+
+  const bool should_toggle = hd_texture_toggle_available_ &&
+                             right_shoulder_pending_ && !shoulder_chord_used_;
+  right_shoulder_pending_ = false;
+  shoulder_chord_used_ = false;
+  if (should_toggle) {
+    last_hd_toggle_input_was_controller_ = true;
+    InvokeHDTextureToggle();
+  }
+  return hd_texture_toggle_available_;
 }
 
 bool Canvas::OnMousePressed(SDL_MouseButtonEvent* event) {
+  last_hd_toggle_input_was_controller_ = false;
   mouse_or_finger_down_ = true;
   return Widget::OnMousePressed(event);
 }
@@ -130,6 +184,115 @@ void Canvas::OnShouldRender(int since_last_frame_ms) {}
 void Canvas::InvokeInGameMenu() {
   if (on_menu_trigger_)
     on_menu_trigger_.Run();
+}
+
+void Canvas::SetHDTextureToggleAvailable(bool available) {
+  hd_texture_toggle_available_ = available;
+  hd_texture_hint_visible_ = available;
+  right_shoulder_pending_ = false;
+  shoulder_chord_used_ = false;
+  if (available) {
+    hd_texture_hint_timer_.Reset();
+    hd_texture_hint_badge_ = HDEditionBadge();
+  }
+}
+
+void Canvas::InvokeHDTextureToggle() {
+  if (on_hd_texture_toggle_) {
+    on_hd_texture_toggle_.Run();
+  }
+}
+
+void Canvas::PaintHDTextureToggleHint() {
+  if (!hd_texture_toggle_available_ || !hd_texture_hint_visible_) {
+    return;
+  }
+
+  const int elapsed_ms = hd_texture_hint_timer_.ElapsedInMilliseconds();
+  if (elapsed_ms >= kHDTextureHintDurationMs) {
+    hd_texture_hint_visible_ = false;
+    return;
+  }
+
+  float alpha = 1.f;
+  if (elapsed_ms < kHDTextureHintFadeInMs) {
+    alpha = static_cast<float>(elapsed_ms) / kHDTextureHintFadeInMs;
+  } else if (elapsed_ms > kHDTextureHintDurationMs - kHDTextureHintFadeOutMs) {
+    alpha = static_cast<float>(kHDTextureHintDurationMs - elapsed_ms) /
+            kHDTextureHintFadeOutMs;
+  }
+
+  int string_id = string_resources::IDR_HD_TEXTURE_TOGGLE_TOUCH_HINT;
+#if KIWI_ANDROID
+  if (SDL_IsAndroidTV()) {
+    string_id = string_resources::IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT;
+  }
+#elif !KIWI_MOBILE
+  string_id = last_hd_toggle_input_was_controller_
+                  ? string_resources::IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT
+                  : string_resources::IDR_HD_TEXTURE_TOGGLE_KEYBOARD_HINT;
+#endif
+  const std::string& text = GetLocalizedString(string_id);
+#if KIWI_MOBILE
+  constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k2x;
+#else
+  constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k1x;
+#endif
+  ScopedFont preferred_font =
+      GetPreferredFont(kHintFontSize, text.c_str(), FontType::kSystemDefault);
+  ImFont* font = preferred_font.GetFont();
+  float font_size = preferred_font.GetFontSize();
+  const SDL_Rect canvas_bounds = MapToWindow(bounds());
+  const float maximum_width = canvas_bounds.w * kHDTextureHintMaximumWidthRatio;
+  float horizontal_padding = std::max(12.f, font_size * .8f);
+  float vertical_padding = std::max(8.f, font_size * .45f);
+  float content_spacing = std::max(8.f, font_size * .55f);
+  const float fixed_width =
+      horizontal_padding * 2.f + kHDTextureHintBadgeWidth + content_spacing;
+  const float maximum_text_width = std::max(1.f, maximum_width - fixed_width);
+  ImVec2 text_size = font->CalcTextSizeA(font_size, FLT_MAX, 0.f, text.c_str());
+  if (text_size.x > maximum_text_width) {
+    font_size = std::max(12.f, font_size * maximum_text_width / text_size.x);
+    text_size = font->CalcTextSizeA(font_size, FLT_MAX, 0.f, text.c_str());
+    horizontal_padding = std::max(12.f, font_size * .8f);
+    vertical_padding = std::max(8.f, font_size * .45f);
+    content_spacing = std::max(8.f, font_size * .55f);
+  }
+
+  const float panel_width = horizontal_padding * 2.f +
+                            kHDTextureHintBadgeWidth + content_spacing +
+                            text_size.x;
+  const float panel_height =
+      std::max(kHDTextureHintBadgeHeight, text_size.y) + vertical_padding * 2.f;
+  const ImVec2 box_min(canvas_bounds.x + (canvas_bounds.w - panel_width) * .5f,
+                       canvas_bounds.y + canvas_bounds.h * .055f);
+  const ImVec2 box_max(box_min.x + panel_width, box_min.y + panel_height);
+
+  ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+  const float rounding = std::max(6.f, panel_height * .12f);
+  draw_list->AddRectFilled(box_min, box_max,
+                           WithAlpha(IM_COL32(7, 14, 20, 255), alpha * .82f),
+                           rounding);
+  draw_list->AddRect(box_min, box_max,
+                     WithAlpha(IM_COL32(19, 218, 255, 255), alpha * .9f),
+                     rounding, 0, std::max(1.f, font_size * .07f));
+
+  const SDL_Rect badge_bounds = {
+      static_cast<int>(box_min.x + horizontal_padding),
+      static_cast<int>(box_min.y +
+                       (panel_height - kHDTextureHintBadgeHeight) * .5f),
+      static_cast<int>(kHDTextureHintBadgeWidth),
+      static_cast<int>(kHDTextureHintBadgeHeight),
+  };
+  hd_texture_hint_badge_.Paint(draw_list, badge_bounds, true, alpha, false,
+                               HDEditionBadge::Presentation::kStandalone);
+
+  const float text_left = box_min.x + horizontal_padding +
+                          kHDTextureHintBadgeWidth + content_spacing;
+  draw_list->AddText(
+      font, font_size,
+      ImVec2(text_left, box_min.y + (panel_height - text_size.y) * .5f),
+      WithAlpha(IM_COL32(255, 255, 255, 255), alpha), text.c_str());
 }
 
 Canvas::ZapperDetails Canvas::CreateZapperDetailsByMouseOrFingerPosition(
@@ -166,11 +329,13 @@ bool Canvas::ZapperTest(Input input) {
     }
   }
 
-  if (details.original_x < 0 || details.original_x >= frame_->width() ||
-      details.original_y < 0 || details.original_y >= frame_->height())
+  if (details.original_x < 0 || details.original_x >= kNESFrameDefaultWidth ||
+      details.original_y < 0 || details.original_y >= kNESFrameDefaultHeight) {
     return false;
+  }
 
-  size_t data_index = frame_->width() * details.original_y + details.original_x;
+  const size_t data_index =
+      kNESFrameDefaultWidth * details.original_y + details.original_x;
   kiwi::nes::Color color = frame_->GetCurrentFrame()[data_index];
   return IsColorBrightEnough(color & 0xff, (color >> 8) & 0xff,
                              (color >> 16) & 0xff);

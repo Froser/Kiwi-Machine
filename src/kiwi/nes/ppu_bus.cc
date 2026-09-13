@@ -67,6 +67,7 @@ void PPUBus::SetDefaultPalettes() {
   for (Address i = 0x01; i < 0x20; ++i) {
     palette_[i] = 0x30;
   }
+  ++backdrop_revision_;
 }
 
 Mapper* PPUBus::GetMapper() {
@@ -101,8 +102,7 @@ Byte PPUBus::Read(Address address) {
     const Address nametable_index = (normalized_address >> 10) & 0x3;
     return ram_[nametable_[nametable_index] + index];
   } else if (address < 0x4000) {
-    auto palette_address = address & 0x1f;
-    return ReadPalette(palette_address);
+    return ReadPalette(static_cast<Byte>(address));
   }
   return 0;
 }
@@ -131,7 +131,11 @@ void PPUBus::Write(Address address, Byte value) {
       palette = palette & 0xf;
     }
 
+    const Byte previous_value = palette_[palette];
     palette_[palette] = value;
+    if (palette == 0 && (previous_value & 0x3f) != (value & 0x3f)) {
+      ++backdrop_revision_;
+    }
   }
 }
 
@@ -143,23 +147,10 @@ bool PPUBus::Deserialize(const EmulatorStates::Header& header,
                          EmulatorStates::DeserializableStateData& data) {
   if (header.version == 1) {
     data.ReadData(&nametable_).ReadData(&ram_).ReadData(&palette_);
+    ++backdrop_revision_;
     return true;
   }
   return false;
-}
-
-Byte PPUBus::ReadPalette(Byte palette_address) {
-  // Addresses $3F10/$3F14/$3F18/$3F1C are mirrors of $3F00/$3F04/$3F08/$3F0C.
-  // Palette details:
-  // https://www.nesdev.org/wiki/PPU_palettes
-  if (palette_address >= 0x10 && palette_address % 4 == 0) {
-    palette_address = palette_address & 0xf;
-  }
-
-  // Some games (Such as Lunar Pool, The New Type, etc.) will write a 0xff to
-  // the palette, which is larger than 0x3f and causes overflow, So we have to
-  // limit it.
-  return palette_[palette_address] & 0x3f;
 }
 
 void PPUBus::UpdateMirroring() {

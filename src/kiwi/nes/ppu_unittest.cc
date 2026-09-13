@@ -12,6 +12,7 @@
 
 #include "nes/mappers/mapper_test_support.h"
 #include "nes/ppu_bus.h"
+#include "nes/ppu_observer.h"
 #include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
 
 namespace kiwi {
@@ -27,13 +28,44 @@ class CountingPPUObserver : public PPUObserver {
 
 class FramePPUObserver : public PPUObserver {
  public:
-  void OnRenderReady(const Colors& frame) override {
-    sampled_pixels.push_back(frame[16]);
-    sampled_second_row_pixels.push_back(frame[256 + 16]);
+  void OnRenderReady(const PPUFrameData& frame) override {
+    if (!frame.native_pixels) {
+      return;
+    }
+    sampled_pixels.push_back((*frame.native_pixels)[16]);
+    sampled_second_row_pixels.push_back((*frame.native_pixels)[256 + 16]);
   }
 
   std::vector<Color> sampled_pixels;
   std::vector<Color> sampled_second_row_pixels;
+};
+
+class FrameSizePPUObserver : public PPUObserver {
+ public:
+  void OnRenderReady(const PPUFrameData& frame) override {
+    frame_type = frame.type;
+    has_texture_metadata = !frame.texture_backdrop_pixels.empty() &&
+                           !frame.texture_background_tiles.empty() &&
+                           frame.texture_scroll_offsets.size() == 240 &&
+                           frame.texture_ppu_palette.size() == 0x20;
+    background_tile_count = frame.texture_background_tiles.size();
+    if (!frame.texture_scroll_offsets.empty()) {
+      first_scroll = frame.texture_scroll_offsets.front();
+    }
+    if (frame.texture_ppu_palette.size() == 0x20) {
+      sampled_palette_value = frame.texture_ppu_palette[0x13];
+    }
+    if (frame.native_pixels) {
+      frame_size = frame.native_pixels->size();
+    }
+  }
+
+  PPUFrameData::Type frame_type = PPUFrameData::Type::kNativePixels;
+  size_t frame_size = 0;
+  size_t background_tile_count = 0;
+  Byte sampled_palette_value = 0;
+  PPUTextureScroll first_scroll;
+  bool has_texture_metadata = false;
 };
 
 class PPURenderingTest : public MapperTest {};
@@ -75,6 +107,7 @@ TEST_F(PPURenderingTest, MasksConfiguredTopOverscanLine) {
   PPUBus bus;
   bus.SetMapper(cartridge->mapper());
   cartridge->mapper()->WriteCHR(0x0000, 0xff);
+  bus.Write(0x3f13, 0x25);
   cartridge->mapper()->WriteCHR(0x0001, 0xff);
 
   auto render_top_rows = [&bus](uint32_t crc) {
@@ -105,6 +138,37 @@ TEST_F(PPURenderingTest, MasksConfiguredTopOverscanLine) {
   EXPECT_EQ(regular_pixels[0], regular_pixels[1]);
   EXPECT_NE(patched_pixels[0], patched_pixels[1]);
   EXPECT_EQ(patched_pixels[1], regular_pixels[1]);
+}
+
+TEST_F(PPURenderingTest, TextureMetadataDoesNotChangePPUFrame) {
+  auto cartridge = LoadMapper(0, 2, 0);
+  ASSERT_TRUE(cartridge);
+
+  PPUBus bus;
+  bus.SetMapper(cartridge->mapper());
+  cartridge->mapper()->WriteCHR(0x0000, 0xff);
+  PPU ppu(&bus);
+  FrameSizePPUObserver observer;
+  bus.Write(0x3f13, 0x25);
+  ppu.SetTextureMetadataCapture(true, true);
+  ppu.SetTextureMetadataCapture(true, true);
+  ppu.SetObserver(&observer);
+  ppu.Write(static_cast<Address>(PPURegister::PPUSCROL), 5);
+  ppu.Write(static_cast<Address>(PPURegister::PPUSCROL), 9);
+  ppu.Write(static_cast<Address>(PPURegister::PPUMASK), 0x0a);
+
+  constexpr int kMaxSteps = 262 * 341;
+  for (int step = 0; step < kMaxSteps && observer.frame_size == 0; ++step) {
+    ppu.Step();
+  }
+
+  EXPECT_EQ(observer.frame_size, 256u * 240u);
+  EXPECT_EQ(observer.frame_type, PPUFrameData::Type::kTextureMetadata);
+  EXPECT_TRUE(observer.has_texture_metadata);
+  EXPECT_EQ(observer.sampled_palette_value, 0x25);
+  EXPECT_EQ(observer.first_scroll.x, 5);
+  EXPECT_EQ(observer.first_scroll.y, 9);
+  EXPECT_LT(observer.background_tile_count, 256u * 240u);
 }
 
 }  // namespace testing

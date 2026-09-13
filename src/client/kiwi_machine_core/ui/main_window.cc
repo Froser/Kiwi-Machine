@@ -48,6 +48,7 @@
 #include "utility/localization.h"
 #include "utility/logging.h"
 #include "utility/math.h"
+#include "utility/texture_renderer.h"
 #include "utility/zip_reader.h"
 
 DEFINE_bool(enable_debug, false, "Shows a menu bar at the top of the window.");
@@ -55,14 +56,6 @@ DEFINE_bool(enable_debug, false, "Shows a menu bar at the top of the window.");
 namespace {
 
 MainWindow* g_main_window_instance = nullptr;
-
-kiwi::nes::Bytes ReadFromRawBinary(const kiwi::nes::Byte* data,
-                                   size_t data_size) {
-  kiwi::nes::Bytes bytes;
-  bytes.resize(data_size);
-  memcpy(bytes.data(), data, data_size);
-  return bytes;
-}
 
 constexpr int kWindowPadding = 50;
 constexpr int kDefaultWindowWidth =
@@ -89,6 +82,55 @@ int GetDefaultMenuHeight() {
 void FillLayout(WindowBase* window, Widget* widget) {
   SDL_Rect client_bounds = window->GetClientBounds();
   widget->set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
+}
+
+bool HasHDVersion(const preset_roms::PresetROM* rom) {
+  return rom->hd_texture_toggle_available || rom->hd_edition_available;
+}
+
+bool MatchesCurrentLanguage(const preset_roms::PresetROM* rom) {
+  const SupportedLanguage current_language = GetCurrentSupportedLanguage();
+  if (current_language == SupportedLanguage::kEnglish &&
+      rom->region == preset_roms::Region::kUSA) {
+    return true;
+  }
+
+#if !DISABLE_JAPANESE_FONT
+  if (current_language == SupportedLanguage::kJapanese &&
+      rom->region == preset_roms::Region::kJapan) {
+    return true;
+  }
+#endif
+
+#if !DISABLE_CHINESE_FONT
+  if (current_language == SupportedLanguage::kSimplifiedChinese &&
+      (rom->region == preset_roms::Region::kCN ||
+       rom->region == preset_roms::Region::kJapan)) {
+    return true;
+  }
+#endif
+
+  return false;
+}
+
+preset_roms::PresetROM* FindPreferredROM(
+    const std::vector<preset_roms::PresetROM*>& roms) {
+  for (preset_roms::PresetROM* rom : roms) {
+    if (HasHDVersion(rom) && MatchesCurrentLanguage(rom)) {
+      return rom;
+    }
+  }
+  for (preset_roms::PresetROM* rom : roms) {
+    if (HasHDVersion(rom)) {
+      return rom;
+    }
+  }
+  for (preset_roms::PresetROM* rom : roms) {
+    if (MatchesCurrentLanguage(rom)) {
+      return rom;
+    }
+  }
+  return roms.front();
 }
 
 void ToastGameControllersAddedOrRemoved(WindowBase* window,
@@ -171,12 +213,12 @@ SDL_Rect FitRectPreservingAspect(const SDL_Rect& bounds,
   if (static_cast<int64_t>(bounds.w) * content_height <=
       static_cast<int64_t>(bounds.h) * content_width) {
     width = bounds.w;
-    height = static_cast<int>(
-        static_cast<int64_t>(width) * content_height / content_width);
+    height = static_cast<int>(static_cast<int64_t>(width) * content_height /
+                              content_width);
   } else {
     height = bounds.h;
-    width = static_cast<int>(
-        static_cast<int64_t>(height) * content_width / content_height);
+    width = static_cast<int>(static_cast<int64_t>(height) * content_width /
+                             content_height);
   }
 
   return SDL_Rect{bounds.x + (bounds.w - width) / 2,
@@ -215,9 +257,29 @@ bool StringUpdater::IsTitleMatchedFilter(const std::string& filter,
   return false;
 }
 
+std::string GetROMEditionTitle(const preset_roms::PresetROM& rom,
+                               preset_roms::ROMEdition edition) {
+  std::string title = GetROMLocalizedTitle(rom);
+  if (edition == preset_roms::ROMEdition::kHD)
+    title.append(" [HD]");
+  return title;
+}
+
+void AppendROMFilterStrings(const preset_roms::PresetROM& rom,
+                            preset_roms::ROMEdition edition,
+                            std::vector<std::string>* filter_strings) {
+  filter_strings->push_back(GetROMEditionTitle(rom, edition));
+  filter_strings->push_back(rom.name);
+  filter_strings->push_back(
+      language_conversion::KanaToRomaji(GetROMLocalizedCollateStringHint(rom)));
+}
+
 class ROMTitleUpdater : public LocalizedStringUpdater {
  public:
-  explicit ROMTitleUpdater(const preset_roms::PresetROM& preset_rom);
+  ROMTitleUpdater(
+      const preset_roms::PresetROM& preset_rom,
+      preset_roms::ROMEdition edition,
+      std::vector<const preset_roms::PresetROM*> filter_aliases = {});
   ~ROMTitleUpdater() override = default;
 
  protected:
@@ -229,22 +291,39 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
 
  private:
   const preset_roms::PresetROM& preset_rom_;
+  preset_roms::ROMEdition edition_;
+  std::vector<const preset_roms::PresetROM*> filter_aliases_;
 };
 
-ROMTitleUpdater::ROMTitleUpdater(const preset_roms::PresetROM& preset_rom)
-    : preset_rom_(preset_rom) {}
+ROMTitleUpdater::ROMTitleUpdater(
+    const preset_roms::PresetROM& preset_rom,
+    preset_roms::ROMEdition edition,
+    std::vector<const preset_roms::PresetROM*> filter_aliases)
+    : preset_rom_(preset_rom),
+      edition_(edition),
+      filter_aliases_(std::move(filter_aliases)) {}
 
 std::string ROMTitleUpdater::GetLocalizedString() {
-  return GetROMLocalizedTitle(preset_rom_);
+  return GetROMEditionTitle(preset_rom_, edition_);
 }
 
 std::string ROMTitleUpdater::GetCollateStringHint() {
-  return GetROMLocalizedCollateStringHint(preset_rom_);
+  std::string title = GetROMLocalizedCollateStringHint(preset_rom_);
+  if (edition_ == preset_roms::ROMEdition::kHD)
+    title.append(" HD");
+  return title;
 }
 
 std::vector<std::string> ROMTitleUpdater::GetFilterStrings() {
-  return {GetLocalizedString(), preset_rom_.name,
-          language_conversion::KanaToRomaji(GetCollateStringHint())};
+  std::vector<std::string> filter_strings;
+  AppendROMFilterStrings(preset_rom_, edition_, &filter_strings);
+  for (const preset_roms::PresetROM* alias : filter_aliases_) {
+    if (alias != &preset_rom_) {
+      AppendROMFilterStrings(*alias, preset_roms::ROMEdition::kOriginal,
+                             &filter_strings);
+    }
+  }
+  return filter_strings;
 }
 
 bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
@@ -317,6 +396,8 @@ MainWindow::MainWindow(const std::string& title,
       runtime_id_(runtime_id),
       config_(config),
       ui_scale_(config->data().window_scale) {
+  is_focused_ =
+      (SDL_GetWindowFlags(native_window()) & SDL_WINDOW_INPUT_FOCUS) != 0;
 #if !KIWI_MOBILE && !KIWI_WASM
   SDL_SetWindowMinimumSize(native_window(), kDefaultWindowWidth,
                            kDefaultWindowHeight);
@@ -330,8 +411,8 @@ MainWindow::MainWindow(const std::string& title,
 }
 
 // Initialization flow:
-// UI: InitializeRuntimeData -> Audio -> UI -> IODevices
-// IO: ROMs data ------------------------^
+// UI: InitializeRuntimeData -> Audio -> Debug ROMs -> UI -> IODevices
+// IO: ROMs data -------------------------------------^
 void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   InitializeRuntimeData();
   InitializeAudio();
@@ -342,10 +423,10 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
   // The splash is rendered by the main loop while ROM packages and game
   // metadata are initialized on the IO thread.
   Application::Get()->Initialize(
-      kiwi::base::BindOnce(&MainWindow::InitializeDebugROMsOnIOThread,
-                           kiwi::base::Unretained(this)),
-      kiwi::base::BindOnce(&MainWindow::InitializeUI,
+      kiwi::base::BindOnce(&MainWindow::InitializeDebugROMs,
                            kiwi::base::Unretained(this))
+          .Then(kiwi::base::BindOnce(&MainWindow::InitializeUI,
+                                     kiwi::base::Unretained(this)))
           .Then(kiwi::base::BindOnce(&MainWindow::InitializeIODevices,
                                      kiwi::base::Unretained(this)))
           .Then(kiwi::base::BindOnce(&MainWindow::LoadTestRomIfSpecified,
@@ -356,9 +437,10 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
 MainWindow::~MainWindow() {
   SDL_assert(runtime_data_);
   SDL_assert(runtime_data_->emulator);
-  SDL_assert(canvas_);
   runtime_data_->emulator->PowerOff();
-  canvas_->RemoveObserver(this);
+  if (canvas_) {
+    canvas_->RemoveObserver(this);
+  }
   SaveConfig();
 
 #if KIWI_WASM
@@ -698,6 +780,23 @@ void MainWindow::HandleKeyEvent(SDL_KeyboardEvent* event) {
   WindowBase::HandleKeyEvent(event);
 }
 
+void MainWindow::HandleFocusChangedEvent(bool focused) {
+  is_focused_ = focused;
+  if (!runtime_data_ || !runtime_data_->emulator)
+    return;
+
+  if (!focused) {
+    PauseForFocusLossIfNeeded();
+    return;
+  }
+
+  if (resume_after_focus_gained_) {
+    resume_after_focus_gained_ = false;
+    if (IsPause())
+      OnResume();
+  }
+}
+
 void MainWindow::OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) {
   ToastGameControllersAddedOrRemoved(this, true, event->which);
   UpdateGameControllerMapping();
@@ -938,81 +1037,62 @@ void MainWindow::InitializeUI() {
           roms.push_back(&alternative_rom);
         }
 
-        // Sorts ROMS by current locale
-        auto priority_rom = std::find_if(
-            roms.begin(), roms.end(), [](preset_roms::PresetROM* r) {
-              SupportedLanguage current_language =
-                  GetCurrentSupportedLanguage();
-              if (current_language == SupportedLanguage::kEnglish &&
-                  r->region == preset_roms::Region::kUSA)
-                return true;
-
-#if !DISABLE_JAPANESE_FONT
-              if (current_language == SupportedLanguage::kJapanese &&
-                  r->region == preset_roms::Region::kJapan)
-                return true;
-#endif
-
-#if !DISABLE_CHINESE_FONT
-              if (current_language == SupportedLanguage::kSimplifiedChinese &&
-                  r->region == preset_roms::Region::kCN)
-                return true;
-
-              // Chinese matches Japanese version .
-              if (current_language == SupportedLanguage::kSimplifiedChinese &&
-                  r->region == preset_roms::Region::kJapan)
-                return true;
-#endif
-
-              return false;
-            });
-
-        if (priority_rom != roms.end()) {
-          preset_roms::PresetROM& target_rom = **priority_rom;
-          size_t main_item_index = items_widget->AddItem(
-              std::make_unique<ROMTitleUpdater>(target_rom),
-              target_rom.boxart_width, target_rom.boxart_height,
-              kiwi::base::BindRepeating(&LoadPresetROM, target_rom,
-                                        RomPart::kBoxArt),
-              kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                        kiwi::base::Unretained(this),
-                                        std::ref(target_rom)));
-          // Removes the first rom, and puts remaining roms to the alternative
-          // rom's list.
-          roms.erase(priority_rom);
-          for (auto* alternative_rom : roms) {
-            items_widget->AddSubItem(
-                main_item_index,
-                std::make_unique<ROMTitleUpdater>(*alternative_rom),
-                alternative_rom->boxart_width, alternative_rom->boxart_height,
-                kiwi::base::BindRepeating(&LoadPresetROM, *alternative_rom,
-                                          RomPart::kBoxArt),
-                kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                          kiwi::base::Unretained(this),
-                                          std::ref(*alternative_rom)));
+        // HD-capable ROMs take priority. Locale breaks ties within the same
+        // capability level.
+        preset_roms::PresetROM* priority_rom = FindPreferredROM(roms);
+        std::vector<preset_roms::PresetROM*> ordered_roms;
+        ordered_roms.push_back(priority_rom);
+        for (preset_roms::PresetROM* candidate : roms) {
+          if (candidate != priority_rom) {
+            ordered_roms.push_back(candidate);
           }
+        }
 
-        } else {
-          // No priority rom found. Uses default order.
-          size_t main_item_index = items_widget->AddItem(
-              std::make_unique<ROMTitleUpdater>(rom), rom.boxart_width,
-              rom.boxart_height,
-              kiwi::base::BindRepeating(&LoadPresetROM, rom, RomPart::kBoxArt),
-              kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                        kiwi::base::Unretained(this),
-                                        std::ref(rom)));
+        std::vector<const preset_roms::PresetROM*> filter_aliases;
+        filter_aliases.reserve(roms.size());
+        for (preset_roms::PresetROM* candidate : roms) {
+          filter_aliases.push_back(candidate);
+        }
 
-          for (auto& alternative_rom : rom.alternates) {
-            items_widget->AddSubItem(
-                main_item_index,
-                std::make_unique<ROMTitleUpdater>(alternative_rom),
-                alternative_rom.boxart_width, alternative_rom.boxart_height,
-                kiwi::base::BindRepeating(&LoadPresetROM, alternative_rom,
-                                          RomPart::kBoxArt),
-                kiwi::base::BindRepeating(&MainWindow::OnLoadPresetROM,
-                                          kiwi::base::Unretained(this),
-                                          std::ref(alternative_rom)));
+        for (preset_roms::PresetROM* candidate : ordered_roms) {
+          if (!candidate->hd_edition_available) {
+            continue;
           }
+          items_widget->AddItem(
+              std::make_unique<ROMTitleUpdater>(
+                  *candidate, preset_roms::ROMEdition::kHD, filter_aliases),
+              candidate->boxart_width, candidate->boxart_height, true,
+              kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
+              kiwi::base::BindRepeating(
+                  &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+                  std::ref(*candidate), preset_roms::ROMEdition::kHD));
+        }
+
+        SDL_assert(!ordered_roms.empty());
+        preset_roms::PresetROM* default_rom = ordered_roms.front();
+        size_t main_item_index = items_widget->AddItem(
+            std::make_unique<ROMTitleUpdater>(
+                *default_rom, preset_roms::ROMEdition::kOriginal),
+            default_rom->boxart_width, default_rom->boxart_height,
+            default_rom->hd_texture_toggle_available,
+            kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *default_rom),
+            kiwi::base::BindRepeating(
+                &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+                std::ref(*default_rom), preset_roms::ROMEdition::kOriginal));
+
+        for (size_t rom_index = 1; rom_index < ordered_roms.size();
+             ++rom_index) {
+          preset_roms::PresetROM* candidate = ordered_roms[rom_index];
+          items_widget->AddSubItem(
+              main_item_index,
+              std::make_unique<ROMTitleUpdater>(
+                  *candidate, preset_roms::ROMEdition::kOriginal),
+              candidate->boxart_width, candidate->boxart_height,
+              candidate->hd_texture_toggle_available,
+              kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
+              kiwi::base::BindRepeating(
+                  &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+                  std::ref(*candidate), preset_roms::ROMEdition::kOriginal));
         }
       }
 
@@ -1102,6 +1182,8 @@ void MainWindow::InitializeUI() {
   canvas_->set_frame_scale(2.f);
   canvas_->set_in_menu_trigger_callback(kiwi::base::BindRepeating(
       &MainWindow::OnInGameMenuTrigger, kiwi::base::Unretained(this)));
+  canvas_->set_hd_texture_toggle_callback(kiwi::base::BindRepeating(
+      &MainWindow::OnToggleHDTextureRendering, kiwi::base::Unretained(this)));
   AddWidget(std::move(canvas));
 
   std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
@@ -1211,7 +1293,7 @@ void MainWindow::InitializeIODevices() {
   runtime_data_->emulator->SetIODevices(std::move(io_devices));
 }
 
-void MainWindow::InitializeDebugROMsOnIOThread() {
+void MainWindow::InitializeDebugROMs() {
 #if ENABLE_DEBUG_ROMS
   if (HasDebugRoms()) {
     debug_roms_ = CreateDebugRomsMenu(kiwi::base::BindRepeating(
@@ -1231,11 +1313,17 @@ void MainWindow::LoadTestRomIfSpecified() {
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
+  current_game_title_ = rom_path.BaseName().AsUTF8Unsafe();
+  hd_texture_available_ = false;
+  hd_texture_enabled_ = false;
+  SetHDTextureToggleState(false, false);
+  canvas_->SetHDTextureToggleAvailable(false);
+  canvas_->frame()->SetTextureRenderer(nullptr);
 
   runtime_data_->emulator->LoadAndRun(
-      rom_path, kiwi::base::BindOnce(
-                    &MainWindow::OnRomLoaded, kiwi::base::Unretained(this),
-                    rom_path.BaseName().AsUTF8Unsafe(), false));
+      rom_path, kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                                     kiwi::base::Unretained(this),
+                                     current_game_title_, false));
 }
 
 void MainWindow::StartAutoSave() {
@@ -1513,6 +1601,7 @@ void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
   } else {
     SetVirtualButtonsVisible(!show);
   }
+  SetHDTextureToggleState(!show && hd_texture_available_, hd_texture_enabled_);
   SetLoading(false);
 }
 
@@ -1565,6 +1654,8 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
                                               bool visible) {}
 
 void MainWindow::LayoutVirtualTouchButtons() {}
+
+void MainWindow::SetHDTextureToggleState(bool visible, bool hd_enabled) {}
 
 void MainWindow::OnVirtualJoystickChanged(int state) {}
 
@@ -1800,10 +1891,16 @@ void MainWindow::OnRomLoaded(const std::string& name,
   SetLoading(false);
   ShowMainMenu(false, load_from_finger_gesture);
   SetTitle(name);
+  canvas_->SetHDTextureToggleAvailable(success && hd_texture_available_);
+  SetHDTextureToggleState(success && hd_texture_available_,
+                          hd_texture_enabled_);
   StartAutoSave();
   PauseGameIfDisassemblyVisible();
+  PauseForFocusLossIfNeeded();
 
   if (!success) {
+    hd_texture_available_ = false;
+    hd_texture_enabled_ = false;
     Toast::ShowToast(this,
                      GetLocalizedString(
                          string_resources::IDR_MAIN_WINDOW_ROM_NOT_SUPPORTED));
@@ -1822,12 +1919,19 @@ void MainWindow::OnResetROM() {
       kiwi::base::BindOnce(&MainWindow::ResetAudio,
                            kiwi::base::Unretained(this))
           .Then(kiwi::base::BindOnce(&MainWindow::PauseGameIfDisassemblyVisible,
+                                     kiwi::base::Unretained(this)))
+          .Then(kiwi::base::BindOnce(&MainWindow::PauseForFocusLossIfNeeded,
                                      kiwi::base::Unretained(this))));
 }
 
 void MainWindow::OnBackToMainMenu() {
   // Unload ROM, and show main menu.
   SetTitle("Kiwi Machine");
+  current_game_title_.clear();
+  hd_texture_available_ = false;
+  hd_texture_enabled_ = false;
+  SetHDTextureToggleState(false, false);
+  canvas_->SetHDTextureToggleAvailable(false);
   SetLoading(true);
   StopAutoSave();
 
@@ -1942,6 +2046,7 @@ void MainWindow::OnStateLoaded(
                   observer->OnLoadStateFailed(slot_or_timestamp);
                 }
               }
+              window->PauseForFocusLossIfNeeded();
             },
             this, state_result.slot_or_timestamp));
     audio_->Start();
@@ -1964,6 +2069,7 @@ void MainWindow::OnTogglePause() {
 }
 
 void MainWindow::OnPause() {
+  resume_after_focus_gained_ = false;
   StopAutoSave();
   // Cleanup all pressing keys when pausing.
   pressing_keys_.clear();
@@ -1974,37 +2080,97 @@ void MainWindow::OnPause() {
     disassembly_widget_->UpdateDisassembly();
   StashVirtualButtonsVisible();
   SetVirtualButtonsVisible(false);
+  SetHDTextureToggleState(false, hd_texture_enabled_);
 }
 
 void MainWindow::OnResume() {
+  if (!is_focused_) {
+    PauseForFocusLossIfNeeded();
+    resume_after_focus_gained_ = IsPause();
+    return;
+  }
+
+  resume_after_focus_gained_ = false;
   runtime_data_->emulator->Run();
   PopVirtualButtonsVisible();
+  SetHDTextureToggleState(hd_texture_available_ && canvas_->visible(),
+                          hd_texture_enabled_);
   StartAutoSave();
 }
 
+void MainWindow::PauseForFocusLossIfNeeded() {
+  if (is_focused_ || !runtime_data_ || !runtime_data_->emulator ||
+      runtime_data_->emulator->GetRunningState() !=
+          kiwi::nes::Emulator::RunningState::kRunning) {
+    return;
+  }
+
+  OnPause();
+  resume_after_focus_gained_ = true;
+}
+
 void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
+                                 preset_roms::ROMEdition edition,
                                  bool load_from_finger_gesture) {
   SDL_assert(runtime_data_->emulator);
+  SDL_assert(edition == preset_roms::ROMEdition::kOriginal ||
+             rom.hd_edition_available);
   SetLoading(true);
+  SetHDTextureToggleState(false, false);
 
   Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), RomPart::kContent),
+      FROM_HERE, kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), edition),
       kiwi::base::BindOnce(
           [](MainWindow* this_window,
              scoped_refptr<kiwi::nes::Emulator> emulator,
-             preset_roms::PresetROM& rom, bool load_from_finger_gesture,
-             kiwi::nes::Bytes rom_data) {
-            emulator->LoadAndRun(
-                ReadFromRawBinary(rom_data.data(), rom_data.size()),
-                kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                                     kiwi::base::Unretained(this_window),
-                                     GetROMLocalizedTitle(rom),
-                                     load_from_finger_gesture));
+             preset_roms::PresetROM& rom, preset_roms::ROMEdition edition,
+             bool load_from_finger_gesture, LoadedPresetROM loaded_rom) {
+            const bool has_hd_renderer = loaded_rom.texture_renderer != nullptr;
+            const bool hd_enabled =
+                has_hd_renderer && edition == preset_roms::ROMEdition::kHD;
+            this_window->current_game_title_ = GetROMLocalizedTitle(rom);
+            this_window->hd_texture_available_ =
+                has_hd_renderer && loaded_rom.hd_texture_toggle_available;
+            this_window->hd_texture_enabled_ = hd_enabled;
+            kiwi::nes::Emulator::LoadCallback callback = kiwi::base::BindOnce(
+                &MainWindow::OnRomLoaded, kiwi::base::Unretained(this_window),
+                GetROMEditionTitle(
+                    rom, hd_enabled ? preset_roms::ROMEdition::kHD
+                                    : preset_roms::ROMEdition::kOriginal),
+                load_from_finger_gesture);
+            kiwi::nes::Emulator::LoadOptions load_options;
+            if (has_hd_renderer) {
+              load_options.capture_ppu_texture_metadata = hd_enabled;
+              load_options.uses_chr_ram =
+                  loaded_rom.texture_renderer->IsUseChrRam();
+            }
+            this_window->canvas_->frame()->SetTextureRenderer(
+                std::move(loaded_rom.texture_renderer));
+            this_window->canvas_->frame()->SetHDTextureRenderingEnabled(
+                hd_enabled);
+            emulator->LoadAndRun(loaded_rom.rom_data, std::move(callback),
+                                 load_options);
           },
           kiwi::base::Unretained(this),
           kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom),
-          load_from_finger_gesture));
+          edition, load_from_finger_gesture));
+}
+
+void MainWindow::OnSetHDTextureRenderingEnabled(bool enabled) {
+  if (!hd_texture_available_ || !canvas_->frame()->HasHDTextureRenderer()) {
+    return;
+  }
+
+  hd_texture_enabled_ = enabled;
+  runtime_data_->emulator->SetTextureMetadataCaptureEnabled(
+      hd_texture_enabled_);
+  canvas_->frame()->SetHDTextureRenderingEnabled(hd_texture_enabled_);
+  SetTitle(current_game_title_ + (hd_texture_enabled_ ? " [HD]" : ""));
+  SetHDTextureToggleState(canvas_->visible(), hd_texture_enabled_);
+}
+
+void MainWindow::OnToggleHDTextureRendering() {
+  OnSetHDTextureRenderingEnabled(!hd_texture_enabled_);
 }
 
 void MainWindow::OnLoadDebugROM(kiwi::base::FilePath rom_path) {
@@ -2065,8 +2231,8 @@ void MainWindow::OnSetFullscreen() {
 
   if (SDL_SetWindowFullscreen(native_window(), SDL_WINDOW_FULLSCREEN_DESKTOP) !=
       0) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                 "Failed to enter fullscreen: %s", SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to enter fullscreen: %s",
+                 SDL_GetError());
     return;
   }
 
@@ -2079,8 +2245,8 @@ void MainWindow::OnUnsetFullscreen() {
     return;
 
   if (SDL_SetWindowFullscreen(native_window(), 0) != 0) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                 "Failed to leave fullscreen: %s", SDL_GetError());
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to leave fullscreen: %s",
+                 SDL_GetError());
     return;
   }
 

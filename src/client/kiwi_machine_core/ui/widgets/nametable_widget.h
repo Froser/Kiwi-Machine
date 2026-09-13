@@ -31,7 +31,7 @@ class NametableWidget : public Widget,
   void Paint() override;
 
   // kiwi::nes::IODevices::RenderDevice:
-  void Render(int width, int height, const Buffer& buffer) override;
+  void Render(const kiwi::nes::PPUFrameData& frame) override;
   bool NeedRender() override;
 
  private:

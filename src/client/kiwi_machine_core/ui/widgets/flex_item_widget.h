@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cstdint>
 
+#include "ui/widgets/hd_edition_badge.h"
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
 #include "utility/localization.h"
@@ -42,6 +43,7 @@ class FlexItemWidget : public Widget {
     uint64_t texture_request_generation = 0;
     int image_width = 0;
     int image_height = 0;
+    bool is_hd_edition = false;
   };
 
  public:
@@ -50,6 +52,7 @@ class FlexItemWidget : public Widget {
                           std::unique_ptr<LocalizedStringUpdater> title_updater,
                           int image_width,
                           int image_height,
+                          bool is_hd_edition,
                           LoadImageCallback image_loader,
                           TriggerCallback on_trigger);
   ~FlexItemWidget() override;
@@ -75,15 +78,22 @@ class FlexItemWidget : public Widget {
   void AddSubItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
                   int image_width,
                   int image_height,
+                  bool is_hd_edition,
                   LoadImageCallback image_loader,
                   TriggerCallback on_trigger);
   bool has_sub_items() { return sub_data_.size() > 1; }
+  bool IsPointInVersionSwitchIcon(int x_in_window, int y_in_window);
+  void SetVersionSwitchIconPressed(bool pressed);
   bool RestoreToDefaultItem();
   bool SwapToNextSubItem();
 
  private:
   void CreateTextureIfNotExists();
   SDL_Texture* LoadImageAndCreateTexture(const kiwi::nes::Bytes& data);
+  void StartVersionSwitchAnimation();
+  void PaintVersionSwitchIcon(ImDrawList* draw_list,
+                              const SDL_Rect& cover_bounds,
+                              bool is_selected);
 
  protected:
   void Paint() override;
@@ -92,8 +102,14 @@ class FlexItemWidget : public Widget {
   MainWindow* main_window_ = nullptr;
   FlexItemsWidget* parent_ = nullptr;
   Data* current_data_ = nullptr;
-  SDL_Texture* badge_texture_ = nullptr;
+  HDEditionBadge hd_edition_badge_;
   LoadingWidget loading_widget_;
+  Timer version_switch_animation_timer_;
+  Timer version_switch_idle_timer_;
+  bool version_switch_animating_ = false;
+  bool version_switch_cards_swapped_ = false;
+  bool version_switch_icon_pressed_ = false;
+  bool version_switch_icon_was_hovered_ = false;
 
   // Location
   int row_index_ = 0;

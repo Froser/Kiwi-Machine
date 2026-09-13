@@ -79,6 +79,8 @@ set(Sources
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
         ui/widgets/flex_items_widget.h
+        ui/widgets/hd_edition_badge.cc
+        ui/widgets/hd_edition_badge.h
         ui/widgets/performance_widget.cc
         ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc
@@ -129,6 +131,8 @@ set(Sources
         utility/fonts.h
         utility/images.cc
         utility/images.h
+        utility/ips.cc
+        utility/ips.h
         utility/key_mapping_util.cc
         utility/key_mapping_util.h
         utility/localization.cc
@@ -136,6 +140,12 @@ set(Sources
         utility/logging.h
         utility/math.cc
         utility/math.h
+        utility/texture_parser/mesen_texture_parser.cc
+        utility/texture_parser/mesen_texture_parser.h
+        utility/texture_parser/texture_parser.h
+        utility/texture_parser/texture_resource_provider.h
+        utility/texture_renderer.cc
+        utility/texture_renderer.h
         utility/timer.cc
         utility/timer.h
         utility/fps_counter.cc
@@ -239,6 +249,7 @@ KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Kiwi::kiwi_static imgui
+        mesen_hd_pack
         gflags_nothreads_static
         SDL2_image
         SDL2_mixer

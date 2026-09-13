@@ -39,12 +39,14 @@ class FlexItemsWidget : public Widget {
   size_t AddItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
                  int image_width,
                  int image_height,
+                 bool is_hd_edition,
                  FlexItemWidget::LoadImageCallback image_loader,
                  FlexItemWidget::TriggerCallback on_trigger);
   void AddSubItem(size_t item_index,
                   std::unique_ptr<LocalizedStringUpdater> title_updater,
                   int image_width,
                   int image_height,
+                  bool is_hd_edition,
                   FlexItemWidget::LoadImageCallback image_loader,
                   FlexItemWidget::TriggerCallback on_trigger);
 
@@ -210,6 +212,7 @@ class FlexItemsWidget : public Widget {
   Uint32 last_wheel_motion_timestamp_ = 0;
   bool has_wheel_velocity_sample_ = false;
   bool wheel_gesture_active_ = false;
+  FlexItemWidget* pressed_version_switch_item_ = nullptr;
 
 #if KIWI_MOBILE
   bool touch_active_ = false;

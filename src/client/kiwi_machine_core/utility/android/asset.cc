@@ -14,25 +14,31 @@
 
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
-#include <android/asset_manager.h>
 #include <jni.h>
 
 #include "third_party/SDL2/src/core/android/SDL_android.h"
 
-std::vector<kiwi::base::FilePath> GetAssets(){
-  AAssetManager *assetManager = Android_JNI_Get_AssetManager();
+std::vector<kiwi::base::FilePath> GetAssets(
+    const kiwi::base::FilePath& directory) {
+  AAssetManager* assetManager = Android_JNI_Get_AssetManager();
   if (assetManager == NULL) {
     return std::vector<kiwi::base::FilePath>();
   }
 
   std::vector<kiwi::base::FilePath> result;
-  AAssetDir *assetDir = AAssetManager_openDir(assetManager, "");
-  const char *filename;
+  AAssetDir* assetDir =
+      AAssetManager_openDir(assetManager, directory.AsUTF8Unsafe().c_str());
+  const char* filename;
   filename = AAssetDir_getNextFileName(assetDir);
   while (filename) {
-    result.push_back(kiwi::base::FilePath::FromUTF8Unsafe(filename));
+    result.push_back(
+        directory.Append(kiwi::base::FilePath::FromUTF8Unsafe(filename)));
     filename = AAssetDir_getNextFileName(assetDir);
   }
   AAssetDir_close(assetDir);
   return result;
+}
+
+std::vector<kiwi::base::FilePath> GetAssets() {
+  return GetAssets(kiwi::base::FilePath());
 }

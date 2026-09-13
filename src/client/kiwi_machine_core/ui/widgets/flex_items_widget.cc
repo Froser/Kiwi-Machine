@@ -291,12 +291,13 @@ size_t FlexItemsWidget::AddItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
     int image_height,
+    bool is_hd_edition,
     FlexItemWidget::LoadImageCallback image_loader,
     FlexItemWidget::TriggerCallback on_trigger) {
   if (image_width && image_height) {
     std::unique_ptr<FlexItemWidget> item = std::make_unique<FlexItemWidget>(
         main_window_, this, std::move(title_updater), image_width, image_height,
-        image_loader, on_trigger);
+        is_hd_edition, image_loader, on_trigger);
     std::vector<std::string> filter_strings = item->GetFilterStrings();
     items_.push_back(item.get());
     all_items_.push_back(item.get());
@@ -317,11 +318,13 @@ void FlexItemsWidget::AddSubItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
     int image_height,
+    bool is_hd_edition,
     FlexItemWidget::LoadImageCallback image_loader,
     FlexItemWidget::TriggerCallback on_trigger) {
   SDL_assert(item_index < items_.size());
   items_[item_index]->AddSubItem(std::move(title_updater), image_width,
-                                 image_height, image_loader, on_trigger);
+                                 image_height, is_hd_edition, image_loader,
+                                 on_trigger);
   EnsureUniqueFilterSearchIndex();
   (*filter_search_index_)[item_index] = items_[item_index]->GetFilterStrings();
 }
@@ -353,6 +356,10 @@ void FlexItemsWidget::SetActivate(bool activate) {
     Layout(LayoutOption::kDoNotAdjustScrolling);
   }
   if (!activate_) {
+    if (pressed_version_switch_item_) {
+      pressed_version_switch_item_->SetVersionSwitchIconPressed(false);
+      pressed_version_switch_item_ = nullptr;
+    }
     StopInertialScrolling();
     wheel_scroll_remainder_ = 0.f;
     wheel_scroll_velocity_ = 0.f;
@@ -1104,6 +1111,10 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
     case MouseOrFingerEventType::kHover: {
       if (!mouse_moved_ && !scrolling_by_finger_) {
         gesture_locked_ = false;
+        if (pressed_version_switch_item_) {
+          pressed_version_switch_item_->SetVersionSwitchIconPressed(false);
+          pressed_version_switch_item_ = nullptr;
+        }
         if (items_[current_index_]->has_sub_items()) {
           PlayEffect(audio_resources::AudioID::kSelect);
           SwapCurrentItemToNextSubItem();
@@ -1113,6 +1124,30 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
     }
     case MouseOrFingerEventType::kMousePressed:
     case MouseOrFingerEventType::kFingerDown: {
+      if (pressed_version_switch_item_) {
+        pressed_version_switch_item_->SetVersionSwitchIconPressed(false);
+        pressed_version_switch_item_ = nullptr;
+      }
+
+      if (activate_ && button == MouseButton::kLeftButton) {
+        size_t index = 0;
+        if (FindItemIndexByMousePosition(x_in_window, y_in_window, index) &&
+            items_[index]->IsPointInVersionSwitchIcon(x_in_window,
+                                                      y_in_window)) {
+          if (current_index_ != index) {
+            SetIndex(index, LayoutOption::kDoNotAdjustScrolling, false);
+          }
+          pressed_version_switch_item_ = items_[index];
+          pressed_version_switch_item_->SetVersionSwitchIconPressed(true);
+          gesture_locked_ = type == MouseOrFingerEventType::kFingerDown;
+          if (gesture_locked_) {
+            gesture_locked_timer_.Reset();
+          }
+          mouse_moved_ = false;
+          return true;
+        }
+      }
+
       mouse_moved_ = false;
       gesture_locked_ = true;
       gesture_locked_timer_.Reset();
@@ -1120,6 +1155,22 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
       return true;
     }
     case MouseOrFingerEventType::kFingerUp: {
+      if (pressed_version_switch_item_) {
+        FlexItemWidget* pressed_item = pressed_version_switch_item_;
+        pressed_version_switch_item_ = nullptr;
+        pressed_item->SetVersionSwitchIconPressed(false);
+        const bool should_switch =
+            activate_ && gesture_locked_ && !scrolling_by_finger_ &&
+            pressed_item == items_[current_index_] &&
+            pressed_item->IsPointInVersionSwitchIcon(x_in_window, y_in_window);
+        gesture_locked_ = false;
+        if (should_switch) {
+          PlayEffect(audio_resources::AudioID::kSelect);
+          SwapCurrentItemToNextSubItem();
+        }
+        return true;
+      }
+
       AutoReset auto_reset(gesture_locked_);
       if (activate_) {
         if (gesture_locked_) {
@@ -1152,6 +1203,18 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
     }
     case MouseOrFingerEventType::kMouseMove: {
       mouse_moved_ = true;
+      if (pressed_version_switch_item_) {
+        if (!(SDL_GetMouseState(nullptr, nullptr) &
+              SDL_BUTTON(SDL_BUTTON_LEFT))) {
+          pressed_version_switch_item_->SetVersionSwitchIconPressed(false);
+          pressed_version_switch_item_ = nullptr;
+          return true;
+        }
+        pressed_version_switch_item_->SetVersionSwitchIconPressed(
+            pressed_version_switch_item_->IsPointInVersionSwitchIcon(
+                x_in_window, y_in_window));
+        return true;
+      }
       if (!activate_ || gesture_locked_)
         return true;
 
@@ -1162,6 +1225,22 @@ bool FlexItemsWidget::HandleMouseOrFingerEvents(MouseOrFingerEventType type,
       return true;
     }
     case MouseOrFingerEventType::kMouseReleased: {
+      if (pressed_version_switch_item_) {
+        FlexItemWidget* pressed_item = pressed_version_switch_item_;
+        pressed_version_switch_item_ = nullptr;
+        pressed_item->SetVersionSwitchIconPressed(false);
+        const bool should_switch =
+            button == MouseButton::kLeftButton &&
+            pressed_item == items_[current_index_] &&
+            pressed_item->IsPointInVersionSwitchIcon(x_in_window, y_in_window);
+        gesture_locked_ = false;
+        if (should_switch) {
+          PlayEffect(audio_resources::AudioID::kSelect);
+          SwapCurrentItemToNextSubItem();
+        }
+        return true;
+      }
+
       AutoReset auto_reset(gesture_locked_);
       if (activate_) {
         if (gesture_locked_) {

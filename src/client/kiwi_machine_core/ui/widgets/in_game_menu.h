@@ -136,6 +136,7 @@ class InGameMenu : public Widget {
 
   enum class FocusArea {
     kMenu,
+    kStateSelector,
     kDetail,
     kConfirmation,
   };
@@ -159,7 +160,6 @@ class InGameMenu : public Widget {
     std::string header;
     std::string subtitle;
     std::string state_title;
-    std::string state_metadata;
     std::string state_position;
     std::string state_action;
     std::string confirmation_title;
@@ -197,7 +197,7 @@ class InGameMenu : public Widget {
 
     SDL_Rect state_preview = {};
     SDL_Rect state_title = {};
-    SDL_Rect state_metadata = {};
+    SDL_Rect state_selector = {};
     SDL_Rect state_previous = {};
     SDL_Rect state_position = {};
     SDL_Rect state_next = {};
@@ -215,6 +215,7 @@ class InGameMenu : public Widget {
     kClose,
     kMenuItem,
     kStatePrevious,
+    kStatePosition,
     kStateNext,
     kStateAction,
     kContextualAction,

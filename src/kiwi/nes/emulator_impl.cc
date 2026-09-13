@@ -195,15 +195,17 @@ void EmulatorImpl::LoadFromFile(const base::FilePath& rom_path,
   }
 }
 
-void EmulatorImpl::LoadFromBinary(const Bytes& data, LoadCallback callback) {
+void EmulatorImpl::LoadFromBinary(const Bytes& data,
+                                  LoadCallback callback,
+                                  const LoadOptions& options) {
   if (render_coroutine_ != emulator_task_runner_) {
     render_coroutine_->PostTaskAndReplyWithResult(
         FROM_HERE,
         base::BindOnce(&EmulatorImpl::LoadFromBinaryOnProperThread,
-                       base::RetainedRef(this), data),
+                       base::RetainedRef(this), data, options),
         base::BindOnce(std::move(callback)));
   } else {
-    std::move(callback).Run(LoadFromBinaryOnProperThread(data));
+    std::move(callback).Run(LoadFromBinaryOnProperThread(data, options));
   }
 }
 
@@ -260,7 +262,9 @@ void EmulatorImpl::LoadAndRun(const base::FilePath& rom_path,
   LoadFromFile(rom_path, std::move(load_callback));
 }
 
-void EmulatorImpl::LoadAndRun(const Bytes& data, LoadCallback callback) {
+void EmulatorImpl::LoadAndRun(const Bytes& data,
+                              LoadCallback callback,
+                              const LoadOptions& options) {
   LoadCallback load_callback = base::BindOnce(
       [](scoped_refptr<EmulatorImpl> emulator, LoadCallback callback,
          bool success) {
@@ -272,7 +276,7 @@ void EmulatorImpl::LoadAndRun(const Bytes& data, LoadCallback callback) {
         std::move(callback).Run(success);
       },
       base::RetainedRef(this), std::move(callback));
-  LoadFromBinary(data, std::move(load_callback));
+  LoadFromBinary(data, std::move(load_callback), options);
 }
 
 void EmulatorImpl::Unload(UnloadCallback callback) {
@@ -452,17 +456,21 @@ void EmulatorImpl::Step() {
 bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
-  return HandleLoadedResult(cartridge->Load(rom_path), cartridge);
+  return HandleLoadedResult(cartridge->Load(rom_path), cartridge,
+                            LoadOptions{});
 }
 
-bool EmulatorImpl::LoadFromBinaryOnProperThread(const Bytes& data) {
+bool EmulatorImpl::LoadFromBinaryOnProperThread(
+    const Bytes& data,
+    const LoadOptions& options) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
-  return HandleLoadedResult(cartridge->Load(data), cartridge);
+  return HandleLoadedResult(cartridge->Load(data), cartridge, options);
 }
 
 bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
-                                      scoped_refptr<Cartridge> cartridge) {
+                                      scoped_refptr<Cartridge> cartridge,
+                                      const LoadOptions& options) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (!load_result.success)
     return false;
@@ -475,6 +483,9 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
 
   // Set patch config for PPU
   ppu_->SetPatch(cartridge->crc32());
+  texture_metadata_uses_chr_ram_ = options.uses_chr_ram;
+  ppu_->SetTextureMetadataCapture(options.capture_ppu_texture_metadata,
+                                  texture_metadata_uses_chr_ram_);
 
   SetControllerTypes(cartridge->crc32());
 
@@ -537,6 +548,12 @@ void EmulatorImpl::SetIODevices(std::unique_ptr<IODevices> io_devices) {
 
 IODevices* EmulatorImpl::GetIODevices() {
   return io_devices_.get();
+}
+
+void EmulatorImpl::SetTextureMetadataCaptureEnabled(bool enabled) {
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(ppu_);
+  ppu_->SetTextureMetadataCapture(enabled, texture_metadata_uses_chr_ram_);
 }
 
 void EmulatorImpl::SaveState(SaveStateCallback callback) {
@@ -649,8 +666,9 @@ void EmulatorImpl::OnPPUFrameEnd() {
   }
 }
 
-void EmulatorImpl::OnRenderReady(const Colors& swapbuffer) {
+void EmulatorImpl::OnRenderReady(const PPUFrameData& frame) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK(frame.native_pixels);
   // Render is ready, update APU state here.
 
   apu_->StepFrame();
@@ -667,7 +685,7 @@ void EmulatorImpl::OnRenderReady(const Colors& swapbuffer) {
          io_devices_->render_devices()) {
       CHECK(render_device);
       if (render_device->NeedRender()) {
-        render_device->Render(256, 240, swapbuffer);
+        render_device->Render(frame);
       }
     }
   }

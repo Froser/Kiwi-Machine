@@ -42,7 +42,7 @@ struct ROM {
   std::vector<uint8_t> nes_data;
   char nes_file_name[MAX]{0};
 
-  bool has_boxarts_size_hint;
+  bool has_boxarts_size_hint = false;
 
  private:
   SDL_Texture* boxart_texture_ = nullptr;

@@ -13,7 +13,8 @@
 #ifndef WORKSPACE_H_
 #define WORKSPACE_H_
 
-#include "../third_party/nlohmann_json/json.hpp"
+#include <string>
+
 #include "base/files/file_path.h"
 
 struct Workspace {

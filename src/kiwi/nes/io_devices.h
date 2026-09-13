@@ -22,6 +22,8 @@
 
 namespace kiwi {
 namespace nes {
+struct PPUFrameData;
+
 // A collection of IO devices, such as inputs, renderers, etc.
 class NES_EXPORT IODevices {
  public:
@@ -55,8 +57,8 @@ class NES_EXPORT IODevices {
     virtual ~RenderDevice();
 
    public:
-    virtual void Render(int width, int height, const Colors& buffer) = 0;
     virtual bool NeedRender() = 0;
+    virtual void Render(const PPUFrameData& frame) = 0;
   };
 
   class NES_EXPORT AudioDevice {

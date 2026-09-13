@@ -15,9 +15,13 @@
 
 #include <optional>
 #include <set>
+#include <string>
+#include <utility>
 
 #include "models/nes_frame.h"
+#include "ui/widgets/hd_edition_badge.h"
 #include "ui/widgets/widget.h"
+#include "utility/timer.h"
 
 // A canvas is a widget to render NES frame.
 class WindowBase;
@@ -40,6 +44,10 @@ class Canvas : public Widget, public NESFrameObserver {
   void set_in_menu_trigger_callback(kiwi::base::RepeatingClosure callback) {
     on_menu_trigger_ = callback;
   }
+  void set_hd_texture_toggle_callback(kiwi::base::RepeatingClosure callback) {
+    on_hd_texture_toggle_ = std::move(callback);
+  }
+  void SetHDTextureToggleAvailable(bool available);
 
   scoped_refptr<NESFrame> frame() { return frame_; }
   float frame_scale() { return frame_scale_; }
@@ -54,6 +62,7 @@ class Canvas : public Widget, public NESFrameObserver {
   bool IsWindowless() override;
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
+  bool OnControllerButtonReleased(SDL_ControllerButtonEvent* event) override;
   bool OnMousePressed(SDL_MouseButtonEvent* event) override;
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
@@ -64,6 +73,8 @@ class Canvas : public Widget, public NESFrameObserver {
 
  private:
   void InvokeInGameMenu();
+  void InvokeHDTextureToggle();
+  void PaintHDTextureToggleHint();
 
   struct ZapperDetails {
     int original_x;
@@ -83,7 +94,15 @@ class Canvas : public Widget, public NESFrameObserver {
   std::optional<std::pair<int, int>> touch_point_;
   scoped_refptr<NESFrame> frame_;
   kiwi::base::RepeatingClosure on_menu_trigger_;
+  kiwi::base::RepeatingClosure on_hd_texture_toggle_;
   std::set<CanvasObserver*> observers_;
+  Timer hd_texture_hint_timer_;
+  HDEditionBadge hd_texture_hint_badge_;
+  bool hd_texture_toggle_available_ = false;
+  bool hd_texture_hint_visible_ = false;
+  bool last_hd_toggle_input_was_controller_ = false;
+  bool right_shoulder_pending_ = false;
+  bool shoulder_chord_used_ = false;
 };
 
 #endif  // UI_WIDGETS_CANVAS_H_

@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2024 Yisi Yu
+// Copyright (C) 2024 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -14,14 +14,21 @@
 
 #include <gflags/gflags.h>
 
+#include <cstdio>
+#include <cstring>
+
+#include "../third_party/nlohmann_json/json.hpp"
 #include "base/files/file_util.h"
 
 DEFINE_string(workspace, "", "Default workspace.");
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Workspace::Manifest,
-                                   nes_roms_dir,
-                                   zipped_nes_dir,
-                                   nes_boxarts_dir);
+void from_json(const nlohmann::json& object, Workspace::Manifest& manifest) {
+  manifest.nes_roms_dir = object.value("nes_roms_dir", std::string("roms/nes"));
+  manifest.zipped_nes_dir =
+      object.value("zipped_nes_dir", std::string("zipped/nes"));
+  manifest.nes_boxarts_dir =
+      object.value("nes_boxarts_dir", std::string("boxarts/nes"));
+}
 
 // A simple workspace json config:
 // {
@@ -31,7 +38,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Workspace::Manifest,
 // }
 
 Workspace::Workspace() {
-  strcpy(workspace_dir, FLAGS_workspace.c_str());
+  std::snprintf(workspace_dir, sizeof(workspace_dir), "%s",
+                FLAGS_workspace.c_str());
   workspace_path_ = kiwi::base::FilePath::FromUTF8Unsafe(workspace_dir);
   bool read = false;
   if (strlen(workspace_dir) > 0) {
@@ -57,6 +65,9 @@ bool Workspace::ReadFromManifest(const kiwi::base::FilePath& manifest_file) {
 
     nlohmann::json object = nlohmann::json::parse(manifest_contents->data());
     from_json(object, manifest_);
+    workspace_path_ = manifest_file.DirName();
+    std::snprintf(workspace_dir, sizeof(workspace_dir), "%s",
+                  workspace_path_.AsUTF8Unsafe().c_str());
     return true;
   }
   return false;

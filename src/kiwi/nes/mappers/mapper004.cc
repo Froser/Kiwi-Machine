@@ -146,6 +146,14 @@ Byte Mapper004::ReadCHR(Address address) {
   return 0;
 }
 
+uint32_t Mapper004::GetAbsoluteCHRAddress(Address address) {
+  if (uses_character_ram_) {
+    return address & 0x1fff;
+  }
+  const uint32_t offset = address & 0x03ff;
+  return static_cast<uint32_t>(GetCHRBank(address)) * kCHRBankSize + offset;
+}
+
 int Mapper004::GetCHRBank(Address address) const {
   switch (address & 0xfc00) {
     case 0x0000:

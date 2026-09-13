@@ -15,6 +15,7 @@
 #include "base/check.h"
 #include "nes/emulator.h"
 #include "nes/palette.h"
+#include "nes/ppu_observer.h"
 #include "nes/registers.h"
 
 // Convert left pattern table's position to index of the vector
@@ -104,7 +105,11 @@ void DebugPort::OnNametableRenderReady() {
         FROM_HERE, base::BindOnce(
                        [](IODevices::RenderDevice* nametable_render_device,
                           const kiwi::nes::Colors& bgra) {
-                         nametable_render_device->Render(512, 480, bgra);
+                         PPUFrameData frame;
+                         frame.width = 512;
+                         frame.height = 480;
+                         frame.native_pixels = &bgra;
+                         nametable_render_device->Render(frame);
                        },
                        base::Unretained(nametable_render_device_),
                        std::move(nametable_bgra)));

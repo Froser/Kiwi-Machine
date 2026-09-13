@@ -40,6 +40,19 @@ class PPUBus : public EmulatorStates::SerializableState {
   Mapper* GetMapper();
   Byte Read(Address address);
   void Write(Address address, Byte value);
+  // Palette-only fast paths used by the per-pixel PPU rendering loop.
+  Byte ReadPalette(Byte palette_address) const {
+    // $3F10/$3F14/$3F18/$3F1C mirror the corresponding background entries.
+    if (palette_address >= 0x10 && palette_address % 4 == 0) {
+      palette_address &= 0x0f;
+    }
+    // Palette values are six-bit even if a game writes a larger byte.
+    return palette_[palette_address & 0x1f] & 0x3f;
+  }
+  // HD texture metadata capture caches the converted backdrop color to avoid
+  // a palette lookup for every pixel. The revision invalidates that cache.
+  Byte ReadUniversalBackgroundColor() const { return palette_[0] & 0x3f; }
+  uint64_t backdrop_revision() const { return backdrop_revision_; }
 
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;
@@ -59,7 +72,6 @@ class PPUBus : public EmulatorStates::SerializableState {
 
  private:
   void SetDefaultPalettes();
-  Byte ReadPalette(Byte palette_address);
 
  private:
   Mapper* mapper_ = nullptr;
@@ -72,6 +84,8 @@ class PPUBus : public EmulatorStates::SerializableState {
   // Palette RAM takes 32 bytes.
   // See https://www.nesdev.org/wiki/PPU_palettes for more details.
   std::array<Byte, 0x20> palette_{0};
+  // Increments whenever the visible universal background color may change.
+  uint64_t backdrop_revision_ = 0;
 
   // For MMC5
   bool is_mmc5_ = false;

@@ -14,26 +14,16 @@
 #define UTILITY_ZIP_READER_H_
 
 #include <kiwi_nes.h>
+#include <memory>
+#include <vector>
 
 namespace preset_roms {
+enum class ROMEdition;
 struct PresetROM;
 struct Package;
 }  // namespace preset_roms
 
-enum class RomPart {
-  kBoxArt,
-  kContent,
-};
-inline RomPart operator&(RomPart lhs, RomPart rhs) {
-  return static_cast<RomPart>(static_cast<int>(lhs) & static_cast<int>(rhs));
-}
-inline RomPart operator|(RomPart lhs, RomPart rhs) {
-  return static_cast<RomPart>(static_cast<int>(lhs) | static_cast<int>(rhs));
-}
-inline RomPart& operator|=(RomPart& lhs, RomPart rhs) {
-  lhs = static_cast<RomPart>(static_cast<int>(lhs) | static_cast<int>(rhs));
-  return lhs;
-}
+class TextureRenderer;
 
 // Loads ROM's data from an external package.
 preset_roms::Package* CreatePackageFromFile(
@@ -44,14 +34,37 @@ preset_roms::Package* CreatePackageFromFile(
 void OpenPackageFromFile(const kiwi::base::FilePath& package_path);
 void ClosePackages();
 
-// Loads all ROM's title, i18n names, and alternative titles. This function
-// should be called before calling LoadPresetROM().
+// Loads each ROM's title, SHA-1, i18n names, and alternative titles. This
+// function should be called before InitializeTexturePacks() and LoadPresetROM().
 void InitializePresetROM(preset_roms::PresetROM& rom_data);
 
-// Loads ROM's cover, content, or both. This function must be called on IO
-// thread.
-[[nodiscard]] kiwi::nes::Bytes LoadPresetROM(
+// Loads standalone texture package manifests and associates valid packs with
+// preset ROMs. This function must be called on the IO thread.
+void InitializeTexturePacks(
+    const std::vector<kiwi::base::FilePath>& texture_pack_paths);
+
+// Loads ROM's box art. This function must be called on the IO thread.
+[[nodiscard]] kiwi::nes::Bytes LoadPresetROMBoxArt(
+    const preset_roms::PresetROM& rom_data);
+
+struct LoadedPresetROM {
+  LoadedPresetROM();
+  ~LoadedPresetROM();
+  LoadedPresetROM(LoadedPresetROM&&) noexcept;
+  LoadedPresetROM& operator=(LoadedPresetROM&&) noexcept;
+
+  LoadedPresetROM(const LoadedPresetROM&) = delete;
+  LoadedPresetROM& operator=(const LoadedPresetROM&) = delete;
+
+  kiwi::nes::Bytes rom_data;
+  std::unique_ptr<TextureRenderer> texture_renderer;
+  bool hd_texture_toggle_available = false;
+};
+
+// Loads the playable ROM and its texture renderer when one is available.
+// This function must be called on the IO thread.
+[[nodiscard]] LoadedPresetROM LoadPresetROM(
     const preset_roms::PresetROM& rom_data,
-    RomPart part);
+    preset_roms::ROMEdition edition);
 
 #endif  // UTILITY_ZIP_READER_H_

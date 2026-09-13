@@ -18,5 +18,7 @@
 #include <vector>
 
 std::vector<kiwi::base::FilePath> GetAssets();
+std::vector<kiwi::base::FilePath> GetAssets(
+    const kiwi::base::FilePath& directory);
 
 #endif  // UTILITY_ANDROID_ASSET_H_

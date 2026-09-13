@@ -14,13 +14,21 @@
 
 #include <SDL_image.h>
 #include <stdio.h>
+
+#include <algorithm>
 #include <csetjmp>
+#include <optional>
 #include <regex>
+#include <set>
+#include <string_view>
 
 #include "../third_party/libjpeg-turbo-jpeg-9f/jpeglib.h"
 #include "../third_party/nlohmann_json/json.hpp"
+#include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "kiwi_nes.h"
+#include "nes/components/mesen_hd_pack/rom_hash.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/zip.h"
 #include "workspace.h"
@@ -107,6 +115,53 @@ bool ReadCurrentFileFromZip(unzFile file, std::vector<uint8_t>& data) {
   bool read = unzReadCurrentFile(file, data.data(), data.size()) == data.size();
   unzCloseCurrentFile(file);
   return read;
+}
+
+std::optional<nlohmann::json> CollectRomSha1s(
+    const kiwi::base::FilePath& zip_path) {
+  unzFile file = unzOpen(zip_path.AsUTF8Unsafe().c_str());
+  if (!file) {
+    return std::nullopt;
+  }
+
+  nlohmann::json sha1s = nlohmann::json::object();
+  int located = unzGoToFirstFile(file);
+  while (located == UNZ_OK) {
+    unz_file_info file_info{};
+    if (unzGetCurrentFileInfo(file, &file_info, nullptr, 0, nullptr, 0, nullptr,
+                              0) != UNZ_OK) {
+      unzClose(file);
+      return std::nullopt;
+    }
+    std::vector<char> filename(file_info.size_filename + 1, 0);
+    if (unzGetCurrentFileInfo(file, &file_info, filename.data(),
+                              filename.size(), nullptr, 0, nullptr, 0) !=
+        UNZ_OK) {
+      unzClose(file);
+      return std::nullopt;
+    }
+
+    kiwi::base::FilePath rom_path =
+        kiwi::base::FilePath::FromUTF8Unsafe(filename.data());
+    const std::string extension =
+        kiwi::base::FilePath(rom_path.Extension()).AsUTF8Unsafe();
+    if (kiwi::base::CompareCaseInsensitiveASCII(
+            extension, ".nes") == 0) {
+      std::vector<uint8_t> rom_data;
+      if (!ReadCurrentFileFromZip(file, rom_data)) {
+        unzClose(file);
+        return std::nullopt;
+      }
+      sha1s[rom_path.RemoveExtension().BaseName().AsUTF8Unsafe()] =
+          kiwi::nes::mesen_hd_pack::CalculateSha1Hex(rom_data);
+    }
+    located = unzGoToNextFile(file);
+  }
+  unzClose(file);
+  if (located != UNZ_END_OF_LIST_OF_FILE || sha1s.empty()) {
+    return std::nullopt;
+  }
+  return sha1s;
 }
 
 bool WriteToZip(zipFile zf,
@@ -443,6 +498,7 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
     manifest_data.push_back(0);  // String terminator
     manifest_data.push_back(0);  // String terminator
     nlohmann::json manifest_json = nlohmann::json::parse(manifest_data.data());
+
     if (manifest_json.contains("titles")) {
       const auto& titles = manifest_json.at("titles");
       for (const auto& rom_item : titles.items()) {
@@ -638,63 +694,78 @@ std::vector<kiwi::base::FilePath> PackZip(
     const kiwi::base::FilePath& save_dir) {
   std::vector<kiwi::base::FilePath> result;
   for (const auto& [rom_zip, package_name] : rom_zips) {
+    std::vector<kiwi::base::FilePath> package_files;
+    kiwi::base::File::Info file_info;
+    if (!kiwi::base::GetFileInfo(rom_zip, &file_info)) {
+      continue;
+    }
+    if (file_info.is_directory) {
+      kiwi::base::FileEnumerator files(
+          rom_zip, false, kiwi::base::FileEnumerator::FILES,
+          FILE_PATH_LITERAL("*.zip"));
+      for (kiwi::base::FilePath current = files.Next(); !current.empty();
+           current = files.Next()) {
+        package_files.push_back(std::move(current));
+      }
+    } else if (!file_info.is_symbolic_link) {
+      package_files.push_back(rom_zip);
+    }
+    std::sort(package_files.begin(), package_files.end());
+
+    kiwi::base::FilePath manifest_path =
+        rom_zip.Append(FILE_PATH_LITERAL("manifest.json"));
+    auto maybe_manifest_content = kiwi::base::ReadFileToBytes(manifest_path);
+    nlohmann::json manifest;
+    if (maybe_manifest_content) {
+      manifest = nlohmann::json::parse(maybe_manifest_content->begin(),
+                                       maybe_manifest_content->end(), nullptr,
+                                       false);
+    }
+    if (manifest.is_discarded() || !manifest.is_object()) {
+      manifest = nlohmann::json::parse(g_package_manifest_template);
+    }
+
+    nlohmann::json rom_sha1s = nlohmann::json::object();
+    bool hashes_collected = true;
+    for (const kiwi::base::FilePath& current : package_files) {
+      std::optional<nlohmann::json> hashes = CollectRomSha1s(current);
+      if (!hashes) {
+        hashes_collected = false;
+        break;
+      }
+      rom_sha1s[current.RemoveExtension().BaseName().AsUTF8Unsafe()] =
+          std::move(*hashes);
+    }
+    if (!hashes_collected) {
+      continue;
+    }
+    manifest["rom_sha1s"] = std::move(rom_sha1s);
+
     std::string output = save_dir.Append(package_name).AsUTF8Unsafe();
     zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
     if (!zf) {
       continue;
     }
 
-    // Try to read existed manifest.
-    kiwi::base::FilePath manifest_path =
-        rom_zip.Append(FILE_PATH_LITERAL("manifest.json"));
-    auto maybe_manifest_content = kiwi::base::ReadFileToBytes(manifest_path);
-    bool wrote = false;
-    if (maybe_manifest_content) {
-      wrote = WriteToZip(
-          zf, "manifest.json",
-          reinterpret_cast<const char*>(maybe_manifest_content->data()),
-          maybe_manifest_content->size());
-    }
-    if (!wrote) {
-      wrote =
-          WriteToZip(zf, "manifest.json", g_package_manifest_template.data(),
-                     g_package_manifest_template.size());
-    }
-    if (!wrote) {
-      zipClose(zf, nullptr);
-      continue;
-    }
-
-    kiwi::base::File::Info file_info;
-    kiwi::base::GetFileInfo(rom_zip, &file_info);
-    if (file_info.is_directory) {
-      kiwi::base::FileEnumerator d(rom_zip, false,
-                                   kiwi::base::FileEnumerator::FILES,
-                                   FILE_PATH_LITERAL("*.zip"));
-      for (kiwi::base::FilePath current = d.Next(); !current.empty();
-           current = d.Next()) {
-        std::optional<std::vector<uint8_t>> zip_contents =
-            kiwi::base::ReadFileToBytes(current);
-        SDL_assert(zip_contents);
-        if (!WriteToZip(zf, current.BaseName().AsUTF8Unsafe().c_str(),
-                        reinterpret_cast<const char*>(zip_contents->data()),
-                        zip_contents->size())) {
-          zipClose(zf, nullptr);
-          continue;
-        }
-      }
-    } else if (!file_info.is_symbolic_link) {
+    const std::string manifest_contents = manifest.dump(2);
+    bool wrote = WriteToZip(zf, "manifest.json", manifest_contents.data(),
+                            manifest_contents.size());
+    for (const kiwi::base::FilePath& current : package_files) {
       std::optional<std::vector<uint8_t>> zip_contents =
-          kiwi::base::ReadFileToBytes(rom_zip);
-      SDL_assert(zip_contents);
-      if (!WriteToZip(zf, rom_zip.BaseName().AsUTF8Unsafe().c_str(),
+          kiwi::base::ReadFileToBytes(current);
+      if (!zip_contents ||
+          !WriteToZip(zf, current.BaseName().AsUTF8Unsafe().c_str(),
                       reinterpret_cast<const char*>(zip_contents->data()),
                       zip_contents->size())) {
-        zipClose(zf, nullptr);
-        continue;
+        wrote = false;
+        break;
       }
     }
     zipClose(zf, nullptr);
+    if (!wrote) {
+      std::remove(output.c_str());
+      continue;
+    }
     result.push_back(kiwi::base::FilePath::FromUTF8Unsafe(output));
   }
 

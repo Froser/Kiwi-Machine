@@ -57,6 +57,10 @@ bool FlexItemsWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
     finger_scroll_remainder_ = precise_y_distance - y_distance;
     if (y_distance != 0) {
       scrolling_by_finger_ = true;
+      if (pressed_version_switch_item_) {
+        pressed_version_switch_item_->SetVersionSwitchIconPressed(false);
+        pressed_version_switch_item_ = nullptr;
+      }
       ScrollWith(y_distance, nullptr, nullptr);
     }
 

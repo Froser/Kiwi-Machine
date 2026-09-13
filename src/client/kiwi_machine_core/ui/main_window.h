@@ -40,8 +40,9 @@ class Splash;
 class FpsCounter;
 
 namespace preset_roms {
+enum class ROMEdition;
 struct PresetROM;
-}
+}  // namespace preset_roms
 
 class FullscreenMask;
 class MainWindow : public WindowBase,
@@ -134,6 +135,7 @@ class MainWindow : public WindowBase,
   void OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) override;
   void OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) override;
   void HandleResizedEvent() override;
+  void HandleFocusChangedEvent(bool focused) override;
   void HandleDisplayEvent(SDL_DisplayEvent* event) override;
   void HandleDropFileEvent(SDL_DropEvent* event) override;
   void Render() override;
@@ -147,7 +149,7 @@ class MainWindow : public WindowBase,
   void InitializeAudio();
   void InitializeUI();
   void InitializeIODevices();
-  void InitializeDebugROMsOnIOThread();
+  void InitializeDebugROMs();
   void LoadTestRomIfSpecified();
 
   void LoadROMByPath(kiwi::base::FilePath rom_path);
@@ -161,6 +163,7 @@ class MainWindow : public WindowBase,
   void UpdateGameControllerMapping();
   void CreateVirtualTouchButtons();
   void LayoutVirtualTouchButtons();
+  void SetHDTextureToggleState(bool visible, bool hd_enabled);
   void SetVirtualButtonsVisible(bool visible);
   void StashVirtualButtonsVisible();
   void PopVirtualButtonsVisible();
@@ -207,10 +210,14 @@ class MainWindow : public WindowBase,
   void OnTogglePause();
   void OnPause();
   void OnResume();
+  void PauseForFocusLossIfNeeded();
   bool IsPause();
   void OnLoadPresetROM(preset_roms::PresetROM& rom,
+                       preset_roms::ROMEdition edition,
                        bool load_from_finger_gesture);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
+  void OnSetHDTextureRenderingEnabled(bool enabled);
+  void OnToggleHDTextureRendering();
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
   bool IsAudioEnabled();
@@ -310,6 +317,7 @@ class MainWindow : public WindowBase,
   Widget* vtb_start_ = nullptr;
   Widget* vtb_select_ = nullptr;
   Widget* vtb_pause_ = nullptr;
+  Widget* hd_texture_toggle_ = nullptr;
   bool stashed_virtual_joysticks_visible_state_ = false;
 #endif
 
@@ -318,6 +326,11 @@ class MainWindow : public WindowBase,
   std::unique_ptr<NESAudio> audio_;
   scoped_refptr<NESConfig> config_;
   float ui_scale_ = 1.f;
+  std::string current_game_title_;
+  bool hd_texture_available_ = false;
+  bool hd_texture_enabled_ = false;
+  bool is_focused_ = true;
+  bool resume_after_focus_gained_ = false;
 
   bool virtual_controller_button_states_[2][static_cast<int>(
       kiwi::nes::ControllerButton::kMax)]{false};

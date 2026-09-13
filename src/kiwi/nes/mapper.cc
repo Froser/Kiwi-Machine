@@ -85,6 +85,10 @@ bool Mapper::NeedsM2CycleIRQ() const {
   return false;
 }
 
+uint32_t Mapper::GetAbsoluteCHRAddress(Address address) {
+  return address & 0x1fff;
+}
+
 void Mapper::M2CycleIRQ() {}
 
 bool Mapper::HasExtendedRAM() {

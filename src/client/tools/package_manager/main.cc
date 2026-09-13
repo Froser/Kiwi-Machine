@@ -15,6 +15,7 @@
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <gflags/gflags.h>
 #include <imgui.h>
+#include <map>
 #include <set>
 #include <string>
 
@@ -23,12 +24,15 @@
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "rom_window.h"
+#include "texture_packager.h"
 #include "util.h"
 #include "workspace.h"
 
 DEFINE_string(km_path, "", "Kiwi-Machine executable/bundle directory.");
 DEFINE_string(zipped_path, "", "Input path for zipped files.");
 DEFINE_string(output_path, "", "Output path for packaged files.");
+DEFINE_string(mesen_hd_texture_path, "",
+              "Input directory containing Mesen HD Texture Pack folders.");
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -731,6 +735,27 @@ int WINAPI wWinMain(HINSTANCE hInstance,
 int main(int argc, char **argv) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 #endif
+
+    if (!FLAGS_mesen_hd_texture_path.empty()) {
+        if (FLAGS_output_path.empty()) {
+            fprintf(stderr,
+                    "--mesen_hd_texture_path requires --output_path.\n");
+            return 1;
+        }
+        std::vector<kiwi::base::FilePath> texture_packages =
+                PackMesenHDTextures(
+                        kiwi::base::FilePath::FromUTF8Unsafe(
+                                FLAGS_mesen_hd_texture_path),
+                        kiwi::base::FilePath::FromUTF8Unsafe(
+                                FLAGS_output_path));
+        if (texture_packages.empty())
+            return 1;
+
+        printf("Done. Texture packages:\n");
+        for (const auto& path : texture_packages)
+            printf("%s\n", path.AsUTF8Unsafe().c_str());
+        return 0;
+    }
 
     if (!FLAGS_zipped_path.empty() && !FLAGS_output_path.empty()) {
         kiwi::base::FilePath zipped_path =

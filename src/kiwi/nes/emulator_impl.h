@@ -49,14 +49,18 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void PowerOff() override;
   void LoadFromFile(const base::FilePath& rom_path,
                     LoadCallback callback) override;
-  void LoadFromBinary(const Bytes& data, LoadCallback callback) override;
+  void LoadFromBinary(const Bytes& data,
+                      LoadCallback callback,
+                      const LoadOptions& options) override;
   const RomData* GetRomData() override;
   void Run() override;
   void RunOneFrame() override;
   void Pause() override;
   void LoadAndRun(const base::FilePath& rom_path,
                   LoadCallback callback) override;
-  void LoadAndRun(const Bytes& data, LoadCallback callback) override;
+  void LoadAndRun(const Bytes& data,
+                  LoadCallback callback,
+                  const LoadOptions& options) override;
   void Unload(UnloadCallback callback) override;
   void Reset(ResetCallback reset_callback) override;
   void Step() override;
@@ -64,6 +68,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   RunningState GetRunningState() override;
   void SetIODevices(std::unique_ptr<IODevices> io_devices) override;
   IODevices* GetIODevices() override;
+  void SetTextureMetadataCaptureEnabled(bool enabled) override;
   void SaveState(SaveStateCallback callback) override;
   void LoadState(const Bytes& data, LoadCallback callback) override;
   void SetVolume(float volume) override;
@@ -81,7 +86,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void OnPPUScanlineEnd(int scanline) override;
   void OnPPUFrameStart() override;
   void OnPPUFrameEnd() override;
-  void OnRenderReady(const Colors& swapbuffer) override;
+  void OnRenderReady(const PPUFrameData& frame) override;
 
   // CPUObserver:
   void OnCPUNMI() override;
@@ -117,9 +122,11 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
 
  private:
   bool LoadFromFileOnProperThread(const base::FilePath& rom_path);
-  bool LoadFromBinaryOnProperThread(const Bytes& data);
+  bool LoadFromBinaryOnProperThread(const Bytes& data,
+                                    const LoadOptions& options);
   bool HandleLoadedResult(Cartridge::LoadResult load_result,
-                          scoped_refptr<Cartridge> cartridge);
+                          scoped_refptr<Cartridge> cartridge,
+                          const LoadOptions& options);
   void StepInternal();
   void RunOneFrameOnProperThread();
   void PowerOffOnProperThread();
@@ -146,6 +153,7 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   Controller controller1_;
   Controller controller2_;
   std::atomic<RunningState> running_state_ = RunningState::kStopped;
+  bool texture_metadata_uses_chr_ram_ = false;
   std::unique_ptr<IODevices> io_devices_;
 
   DebugPort* debug_port_ = nullptr;

@@ -282,6 +282,8 @@ void WindowBase::HandleResizedEvent() {
   }
 }
 
+void WindowBase::HandleFocusChangedEvent(bool focused) {}
+
 void WindowBase::HandleDisplayEvent(SDL_DisplayEvent* event) {
   for (auto iter = widgets_.rbegin(); iter != widgets_.rend(); ++iter) {
     Widget* widget = iter->get();
