@@ -26,6 +26,16 @@
 
 namespace kiwi {
 namespace nes {
+namespace {
+
+constexpr size_t kINESPRGRAMBankSize = 8 * 1024;
+
+size_t DecodeNES20RAMSize(Byte shift_count) {
+  return shift_count == 0 ? 0 : static_cast<size_t>(64) << shift_count;
+}
+
+}  // namespace
+
 Cartridge::Cartridge(EmulatorImpl* emulator) : emulator_(emulator) {}
 Cartridge::~Cartridge() = default;
 
@@ -72,7 +82,7 @@ void Cartridge::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool Cartridge::Deserialize(const EmulatorStates::Header& header,
                             EmulatorStates::DeserializableStateData& data) {
-  if (header.version == 1) {
+  if (header.version == EmulatorStates::kCurrentVersion) {
     int32_t crc;
     data.ReadData(&crc);
     if (crc != crc_)
@@ -270,20 +280,39 @@ bool Cartridge::ProcessHeaders(const Byte* headers) {
   rom_data_->mapper = ((headers[6] >> 4) & 0xf) | (headers[7] & 0xf0);
   LOG(INFO) << "Mapper #" << static_cast<int>(rom_data_->mapper);
 
-  rom_data_->submapper = (headers[8] >> 4) & 0xf;
+  rom_data_->is_nes_20 = (headers[7] & 0x0C) == 0x08;
+  rom_data_->submapper = rom_data_->is_nes_20 ? (headers[8] >> 4) & 0xf : 0;
 
-  rom_data_->has_extended_ram = headers[6] & 0x2;
-  LOG(INFO) << "Extended (CPU) RAM: " << rom_data_->has_extended_ram;
+  rom_data_->has_battery = (headers[6] & 0x2) != 0;
+  if (rom_data_->is_nes_20) {
+    rom_data_->prg_ram_size = DecodeNES20RAMSize(headers[10] & 0x0f);
+    rom_data_->prg_nvram_size = DecodeNES20RAMSize(headers[10] >> 4);
+  } else {
+    const size_t declared_prg_ram_size =
+        static_cast<size_t>(headers[8]) * kINESPRGRAMBankSize;
+    if (rom_data_->has_battery) {
+      // iNES 1.0 cannot distinguish volatile PRG-RAM from PRG-NVRAM.
+      // A zero byte 8 conventionally means one 8 KiB bank.
+      rom_data_->prg_nvram_size =
+          declared_prg_ram_size ? declared_prg_ram_size : kINESPRGRAMBankSize;
+    } else {
+      // A zero byte 8 is ambiguous. Let the mapper declare Work RAM when its
+      // board requires it instead of assigning RAM to every legacy ROM.
+      rom_data_->prg_ram_size = declared_prg_ram_size;
+    }
+  }
+  LOG(INFO) << "Battery-backed memory: " << rom_data_->has_battery;
+  LOG(INFO) << "PRG-RAM: " << rom_data_->prg_ram_size
+            << " bytes, PRG-NVRAM: " << rom_data_->prg_nvram_size << " bytes";
 
   if (headers[6] & 0x4) {
     LOG(ERROR) << "Trainer is not supported.";
     return false;
   }
 
-  // Mappers (Flags 7, D4-D7) and sub mappers are ignored.
-  rom_data_->is_nes_20 = (headers[7] & 0x0C) == 0x08;
-
-  if ((headers[0xA] & 0x3) == 0x2 || (headers[0xA] & 0x1)) {
+  const Byte timing_mode =
+      rom_data_->is_nes_20 ? headers[12] & 0x03 : headers[10] & 0x03;
+  if (timing_mode != 0) {
     LOG(ERROR) << "PAL ROM not supported.";
     return false;
   } else {

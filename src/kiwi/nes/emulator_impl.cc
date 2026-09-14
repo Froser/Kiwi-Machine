@@ -360,7 +360,9 @@ Bytes EmulatorImpl::SaveStateOnProperThread() {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
 
   if (running_state_ != Emulator::RunningState::kStopped) {
-    return EmulatorStates::CreateStateForVersion(this, 1).Build();
+    return EmulatorStates::CreateStateForVersion(
+               this, EmulatorStates::kCurrentVersion)
+        .Build();
   } else {
     return Bytes();
   }
@@ -371,7 +373,9 @@ bool EmulatorImpl::LoadStateOnProperThread(const Bytes& data) {
 
   bool success;
   if (running_state_ != Emulator::RunningState::kStopped) {
-    success = EmulatorStates::CreateStateForVersion(this, 1).Restore(data);
+    success = EmulatorStates::CreateStateForVersion(
+                  this, EmulatorStates::kCurrentVersion)
+                  .Restore(data);
   } else {
     success = false;
   }
@@ -460,9 +464,8 @@ bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path) {
                             LoadOptions{});
 }
 
-bool EmulatorImpl::LoadFromBinaryOnProperThread(
-    const Bytes& data,
-    const LoadOptions& options) {
+bool EmulatorImpl::LoadFromBinaryOnProperThread(const Bytes& data,
+                                                const LoadOptions& options) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
   return HandleLoadedResult(cartridge->Load(data), cartridge, options);

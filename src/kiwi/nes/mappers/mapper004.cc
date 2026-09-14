@@ -22,6 +22,8 @@ constexpr int kPRGBankSize = 8192;
 constexpr int kCHRBankSize = 1024;
 
 Mapper004::Mapper004(Cartridge* cartridge) : Mapper(cartridge) {
+  EnsurePRGRAM(kPRGBankSize);
+
   if (cartridge->GetRomData()->CHR.size() == 0) {
     uses_character_ram_ = true;
     character_ram_.resize(0x2000);
@@ -29,7 +31,6 @@ Mapper004::Mapper004(Cartridge* cartridge) : Mapper(cartridge) {
     uses_character_ram_ = false;
   }
 
-  prg_ram_.resize(kPRGBankSize);
   mirroring_ram_.resize(4 * 1024);
 
   prg_banks_count_ = cartridge->GetRomData()->PRG.size() / kPRGBankSize;
@@ -39,7 +40,7 @@ Mapper004::~Mapper004() = default;
 
 void Mapper004::WritePRG(Address address, Byte value) {
   if (address >= 0x6000 && address <= 0x7fff) {
-    prg_ram_[address & 0x1fff] = value;
+    Mapper::WriteExtendedRAM(address, value);
     return;
   }
 
@@ -184,20 +185,11 @@ Byte Mapper004::ReadCHRByBank(int bank, Address address) {
   return rom_data()->CHR[index];
 }
 
-void Mapper004::WriteExtendedRAM(Address address, Byte value) {
-  if (HasExtendedRAM()) {
-    if (address >= 0x6000 && address <= 0x7fff) {
-      prg_ram_[address - 0x6000] = value;
-    }
-  } else {
-    WritePRG(address, value);
-  }
-}
-
 Byte Mapper004::ReadExtendedRAM(Address address) {
-  // Some games will write data to the address less than 0x6000, for example:
-  // Extra Mario Bros. So we don't check here.
-  return prg_ram_[address & 0x1fff];
+  if (address < 0x6000) {
+    return Mapper::ReadExtendedRAM(0x6000 + (address & 0x1fff));
+  }
+  return Mapper::ReadExtendedRAM(address);
 }
 
 NametableMirroring Mapper004::GetNametableMirroring() {
@@ -238,7 +230,6 @@ void Mapper004::Serialize(EmulatorStates::SerializableStateData& data) {
       .WriteData(irq_counter_)
       .WriteData(irq_latch_)
       .WriteData(irq_reload_)
-      .WriteData(prg_ram_)
       .WriteData(mirroring_ram_);
 
   if (uses_character_ram_)
@@ -266,7 +257,6 @@ bool Mapper004::Deserialize(const EmulatorStates::Header& header,
       .ReadData(&irq_counter_)
       .ReadData(&irq_latch_)
       .ReadData(&irq_reload_)
-      .ReadData(&prg_ram_)
       .ReadData(&mirroring_ram_);
 
   if (uses_character_ram_)

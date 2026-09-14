@@ -35,6 +35,15 @@ Mapper005::Mapper005(Cartridge* cartridge) : Mapper(cartridge) {
       std::max(static_cast<size_t>(1), rom_data()->PRG.size() / k16KBank);
   banks_in_32k_ =
       std::max(static_cast<size_t>(1), rom_data()->PRG.size() / k32KBank);
+
+  // Because no ExROM game is known to write PRG-RAM with one bank value and
+  // then attempt to read back the same data with a different bank value,
+  // emulating the PRG-RAM as 64K at all times can be used as a compatible
+  // superset for all games.
+  sram_config_ = SRAMConfiguration::kSuperset_64k;
+  sram_.resize(64 * 1024);
+  EnsurePRGRAM(sram_.size());
+
   ResetRegisters();
 }
 
@@ -81,27 +90,6 @@ void Mapper005::ResetRegisters() {
   internal_vram_.clear();
   internal_vram_.resize(1024);
   extended_attribute_ = 0;
-
-  // Because no ExROM game is known to write PRG-RAM with one bank value and
-  // then attempt to read back the same data with a different bank value,
-  // emulating the PRG-RAM as 64K at all times can be used as a compatible
-  // superset for all games.
-  sram_config_ = SRAMConfiguration::kSuperset_64k;
-  sram_.clear();
-  switch (sram_config_) {
-    case SRAMConfiguration::kEKROM_8K:
-      sram_.resize(8 * 1024);
-      break;
-    case SRAMConfiguration::kETROM_16K:
-      sram_.resize(16 * 1024);
-      break;
-    case SRAMConfiguration::kEWROM_32k:
-      sram_.resize(32 * 1024);
-      break;
-    case SRAMConfiguration::kSuperset_64k:
-      sram_.resize(64 * 1024);
-      break;
-  }
 
   sram_protect_[0] = 0;
   sram_protect_[1] = 0;
@@ -577,6 +565,18 @@ Byte Mapper005::ReadExtendedRAM(Address address) {
   }
 
   return 0;
+}
+
+Byte* Mapper005::GetExtendedRAMPointer() {
+  if (sram_.empty()) {
+    return nullptr;
+  }
+  const size_t offset = k8KBank * SelectSRAM(reg_5113_);
+  return offset < sram_.size() ? sram_.data() + offset : nullptr;
+}
+
+bool Mapper005::UsesCustomPRGRAM() const {
+  return true;
 }
 
 // 7  bit  0

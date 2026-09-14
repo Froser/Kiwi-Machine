@@ -39,6 +39,8 @@ class Mapper005 : public Mapper {
 
   void WriteExtendedRAM(Address address, Byte value) override;
   Byte ReadExtendedRAM(Address address) override;
+  Byte* GetExtendedRAMPointer() override;
+  bool UsesCustomPRGRAM() const override;
 
   void ScanlineIRQ(int scanline, bool render_enabled) override;
 

@@ -87,7 +87,7 @@ Bytes DeserializableStateDataImpl::ReadData(size_t size) {
 
 EmulatorStates EmulatorStates::CreateStateForVersion(EmulatorImpl* impl,
                                                      uint32_t version) {
-  CHECK(version == 1);  // Only version 1 is supported yet.
+  CHECK_EQ(version, kCurrentVersion);
   EmulatorStates state(version);
   state.AddComponent(impl->cartridge_.get())
       .AddComponent(impl->cpu_.get())
@@ -148,6 +148,9 @@ bool EmulatorStates::RestoreInternal(const kiwi::nes::Bytes& data) {
 
   if (base::StringPiece(header.header) != kStateHeaderSignature) {
     LOG(WARNING) << "Wrong state header signature: " << header.header;
+    success = false;
+  } else if (header.version != kCurrentVersion) {
+    LOG(WARNING) << "Unsupported state version: " << header.version;
     success = false;
   } else {
     LOG(INFO) << "Load state header success, version: " << header.version;

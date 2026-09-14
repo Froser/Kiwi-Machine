@@ -200,7 +200,7 @@ void CPU::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool CPU::Deserialize(const EmulatorStates::Header& header,
                       EmulatorStates::DeserializableStateData& data) {
-  if (header.version == 1) {
+  if (header.version == EmulatorStates::kCurrentVersion) {
     data.ReadData(&registers_)
         .ReadData(&pending_NMI_)
         .ReadData(&pending_IRQ_)

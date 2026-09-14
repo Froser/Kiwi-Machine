@@ -19,6 +19,7 @@ constexpr size_t k4K = 0x1000;
 constexpr size_t k8K = 0x2000;
 constexpr size_t k16K = 0x4000;
 constexpr size_t k32K = 0x8000;
+constexpr size_t k64K = 0x10000;
 
 void ActivateMMC5PRGMode(Mapper* mapper, Byte mode) {
   mapper->WriteExtendedRAM(0x5100, mode);
@@ -111,6 +112,11 @@ TEST_F(Mapper005Test, ReadsAndWritesSRAMFromFirstAddress) {
   ASSERT_TRUE(cartridge);
   Mapper* mapper = cartridge->mapper();
 
+  EXPECT_TRUE(mapper->HasPRGRAM());
+  EXPECT_FALSE(mapper->HasBatteryBackedRAM());
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, k64K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, 0u);
+
   mapper->WriteExtendedRAM(0x5102, 0x02);
   mapper->WriteExtendedRAM(0x5103, 0x01);
   mapper->WriteExtendedRAM(0x5113, 0);
@@ -119,6 +125,25 @@ TEST_F(Mapper005Test, ReadsAndWritesSRAMFromFirstAddress) {
 
   EXPECT_EQ(mapper->ReadExtendedRAM(0x6000), 0x4a);
   EXPECT_EQ(mapper->ReadExtendedRAM(0x7fff), 0x5b);
+}
+
+TEST_F(Mapper005Test, ResetPreservesSRAM) {
+  auto cartridge = LoadMapper(5, 16, 8, 0x02);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  EXPECT_TRUE(mapper->HasBatteryBackedRAM());
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, 0u);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, k64K);
+
+  mapper->WriteExtendedRAM(0x5102, 0x02);
+  mapper->WriteExtendedRAM(0x5103, 0x01);
+  mapper->WriteExtendedRAM(0x5113, 0);
+  mapper->WriteExtendedRAM(0x6123, 0x5a);
+
+  mapper->Reset();
+
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x6123), 0x5a);
 }
 
 TEST_F(Mapper005Test, WritesOnlyTheSelectedPRGRAMWindow) {

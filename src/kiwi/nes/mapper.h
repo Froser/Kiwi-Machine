@@ -13,6 +13,8 @@
 #ifndef NES_MAPPER_H_
 #define NES_MAPPER_H_
 
+#include <cstddef>
+
 #include "base/functional/callback.h"
 #include "nes/emulator_states.h"
 #include "nes/nes_export.h"
@@ -63,16 +65,17 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual void PPUAddressChanged(Address address);
 
   // CPU: $4020-$7FFF
-  // If a ROM has extented RAM, when writing to $4010-$7FFF, WriteExtendedRAM()
-  // will be invoked. Otherwise, WritePRG() will be invoked.
+  // The CPU bus forwards cartridge expansion and PRG-RAM accesses here. The
+  // mapper decides whether an address selects RAM, ROM, registers, or open bus.
   virtual void WriteExtendedRAM(Address address, Byte value);
 
-  // ReadExtendedRAM() will be invoked whenever read address from $4010 to
-  // $7FFF. If there's no extended ram, an open bus behavior will be returned.
+  // If the mapper does not provide PRG-RAM or another mapping, reads return
+  // open-bus behavior.
   virtual Byte ReadExtendedRAM(Address address);
 
   virtual Byte* GetExtendedRAMPointer();
-  bool HasExtendedRAM();
+  bool HasPRGRAM() const;
+  bool HasBatteryBackedRAM() const;
 
   static std::unique_ptr<Mapper> Create(Cartridge* cartridge, Byte mapper);
   static bool IsMapperSupported(Byte mapper);
@@ -98,9 +101,12 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual bool NeedsM2CycleIRQ() const;
   // Maps a PPU pattern-table address to its absolute byte offset in CHR-ROM.
   virtual uint32_t GetAbsoluteCHRAddress(Address address);
+  // Returns true when the mapper stores PRG-RAM outside the base
+  // implementation.
+  virtual bool UsesCustomPRGRAM() const;
 
  protected:
-  void ForceUseExtendedRAM();
+  void EnsurePRGRAM(size_t minimum_size);
 
   MirroringChangedCallback mirroring_changed_callback() {
     return mirroring_changed_callback_;
@@ -110,7 +116,7 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   IRQCallback irq_callback() { return irq_callback_; }
 
  private:
-  void CheckExtendedRAM();
+  void AllocatePRGRAMIfNeeded();
 
  protected:
   RomData* rom_data() { return rom_data_; }
@@ -119,8 +125,7 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   RomData* rom_data_ = nullptr;
   MirroringChangedCallback mirroring_changed_callback_;
   IRQCallback irq_callback_;
-  Bytes extended_ram_;
-  bool force_use_extended_ram_ = false;
+  Bytes default_prg_ram_;
 };
 
 }  // namespace nes

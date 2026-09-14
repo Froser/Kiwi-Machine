@@ -30,7 +30,9 @@ Bytes MakeTestROM(Byte mapper,
                   Byte prg_banks,
                   Byte chr_banks,
                   Byte flags6 = 0,
-                  Byte submapper = 0);
+                  Byte submapper = 0,
+                  Byte prg_ram_banks = 0,
+                  Byte nes20_prg_ram_sizes = 0);
 
 class VectorStateWriter final : public EmulatorStates::SerializableStateData {
  public:
@@ -70,7 +72,9 @@ class MapperTest : public ::testing::Test {
                                       Byte prg_banks,
                                       Byte chr_banks,
                                       Byte flags6 = 0,
-                                      Byte submapper = 0);
+                                      Byte submapper = 0,
+                                      Byte prg_ram_banks = 0,
+                                      Byte nes20_prg_ram_sizes = 0);
 
   int mirroring_changes_ = 0;
   int irq_count_ = 0;

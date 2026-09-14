@@ -145,7 +145,7 @@ void PPUBus::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool PPUBus::Deserialize(const EmulatorStates::Header& header,
                          EmulatorStates::DeserializableStateData& data) {
-  if (header.version == 1) {
+  if (header.version == EmulatorStates::kCurrentVersion) {
     data.ReadData(&nametable_).ReadData(&ram_).ReadData(&palette_);
     ++backdrop_revision_;
     return true;

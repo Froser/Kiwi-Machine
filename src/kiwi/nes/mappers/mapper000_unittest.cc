@@ -10,6 +10,11 @@
 namespace kiwi {
 namespace nes {
 namespace testing {
+namespace {
+
+constexpr size_t k8K = 0x2000;
+
+}  // namespace
 
 class Mapper000Test : public MapperTest {};
 
@@ -64,6 +69,42 @@ TEST_F(Mapper000Test, ReadOnlyWritesDoNotChangeMappedData) {
   const Byte original_chr = mapper->ReadCHR(0x0123);
   mapper->WriteCHR(0x0123, original_chr ^ 0xff);
   EXPECT_EQ(mapper->ReadCHR(0x0123), original_chr);
+}
+
+TEST_F(Mapper000Test, DistinguishesNoRAMFromBatteryBackedRAM) {
+  auto no_ram = LoadMapper(0, 2, 1);
+  ASSERT_TRUE(no_ram);
+  EXPECT_FALSE(no_ram->mapper()->HasPRGRAM());
+  EXPECT_FALSE(no_ram->mapper()->HasBatteryBackedRAM());
+  EXPECT_EQ(no_ram->mapper()->ReadExtendedRAM(0x6000), 0x60);
+
+  auto battery_ram = LoadMapper(0, 2, 1, 0x02);
+  ASSERT_TRUE(battery_ram);
+  EXPECT_TRUE(battery_ram->mapper()->HasPRGRAM());
+  EXPECT_TRUE(battery_ram->mapper()->HasBatteryBackedRAM());
+  EXPECT_TRUE(battery_ram->GetRomData()->has_battery);
+  EXPECT_EQ(battery_ram->GetRomData()->prg_ram_size, 0u);
+  EXPECT_EQ(battery_ram->GetRomData()->prg_nvram_size, k8K);
+}
+
+TEST_F(Mapper000Test, ReadsLegacyINESPRGRAMSize) {
+  auto cartridge = LoadMapper(0, 2, 1, 0, 0, 2);
+  ASSERT_TRUE(cartridge);
+
+  EXPECT_FALSE(cartridge->GetRomData()->has_battery);
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, 2u * k8K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, 0u);
+}
+
+TEST_F(Mapper000Test, ReadsNES20PRGRAMAndNVRAMSizes) {
+  auto cartridge = LoadMapper(0, 2, 1, 0x02, 1, 0, 0x87);
+  ASSERT_TRUE(cartridge);
+
+  EXPECT_TRUE(cartridge->GetRomData()->is_nes_20);
+  EXPECT_EQ(cartridge->GetRomData()->submapper, 1);
+  EXPECT_TRUE(cartridge->GetRomData()->has_battery);
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, k8K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, 2u * k8K);
 }
 
 }  // namespace testing
