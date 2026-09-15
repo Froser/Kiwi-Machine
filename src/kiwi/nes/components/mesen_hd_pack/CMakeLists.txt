@@ -14,8 +14,6 @@ set(mesen_hd_pack_sources
     hd_pack_types.h
     hires_parser.cc
     hires_parser.h
-    rom_hash.cc
-    rom_hash.h
 )
 
 KIWI_ADD_LIBRARY(mesen_hd_pack STATIC ${mesen_hd_pack_sources})

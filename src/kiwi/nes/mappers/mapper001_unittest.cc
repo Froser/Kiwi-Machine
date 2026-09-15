@@ -15,6 +15,7 @@ namespace testing {
 namespace {
 
 constexpr size_t k4K = 0x1000;
+constexpr size_t k8K = 0x2000;
 constexpr size_t k16K = 0x4000;
 
 }  // namespace
@@ -26,11 +27,27 @@ TEST_F(Mapper001Test, ProvidesWorkRAMWithoutBatteryFlag) {
   ASSERT_TRUE(cartridge);
   Mapper* mapper = cartridge->mapper();
 
-  EXPECT_TRUE(mapper->HasExtendedRAM());
+  EXPECT_TRUE(mapper->HasPRGRAM());
+  EXPECT_FALSE(mapper->HasBatteryBackedRAM());
+  EXPECT_FALSE(cartridge->GetRomData()->has_battery);
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, k8K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, 0u);
   mapper->WriteExtendedRAM(0x6000, 0x5a);
   mapper->WriteExtendedRAM(0x7fff, 0xa5);
   EXPECT_EQ(mapper->ReadExtendedRAM(0x6000), 0x5a);
   EXPECT_EQ(mapper->ReadExtendedRAM(0x7fff), 0xa5);
+}
+
+TEST_F(Mapper001Test, DistinguishesBatteryBackedRAMFromWorkRAM) {
+  auto cartridge = LoadMapper(1, 8, 0, 0x02);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  EXPECT_TRUE(mapper->HasPRGRAM());
+  EXPECT_TRUE(mapper->HasBatteryBackedRAM());
+  EXPECT_TRUE(cartridge->GetRomData()->has_battery);
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, 0u);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, k8K);
 }
 
 TEST_F(Mapper001Test, AllPRGModes) {

@@ -17,9 +17,12 @@
 #include <time.h>
 #include <tiny_jpeg.h>
 #include <chrono>
+#include <memory>
 #include <set>
 #include <vector>
 
+#include "models/battery_save.h"
+#include "nes/rom_hash.h"
 #include "ui/application.h"
 #include "ui/widgets/canvas.h"
 
@@ -362,14 +365,257 @@ NESRuntime::Data::StateResult GetAutoSavedStateOnIOThread(
   return sr;
 }
 
-}  // namespace
-
-NESRuntime::NESRuntime() {
-  task_runner_ = kiwi::base::SequencedTaskRunner::GetCurrentDefault();
-  SDL_assert(task_runner_);
+void OnBatterySaveWritten(NESRuntime::Data* runtime_data,
+                          std::string rom_sha1,
+                          uint64_t generation,
+                          kiwi::nes::Emulator::LoadCallback callback,
+                          bool success) {
+  if (!success) {
+    std::move(callback).Run(false);
+    return;
+  }
+  runtime_data->emulator->AcknowledgePRGNVRAMSaved(rom_sha1, generation,
+                                                   std::move(callback));
 }
 
+bool WriteBatterySave(
+    const kiwi::base::FilePath& profile_path,
+    const std::optional<kiwi::base::FilePath>& explicit_save_path,
+    const std::string& rom_sha1,
+    const kiwi::nes::Bytes& data) {
+  return explicit_save_path
+             ? battery_save::WriteToPath(*explicit_save_path, data)
+             : battery_save::Write(profile_path, rom_sha1, data);
+}
+
+void OnPRGNVRAMExported(
+    NESRuntime::Data* runtime_data,
+    std::optional<kiwi::base::FilePath> explicit_save_path,
+    kiwi::nes::Emulator::LoadCallback callback,
+    std::optional<kiwi::nes::Emulator::PRGNVRAMSnapshot> snapshot) {
+  if (!snapshot) {
+    std::move(callback).Run(true);
+    return;
+  }
+
+  const std::string rom_sha1 = snapshot->rom_sha1;
+  const uint64_t generation = snapshot->generation;
+  runtime_data->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(&WriteBatterySave, runtime_data->profile_path,
+                           std::move(explicit_save_path), rom_sha1,
+                           std::move(snapshot->data)),
+      kiwi::base::BindOnce(&OnBatterySaveWritten, runtime_data, rom_sha1,
+                           generation, std::move(callback)));
+}
+
+void ResumeOldROMAfterFailure(NESRuntime::Data* runtime_data,
+                              bool resume_old_rom) {
+  if (resume_old_rom) {
+    runtime_data->emulator->Run();
+  }
+}
+
+struct PreparedROM {
+  kiwi::nes::Bytes data;
+  kiwi::nes::Emulator::LoadOptions options;
+  std::optional<kiwi::nes::Bytes> initial_prg_nvram;
+  bool retry_without_prg_nvram = false;
+  std::optional<kiwi::base::FilePath> invalid_save_path;
+};
+
+std::optional<PreparedROM> PrepareROMData(
+    const kiwi::base::FilePath& profile_path,
+    kiwi::nes::Bytes data,
+    kiwi::nes::Emulator::LoadOptions options,
+    std::optional<kiwi::base::FilePath> save_path) {
+  PreparedROM prepared;
+  prepared.options = std::move(options);
+  if (save_path) {
+    battery_save::ReadResult save = battery_save::ReadFromPath(*save_path);
+    if (!save.success || !save.exists) {
+      return std::nullopt;
+    }
+    prepared.initial_prg_nvram = std::move(save.data);
+  } else {
+    std::optional<std::string> rom_sha1 =
+        kiwi::nes::CalculateINESBatterySaveSha1Hex(data);
+    if (rom_sha1) {
+      std::optional<kiwi::base::FilePath> automatic_save_path =
+          battery_save::GetPath(profile_path, *rom_sha1);
+      battery_save::ReadResult save =
+          automatic_save_path ? battery_save::ReadFromPath(*automatic_save_path)
+                              : battery_save::ReadResult{};
+      if (save.exists && !save.success) {
+        std::optional<kiwi::base::FilePath> backup_path =
+            battery_save::BackupInvalid(*automatic_save_path);
+        if (!backup_path) {
+          SDL_LogError(
+              SDL_LOG_CATEGORY_APPLICATION,
+              "Could not back up unreadable battery-backed save data.");
+          return std::nullopt;
+        }
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "Ignoring unreadable battery-backed save data. Backup: %s",
+                    backup_path->AsUTF8Unsafe().c_str());
+      }
+      if (save.exists && save.success) {
+        prepared.initial_prg_nvram = std::move(save.data);
+        prepared.retry_without_prg_nvram = true;
+        prepared.invalid_save_path = std::move(automatic_save_path);
+      }
+    }
+  }
+
+  prepared.data = std::move(data);
+  return prepared;
+}
+
+void OnPreparedROMLoaded(NESRuntime::Data* runtime_data,
+                         std::shared_ptr<const kiwi::nes::Bytes> rom_data,
+                         kiwi::nes::Emulator::LoadOptions options,
+                         bool retry_without_prg_nvram,
+                         std::optional<kiwi::base::FilePath> invalid_save_path,
+                         bool resume_old_rom,
+                         kiwi::nes::Emulator::LoadCallback callback,
+                         bool success);
+
+void OnInvalidBatterySaveBackedUp(
+    NESRuntime::Data* runtime_data,
+    std::shared_ptr<const kiwi::nes::Bytes> rom_data,
+    kiwi::nes::Emulator::LoadOptions options,
+    bool resume_old_rom,
+    kiwi::nes::Emulator::LoadCallback callback,
+    std::optional<kiwi::base::FilePath> backup_path) {
+  if (!backup_path) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "Could not back up invalid battery-backed save data.");
+    ResumeOldROMAfterFailure(runtime_data, resume_old_rom);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+              "Ignoring invalid battery-backed save data. Backup: %s",
+              backup_path->AsUTF8Unsafe().c_str());
+  runtime_data->emulator->LoadAndRun(
+      *rom_data,
+      kiwi::base::BindOnce(&OnPreparedROMLoaded, runtime_data, rom_data,
+                           options, false,
+                           std::optional<kiwi::base::FilePath>(),
+                           resume_old_rom, std::move(callback)),
+      options);
+}
+
+void OnPreparedROMLoaded(NESRuntime::Data* runtime_data,
+                         std::shared_ptr<const kiwi::nes::Bytes> rom_data,
+                         kiwi::nes::Emulator::LoadOptions options,
+                         bool retry_without_prg_nvram,
+                         std::optional<kiwi::base::FilePath> invalid_save_path,
+                         bool resume_old_rom,
+                         kiwi::nes::Emulator::LoadCallback callback,
+                         bool success) {
+  if (success) {
+    std::move(callback).Run(true);
+    return;
+  }
+  if (retry_without_prg_nvram && invalid_save_path) {
+    runtime_data->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        kiwi::base::BindOnce(&battery_save::BackupInvalid, *invalid_save_path),
+        kiwi::base::BindOnce(&OnInvalidBatterySaveBackedUp, runtime_data,
+                             rom_data, options, resume_old_rom,
+                             std::move(callback)));
+    return;
+  }
+
+  ResumeOldROMAfterFailure(runtime_data, resume_old_rom);
+  std::move(callback).Run(false);
+}
+
+void LoadPreparedROM(NESRuntime::Data* runtime_data,
+                     bool resume_old_rom,
+                     kiwi::nes::Emulator::LoadCallback callback,
+                     std::optional<PreparedROM> prepared) {
+  if (!prepared) {
+    ResumeOldROMAfterFailure(runtime_data, resume_old_rom);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  auto rom_data =
+      std::make_shared<const kiwi::nes::Bytes>(std::move(prepared->data));
+  kiwi::nes::Emulator::LoadOptions options = std::move(prepared->options);
+  kiwi::nes::Emulator::LoadCallback load_callback = kiwi::base::BindOnce(
+      &OnPreparedROMLoaded, runtime_data, rom_data, options,
+      prepared->retry_without_prg_nvram, std::move(prepared->invalid_save_path),
+      resume_old_rom, std::move(callback));
+  if (prepared->initial_prg_nvram) {
+    runtime_data->emulator->LoadAndRunWithPRGNVRAM(
+        *rom_data, *prepared->initial_prg_nvram, std::move(load_callback),
+        options);
+  } else {
+    runtime_data->emulator->LoadAndRun(*rom_data, std::move(load_callback),
+                                       options);
+  }
+}
+
+void OnCurrentROMSavedForLoad(NESRuntime::Data* runtime_data,
+                              kiwi::nes::Bytes rom_data,
+                              kiwi::nes::Emulator::LoadOptions options,
+                              std::optional<kiwi::base::FilePath> save_path,
+                              bool resume_old_rom,
+                              kiwi::nes::Emulator::LoadCallback callback,
+                              bool success) {
+  if (!success) {
+    ResumeOldROMAfterFailure(runtime_data, resume_old_rom);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  runtime_data->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(&PrepareROMData, runtime_data->profile_path,
+                           std::move(rom_data), std::move(options),
+                           std::move(save_path)),
+      kiwi::base::BindOnce(&LoadPreparedROM, runtime_data, resume_old_rom,
+                           std::move(callback)));
+}
+
+void OnCurrentROMSavedForUnload(NESRuntime::Data* runtime_data,
+                                bool resume_old_rom,
+                                kiwi::nes::Emulator::LoadCallback callback,
+                                bool success) {
+  if (!success) {
+    ResumeOldROMAfterFailure(runtime_data, resume_old_rom);
+    std::move(callback).Run(false);
+    return;
+  }
+  runtime_data->emulator->Unload(kiwi::base::BindOnce(
+      [](kiwi::nes::Emulator::LoadCallback callback) {
+        std::move(callback).Run(true);
+      },
+      std::move(callback)));
+}
+
+}  // namespace
+
+NESRuntime::NESRuntime() = default;
 NESRuntime::~NESRuntime() = default;
+
+NESRuntime::Data::Data() = default;
+
+NESRuntime::Data::Data(
+    scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner,
+    scoped_refptr<kiwi::base::SequencedTaskRunner> timer_task_runner)
+    : io_task_runner_(std::move(io_task_runner)),
+      timer_task_runner_(std::move(timer_task_runner)) {}
+
+scoped_refptr<kiwi::base::SequencedTaskRunner>
+NESRuntime::Data::GetIOTaskRunner() {
+  return io_task_runner_ ? io_task_runner_
+                         : Application::Get()->GetIOTaskRunner();
+}
 
 void NESRuntime::Data::SaveState(
     int crc32,
@@ -377,17 +623,139 @@ void NESRuntime::Data::SaveState(
     const kiwi::nes::Bytes& saved_state,
     const kiwi::nes::IODevices::RenderDevice::Buffer& thumbnail,
     kiwi::base::OnceCallback<void(bool)> callback) {
-  Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       kiwi::base::BindOnce(&SaveStateOnIOThread, profile_path, crc32, slot,
                            saved_state, thumbnail),
       std::move(callback));
 }
 
+void NESRuntime::Data::LoadROM(
+    const kiwi::base::FilePath& rom_path,
+    kiwi::nes::Emulator::LoadCallback callback,
+    const std::optional<kiwi::base::FilePath>& save_path) {
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE, kiwi::base::BindOnce(&kiwi::base::ReadFileToBytes, rom_path),
+      kiwi::base::BindOnce(
+          [](NESRuntime::Data* runtime_data,
+             std::optional<kiwi::base::FilePath> save_path,
+             kiwi::nes::Emulator::LoadCallback callback,
+             std::optional<std::vector<uint8_t>> rom_data) {
+            if (!rom_data) {
+              std::move(callback).Run(false);
+              return;
+            }
+            runtime_data->LoadROMData(std::move(*rom_data), std::move(callback),
+                                      kiwi::nes::Emulator::LoadOptions{},
+                                      save_path);
+          },
+          this, save_path, std::move(callback)));
+}
+
+void NESRuntime::Data::LoadROM(
+    kiwi::nes::Bytes rom_data,
+    kiwi::nes::Emulator::LoadCallback callback,
+    const kiwi::nes::Emulator::LoadOptions& options) {
+  LoadROMData(std::move(rom_data), std::move(callback), options, std::nullopt);
+}
+
+void NESRuntime::Data::LoadROMData(
+    kiwi::nes::Bytes rom_data,
+    kiwi::nes::Emulator::LoadCallback callback,
+    const kiwi::nes::Emulator::LoadOptions& options,
+    const std::optional<kiwi::base::FilePath>& save_path) {
+  const bool resume_old_rom = emulator->GetRunningState() ==
+                              kiwi::nes::Emulator::RunningState::kRunning;
+  kiwi::nes::Emulator::LoadCallback tracked_callback = kiwi::base::BindOnce(
+      [](NESRuntime::Data* runtime_data,
+         std::optional<kiwi::base::FilePath> save_path,
+         kiwi::nes::Emulator::LoadCallback callback, bool success) {
+        if (success) {
+          runtime_data->current_battery_save_path_ = std::move(save_path);
+        }
+        std::move(callback).Run(success);
+      },
+      this, save_path, std::move(callback));
+  PauseAndFlushCurrentROM(kiwi::base::BindOnce(
+      &OnCurrentROMSavedForLoad, this, std::move(rom_data), options, save_path,
+      resume_old_rom, std::move(tracked_callback)));
+}
+
+void NESRuntime::Data::UnloadROM(kiwi::nes::Emulator::LoadCallback callback) {
+  const bool resume_old_rom = emulator->GetRunningState() ==
+                              kiwi::nes::Emulator::RunningState::kRunning;
+  kiwi::nes::Emulator::LoadCallback tracked_callback = kiwi::base::BindOnce(
+      [](NESRuntime::Data* runtime_data,
+         kiwi::nes::Emulator::LoadCallback callback, bool success) {
+        if (success) {
+          runtime_data->current_battery_save_path_.reset();
+        }
+        std::move(callback).Run(success);
+      },
+      this, std::move(callback));
+  PauseAndFlushCurrentROM(kiwi::base::BindOnce(&OnCurrentROMSavedForUnload,
+                                               this, resume_old_rom,
+                                               std::move(tracked_callback)));
+}
+
+void NESRuntime::Data::PauseAndFlushCurrentROM(
+    kiwi::nes::Emulator::LoadCallback callback) {
+  if (emulator->GetRunningState() ==
+      kiwi::nes::Emulator::RunningState::kRunning) {
+    emulator->Pause();
+  }
+  FlushBatterySave(std::move(callback));
+}
+
+void NESRuntime::Data::FlushBatterySave(
+    kiwi::nes::Emulator::LoadCallback callback) {
+  battery_save_flush_callbacks_.push_back(std::move(callback));
+  if (battery_save_flush_in_progress_) {
+    battery_save_flush_requested_ = true;
+    return;
+  }
+  StartBatterySaveFlush();
+}
+
+void NESRuntime::Data::StartBatterySaveFlush() {
+  SDL_assert(!battery_save_flush_in_progress_);
+  battery_save_flush_in_progress_ = true;
+
+  const kiwi::nes::RomData* rom_data = emulator->GetRomData();
+  if (!rom_data || rom_data->prg_nvram_size == 0) {
+    OnBatterySaveFlushed(true);
+    return;
+  }
+
+  emulator->ExportPRGNVRAM(
+      true, kiwi::base::BindOnce(
+                &OnPRGNVRAMExported, this, current_battery_save_path_,
+                kiwi::base::BindOnce(&NESRuntime::Data::OnBatterySaveFlushed,
+                                     kiwi::base::Unretained(this))));
+}
+
+void NESRuntime::Data::OnBatterySaveFlushed(bool success) {
+  SDL_assert(battery_save_flush_in_progress_);
+  battery_save_flush_in_progress_ = false;
+
+  if (success && battery_save_flush_requested_) {
+    battery_save_flush_requested_ = false;
+    StartBatterySaveFlush();
+    return;
+  }
+
+  battery_save_flush_requested_ = false;
+  auto callbacks = std::move(battery_save_flush_callbacks_);
+  battery_save_flush_callbacks_.clear();
+  for (auto& callback : callbacks) {
+    std::move(callback).Run(success);
+  }
+}
+
 void NESRuntime::Data::GetAutoSavedStatesCount(
     int crc32,
     kiwi::base::OnceCallback<void(int)> callback) {
-  Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       kiwi::base::BindOnce(&GetAutoSavedStatesCountOnIOThread, profile_path,
                            crc32),
@@ -398,7 +766,7 @@ void NESRuntime::Data::GetAutoSavedState(
     int crc32,
     int slot,
     kiwi::base::OnceCallback<void(const StateResult&)> load_callback) {
-  Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       kiwi::base::BindOnce(&GetAutoSavedStateOnIOThread, profile_path, crc32,
                            slot),
@@ -409,7 +777,7 @@ void NESRuntime::Data::GetAutoSavedStateByTimestamp(
     int crc32,
     uint64_t timestamp,
     kiwi::base::OnceCallback<void(const StateResult&)> load_callback) {
-  Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       kiwi::base::BindOnce(&GetAutoSavedStateByTimestampOnIOThread,
                            profile_path, crc32, timestamp),
@@ -420,7 +788,7 @@ void NESRuntime::Data::GetState(
     int crc32,
     int slot,
     kiwi::base::OnceCallback<void(const StateResult&)> load_callback) {
-  Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       kiwi::base::BindOnce(&GetStateOnIOThread, profile_path, crc32, slot),
       std::move(load_callback));
@@ -443,30 +811,27 @@ kiwi::base::RepeatingClosure NESRuntime::Data::CreateAutoSaveClosure(
               [](NESRuntime::Data* runtime_data, int crc,
                  kiwi::base::TimeDelta delta, GetThumbnailCallback thumbnail,
                  kiwi::nes::Bytes data) {
-                Application::Get()
-                    ->GetIOTaskRunner()
-                    ->PostTaskAndReplyWithResult(
-                        FROM_HERE,
-                        kiwi::base::BindOnce(
-                            &SaveAutoSavedStateOnIOThread,
-                            std::chrono::system_clock::to_time_t(
-                                std::chrono::system_clock::now()),
-                            runtime_data->profile_path, crc, data,
-                            thumbnail.Run()),
-                        kiwi::base::BindOnce(
-                            [](NESRuntime::Data* runtime_data,
-                               kiwi::base::TimeDelta delta,
-                               GetThumbnailCallback thumbnail, bool success) {
-                              if (!success) {
-                                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                                            "Can't auto save state.");
-                              }
+                runtime_data->GetIOTaskRunner()->PostTaskAndReplyWithResult(
+                    FROM_HERE,
+                    kiwi::base::BindOnce(&SaveAutoSavedStateOnIOThread,
+                                         std::chrono::system_clock::to_time_t(
+                                             std::chrono::system_clock::now()),
+                                         runtime_data->profile_path, crc, data,
+                                         thumbnail.Run()),
+                    kiwi::base::BindOnce(
+                        [](NESRuntime::Data* runtime_data,
+                           kiwi::base::TimeDelta delta,
+                           GetThumbnailCallback thumbnail, bool success) {
+                          if (!success) {
+                            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                                        "Can't auto save state.");
+                          }
 
-                              // Invoke it again if auto start.
-                              runtime_data->TriggerDelayedAutoSave(delta,
-                                                                   thumbnail);
-                            },
-                            runtime_data, delta, thumbnail));
+                          // Invoke it again if auto start.
+                          runtime_data->TriggerDelayedAutoSave(delta,
+                                                               thumbnail);
+                        },
+                        runtime_data, delta, thumbnail));
               },
               runtime_data, rom_data->crc, delta, thumbnail));
         } else {
@@ -495,6 +860,66 @@ void NESRuntime::Data::StartAutoSave(kiwi::base::TimeDelta delta,
 
 void NESRuntime::Data::StopAutoSave() {
   auto_save_started_ = false;
+}
+
+void NESRuntime::Data::StartBatterySave(kiwi::base::TimeDelta delta) {
+  if (battery_save_started_) {
+    return;
+  }
+
+  battery_save_started_ = true;
+  TriggerDelayedBatterySave(delta, ++battery_save_timer_generation_);
+}
+
+void NESRuntime::Data::StopBatterySave() {
+  battery_save_started_ = false;
+  ++battery_save_timer_generation_;
+}
+
+void NESRuntime::Data::TriggerDelayedBatterySave(kiwi::base::TimeDelta delta,
+                                                 uint64_t timer_generation) {
+  if (!battery_save_started_ ||
+      timer_generation != battery_save_timer_generation_) {
+    return;
+  }
+
+  scoped_refptr<kiwi::base::SequencedTaskRunner> task_runner =
+      timer_task_runner_
+          ? timer_task_runner_
+          : kiwi::base::SingleThreadTaskRunner::GetCurrentDefault();
+  task_runner->PostDelayedTask(
+      FROM_HERE,
+      kiwi::base::BindOnce(&NESRuntime::Data::RunPeriodicBatterySave,
+                           kiwi::base::Unretained(this), delta,
+                           timer_generation),
+      delta);
+}
+
+void NESRuntime::Data::RunPeriodicBatterySave(kiwi::base::TimeDelta delta,
+                                              uint64_t timer_generation) {
+  if (!battery_save_started_ ||
+      timer_generation != battery_save_timer_generation_) {
+    return;
+  }
+  if (emulator->GetRunningState() !=
+      kiwi::nes::Emulator::RunningState::kRunning) {
+    TriggerDelayedBatterySave(delta, timer_generation);
+    return;
+  }
+
+  FlushBatterySave(kiwi::base::BindOnce(
+      &NESRuntime::Data::OnPeriodicBatterySaveFlushed,
+      kiwi::base::Unretained(this), delta, timer_generation));
+}
+
+void NESRuntime::Data::OnPeriodicBatterySaveFlushed(kiwi::base::TimeDelta delta,
+                                                    uint64_t timer_generation,
+                                                    bool success) {
+  if (!success) {
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                "Could not periodically save battery-backed data.");
+  }
+  TriggerDelayedBatterySave(delta, timer_generation);
 }
 
 #if KIWI_WASM

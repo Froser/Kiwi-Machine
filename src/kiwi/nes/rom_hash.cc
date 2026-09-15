@@ -10,18 +10,22 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#include "nes/components/mesen_hd_pack/rom_hash.h"
+#include "nes/rom_hash.h"
 
+#include <algorithm>
 #include <bit>
+#include <cctype>
 #include <cstring>
 #include <vector>
 
 namespace kiwi {
 namespace nes {
-namespace mesen_hd_pack {
 namespace {
 
 constexpr size_t kSha1BlockSize = 64;
+constexpr size_t kINESHeaderSize = 16;
+constexpr size_t kPRGROMBankSize = 16 * 1024;
+constexpr size_t kCHRROMBankSize = 8 * 1024;
 
 uint32_t ReadBigEndian32(const uint8_t* data) {
   return (static_cast<uint32_t>(data[0]) << 24) |
@@ -130,6 +134,42 @@ std::string CalculateSha1Hex(std::span<const uint8_t> data) {
   return result;
 }
 
-}  // namespace mesen_hd_pack
+std::optional<std::string> NormalizeSha1Hex(std::string sha1) {
+  if (sha1.size() != kSha1DigestSize * 2 ||
+      !std::all_of(sha1.begin(), sha1.end(),
+                   [](unsigned char c) { return std::isxdigit(c) != 0; })) {
+    return std::nullopt;
+  }
+
+  std::transform(sha1.begin(), sha1.end(), sha1.begin(), [](unsigned char c) {
+    return static_cast<char>(std::toupper(c));
+  });
+  return sha1;
+}
+
+std::optional<std::string> CalculateINESRomSha1Hex(
+    std::span<const uint8_t> image) {
+  if (image.size() < kINESHeaderSize ||
+      std::memcmp(image.data(), "NES\x1A", 4) != 0 || (image[6] & 0x04) != 0) {
+    return std::nullopt;
+  }
+
+  const size_t content_size = static_cast<size_t>(image[4]) * kPRGROMBankSize +
+                              static_cast<size_t>(image[5]) * kCHRROMBankSize;
+  if (content_size == 0 || image.size() < kINESHeaderSize + content_size) {
+    return std::nullopt;
+  }
+  return CalculateSha1Hex(image.subspan(kINESHeaderSize, content_size));
+}
+
+std::optional<std::string> CalculateINESBatterySaveSha1Hex(
+    std::span<const uint8_t> image) {
+  std::optional<std::string> sha1 = CalculateINESRomSha1Hex(image);
+  if (!sha1 || (image[6] & 0x02) == 0) {
+    return std::nullopt;
+  }
+  return sha1;
+}
+
 }  // namespace nes
 }  // namespace kiwi

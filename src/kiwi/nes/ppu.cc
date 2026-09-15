@@ -344,16 +344,16 @@ void PPU::Step() {
                 texture_color = palette_colors_[sprite_color_index];
               }
               const uint32_t texture_tile_index =
-                  ppu_bus_->GetMapper()->GetAbsoluteCHRAddress(
-                      pattern_address & 0x1ff0) /
+                  ppu_bus_->GetMapper()->GetAbsoluteCHRAddress(pattern_address &
+                                                               0x1ff0) /
                   16;
               PPUTextureTile* texture_tile =
                   texture_capture_.CaptureSpriteTilePixel(
                       x, y, static_cast<Byte>(texture_offset_x),
                       static_cast<Byte>(texture_offset_y), i,
-                      texture_tile_index,
-                      sprite_palette, attribute & 0x40, attribute & 0x80,
-                      attribute & 0x20, texture_color, candidate_is_opaque);
+                      texture_tile_index, sprite_palette, attribute & 0x40,
+                      attribute & 0x80, attribute & 0x20, texture_color,
+                      candidate_is_opaque);
               if (texture_tile) {
                 PopulateTextureTileData(pattern_address, texture_tile);
                 texture_tile->palette = {
@@ -621,7 +621,7 @@ void PPU::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool PPU::Deserialize(const EmulatorStates::Header& header,
                       EmulatorStates::DeserializableStateData& data) {
-  if (header.version == 1) {
+  if (header.version == EmulatorStates::kCurrentVersion) {
     data.ReadData(&registers_)
         .ReadData(&temp_address_)
         .ReadData(&data_address_)

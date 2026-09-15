@@ -13,6 +13,7 @@
 #include "nes/cartridge.h"
 
 #include <memory>
+#include <string>
 
 #include "base/check.h"
 #include "base/files/file.h"
@@ -21,11 +22,30 @@
 #include "nes/emulator_impl.h"
 #include "nes/mapper.h"
 #include "nes/rom_data.h"
+#include "nes/rom_hash.h"
 #include "nes/types.h"
 #include "third_party/zlib-1.3.2/zlib.h"
 
 namespace kiwi {
 namespace nes {
+namespace {
+
+constexpr size_t kINESPRGRAMBankSize = 8 * 1024;
+
+size_t DecodeNES20RAMSize(Byte shift_count) {
+  return shift_count == 0 ? 0 : static_cast<size_t>(64) << shift_count;
+}
+
+std::string CalculateROMHash(const RomData& rom_data) {
+  Bytes content;
+  content.reserve(rom_data.PRG.size() + rom_data.CHR.size());
+  content.insert(content.end(), rom_data.PRG.begin(), rom_data.PRG.end());
+  content.insert(content.end(), rom_data.CHR.begin(), rom_data.CHR.end());
+  return CalculateSha1Hex(content);
+}
+
+}  // namespace
+
 Cartridge::Cartridge(EmulatorImpl* emulator) : emulator_(emulator) {}
 Cartridge::~Cartridge() = default;
 
@@ -72,7 +92,7 @@ void Cartridge::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool Cartridge::Deserialize(const EmulatorStates::Header& header,
                             EmulatorStates::DeserializableStateData& data) {
-  if (header.version == 1) {
+  if (header.version == EmulatorStates::kCurrentVersion) {
     int32_t crc;
     data.ReadData(&crc);
     if (crc != crc_)
@@ -144,6 +164,7 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
     crc = crc32_z(crc, rom_data_->CHR.data(), rom_data_->CHR.size());
   crc_ = crc;
   rom_data_->crc = crc;
+  rom_data_->sha1 = CalculateROMHash(*rom_data_);
 
   rom_path_ = rom_path;
 
@@ -161,24 +182,31 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
   DCHECK(!rom_data_);
   rom_data_ = std::make_unique<RomData>();
 
-  const Byte* data_ptr = data.data();
-  ProcessHeaders(data_ptr);
-  for (size_t i = 0; i < 0x10; ++i) {
-    rom_data_->raw_headers.push_back(*(data_ptr + i));
+  constexpr size_t kINESHeaderSize = 0x10;
+  if (data.size() < kINESHeaderSize || !ProcessHeaders(data.data())) {
+    return LoadResult::failed();
   }
-  data_ptr += 0x10;
+
+  const size_t prg_size = static_cast<size_t>(data[4]) * 0x4000;
+  const size_t chr_size = static_cast<size_t>(data[5]) * 0x2000;
+  if (data.size() < kINESHeaderSize + prg_size + chr_size) {
+    LOG(ERROR) << "ROM image is smaller than its declared PRG/CHR data.";
+    return LoadResult::failed();
+  }
+
+  const Byte* data_ptr = data.data();
+  rom_data_->raw_headers.assign(data_ptr, data_ptr + kINESHeaderSize);
+  data_ptr += kINESHeaderSize;
   const Byte* crc32_prg_chr_start = data_ptr;
 
   // PRG-ROM 16KB banks
-  Byte prg_banks = rom_data_->raw_headers[4];
-  rom_data_->PRG.resize(0x4000 * prg_banks);
+  rom_data_->PRG.resize(prg_size);
   memcpy(rom_data_->PRG.data(), data_ptr, rom_data_->PRG.size());
   data_ptr += rom_data_->PRG.size();
 
   // CHR-ROM 8KB banks
-  Byte chr_banks = rom_data_->raw_headers[5];
-  if (chr_banks) {
-    rom_data_->CHR.resize(0x2000 * chr_banks);
+  if (chr_size != 0) {
+    rom_data_->CHR.resize(chr_size);
     memcpy(rom_data_->CHR.data(), data_ptr, rom_data_->CHR.size());
   } else {
     LOG(INFO) << "Cartridge with CHR-RAM.";
@@ -194,6 +222,7 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
   }
   crc_ = crc;
   rom_data_->crc = crc_;
+  rom_data_->sha1 = CalculateROMHash(*rom_data_);
 
   PatchHeaders();
   is_loaded_ = true;
@@ -270,20 +299,39 @@ bool Cartridge::ProcessHeaders(const Byte* headers) {
   rom_data_->mapper = ((headers[6] >> 4) & 0xf) | (headers[7] & 0xf0);
   LOG(INFO) << "Mapper #" << static_cast<int>(rom_data_->mapper);
 
-  rom_data_->submapper = (headers[8] >> 4) & 0xf;
+  rom_data_->is_nes_20 = (headers[7] & 0x0C) == 0x08;
+  rom_data_->submapper = rom_data_->is_nes_20 ? (headers[8] >> 4) & 0xf : 0;
 
-  rom_data_->has_extended_ram = headers[6] & 0x2;
-  LOG(INFO) << "Extended (CPU) RAM: " << rom_data_->has_extended_ram;
+  rom_data_->has_battery = (headers[6] & 0x2) != 0;
+  if (rom_data_->is_nes_20) {
+    rom_data_->prg_ram_size = DecodeNES20RAMSize(headers[10] & 0x0f);
+    rom_data_->prg_nvram_size = DecodeNES20RAMSize(headers[10] >> 4);
+  } else {
+    const size_t declared_prg_ram_size =
+        static_cast<size_t>(headers[8]) * kINESPRGRAMBankSize;
+    if (rom_data_->has_battery) {
+      // iNES 1.0 cannot distinguish volatile PRG-RAM from PRG-NVRAM.
+      // A zero byte 8 conventionally means one 8 KiB bank.
+      rom_data_->prg_nvram_size =
+          declared_prg_ram_size ? declared_prg_ram_size : kINESPRGRAMBankSize;
+    } else {
+      // A zero byte 8 is ambiguous. Let the mapper declare Work RAM when its
+      // board requires it instead of assigning RAM to every legacy ROM.
+      rom_data_->prg_ram_size = declared_prg_ram_size;
+    }
+  }
+  LOG(INFO) << "Battery-backed memory: " << rom_data_->has_battery;
+  LOG(INFO) << "PRG-RAM: " << rom_data_->prg_ram_size
+            << " bytes, PRG-NVRAM: " << rom_data_->prg_nvram_size << " bytes";
 
   if (headers[6] & 0x4) {
     LOG(ERROR) << "Trainer is not supported.";
     return false;
   }
 
-  // Mappers (Flags 7, D4-D7) and sub mappers are ignored.
-  rom_data_->is_nes_20 = (headers[7] & 0x0C) == 0x08;
-
-  if ((headers[0xA] & 0x3) == 0x2 || (headers[0xA] & 0x1)) {
+  const Byte timing_mode =
+      rom_data_->is_nes_20 ? headers[12] & 0x03 : headers[10] & 0x03;
+  if (timing_mode != 0) {
     LOG(ERROR) << "PAL ROM not supported.";
     return false;
   } else {

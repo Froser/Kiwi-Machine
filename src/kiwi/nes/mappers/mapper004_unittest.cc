@@ -84,15 +84,27 @@ TEST_F(Mapper004Test, SupportsCHRRAMAndExtendedRAMBoundaries) {
   ASSERT_TRUE(cartridge);
   Mapper* mapper = cartridge->mapper();
 
+  EXPECT_TRUE(mapper->HasPRGRAM());
+  EXPECT_FALSE(mapper->HasBatteryBackedRAM());
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, k8K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, 0u);
+
   mapper->WriteCHR(0x0000, 0x12);
   mapper->WriteCHR(0x1fff, 0x34);
   EXPECT_EQ(mapper->ReadCHR(0x0000), 0x12);
   EXPECT_EQ(mapper->ReadCHR(0x1fff), 0x34);
 
   mapper->WriteExtendedRAM(0x6000, 0x56);
+  mapper->WriteExtendedRAM(0x6020, 0x9a);
   mapper->WriteExtendedRAM(0x7fff, 0x78);
   EXPECT_EQ(mapper->ReadExtendedRAM(0x6000), 0x56);
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x6020), 0x9a);
   EXPECT_EQ(mapper->ReadExtendedRAM(0x7fff), 0x78);
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x4020), 0x9a);
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x5fff), 0x78);
+  ASSERT_NE(mapper->GetExtendedRAMPointer(), nullptr);
+  EXPECT_EQ(mapper->GetExtendedRAMPointer()[0], 0x56);
+  EXPECT_EQ(mapper->GetExtendedRAMPointer()[k8K - 1], 0x78);
 }
 
 TEST_F(Mapper004Test, SupportsFourScreenAndCartridgeRAMWrites) {
@@ -106,6 +118,9 @@ TEST_F(Mapper004Test, SupportsFourScreenAndCartridgeRAMWrites) {
 
   auto with_ram = LoadMapper(4, 8, 8, 0x02);
   ASSERT_TRUE(with_ram);
+  EXPECT_TRUE(with_ram->mapper()->HasBatteryBackedRAM());
+  EXPECT_EQ(with_ram->GetRomData()->prg_ram_size, 0u);
+  EXPECT_EQ(with_ram->GetRomData()->prg_nvram_size, k8K);
   with_ram->mapper()->WriteExtendedRAM(0x6000, 0x56);
   with_ram->mapper()->WriteExtendedRAM(0x7fff, 0x78);
   EXPECT_EQ(with_ram->mapper()->ReadExtendedRAM(0x6000), 0x56);

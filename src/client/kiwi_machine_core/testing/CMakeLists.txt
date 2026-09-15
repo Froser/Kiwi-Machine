@@ -16,6 +16,9 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 # Add test sources
 set(Sources
     test_main.cc
+    ${kiwi_machine_core_SOURCE_DIR}/models/battery_save_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/models/nes_runtime_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/ui/application_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/algorithm_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/ips_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/math_unittest.cc

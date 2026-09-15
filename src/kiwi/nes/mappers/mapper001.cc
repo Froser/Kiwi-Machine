@@ -21,7 +21,7 @@ namespace nes {
 Mapper001::Mapper001(Cartridge* cartridge) : Mapper(cartridge) {
   // Legacy iNES headers only identify battery-backed RAM. MMC1 boards may
   // still provide work RAM when that flag is clear, as Metroid does.
-  ForceUseExtendedRAM();
+  EnsurePRGRAM(0x2000);
 
   if (cartridge->GetRomData()->CHR.size() == 0) {
     uses_character_ram_ = true;

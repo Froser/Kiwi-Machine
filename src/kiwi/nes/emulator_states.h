@@ -25,6 +25,8 @@ namespace nes {
 class EmulatorImpl;
 class EmulatorStates {
  public:
+  static constexpr uint32_t kCurrentVersion = 1;
+
   struct Header {
     char header[16];
     uint32_t version;

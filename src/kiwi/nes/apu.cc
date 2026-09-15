@@ -128,7 +128,7 @@ void APU::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool APU::Deserialize(const EmulatorStates::Header& header,
                       EmulatorStates::DeserializableStateData& data) {
-  if (header.version == 1) {
+  if (header.version == EmulatorStates::kCurrentVersion) {
     Reset();
     apu_snapshot_t state;
     data.ReadData(&state);

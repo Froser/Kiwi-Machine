@@ -82,7 +82,9 @@ class Application {
   void RemoveWindowFromEventHandler(WindowBase* window);
 
  private:
+  void HandlePreEvent(SDL_Event* event);
   void HandleEvent(SDL_Event* event);
+  void OnPreparedToQuit(bool success);
   WindowBase* FindWindowFromID(uint32_t id);
   uint32_t FindIDFromWindow(WindowBase* window);
   void Render();
@@ -99,6 +101,9 @@ class Application {
 #endif
   Timer frame_elapsed_counter_;
   Timer render_counter_;
+  bool quit_pending_ = false;
+  bool quit_ready_ = false;
+  bool resume_emulator_after_background_ = false;
   kiwi::base::SingleThreadTaskExecutor executor_;
   kiwi::base::RunLoop runloop_;
   kiwi::base::RepeatingCallback<void(SDL_Event*)> event_handler_;

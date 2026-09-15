@@ -1,10 +1,10 @@
 // Copyright (C) 2023 Yisi Yu
-// 
+//
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -12,6 +12,9 @@
 
 #ifndef NES_ROM_DATA_H_
 #define NES_ROM_DATA_H_
+
+#include <cstddef>
+#include <string>
 
 #include "nes/nes_export.h"
 #include "nes/types.h"
@@ -49,12 +52,18 @@ class NES_EXPORT RomData {
   Byte submapper;
   NametableMirroring name_table_mirroring;
   ConsoleType console_type;
-  bool has_extended_ram;
+  // Battery is a persistence property, independent of whether PRG-RAM exists.
+  bool has_battery = false;
+  // Volatile work RAM and persistent RAM visible to the CPU.
+  size_t prg_ram_size = 0;
+  size_t prg_nvram_size = 0;
   bool is_nes_20;
   int crc;
+  // SHA-1 of PRG-ROM followed by CHR-ROM, independent of file path and header.
+  std::string sha1;
 };
 
-}  // namespace core
+}  // namespace nes
 }  // namespace kiwi
 
 #endif  // NES_ROM_DATA_H_
