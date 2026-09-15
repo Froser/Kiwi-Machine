@@ -13,6 +13,7 @@
 #include "nes/cartridge.h"
 
 #include <memory>
+#include <string>
 
 #include "base/check.h"
 #include "base/files/file.h"
@@ -21,6 +22,7 @@
 #include "nes/emulator_impl.h"
 #include "nes/mapper.h"
 #include "nes/rom_data.h"
+#include "nes/rom_hash.h"
 #include "nes/types.h"
 #include "third_party/zlib-1.3.2/zlib.h"
 
@@ -32,6 +34,14 @@ constexpr size_t kINESPRGRAMBankSize = 8 * 1024;
 
 size_t DecodeNES20RAMSize(Byte shift_count) {
   return shift_count == 0 ? 0 : static_cast<size_t>(64) << shift_count;
+}
+
+std::string CalculateROMHash(const RomData& rom_data) {
+  Bytes content;
+  content.reserve(rom_data.PRG.size() + rom_data.CHR.size());
+  content.insert(content.end(), rom_data.PRG.begin(), rom_data.PRG.end());
+  content.insert(content.end(), rom_data.CHR.begin(), rom_data.CHR.end());
+  return CalculateSha1Hex(content);
 }
 
 }  // namespace
@@ -154,6 +164,7 @@ Cartridge::LoadResult Cartridge::LoadFromFileOnIOThread(
     crc = crc32_z(crc, rom_data_->CHR.data(), rom_data_->CHR.size());
   crc_ = crc;
   rom_data_->crc = crc;
+  rom_data_->sha1 = CalculateROMHash(*rom_data_);
 
   rom_path_ = rom_path;
 
@@ -171,24 +182,31 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
   DCHECK(!rom_data_);
   rom_data_ = std::make_unique<RomData>();
 
-  const Byte* data_ptr = data.data();
-  ProcessHeaders(data_ptr);
-  for (size_t i = 0; i < 0x10; ++i) {
-    rom_data_->raw_headers.push_back(*(data_ptr + i));
+  constexpr size_t kINESHeaderSize = 0x10;
+  if (data.size() < kINESHeaderSize || !ProcessHeaders(data.data())) {
+    return LoadResult::failed();
   }
-  data_ptr += 0x10;
+
+  const size_t prg_size = static_cast<size_t>(data[4]) * 0x4000;
+  const size_t chr_size = static_cast<size_t>(data[5]) * 0x2000;
+  if (data.size() < kINESHeaderSize + prg_size + chr_size) {
+    LOG(ERROR) << "ROM image is smaller than its declared PRG/CHR data.";
+    return LoadResult::failed();
+  }
+
+  const Byte* data_ptr = data.data();
+  rom_data_->raw_headers.assign(data_ptr, data_ptr + kINESHeaderSize);
+  data_ptr += kINESHeaderSize;
   const Byte* crc32_prg_chr_start = data_ptr;
 
   // PRG-ROM 16KB banks
-  Byte prg_banks = rom_data_->raw_headers[4];
-  rom_data_->PRG.resize(0x4000 * prg_banks);
+  rom_data_->PRG.resize(prg_size);
   memcpy(rom_data_->PRG.data(), data_ptr, rom_data_->PRG.size());
   data_ptr += rom_data_->PRG.size();
 
   // CHR-ROM 8KB banks
-  Byte chr_banks = rom_data_->raw_headers[5];
-  if (chr_banks) {
-    rom_data_->CHR.resize(0x2000 * chr_banks);
+  if (chr_size != 0) {
+    rom_data_->CHR.resize(chr_size);
     memcpy(rom_data_->CHR.data(), data_ptr, rom_data_->CHR.size());
   } else {
     LOG(INFO) << "Cartridge with CHR-RAM.";
@@ -204,6 +222,7 @@ Cartridge::LoadResult Cartridge::LoadFromDataOnIOThread(const Bytes& data) {
   }
   crc_ = crc;
   rom_data_->crc = crc_;
+  rom_data_->sha1 = CalculateROMHash(*rom_data_);
 
   PatchHeaders();
   is_loaded_ = true;

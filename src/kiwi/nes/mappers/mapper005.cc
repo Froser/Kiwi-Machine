@@ -12,6 +12,8 @@
 
 #include "nes/mappers/mapper005.h"
 
+#include <algorithm>
+
 #include "base/check.h"
 #include "base/logging.h"
 #include "nes/cartridge.h"
@@ -42,6 +44,12 @@ Mapper005::Mapper005(Cartridge* cartridge) : Mapper(cartridge) {
   // superset for all games.
   sram_config_ = SRAMConfiguration::kSuperset_64k;
   sram_.resize(64 * 1024);
+  if (rom_data()->is_nes_20) {
+    rom_data()->prg_nvram_size =
+        std::min(rom_data()->prg_nvram_size, sram_.size());
+    rom_data()->prg_ram_size = std::min(
+        rom_data()->prg_ram_size, sram_.size() - rom_data()->prg_nvram_size);
+  }
   EnsurePRGRAM(sram_.size());
 
   ResetRegisters();
@@ -175,6 +183,16 @@ void Mapper005::PRGBankSwitch(kiwi::nes::Address address) {
   last_prg_reg_ = i;
 }
 
+void Mapper005::WriteSRAM(size_t index, Byte value) {
+  DCHECK_LT(index, sram_.size());
+  if (sram_[index] != value) {
+    sram_[index] = value;
+    if (index < GetPRGNVRAMSize()) {
+      MarkPRGNVRAMDirty();
+    }
+  }
+}
+
 void Mapper005::WritePRG(Address address, Byte value) {
   PRGBankSwitch(address);
   if (sram_protect_[0] == 0x02 && sram_protect_[1] == 0x01) {
@@ -190,7 +208,7 @@ void Mapper005::WritePRG(Address address, Byte value) {
         if (address < 0xc000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k16k, reg_5115_);
           if (!is_rom)
-            sram_[k16KBank * bank + (address - 0x8000)] = value;
+            WriteSRAM(k16KBank * bank + (address - 0x8000), value);
         }
         break;
       case 2:
@@ -200,11 +218,11 @@ void Mapper005::WritePRG(Address address, Byte value) {
         if (address < 0xc000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k16k, reg_5115_);
           if (!is_rom)
-            sram_[k16KBank * bank + (address - 0x8000)] = value;
+            WriteSRAM(k16KBank * bank + (address - 0x8000), value);
         } else if (address < 0xe000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
           if (!is_rom)
-            sram_[k8KBank * bank + (address & 0x1fff)] = value;
+            WriteSRAM(k8KBank * bank + (address & 0x1fff), value);
         }
         break;
       case 3:
@@ -215,15 +233,15 @@ void Mapper005::WritePRG(Address address, Byte value) {
         if (address < 0xa000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5114_);
           if (!is_rom)
-            sram_[k8KBank * bank + (address - 0x8000)] = value;
+            WriteSRAM(k8KBank * bank + (address - 0x8000), value);
         } else if (address < 0xc000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5115_);
           if (!is_rom)
-            sram_[k8KBank * bank + (address & 0x1fff)] = value;
+            WriteSRAM(k8KBank * bank + (address & 0x1fff), value);
         } else if (address < 0xe000) {
           auto [is_rom, bank] = GetBank(ControlledBankSize::k8k, reg_5116_);
           if (!is_rom)
-            sram_[k8KBank * bank + (address & 0x1fff)] = value;
+            WriteSRAM(k8KBank * bank + (address & 0x1fff), value);
         }
         break;
       default:
@@ -527,7 +545,7 @@ void Mapper005::WriteExtendedRAM(Address address, Byte value) {
     }
   } else if (address >= 0x6000) {
     if (sram_protect_[0] == 0x02 && sram_protect_[1] == 0x01) {
-      sram_[k8KBank * reg_5113_ + (address & 0x1fff)] = value;
+      WriteSRAM(k8KBank * reg_5113_ + (address & 0x1fff), value);
     }
   }
 }
@@ -576,6 +594,22 @@ Byte* Mapper005::GetExtendedRAMPointer() {
 }
 
 bool Mapper005::UsesCustomPRGRAM() const {
+  return true;
+}
+
+Bytes Mapper005::CopyPRGNVRAM() {
+  const size_t size = GetPRGNVRAMSize();
+  if (size > sram_.size()) {
+    return {};
+  }
+  return Bytes(sram_.begin(), sram_.begin() + size);
+}
+
+bool Mapper005::RestorePRGNVRAM(const Bytes& data) {
+  if (data.size() != GetPRGNVRAMSize() || data.size() > sram_.size()) {
+    return false;
+  }
+  std::copy(data.begin(), data.end(), sram_.begin());
   return true;
 }
 
@@ -707,6 +741,11 @@ void Mapper005::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool Mapper005::Deserialize(const EmulatorStates::Header& header,
                             EmulatorStates::DeserializableStateData& data) {
+  Bytes previous_nvram;
+  if (HasBatteryBackedRAM()) {
+    previous_nvram = CopyPRGNVRAM();
+  }
+
   data.ReadData(&chr_mode_)
       .ReadData(&prg_mode_)
       .ReadData(&prg_mode_pending_)
@@ -738,6 +777,9 @@ bool Mapper005::Deserialize(const EmulatorStates::Header& header,
       .ReadData(&irq_status_)
       .ReadData(&irq_scanline_)
       .ReadData(&irq_clear_flag_);
+  if (HasBatteryBackedRAM() && previous_nvram != CopyPRGNVRAM()) {
+    MarkPRGNVRAMDirty();
+  }
   return true;
 }
 

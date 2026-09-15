@@ -16,7 +16,6 @@
 #include <SDL_image.h>
 
 #include <algorithm>
-#include <cctype>
 #include <cstring>
 #include <memory>
 #include <optional>
@@ -27,8 +26,8 @@
 #include <unordered_set>
 #include <utility>
 
+#include "nes/rom_hash.h"
 #include "preset_roms/preset_roms.h"
-#include "nes/components/mesen_hd_pack/rom_hash.h"
 #include "third_party/nlohmann_json/json.hpp"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "ui/application.h"
@@ -40,26 +39,7 @@
 namespace {
 constexpr size_t kFileNameMaxLength = 256;
 
-using TexturePackIndex =
-    std::unordered_map<std::string, kiwi::base::FilePath>;
-
-char UppercaseAsciiCharacter(unsigned char character) {
-  return static_cast<char>(std::toupper(character));
-}
-
-bool IsHexadecimalCharacter(unsigned char character) {
-  return std::isxdigit(character) != 0;
-}
-
-std::optional<std::string> NormalizeSha1(std::string sha1) {
-  std::transform(sha1.begin(), sha1.end(), sha1.begin(),
-                 &UppercaseAsciiCharacter);
-  if (sha1.size() != 40 ||
-      !std::all_of(sha1.begin(), sha1.end(), &IsHexadecimalCharacter)) {
-    return std::nullopt;
-  }
-  return sha1;
-}
+using TexturePackIndex = std::unordered_map<std::string, kiwi::base::FilePath>;
 
 preset_roms::PresetROM* FindAlternateROMByName(
     std::vector<preset_roms::PresetROM>* alternates,
@@ -200,8 +180,7 @@ std::vector<std::string> FindMesenHDTexturePackRoots(
     } else if (entry.size() >= kHiresSuffix.size() &&
                entry.compare(entry.size() - kHiresSuffix.size(),
                              kHiresSuffix.size(), kHiresSuffix) == 0) {
-      pack_roots.push_back(
-          entry.substr(0, entry.size() - kHiresSuffix.size()));
+      pack_roots.push_back(entry.substr(0, entry.size() - kHiresSuffix.size()));
     }
   }
   std::sort(pack_roots.begin(), pack_roots.end());
@@ -224,9 +203,8 @@ std::vector<std::unique_ptr<MesenTextureParser>> CreateMesenTextureParsers(
   std::vector<std::unique_ptr<MesenTextureParser>> parsers;
   for (const std::string& pack_root :
        FindMesenHDTexturePackRoots(archive_root, archive_entries)) {
-    std::optional<kiwi::nes::Bytes> hires_contents =
-        resources.ReadFile(pack_root.empty() ? "hires.txt"
-                                             : pack_root + "/hires.txt");
+    std::optional<kiwi::nes::Bytes> hires_contents = resources.ReadFile(
+        pack_root.empty() ? "hires.txt" : pack_root + "/hires.txt");
     if (!hires_contents) {
       continue;
     }
@@ -446,9 +424,8 @@ std::optional<nlohmann::json> ReadTexturePackManifest(unzFile archive) {
   return json;
 }
 
-bool ConfigureTexturePackForROM(
-    preset_roms::PresetROM* rom,
-    const kiwi::base::FilePath& texture_pack_path) {
+bool ConfigureTexturePackForROM(preset_roms::PresetROM* rom,
+                                const kiwi::base::FilePath& texture_pack_path) {
   scoped_refptr<Unz> rom_archive = OpenPresetROMArchive(*rom);
   scoped_refptr<Unz> texture_archive = OpenUnz(texture_pack_path);
   if (!*rom_archive || !*texture_archive) {
@@ -584,8 +561,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
             kiwi::base::FilePath::FromUTF8Unsafe(filename);
         const std::string extension =
             kiwi::base::FilePath(alter_rom_path.Extension()).AsUTF8Unsafe();
-        if (kiwi::base::CompareCaseInsensitiveASCII(
-                extension, ".nes") != 0) {
+        if (kiwi::base::CompareCaseInsensitiveASCII(extension, ".nes") != 0) {
           located = unzGoToNextFile(file);
           continue;
         }
@@ -602,8 +578,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
             located = unzGoToNextFile(file);
             continue;
           }
-          sha1 =
-              kiwi::nes::mesen_hd_pack::CalculateSha1Hex(rom_contents);
+          sha1 = kiwi::nes::CalculateSha1Hex(rom_contents);
         }
 
         if (alter_name == kiwi::base::StringPiece(rom_data.name)) {
@@ -709,12 +684,11 @@ void InitializeTexturePacks(
         continue;
       }
       std::optional<std::string> sha1 =
-          NormalizeSha1(value.get<std::string>());
+          kiwi::nes::NormalizeSha1Hex(value.get<std::string>());
       if (!sha1) {
         continue;
       }
-      const auto [existing, inserted] =
-          pack_by_rom_sha1.emplace(*sha1, path);
+      const auto [existing, inserted] = pack_by_rom_sha1.emplace(*sha1, path);
       if (!inserted && existing->second != path) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                     "Multiple texture packages target ROM SHA-1 %s",
@@ -729,8 +703,7 @@ void InitializeTexturePacks(
       preset_roms::PresetROM& rom = package->GetRomsByIndex(i);
       ConfigureTexturePackForROMFromIndex(&rom, pack_by_rom_sha1);
       for (preset_roms::PresetROM& alternative : rom.alternates) {
-        ConfigureTexturePackForROMFromIndex(&alternative,
-                                            pack_by_rom_sha1);
+        ConfigureTexturePackForROMFromIndex(&alternative, pack_by_rom_sha1);
       }
     }
   }
@@ -775,10 +748,9 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
     return result;
   }
 
-  const bool should_load_texture =
-      !rom_data.hd_texture_path.empty() &&
-      (rom_data.hd_texture_toggle_available ||
-       edition == preset_roms::ROMEdition::kHD);
+  const bool should_load_texture = !rom_data.hd_texture_path.empty() &&
+                                   (rom_data.hd_texture_toggle_available ||
+                                    edition == preset_roms::ROMEdition::kHD);
   if (should_load_texture) {
     scoped_refptr<Unz> texture_archive = OpenUnz(rom_data.hd_texture_path);
     std::optional<nlohmann::json> manifest =
@@ -809,8 +781,7 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
     }
   }
 
-  if (!result.texture_renderer &&
-      edition == preset_roms::ROMEdition::kHD) {
+  if (!result.texture_renderer && edition == preset_roms::ROMEdition::kHD) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                  "Failed to load HD texture data for name %s", rom_data.name);
     result.rom_data.clear();
@@ -827,8 +798,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
   scoped_refptr<Unz> pak = OpenUnz(package);
   SDL_assert(pak);
 
-  std::unordered_map<std::string,
-                     std::unordered_map<std::string, std::string>>
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       rom_sha1s;
   int located = unzGoToFirstFile(*pak);
   std::string filename;
@@ -867,8 +837,8 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
           }
           for (const auto& rom_hash : package_hashes.value().items()) {
             if (rom_hash.value().is_string()) {
-              std::optional<std::string> sha1 =
-                  NormalizeSha1(rom_hash.value().get<std::string>());
+              std::optional<std::string> sha1 = kiwi::nes::NormalizeSha1Hex(
+                  rom_hash.value().get<std::string>());
               if (sha1) {
                 rom_sha1s[package_hashes.key()][rom_hash.key()] =
                     std::move(*sha1);

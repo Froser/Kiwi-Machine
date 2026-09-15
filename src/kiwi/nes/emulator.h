@@ -13,7 +13,10 @@
 #ifndef NES_EMULATOR_H_
 #define NES_EMULATOR_H_
 
+#include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 
 #include "nes/nes_export.h"
 
@@ -42,6 +45,14 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   using UnloadCallback = base::OnceClosure;
   using ResetCallback = base::OnceClosure;
   using SaveStateCallback = base::OnceCallback<void(Bytes)>;
+
+  struct PRGNVRAMSnapshot {
+    std::string rom_sha1;
+    Bytes data;
+    uint64_t generation = 0;
+  };
+  using PRGNVRAMCallback =
+      base::OnceCallback<void(std::optional<PRGNVRAMSnapshot>)>;
 
   struct LoadOptions {
     constexpr LoadOptions(bool capture_texture_metadata = false,
@@ -151,6 +162,17 @@ class NES_EXPORT Emulator : public base::RefCountedThreadSafe<Emulator>,
   virtual int GetAudioChannelMasks() = 0;
   virtual Controller::Type GetControllerType(int id) = 0;
   virtual void SetControllerType(int id, Controller::Type type) = 0;
+
+ public:
+  // Append new virtual methods here to preserve existing vtable slots.
+  virtual void LoadAndRunWithPRGNVRAM(const Bytes& data,
+                                      const Bytes& initial_prg_nvram,
+                                      LoadCallback callback = base::DoNothing(),
+                                      const LoadOptions& options = {}) = 0;
+  virtual void ExportPRGNVRAM(bool dirty_only, PRGNVRAMCallback callback) = 0;
+  virtual void AcknowledgePRGNVRAMSaved(const std::string& rom_sha1,
+                                        uint64_t generation,
+                                        LoadCallback callback) = 0;
 };
 
 // Create an emulator.

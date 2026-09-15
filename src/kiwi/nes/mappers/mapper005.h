@@ -76,6 +76,11 @@ class Mapper005 : public Mapper {
   };
   std::pair<bool, Byte> GetBank(ControlledBankSize cbs, Byte data);
   void PRGBankSwitch(Address address);
+  void WriteSRAM(size_t index, Byte value);
+
+ protected:
+  Bytes CopyPRGNVRAM() override;
+  bool RestorePRGNVRAM(const Bytes& data) override;
 
  private:
   // These variables should not be serialized or deserialized.

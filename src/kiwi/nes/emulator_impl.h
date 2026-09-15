@@ -71,6 +71,14 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   void SetTextureMetadataCaptureEnabled(bool enabled) override;
   void SaveState(SaveStateCallback callback) override;
   void LoadState(const Bytes& data, LoadCallback callback) override;
+  void LoadAndRunWithPRGNVRAM(const Bytes& data,
+                              const Bytes& initial_prg_nvram,
+                              LoadCallback callback,
+                              const LoadOptions& options) override;
+  void ExportPRGNVRAM(bool dirty_only, PRGNVRAMCallback callback) override;
+  void AcknowledgePRGNVRAMSaved(const std::string& rom_sha1,
+                                uint64_t generation,
+                                LoadCallback callback) override;
   void SetVolume(float volume) override;
   float GetVolume() override;
   const Colors& GetLastFrame() override;
@@ -121,17 +129,28 @@ class EmulatorImpl : public Emulator, public PPUObserver, public CPUObserver {
   friend scoped_refptr<Emulator> CreateEmulatorForTesting();
 
  private:
+  void LoadFromBinaryWithOptionalPRGNVRAM(
+      const Bytes& data,
+      LoadCallback callback,
+      const LoadOptions& options,
+      std::optional<Bytes> initial_prg_nvram);
   bool LoadFromFileOnProperThread(const base::FilePath& rom_path);
-  bool LoadFromBinaryOnProperThread(const Bytes& data,
-                                    const LoadOptions& options);
+  bool LoadFromBinaryOnProperThread(
+      const Bytes& data,
+      const LoadOptions& options,
+      const std::optional<Bytes>& initial_prg_nvram);
   bool HandleLoadedResult(Cartridge::LoadResult load_result,
                           scoped_refptr<Cartridge> cartridge,
-                          const LoadOptions& options);
+                          const LoadOptions& options,
+                          const std::optional<Bytes>& initial_prg_nvram);
   void StepInternal();
   void RunOneFrameOnProperThread();
   void PowerOffOnProperThread();
   Bytes SaveStateOnProperThread();
   bool LoadStateOnProperThread(const Bytes& data);
+  std::optional<PRGNVRAMSnapshot> ExportPRGNVRAMOnProperThread(bool dirty_only);
+  bool AcknowledgePRGNVRAMSavedOnProperThread(const std::string& rom_sha1,
+                                              uint64_t generation);
   void ResetOnProperThread();
   void UnloadOnProperThread();
   void PostReset(RunningState last_state);

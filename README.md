@@ -300,6 +300,10 @@ NES emulators are complex projects, and to test whether the emulator accurately 
 
 Add `--enable_debug` to the startup parameters to evoke the menu bar and turn off the splash screen.
 Add `--debug_roms=your debug path` to the startup parameters, and Kiwi Machine will display these ROMs in the debug directory after startup.
+Use `--test_rom=<rom-path> --sav=<save-path> --enable_debug` to launch a ROM
+with an explicit battery-backed save path. Kiwi Machine reads from and writes
+back to that path. When `--sav` is omitted, Kiwi Machine uses the SHA-1-based
+save under the active profile when available.
 
 ## Usage Instructions
 
@@ -402,6 +406,22 @@ To simplify the call, the emulator also provides a shortcut method:
 
 When loading succeeds, `LoadAndRun()` calls `Run()` before invoking the
 callback. The host must still call `RunOneFrame()` to advance emulation.
+
+### Battery-Backed Saves
+
+Kiwi Machine stores battery-backed PRG-NVRAM as raw save data under
+`<profile>/Saves/<ROM_SHA1>.sav`. The application reads the ROM and save file
+on its IO thread, supplies the save bytes through
+`LoadAndRunWithPRGNVRAM()`, and atomically replaces the save file when flushing
+modified NVRAM. The ROM identity is the SHA-1 of its PRG-ROM and CHR-ROM
+contents. An automatically discovered save that cannot be imported is copied
+to a unique `.invalid.bak` file before Kiwi Machine starts with empty NVRAM.
+Dirty NVRAM is flushed every 30 seconds and before ROM switches, unloads,
+normal exits, and application suspension.
+
+Set `KIWI_NES_ACCEPTANCE_ROM_DIR` when running `kiwi_unittests` to validate
+battery-backed round trips against local ROMs for the supported battery mapper
+matrix (0, 1, 4, 5, 10, and 74).
 
 ## Resource Packaging
 

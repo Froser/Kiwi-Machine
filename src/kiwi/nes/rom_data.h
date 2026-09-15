@@ -14,6 +14,7 @@
 #define NES_ROM_DATA_H_
 
 #include <cstddef>
+#include <string>
 
 #include "nes/nes_export.h"
 #include "nes/types.h"
@@ -58,6 +59,8 @@ class NES_EXPORT RomData {
   size_t prg_nvram_size = 0;
   bool is_nes_20;
   int crc;
+  // SHA-1 of PRG-ROM followed by CHR-ROM, independent of file path and header.
+  std::string sha1;
 };
 
 }  // namespace nes

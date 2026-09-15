@@ -10,6 +10,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <array>
 #include <stack>
 
 #include "base/check.h"
@@ -131,6 +132,73 @@ bool GetFileInfo(const FilePath& file_path, File::Info* results) {
   results->FromStat(file_info);
   return true;
 }
+
+#if !BUILDFLAG(IS_APPLE)
+bool CopyFile(const FilePath& from_path, const FilePath& to_path) {
+  if (from_path.ReferencesParent() || to_path.ReferencesParent()) {
+    return false;
+  }
+
+  const int source_fd =
+      HANDLE_EINTR(open(from_path.value().c_str(), O_RDONLY | O_NONBLOCK));
+  if (source_fd < 0) {
+    return false;
+  }
+
+  stat_wrapper_t source_info;
+  if (File::Fstat(source_fd, &source_info) != 0 ||
+      !S_ISREG(source_info.st_mode)) {
+    IGNORE_EINTR(close(source_fd));
+    return false;
+  }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  constexpr mode_t kDestinationMode = 0644;
+#else
+  constexpr mode_t kDestinationMode = 0600;
+#endif
+  const int destination_fd =
+      HANDLE_EINTR(open(to_path.value().c_str(),
+                        O_WRONLY | O_CREAT | O_NONBLOCK, kDestinationMode));
+  if (destination_fd < 0) {
+    IGNORE_EINTR(close(source_fd));
+    return false;
+  }
+
+  stat_wrapper_t destination_info;
+  const bool valid_destination =
+      File::Fstat(destination_fd, &destination_info) == 0 &&
+      S_ISREG(destination_info.st_mode) &&
+      (source_info.st_dev != destination_info.st_dev ||
+       source_info.st_ino != destination_info.st_ino);
+  if (!valid_destination || HANDLE_EINTR(ftruncate(destination_fd, 0)) != 0) {
+    IGNORE_EINTR(close(destination_fd));
+    IGNORE_EINTR(close(source_fd));
+    return false;
+  }
+
+  std::array<uint8_t, 32 * 1024> buffer;
+  bool success = true;
+  while (true) {
+    const ssize_t bytes_read =
+        HANDLE_EINTR(read(source_fd, buffer.data(), buffer.size()));
+    if (bytes_read == 0) {
+      break;
+    }
+    if (bytes_read < 0 ||
+        !WriteFileDescriptor(
+            destination_fd,
+            std::span(buffer.data(), static_cast<size_t>(bytes_read)))) {
+      success = false;
+      break;
+    }
+  }
+
+  success = IGNORE_EINTR(close(destination_fd)) == 0 && success;
+  IGNORE_EINTR(close(source_fd));
+  return success;
+}
+#endif
 
 FILE* OpenFile(const FilePath& filename, const char* mode) {
   // 'e' is unconditionally added below, so be sure there is not one already

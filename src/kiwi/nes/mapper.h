@@ -14,6 +14,8 @@
 #define NES_MAPPER_H_
 
 #include <cstddef>
+#include <cstdint>
+#include <optional>
 
 #include "base/functional/callback.h"
 #include "nes/emulator_states.h"
@@ -37,6 +39,11 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
  public:
   using MirroringChangedCallback = base::RepeatingClosure;
   using IRQCallback = base::RepeatingClosure;
+
+  struct PRGNVRAMSnapshot {
+    Bytes data;
+    uint64_t generation = 0;
+  };
 
   explicit Mapper(Cartridge* cartridge);
   ~Mapper() override;
@@ -76,6 +83,17 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual Byte* GetExtendedRAMPointer();
   bool HasPRGRAM() const;
   bool HasBatteryBackedRAM() const;
+  size_t GetPRGNVRAMSize() const;
+
+  // Returns no snapshot when the cartridge has no PRG-NVRAM, or when
+  // |dirty_only| is true and the current data has already been persisted.
+  std::optional<PRGNVRAMSnapshot> ExportPRGNVRAM(bool dirty_only);
+  // Imports an exact-size snapshot and treats it as the persisted baseline.
+  bool ImportPRGNVRAM(const Bytes& data);
+  bool IsPRGNVRAMDirty() const;
+  // Marks only the exported generation as persisted. Writes made after the
+  // snapshot remain dirty.
+  void AcknowledgePRGNVRAMSaved(uint64_t generation);
 
   static std::unique_ptr<Mapper> Create(Cartridge* cartridge, Byte mapper);
   static bool IsMapperSupported(Byte mapper);
@@ -107,6 +125,12 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
 
  protected:
   void EnsurePRGRAM(size_t minimum_size);
+  void MarkPRGNVRAMDirty();
+
+  // Custom PRG-RAM mappers override these to expose the complete persistent
+  // storage rather than a currently selected CPU window.
+  virtual Bytes CopyPRGNVRAM();
+  virtual bool RestorePRGNVRAM(const Bytes& data);
 
   MirroringChangedCallback mirroring_changed_callback() {
     return mirroring_changed_callback_;
@@ -125,7 +149,11 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   RomData* rom_data_ = nullptr;
   MirroringChangedCallback mirroring_changed_callback_;
   IRQCallback irq_callback_;
+  // Persistent bytes come first so the default $6000 window reaches NVRAM
+  // when a NES 2.0 image declares both volatile and non-volatile PRG-RAM.
   Bytes default_prg_ram_;
+  uint64_t prg_nvram_generation_ = 0;
+  uint64_t persisted_prg_nvram_generation_ = 0;
 };
 
 }  // namespace nes

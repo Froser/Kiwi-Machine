@@ -115,6 +115,17 @@ base::OnceClosure EmulatorRenderTaskRunner::PopTask() {
   return task;
 }
 
+void RunAfterLoad(scoped_refptr<EmulatorImpl> emulator,
+                  Emulator::LoadCallback callback,
+                  bool success) {
+  if (success) {
+    emulator->Run();
+  } else {
+    LOG(ERROR) << "Error occurs when load ROM via " << __func__;
+  }
+  std::move(callback).Run(success);
+}
+
 }  // namespace
 
 EmulatorImpl::EmulatorImpl()
@@ -198,14 +209,25 @@ void EmulatorImpl::LoadFromFile(const base::FilePath& rom_path,
 void EmulatorImpl::LoadFromBinary(const Bytes& data,
                                   LoadCallback callback,
                                   const LoadOptions& options) {
+  LoadFromBinaryWithOptionalPRGNVRAM(data, std::move(callback), options,
+                                     std::nullopt);
+}
+
+void EmulatorImpl::LoadFromBinaryWithOptionalPRGNVRAM(
+    const Bytes& data,
+    LoadCallback callback,
+    const LoadOptions& options,
+    std::optional<Bytes> initial_prg_nvram) {
   if (render_coroutine_ != emulator_task_runner_) {
     render_coroutine_->PostTaskAndReplyWithResult(
         FROM_HERE,
         base::BindOnce(&EmulatorImpl::LoadFromBinaryOnProperThread,
-                       base::RetainedRef(this), data, options),
+                       base::RetainedRef(this), data, options,
+                       std::move(initial_prg_nvram)),
         base::BindOnce(std::move(callback)));
   } else {
-    std::move(callback).Run(LoadFromBinaryOnProperThread(data, options));
+    std::move(callback).Run(
+        LoadFromBinaryOnProperThread(data, options, initial_prg_nvram));
   }
 }
 
@@ -249,16 +271,7 @@ void EmulatorImpl::Pause() {
 void EmulatorImpl::LoadAndRun(const base::FilePath& rom_path,
                               LoadCallback callback) {
   LoadCallback load_callback = base::BindOnce(
-      [](scoped_refptr<EmulatorImpl> emulator, LoadCallback callback,
-         bool success) {
-        if (success) {
-          emulator->Run();
-        } else {
-          LOG(ERROR) << "Error occurs when load ROM via " << __func__;
-        }
-        std::move(callback).Run(success);
-      },
-      base::RetainedRef(this), std::move(callback));
+      &RunAfterLoad, base::RetainedRef(this), std::move(callback));
   LoadFromFile(rom_path, std::move(load_callback));
 }
 
@@ -266,17 +279,18 @@ void EmulatorImpl::LoadAndRun(const Bytes& data,
                               LoadCallback callback,
                               const LoadOptions& options) {
   LoadCallback load_callback = base::BindOnce(
-      [](scoped_refptr<EmulatorImpl> emulator, LoadCallback callback,
-         bool success) {
-        if (success) {
-          emulator->Run();
-        } else {
-          LOG(ERROR) << "Error occurs when load ROM via " << __func__;
-        }
-        std::move(callback).Run(success);
-      },
-      base::RetainedRef(this), std::move(callback));
+      &RunAfterLoad, base::RetainedRef(this), std::move(callback));
   LoadFromBinary(data, std::move(load_callback), options);
+}
+
+void EmulatorImpl::LoadAndRunWithPRGNVRAM(const Bytes& data,
+                                          const Bytes& initial_prg_nvram,
+                                          LoadCallback callback,
+                                          const LoadOptions& options) {
+  LoadCallback load_callback = base::BindOnce(
+      &RunAfterLoad, base::RetainedRef(this), std::move(callback));
+  LoadFromBinaryWithOptionalPRGNVRAM(data, std::move(load_callback), options,
+                                     initial_prg_nvram);
 }
 
 void EmulatorImpl::Unload(UnloadCallback callback) {
@@ -385,6 +399,37 @@ bool EmulatorImpl::LoadStateOnProperThread(const Bytes& data) {
   return success;
 }
 
+std::optional<Emulator::PRGNVRAMSnapshot>
+EmulatorImpl::ExportPRGNVRAMOnProperThread(bool dirty_only) {
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
+  if (!cartridge_ || !cartridge_->is_loaded()) {
+    return std::nullopt;
+  }
+
+  std::optional<Mapper::PRGNVRAMSnapshot> mapper_snapshot =
+      cartridge_->mapper()->ExportPRGNVRAM(dirty_only);
+  if (!mapper_snapshot) {
+    return std::nullopt;
+  }
+
+  return PRGNVRAMSnapshot{cartridge_->GetRomData()->sha1,
+                          std::move(mapper_snapshot->data),
+                          mapper_snapshot->generation};
+}
+
+bool EmulatorImpl::AcknowledgePRGNVRAMSavedOnProperThread(
+    const std::string& rom_sha1,
+    uint64_t generation) {
+  DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
+  if (!cartridge_ || !cartridge_->is_loaded() ||
+      cartridge_->GetRomData()->sha1 != rom_sha1) {
+    return false;
+  }
+
+  cartridge_->mapper()->AcknowledgePRGNVRAMSaved(generation);
+  return true;
+}
+
 void EmulatorImpl::ResetOnProperThread() {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   DCHECK(cpu_ && ppu_);
@@ -460,23 +505,34 @@ void EmulatorImpl::Step() {
 bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
-  return HandleLoadedResult(cartridge->Load(rom_path), cartridge,
-                            LoadOptions{});
+  return HandleLoadedResult(cartridge->Load(rom_path), cartridge, LoadOptions{},
+                            std::nullopt);
 }
 
-bool EmulatorImpl::LoadFromBinaryOnProperThread(const Bytes& data,
-                                                const LoadOptions& options) {
+bool EmulatorImpl::LoadFromBinaryOnProperThread(
+    const Bytes& data,
+    const LoadOptions& options,
+    const std::optional<Bytes>& initial_prg_nvram) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   scoped_refptr<Cartridge> cartridge = base::MakeRefCounted<Cartridge>(this);
-  return HandleLoadedResult(cartridge->Load(data), cartridge, options);
+  return HandleLoadedResult(cartridge->Load(data), cartridge, options,
+                            initial_prg_nvram);
 }
 
-bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
-                                      scoped_refptr<Cartridge> cartridge,
-                                      const LoadOptions& options) {
+bool EmulatorImpl::HandleLoadedResult(
+    Cartridge::LoadResult load_result,
+    scoped_refptr<Cartridge> cartridge,
+    const LoadOptions& options,
+    const std::optional<Bytes>& initial_prg_nvram) {
   DCHECK(emulator_task_runner_->RunsTasksInCurrentSequence());
   if (!load_result.success)
     return false;
+  if (initial_prg_nvram &&
+      (!cartridge->mapper()->HasBatteryBackedRAM() ||
+       initial_prg_nvram->size() != cartridge->mapper()->GetPRGNVRAMSize())) {
+    LOG(ERROR) << "Initial PRG-NVRAM does not match the loaded cartridge.";
+    return false;
+  }
 
   UnloadOnProperThread();
   cartridge_ = cartridge;
@@ -502,6 +558,11 @@ bool EmulatorImpl::HandleLoadedResult(Cartridge::LoadResult load_result,
 
   // Reset CPU and PPU.
   ResetOnProperThread();
+  if (initial_prg_nvram &&
+      !cartridge_->mapper()->ImportPRGNVRAM(*initial_prg_nvram)) {
+    LOG(ERROR) << "Could not install initial PRG-NVRAM.";
+    return false;
+  }
   return true;
 }
 
@@ -573,6 +634,33 @@ void EmulatorImpl::LoadState(const Bytes& data, LoadCallback callback) {
       base::BindOnce(&EmulatorImpl::LoadStateOnProperThread,
                      base::RetainedRef(this), data),
       std::move(callback));
+}
+
+void EmulatorImpl::ExportPRGNVRAM(bool dirty_only, PRGNVRAMCallback callback) {
+  if (render_coroutine_ != emulator_task_runner_) {
+    render_coroutine_->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        base::BindOnce(&EmulatorImpl::ExportPRGNVRAMOnProperThread,
+                       base::RetainedRef(this), dirty_only),
+        std::move(callback));
+  } else {
+    std::move(callback).Run(ExportPRGNVRAMOnProperThread(dirty_only));
+  }
+}
+
+void EmulatorImpl::AcknowledgePRGNVRAMSaved(const std::string& rom_sha1,
+                                            uint64_t generation,
+                                            LoadCallback callback) {
+  if (render_coroutine_ != emulator_task_runner_) {
+    render_coroutine_->PostTaskAndReplyWithResult(
+        FROM_HERE,
+        base::BindOnce(&EmulatorImpl::AcknowledgePRGNVRAMSavedOnProperThread,
+                       base::RetainedRef(this), rom_sha1, generation),
+        std::move(callback));
+  } else {
+    std::move(callback).Run(
+        AcknowledgePRGNVRAMSavedOnProperThread(rom_sha1, generation));
+  }
 }
 
 void EmulatorImpl::SetVolume(float volume) {
