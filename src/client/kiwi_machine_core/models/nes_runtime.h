@@ -14,9 +14,13 @@
 #define MODELS_NES_RUNTIME_H_
 
 #include <kiwi_nes.h>
+#include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
+#include <vector>
 
+#include "base/task/sequenced_task_runner.h"
 #include "build/kiwi_defines.h"
 #include "debug/debug_port.h"
 #include "models/nes_config.h"
@@ -29,6 +33,11 @@ class NESRuntime {
       MaxSaveStates = 10,
       MaxAutoSaveStates = 50,
     };
+
+    Data();
+    explicit Data(scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner,
+                  scoped_refptr<kiwi::base::SequencedTaskRunner>
+                      timer_task_runner = nullptr);
 
     union ControllerMapping {
       int mapping[8];
@@ -59,6 +68,16 @@ class NESRuntime {
     JoystickMapping joystick_mappings[2] = {nullptr, {0}};
     scoped_refptr<kiwi::nes::Emulator> emulator;
     std::unique_ptr<DebugPort> debug_port;
+
+    void LoadROM(
+        const kiwi::base::FilePath& rom_path,
+        kiwi::nes::Emulator::LoadCallback callback,
+        const std::optional<kiwi::base::FilePath>& save_path = std::nullopt);
+    void LoadROM(kiwi::nes::Bytes rom_data,
+                 kiwi::nes::Emulator::LoadCallback callback,
+                 const kiwi::nes::Emulator::LoadOptions& options = {});
+    void UnloadROM(kiwi::nes::Emulator::LoadCallback callback);
+    void FlushBatterySave(kiwi::nes::Emulator::LoadCallback callback);
 
     void SaveState(int crc32,
                    int slot,
@@ -107,16 +126,43 @@ class NESRuntime {
     void StartAutoSave(kiwi::base::TimeDelta delta,
                        GetThumbnailCallback thumbnail);
     void StopAutoSave();
+    void StartBatterySave(kiwi::base::TimeDelta delta);
+    void StopBatterySave();
+    scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
 
     kiwi::base::FilePath profile_path;
 
    private:
+    void LoadROMData(kiwi::nes::Bytes rom_data,
+                     kiwi::nes::Emulator::LoadCallback callback,
+                     const kiwi::nes::Emulator::LoadOptions& options,
+                     const std::optional<kiwi::base::FilePath>& save_path);
+    void PauseAndFlushCurrentROM(kiwi::nes::Emulator::LoadCallback callback);
+    void StartBatterySaveFlush();
+    void OnBatterySaveFlushed(bool success);
+    void TriggerDelayedBatterySave(kiwi::base::TimeDelta delta,
+                                   uint64_t timer_generation);
+    void RunPeriodicBatterySave(kiwi::base::TimeDelta delta,
+                                uint64_t timer_generation);
+    void OnPeriodicBatterySaveFlushed(kiwi::base::TimeDelta delta,
+                                      uint64_t timer_generation,
+                                      bool success);
+
     kiwi::base::RepeatingClosure CreateAutoSaveClosure(
         kiwi::base::TimeDelta delta,
         GetThumbnailCallback thumbnail);
     void TriggerDelayedAutoSave(kiwi::base::TimeDelta delta,
                                 GetThumbnailCallback thumbnail);
     bool auto_save_started_ = false;
+    bool battery_save_started_ = false;
+    bool battery_save_flush_in_progress_ = false;
+    bool battery_save_flush_requested_ = false;
+    uint64_t battery_save_timer_generation_ = 0;
+    std::optional<kiwi::base::FilePath> current_battery_save_path_;
+    std::vector<kiwi::nes::Emulator::LoadCallback>
+        battery_save_flush_callbacks_;
+    scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner_;
+    scoped_refptr<kiwi::base::SequencedTaskRunner> timer_task_runner_;
   };
 
  private:
@@ -126,9 +172,6 @@ class NESRuntime {
  public:
   Data* GetDataById(NESRuntimeID id);
   NESRuntimeID CreateData(const std::string& name);
-  scoped_refptr<kiwi::base::SequencedTaskRunner> task_runner() {
-    return task_runner_;
-  }
 
  private:
   void CreateProfileIfNotExist(Data* data,
@@ -136,9 +179,6 @@ class NESRuntime {
 
  public:
   static NESRuntime* GetInstance();
-
- private:
-  scoped_refptr<kiwi::base::SequencedTaskRunner> task_runner_;
 };
 
 #endif  // MODELS_NES_RUNTIME_H_

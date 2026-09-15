@@ -33,7 +33,9 @@ Bytes MakeTestROM(Byte mapper,
                   Byte prg_banks,
                   Byte chr_banks,
                   Byte flags6,
-                  Byte submapper) {
+                  Byte submapper,
+                  Byte prg_ram_banks,
+                  Byte nes20_prg_ram_sizes) {
   const size_t prg_size = static_cast<size_t>(prg_banks) * kPRGROMBankSize;
   const size_t chr_size = static_cast<size_t>(chr_banks) * kCHRROMBankSize;
   Bytes rom(kINESHeaderSize + prg_size + chr_size);
@@ -45,8 +47,9 @@ Bytes MakeTestROM(Byte mapper,
   rom[4] = prg_banks;
   rom[5] = chr_banks;
   rom[6] = static_cast<Byte>(((mapper & 0x0f) << 4) | (flags6 & 0x0f));
-  rom[7] = mapper & 0xf0;
-  rom[8] = static_cast<Byte>(submapper << 4);
+  rom[7] = static_cast<Byte>((mapper & 0xf0) | (submapper ? 0x08 : 0));
+  rom[8] = submapper ? static_cast<Byte>(submapper << 4) : prg_ram_banks;
+  rom[10] = nes20_prg_ram_sizes;
 
   for (size_t i = 0; i < prg_size; ++i)
     rom[kINESHeaderSize + i] = TestPRGByte(i);
@@ -93,7 +96,7 @@ Bytes SerializeMapper(Mapper* mapper) {
 
 bool DeserializeMapper(Mapper* mapper, const Bytes& state) {
   EmulatorStates::Header header{};
-  header.version = 1;
+  header.version = EmulatorStates::kCurrentVersion;
   VectorStateReader reader(state);
   const bool result = mapper->Deserialize(header, reader);
   EXPECT_EQ(reader.bytes_read(), state.size());
@@ -129,11 +132,14 @@ scoped_refptr<Cartridge> MapperTest::LoadMapper(Byte mapper,
                                                 Byte prg_banks,
                                                 Byte chr_banks,
                                                 Byte flags6,
-                                                Byte submapper) {
+                                                Byte submapper,
+                                                Byte prg_ram_banks,
+                                                Byte nes20_prg_ram_sizes) {
   auto cartridge = base::MakeRefCounted<Cartridge>(
       static_cast<EmulatorImpl*>(emulator_.get()));
   const Cartridge::LoadResult result = cartridge->Load(
-      MakeTestROM(mapper, prg_banks, chr_banks, flags6, submapper));
+      MakeTestROM(mapper, prg_banks, chr_banks, flags6, submapper,
+                  prg_ram_banks, nes20_prg_ram_sizes));
   EXPECT_TRUE(result.success);
   if (!result.success)
     return nullptr;

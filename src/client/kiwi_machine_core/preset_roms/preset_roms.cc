@@ -23,6 +23,7 @@ DEFINE_string(
     "",
     "Specifies a package for testing. It will be added to the side menu");
 DEFINE_string(test_rom, "", "Specifies a ROM's path to load");
+DEFINE_string(sav, "", "Specifies a battery-backed save path for --test_rom");
 
 namespace preset_roms {
 std::vector<Package*> GetPresetRomsPackages();

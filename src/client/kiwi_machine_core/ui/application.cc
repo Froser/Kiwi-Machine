@@ -21,6 +21,7 @@
 #include "base/files/file_enumerator.h"
 #include "preset_roms/preset_roms.h"
 #include "ui/application.h"
+#include "ui/application_events.h"
 #include "utility/audio_effects.h"
 #include "utility/fonts.h"
 #include "utility/images.h"
@@ -41,10 +42,22 @@ namespace {
 constexpr int kInitializeSDLImageFailed = -2;
 Application* g_app_instance = nullptr;
 
-void ProcessImGuiEvent(SDL_Event* event) {
-  ImGui_ImplSDL2_ProcessEvent(event);
+void OnBackgroundBatterySaveFlushed(bool success) {
+  if (!success) {
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                "Could not save battery-backed data before suspension.");
+  }
 }
 }  // namespace
+
+namespace application_events {
+
+bool RequiresBatterySaveFlush(uint32_t event_type) {
+  return event_type == SDL_APP_WILLENTERBACKGROUND ||
+         event_type == SDL_APP_TERMINATING;
+}
+
+}  // namespace application_events
 
 DEFINE_string(lang, "", "Sets application's language.");
 DEFINE_string(package_dir, "", "Sets package loading dir.");
@@ -109,6 +122,59 @@ Application::~Application() {
   UninitializeImageResources();
   kiwi::base::SetEventHandlerForSDL2(kiwi::base::DoNothing());
   g_app_instance = nullptr;
+}
+
+void Application::HandlePreEvent(SDL_Event* event) {
+  ImGui_ImplSDL2_ProcessEvent(event);
+  if (application_events::RequiresBatterySaveFlush(event->type)) {
+    NESRuntime::Data* runtime_data =
+        NESRuntime::GetInstance()->GetDataById(runtime_id_);
+    if (runtime_data) {
+      const bool was_running = runtime_data->emulator->GetRunningState() ==
+                               kiwi::nes::Emulator::RunningState::kRunning;
+      if (event->type == SDL_APP_WILLENTERBACKGROUND && was_running) {
+        resume_emulator_after_background_ = true;
+      }
+      if (was_running) {
+        runtime_data->emulator->Pause();
+      }
+      runtime_data->FlushBatterySave(
+          kiwi::base::BindOnce(&OnBackgroundBatterySaveFlushed));
+      // Export tasks are serviced by the render coroutine. Drain it before the
+      // platform can suspend frame delivery.
+      runtime_data->emulator->RunOneFrame();
+    }
+  } else if (event->type == SDL_APP_DIDENTERFOREGROUND &&
+             resume_emulator_after_background_) {
+    NESRuntime::Data* runtime_data =
+        NESRuntime::GetInstance()->GetDataById(runtime_id_);
+    if (runtime_data) {
+      runtime_data->emulator->Run();
+    }
+    resume_emulator_after_background_ = false;
+  }
+
+  if (event->type != SDL_QUIT || quit_ready_) {
+    return;
+  }
+
+  event->type = SDL_FIRSTEVENT;
+  if (quit_pending_) {
+    return;
+  }
+  quit_pending_ = true;
+
+  NESRuntime::Data* runtime_data =
+      NESRuntime::GetInstance()->GetDataById(runtime_id_);
+  if (!runtime_data) {
+    OnPreparedToQuit(true);
+    return;
+  }
+
+  runtime_data->StopAutoSave();
+  runtime_data->StopBatterySave();
+  runtime_data->UnloadROM(kiwi::base::BindOnce(&Application::OnPreparedToQuit,
+                                               kiwi::base::Unretained(this)));
 }
 
 void Application::HandleEvent(SDL_Event* event) {
@@ -222,6 +288,15 @@ void Application::HandleEvent(SDL_Event* event) {
     default:
       break;
   }
+}
+
+void Application::OnPreparedToQuit(bool success) {
+  if (!success) {
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                "Could not save battery-backed data before quitting.");
+  }
+  quit_ready_ = true;
+  runloop_.QuitClosure().Run();
 }
 
 WindowBase* Application::FindWindowFromID(uint32_t id) {
@@ -398,8 +473,8 @@ void Application::InitializeImGui() {
   io.IniFilename = nullptr;
   ImGui::StyleColorsClassic();
 
-  kiwi::base::SetPreEventHandlerForSDL2(
-      kiwi::base::BindRepeating(&ProcessImGuiEvent));
+  kiwi::base::SetPreEventHandlerForSDL2(kiwi::base::BindRepeating(
+      &Application::HandlePreEvent, kiwi::base::Unretained(this)));
 
   InitializeStyles();
   InitializeStartupFonts();

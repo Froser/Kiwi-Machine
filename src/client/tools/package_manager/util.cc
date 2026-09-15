@@ -28,7 +28,7 @@
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "kiwi_nes.h"
-#include "nes/components/mesen_hd_pack/rom_hash.h"
+#include "nes/rom_hash.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/zip.h"
 #include "workspace.h"
@@ -153,7 +153,7 @@ std::optional<nlohmann::json> CollectRomSha1s(
         return std::nullopt;
       }
       sha1s[rom_path.RemoveExtension().BaseName().AsUTF8Unsafe()] =
-          kiwi::nes::mesen_hd_pack::CalculateSha1Hex(rom_data);
+          kiwi::nes::CalculateSha1Hex(rom_data);
     }
     located = unzGoToNextFile(file);
   }

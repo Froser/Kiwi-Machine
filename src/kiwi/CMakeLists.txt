@@ -108,7 +108,7 @@ set(base_sources
         base/threading/thread.h
 )
 
-if (MACOSX)
+if (APPLE)
     list(APPEND base_sources
             base/files/file_util_apple.mm
             base/mac/scoped_block.h
@@ -233,6 +233,8 @@ set(nes_sources
         nes/registers.h
         nes/rom_data.cc
         nes/rom_data.h
+        nes/rom_hash.cc
+        nes/rom_hash.h
         nes/types.h
 )
 

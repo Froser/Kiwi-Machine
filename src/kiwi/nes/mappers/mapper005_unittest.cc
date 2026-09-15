@@ -19,6 +19,7 @@ constexpr size_t k4K = 0x1000;
 constexpr size_t k8K = 0x2000;
 constexpr size_t k16K = 0x4000;
 constexpr size_t k32K = 0x8000;
+constexpr size_t k64K = 0x10000;
 
 void ActivateMMC5PRGMode(Mapper* mapper, Byte mode) {
   mapper->WriteExtendedRAM(0x5100, mode);
@@ -111,6 +112,11 @@ TEST_F(Mapper005Test, ReadsAndWritesSRAMFromFirstAddress) {
   ASSERT_TRUE(cartridge);
   Mapper* mapper = cartridge->mapper();
 
+  EXPECT_TRUE(mapper->HasPRGRAM());
+  EXPECT_FALSE(mapper->HasBatteryBackedRAM());
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, k64K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, 0u);
+
   mapper->WriteExtendedRAM(0x5102, 0x02);
   mapper->WriteExtendedRAM(0x5103, 0x01);
   mapper->WriteExtendedRAM(0x5113, 0);
@@ -119,6 +125,132 @@ TEST_F(Mapper005Test, ReadsAndWritesSRAMFromFirstAddress) {
 
   EXPECT_EQ(mapper->ReadExtendedRAM(0x6000), 0x4a);
   EXPECT_EQ(mapper->ReadExtendedRAM(0x7fff), 0x5b);
+}
+
+TEST_F(Mapper005Test, ResetPreservesSRAM) {
+  auto cartridge = LoadMapper(5, 16, 8, 0x02);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  EXPECT_TRUE(mapper->HasBatteryBackedRAM());
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, 0u);
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, k64K);
+
+  mapper->WriteExtendedRAM(0x5102, 0x02);
+  mapper->WriteExtendedRAM(0x5103, 0x01);
+  mapper->WriteExtendedRAM(0x5113, 0);
+  mapper->WriteExtendedRAM(0x6123, 0x5a);
+
+  mapper->Reset();
+
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x6123), 0x5a);
+}
+
+TEST_F(Mapper005Test, ExportsAndImportsAllBatteryBackedSRAMBanks) {
+  auto cartridge = LoadMapper(5, 16, 8, 0x02);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  EXPECT_EQ(mapper->GetPRGNVRAMSize(), k64K);
+  EXPECT_FALSE(mapper->IsPRGNVRAMDirty());
+
+  mapper->WriteExtendedRAM(0x5102, 0x02);
+  mapper->WriteExtendedRAM(0x5103, 0x01);
+  mapper->WriteExtendedRAM(0x5113, 2);
+  mapper->WriteExtendedRAM(0x6001, 0x11);
+  ActivateMMC5PRGMode(mapper, 3);
+  mapper->WriteExtendedRAM(0x5116, 3);
+  mapper->WritePRG(0xc002, 0x33);
+
+  auto snapshot = mapper->ExportPRGNVRAM(true);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->data.size(), k64K);
+  EXPECT_EQ(snapshot->data[2 * k8K + 1], 0x11);
+  EXPECT_EQ(snapshot->data[3 * k8K + 2], 0x33);
+  mapper->AcknowledgePRGNVRAMSaved(snapshot->generation);
+  EXPECT_FALSE(mapper->IsPRGNVRAMDirty());
+
+  Bytes imported(k64K);
+  imported[7 * k8K + 3] = 0xaa;
+  ASSERT_TRUE(mapper->ImportPRGNVRAM(imported));
+  EXPECT_FALSE(mapper->IsPRGNVRAMDirty());
+  mapper->WriteExtendedRAM(0x5113, 7);
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x6003), 0xaa);
+  mapper->WriteExtendedRAM(0x6003, 0xaa);
+  EXPECT_FALSE(mapper->IsPRGNVRAMDirty());
+}
+
+TEST_F(Mapper005Test, HonorsNES20BatteryBackedSRAMSize) {
+  auto cartridge = LoadMapper(5, 16, 8, 0x02, 1, 0, 0x70);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, k8K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, k64K - k8K);
+
+  mapper->WriteExtendedRAM(0x5102, 0x02);
+  mapper->WriteExtendedRAM(0x5103, 0x01);
+  mapper->WriteExtendedRAM(0x5113, 0);
+  mapper->WriteExtendedRAM(0x6001, 0x11);
+
+  auto snapshot = mapper->ExportPRGNVRAM(true);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->data.size(), k8K);
+  EXPECT_EQ(snapshot->data[1], 0x11);
+  mapper->AcknowledgePRGNVRAMSaved(snapshot->generation);
+
+  mapper->WriteExtendedRAM(0x5113, 1);
+  mapper->WriteExtendedRAM(0x6001, 0x22);
+  EXPECT_FALSE(mapper->IsPRGNVRAMDirty());
+
+  Bytes imported(k8K);
+  imported[2] = 0x33;
+  ASSERT_TRUE(mapper->ImportPRGNVRAM(imported));
+  mapper->WriteExtendedRAM(0x5113, 0);
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x6002), 0x33);
+}
+
+TEST_F(Mapper005Test, ClampsNES20RAMToPhysicalSRAMSize) {
+  auto cartridge = LoadMapper(5, 16, 8, 0x02, 1, 0, 0xb0);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  EXPECT_EQ(cartridge->GetRomData()->prg_nvram_size, k64K);
+  EXPECT_EQ(cartridge->GetRomData()->prg_ram_size, 0u);
+
+  mapper->WriteExtendedRAM(0x5102, 0x02);
+  mapper->WriteExtendedRAM(0x5103, 0x01);
+  mapper->WriteExtendedRAM(0x5113, 7);
+  mapper->WriteExtendedRAM(0x6001, 0x44);
+
+  auto snapshot = mapper->ExportPRGNVRAM(true);
+  ASSERT_TRUE(snapshot);
+  ASSERT_EQ(snapshot->data.size(), k64K);
+  EXPECT_EQ(snapshot->data[7 * k8K + 1], 0x44);
+}
+
+TEST_F(Mapper005Test, StateRestoreMarksChangedNVRAMDirty) {
+  auto cartridge = LoadMapper(5, 16, 8, 0x02);
+  ASSERT_TRUE(cartridge);
+  Mapper* mapper = cartridge->mapper();
+
+  mapper->WriteExtendedRAM(0x5102, 0x02);
+  mapper->WriteExtendedRAM(0x5103, 0x01);
+  mapper->WriteExtendedRAM(0x6123, 0x11);
+  const Bytes state = SerializeMapper(mapper);
+  auto first = mapper->ExportPRGNVRAM(true);
+  ASSERT_TRUE(first);
+  mapper->AcknowledgePRGNVRAMSaved(first->generation);
+
+  mapper->WriteExtendedRAM(0x6123, 0x22);
+  auto second = mapper->ExportPRGNVRAM(true);
+  ASSERT_TRUE(second);
+  mapper->AcknowledgePRGNVRAMSaved(second->generation);
+  ASSERT_FALSE(mapper->IsPRGNVRAMDirty());
+
+  ASSERT_TRUE(DeserializeMapper(mapper, state));
+  EXPECT_EQ(mapper->ReadExtendedRAM(0x6123), 0x11);
+  EXPECT_TRUE(mapper->IsPRGNVRAMDirty());
 }
 
 TEST_F(Mapper005Test, WritesOnlyTheSelectedPRGRAMWindow) {

@@ -46,6 +46,8 @@ set(Sources
         kiwi_flags.h
         kiwi_main.h
         kiwi_main.cc
+        models/battery_save.cc
+        models/battery_save.h
         models/nes_audio.cc
         models/nes_audio.h
         models/nes_config.cc

@@ -16,6 +16,8 @@
 #include <SDL.h>
 #include <gflags/gflags.h>
 
+#include <optional>
+
 #include "build/kiwi_defines.h"
 #include "kiwi/nes/controller.h"
 #include "models/nes_audio.h"
@@ -38,6 +40,7 @@ class FlexItemsWidget;
 class CardWidget;
 class Splash;
 class FpsCounter;
+class TextureRenderer;
 
 namespace preset_roms {
 enum class ROMEdition;
@@ -145,6 +148,8 @@ class MainWindow : public WindowBase,
                             scoped_refptr<NESFrame> frame) override;
 
  private:
+  struct PendingROM;
+
   void InitializeRuntimeData();
   void InitializeAudio();
   void InitializeUI();
@@ -152,7 +157,9 @@ class MainWindow : public WindowBase,
   void InitializeDebugROMs();
   void LoadTestRomIfSpecified();
 
-  void LoadROMByPath(kiwi::base::FilePath rom_path);
+  void LoadROMByPath(
+      kiwi::base::FilePath rom_path,
+      std::optional<kiwi::base::FilePath> save_path = std::nullopt);
   void StartAutoSave();
   void StopAutoSave();
   void ResetAudio();
@@ -195,12 +202,11 @@ class MainWindow : public WindowBase,
   void CloseSplash();
 
   // Menu callbacks:
-  void OnRomLoaded(const std::string& name,
-                   bool load_from_finger_gesture,
-                   bool success);
+  void OnRomLoaded(std::unique_ptr<PendingROM> pending_rom, bool success);
   void OnQuit();
   void OnResetROM();
   void OnBackToMainMenu();
+  void OnRomUnloaded(bool success);
   void OnSaveState(int which_state);
   void OnLoadState(int which_state);
   void OnLoadAutoSavedState(int timestamp);

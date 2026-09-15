@@ -13,6 +13,10 @@
 #ifndef NES_MAPPER_H_
 #define NES_MAPPER_H_
 
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+
 #include "base/functional/callback.h"
 #include "nes/emulator_states.h"
 #include "nes/nes_export.h"
@@ -35,6 +39,11 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
  public:
   using MirroringChangedCallback = base::RepeatingClosure;
   using IRQCallback = base::RepeatingClosure;
+
+  struct PRGNVRAMSnapshot {
+    Bytes data;
+    uint64_t generation = 0;
+  };
 
   explicit Mapper(Cartridge* cartridge);
   ~Mapper() override;
@@ -63,16 +72,28 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual void PPUAddressChanged(Address address);
 
   // CPU: $4020-$7FFF
-  // If a ROM has extented RAM, when writing to $4010-$7FFF, WriteExtendedRAM()
-  // will be invoked. Otherwise, WritePRG() will be invoked.
+  // The CPU bus forwards cartridge expansion and PRG-RAM accesses here. The
+  // mapper decides whether an address selects RAM, ROM, registers, or open bus.
   virtual void WriteExtendedRAM(Address address, Byte value);
 
-  // ReadExtendedRAM() will be invoked whenever read address from $4010 to
-  // $7FFF. If there's no extended ram, an open bus behavior will be returned.
+  // If the mapper does not provide PRG-RAM or another mapping, reads return
+  // open-bus behavior.
   virtual Byte ReadExtendedRAM(Address address);
 
   virtual Byte* GetExtendedRAMPointer();
-  bool HasExtendedRAM();
+  bool HasPRGRAM() const;
+  bool HasBatteryBackedRAM() const;
+  size_t GetPRGNVRAMSize() const;
+
+  // Returns no snapshot when the cartridge has no PRG-NVRAM, or when
+  // |dirty_only| is true and the current data has already been persisted.
+  std::optional<PRGNVRAMSnapshot> ExportPRGNVRAM(bool dirty_only);
+  // Imports an exact-size snapshot and treats it as the persisted baseline.
+  bool ImportPRGNVRAM(const Bytes& data);
+  bool IsPRGNVRAMDirty() const;
+  // Marks only the exported generation as persisted. Writes made after the
+  // snapshot remain dirty.
+  void AcknowledgePRGNVRAMSaved(uint64_t generation);
 
   static std::unique_ptr<Mapper> Create(Cartridge* cartridge, Byte mapper);
   static bool IsMapperSupported(Byte mapper);
@@ -98,9 +119,18 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   virtual bool NeedsM2CycleIRQ() const;
   // Maps a PPU pattern-table address to its absolute byte offset in CHR-ROM.
   virtual uint32_t GetAbsoluteCHRAddress(Address address);
+  // Returns true when the mapper stores PRG-RAM outside the base
+  // implementation.
+  virtual bool UsesCustomPRGRAM() const;
 
  protected:
-  void ForceUseExtendedRAM();
+  void EnsurePRGRAM(size_t minimum_size);
+  void MarkPRGNVRAMDirty();
+
+  // Custom PRG-RAM mappers override these to expose the complete persistent
+  // storage rather than a currently selected CPU window.
+  virtual Bytes CopyPRGNVRAM();
+  virtual bool RestorePRGNVRAM(const Bytes& data);
 
   MirroringChangedCallback mirroring_changed_callback() {
     return mirroring_changed_callback_;
@@ -110,7 +140,7 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   IRQCallback irq_callback() { return irq_callback_; }
 
  private:
-  void CheckExtendedRAM();
+  void AllocatePRGRAMIfNeeded();
 
  protected:
   RomData* rom_data() { return rom_data_; }
@@ -119,8 +149,11 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   RomData* rom_data_ = nullptr;
   MirroringChangedCallback mirroring_changed_callback_;
   IRQCallback irq_callback_;
-  Bytes extended_ram_;
-  bool force_use_extended_ram_ = false;
+  // Persistent bytes come first so the default $6000 window reaches NVRAM
+  // when a NES 2.0 image declares both volatile and non-volatile PRG-RAM.
+  Bytes default_prg_ram_;
+  uint64_t prg_nvram_generation_ = 0;
+  uint64_t persisted_prg_nvram_generation_ = 0;
 };
 
 }  // namespace nes

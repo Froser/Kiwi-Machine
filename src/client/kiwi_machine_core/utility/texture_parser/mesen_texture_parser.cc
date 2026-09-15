@@ -30,8 +30,8 @@
 #include <utility>
 
 #include "nes/components/mesen_hd_pack/hires_parser.h"
-#include "nes/components/mesen_hd_pack/rom_hash.h"
 #include "nes/ppu_observer.h"
+#include "nes/rom_hash.h"
 #include "utility/ips.h"
 #include "utility/texture_parser/texture_resource_provider.h"
 #include "utility/texture_renderer.h"
@@ -1067,7 +1067,7 @@ bool MesenTextureParser::Verify(std::span<const uint8_t> rom_data) const {
     return false;
   }
 
-  const std::string sha1 = kiwi::nes::mesen_hd_pack::CalculateSha1Hex(rom_data);
+  const std::string sha1 = kiwi::nes::CalculateSha1Hex(rom_data);
   return std::find(pack_data_.supported_rom_sha1s.begin(),
                    pack_data_.supported_rom_sha1s.end(),
                    sha1) != pack_data_.supported_rom_sha1s.end();
@@ -1079,7 +1079,7 @@ bool MesenTextureParser::HasRomPatch(
     return false;
   }
 
-  const std::string sha1 = kiwi::nes::mesen_hd_pack::CalculateSha1Hex(rom_data);
+  const std::string sha1 = kiwi::nes::CalculateSha1Hex(rom_data);
   return std::any_of(
       pack_data_.patches.begin(), pack_data_.patches.end(),
       [&sha1](const kiwi::nes::mesen_hd_pack::PatchRule& patch) {
@@ -1095,7 +1095,7 @@ bool MesenTextureParser::ApplyRomPatch(
   }
 
   const std::string sha1 =
-      kiwi::nes::mesen_hd_pack::CalculateSha1Hex(*rom_data);
+      kiwi::nes::CalculateSha1Hex(*rom_data);
   const auto patch = std::find_if(
       pack_data_.patches.begin(), pack_data_.patches.end(),
       [&sha1](const kiwi::nes::mesen_hd_pack::PatchRule& candidate) {

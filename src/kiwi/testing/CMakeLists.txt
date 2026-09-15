@@ -19,6 +19,7 @@ set(Sources
     rom_test.cc
 
     ../nes/cpu_unittest.cc
+    ../nes/emulator_nvram_unittest.cc
     ../nes/mappers/mapper_test_support.cc
     ../nes/mappers/mapper000_unittest.cc
     ../nes/mappers/mapper001_unittest.cc
@@ -30,6 +31,7 @@ set(Sources
     ../nes/mappers/mapper009_unittest.cc
     ../nes/mappers/mapper010_unittest.cc
     ../nes/mappers/mapper011_unittest.cc
+    ../nes/mappers/mapper_nvram_compatibility_unittest.cc
     ../nes/mappers/mapper033_unittest.cc
     ../nes/mappers/mapper040_unittest.cc
     ../nes/mappers/mapper048_unittest.cc
@@ -42,6 +44,7 @@ set(Sources
     ../nes/palette_unittest.cc
     ../nes/ppu_unittest.cc
     ../nes/ppu_bus_unittest.cc
+    ../nes/rom_hash_unittest.cc
 )
 
 # Create test executable

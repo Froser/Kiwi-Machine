@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Yisi Yu
+// Copyright (C) 2026 Yisi Yu
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -10,18 +10,15 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-#ifndef KIWI_FLAGS_H_
-#define KIWI_FLAGS_H_
+#ifndef UI_APPLICATION_EVENTS_H_
+#define UI_APPLICATION_EVENTS_H_
 
-#include <gflags/gflags.h>
+#include <cstdint>
 
-DECLARE_string(test_rom);
-DECLARE_string(sav);
-DECLARE_string(test_pak);
-DECLARE_bool(enable_debug);
-DECLARE_string(debug_roms);
-DECLARE_string(lang);
-DECLARE_string(package_dir);
-DECLARE_string(renderer_backend);
+namespace application_events {
 
-#endif  // KIWI_FLAGS_H_
+bool RequiresBatterySaveFlush(uint32_t event_type);
+
+}  // namespace application_events
+
+#endif  // UI_APPLICATION_EVENTS_H_

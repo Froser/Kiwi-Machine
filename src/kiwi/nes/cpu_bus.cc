@@ -43,7 +43,7 @@ Byte CPUBus::Read(Address address) {
   } else if (address < 0x4020) {  // $4000-$401F
     DCHECK(emulator_) << "Emulator must be set.";
     return emulator_->Read(address);
-  } else if (address < 0x8000) {  // $4020-$7FFF, battery backed save / work RAM
+  } else if (address < 0x8000) {  // $4020-$7FFF, cartridge-controlled area
     return mapper_->ReadExtendedRAM(address);
   } else {  // $8000-$FFFF, Usual ROM, commonly with Mapper Registers
     return mapper_->ReadPRG(address);
@@ -60,7 +60,7 @@ void CPUBus::Write(Address address, Byte value) {
   } else if (address < 0x4020) {  // $4000-$401F
     DCHECK(emulator_) << "Emulator must be set.";
     emulator_->Write(address, value);
-  } else if (address < 0x8000) {  // $4020-$7FFF, battery backed save / work RAM
+  } else if (address < 0x8000) {  // $4020-$7FFF, cartridge-controlled area
     mapper_->WriteExtendedRAM(address, value);
   } else {  // $8000-$FFFF, Usual ROM, commonly with Mapper Registers
     mapper_->WritePRG(address, value);
@@ -77,7 +77,8 @@ Byte* CPUBus::GetPagePointer(Byte page) {
   } else if (address < 0x6000) {
     LOG(ERROR) << "Expansion ROM access attempted, which is unsupported.";
   } else if (address < 0x8000) {
-    return mapper_->GetExtendedRAMPointer() + (address - 0x6000);
+    Byte* prg_ram = mapper_->GetExtendedRAMPointer();
+    return prg_ram ? prg_ram + (address - 0x6000) : nullptr;
   } else {
     LOG(ERROR) << "Unexpected DMA request: " << Hex<16>{address} << " at page "
                << Hex<16>{page};
@@ -91,7 +92,7 @@ void CPUBus::Serialize(EmulatorStates::SerializableStateData& data) {
 
 bool CPUBus::Deserialize(const EmulatorStates::Header& header,
                          EmulatorStates::DeserializableStateData& data) {
-  if (header.version == 1) {
+  if (header.version == EmulatorStates::kCurrentVersion) {
     data.ReadData(&ram_);
     return true;
   }

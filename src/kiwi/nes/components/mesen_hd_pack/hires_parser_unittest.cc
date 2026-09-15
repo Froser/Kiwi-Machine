@@ -12,13 +12,9 @@
 
 #include "nes/components/mesen_hd_pack/hires_parser.h"
 
-#include <array>
-#include <cstdint>
-#include <span>
 #include <string_view>
 #include <vector>
 
-#include "nes/components/mesen_hd_pack/rom_hash.h"
 #include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
 
 namespace kiwi {
@@ -118,14 +114,6 @@ TEST(HiresParserTest, ParsesBackgroundPriorityInLegacyVersion2) {
   ASSERT_TRUE(parsed);
   ASSERT_EQ(data.backgrounds.size(), 1U);
   EXPECT_EQ(data.backgrounds[0].priority, 0);
-}
-
-TEST(RomHashTest, CalculatesKnownSha1Vectors) {
-  EXPECT_EQ(CalculateSha1Hex(std::span<const uint8_t>()),
-            "DA39A3EE5E6B4B0D3255BFEF95601890AFD80709");
-
-  constexpr std::array<uint8_t, 3> kAbc = {'a', 'b', 'c'};
-  EXPECT_EQ(CalculateSha1Hex(kAbc), "A9993E364706816ABA3E25717850C26C9CD0D89D");
 }
 
 }  // namespace

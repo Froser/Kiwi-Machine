@@ -12,6 +12,7 @@
 
 #include "nes/mapper.h"
 
+#include <algorithm>
 #include <map>
 
 #include "base/logging.h"
@@ -89,16 +90,88 @@ uint32_t Mapper::GetAbsoluteCHRAddress(Address address) {
   return address & 0x1fff;
 }
 
-void Mapper::M2CycleIRQ() {}
-
-bool Mapper::HasExtendedRAM() {
-  DCHECK(rom_data_);
-  return force_use_extended_ram_ || rom_data_->has_extended_ram;
+bool Mapper::UsesCustomPRGRAM() const {
+  return false;
 }
 
-void Mapper::ForceUseExtendedRAM() {
-  force_use_extended_ram_ = true;
-  CheckExtendedRAM();
+void Mapper::M2CycleIRQ() {}
+
+bool Mapper::HasPRGRAM() const {
+  DCHECK(rom_data_);
+  return rom_data_->prg_ram_size != 0 || rom_data_->prg_nvram_size != 0;
+}
+
+bool Mapper::HasBatteryBackedRAM() const {
+  DCHECK(rom_data_);
+  return rom_data_->prg_nvram_size != 0;
+}
+
+size_t Mapper::GetPRGNVRAMSize() const {
+  DCHECK(rom_data_);
+  return rom_data_->prg_nvram_size;
+}
+
+std::optional<Mapper::PRGNVRAMSnapshot> Mapper::ExportPRGNVRAM(
+    bool dirty_only) {
+  if (!HasBatteryBackedRAM() || (dirty_only && !IsPRGNVRAMDirty())) {
+    return std::nullopt;
+  }
+
+  Bytes data = CopyPRGNVRAM();
+  if (data.size() != GetPRGNVRAMSize()) {
+    LOG(ERROR) << "Mapper returned an invalid PRG-NVRAM snapshot size.";
+    return std::nullopt;
+  }
+
+  return PRGNVRAMSnapshot{std::move(data), prg_nvram_generation_};
+}
+
+bool Mapper::ImportPRGNVRAM(const Bytes& data) {
+  if (!HasBatteryBackedRAM() || data.size() != GetPRGNVRAMSize()) {
+    return false;
+  }
+
+  if (CopyPRGNVRAM() != data) {
+    if (!RestorePRGNVRAM(data)) {
+      return false;
+    }
+    MarkPRGNVRAMDirty();
+  }
+  persisted_prg_nvram_generation_ = prg_nvram_generation_;
+  return true;
+}
+
+bool Mapper::IsPRGNVRAMDirty() const {
+  return HasBatteryBackedRAM() &&
+         prg_nvram_generation_ != persisted_prg_nvram_generation_;
+}
+
+void Mapper::AcknowledgePRGNVRAMSaved(uint64_t generation) {
+  if (generation > persisted_prg_nvram_generation_ &&
+      generation <= prg_nvram_generation_) {
+    persisted_prg_nvram_generation_ = generation;
+  }
+}
+
+void Mapper::EnsurePRGRAM(size_t minimum_size) {
+  DCHECK(rom_data_);
+  const size_t configured_size =
+      rom_data_->prg_ram_size + rom_data_->prg_nvram_size;
+  if (configured_size >= minimum_size) {
+    return;
+  }
+
+  if (!rom_data_->is_nes_20 && rom_data_->has_battery) {
+    rom_data_->prg_nvram_size += minimum_size - configured_size;
+  } else {
+    rom_data_->prg_ram_size += minimum_size - configured_size;
+  }
+}
+
+void Mapper::MarkPRGNVRAMDirty() {
+  if (HasBatteryBackedRAM()) {
+    ++prg_nvram_generation_;
+  }
 }
 
 void Mapper::PPUAddressChanged(Address address) {}
@@ -121,10 +194,16 @@ bool Mapper::IsMapperSupported(Byte mapper) {
 }
 
 void Mapper::WriteExtendedRAM(Address address, Byte value) {
-  if (HasExtendedRAM()) {
+  if (HasPRGRAM()) {
     if (address >= 0x6000) {
-      CheckExtendedRAM();
-      extended_ram_[address - 0x6000] = value;
+      AllocatePRGRAMIfNeeded();
+      const size_t index = (address - 0x6000) % default_prg_ram_.size();
+      if (default_prg_ram_[index] != value) {
+        default_prg_ram_[index] = value;
+        if (index < rom_data_->prg_nvram_size) {
+          MarkPRGNVRAMDirty();
+        }
+      }
     }
   } else {
     WritePRG(address, value);
@@ -132,52 +211,73 @@ void Mapper::WriteExtendedRAM(Address address, Byte value) {
 }
 
 Byte Mapper::ReadExtendedRAM(Address address) {
-  if (address >= 0x6000 && address <= 0x7fff) {
-    CheckExtendedRAM();
-    return extended_ram_[address - 0x6000];
+  if (HasPRGRAM() && address >= 0x6000 && address <= 0x7fff) {
+    AllocatePRGRAMIfNeeded();
+    return default_prg_ram_[(address - 0x6000) % default_prg_ram_.size()];
   }
 
   // Open bus behavior:
   // https://www.nesdev.org/wiki/Open_bus_behavior#CPU_open_bus
-  // Absolute addressed instructions will read the high byte of the address (the
-  // last byte of the operand).
+  // Absolute addressed instructions will read the high byte of the address
+  // (the last byte of the operand).
   return static_cast<Byte>(address >> 8);
 }
 
 void Mapper::Serialize(EmulatorStates::SerializableStateData& data) {
-  data.WriteData(force_use_extended_ram_);
-  if (HasExtendedRAM()) {
-    CheckExtendedRAM();
-    data.WriteData(extended_ram_);
+  if (!UsesCustomPRGRAM() && HasPRGRAM()) {
+    AllocatePRGRAMIfNeeded();
+    data.WriteData(default_prg_ram_);
   }
 }
 
 bool Mapper::Deserialize(const EmulatorStates::Header& header,
                          EmulatorStates::DeserializableStateData& data) {
-  data.ReadData(&force_use_extended_ram_);
-  if (HasExtendedRAM()) {
-    CheckExtendedRAM();
-    data.ReadData(&extended_ram_);
+  if (!UsesCustomPRGRAM() && HasPRGRAM()) {
+    AllocatePRGRAMIfNeeded();
+    Bytes previous_nvram;
+    if (HasBatteryBackedRAM()) {
+      previous_nvram = CopyPRGNVRAM();
+    }
+    data.ReadData(&default_prg_ram_);
+    if (HasBatteryBackedRAM() && previous_nvram != CopyPRGNVRAM()) {
+      MarkPRGNVRAMDirty();
+    }
   }
 
   return true;
 }
 
-void Mapper::CheckExtendedRAM() {
-  if (extended_ram_.empty()) {
-    if (!HasExtendedRAM()) {
-      LOG(WARNING)
-          << "This ROM will read/write to extended RAM, but the NES file "
-             "indicates no extended RAM exists. Perhaps the NES file is "
-             "incorrect, but the emulator still created extended RAM for it.";
-      force_use_extended_ram_ = true;
-    }
-    extended_ram_.resize(0x2000);
+Bytes Mapper::CopyPRGNVRAM() {
+  if (!HasBatteryBackedRAM()) {
+    return {};
   }
+
+  AllocatePRGRAMIfNeeded();
+  const size_t end = rom_data_->prg_nvram_size;
+  DCHECK_LE(end, default_prg_ram_.size());
+  return Bytes(default_prg_ram_.begin(), default_prg_ram_.begin() + end);
+}
+
+bool Mapper::RestorePRGNVRAM(const Bytes& data) {
+  if (data.size() != GetPRGNVRAMSize()) {
+    return false;
+  }
+  AllocatePRGRAMIfNeeded();
+  std::copy(data.begin(), data.end(), default_prg_ram_.begin());
+  return true;
+}
+
+void Mapper::AllocatePRGRAMIfNeeded() {
+  if (!default_prg_ram_.empty() || !HasPRGRAM()) {
+    return;
+  }
+
+  default_prg_ram_.resize(rom_data_->prg_ram_size + rom_data_->prg_nvram_size);
 }
 
 Byte* Mapper::GetExtendedRAMPointer() {
-  return const_cast<Byte*>(extended_ram_.data());
+  AllocatePRGRAMIfNeeded();
+  return default_prg_ram_.empty() ? nullptr : default_prg_ram_.data();
 }
 
 }  // namespace nes

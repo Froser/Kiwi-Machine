@@ -341,6 +341,15 @@ bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
 
 }  // namespace
 
+struct MainWindow::PendingROM {
+  std::string game_title;
+  std::string window_title;
+  bool load_from_finger_gesture = false;
+  bool hd_texture_available = false;
+  bool hd_texture_enabled = false;
+  std::unique_ptr<TextureRenderer> texture_renderer;
+};
+
 // A mask widget to handle finger events.
 class FullscreenMask : public Widget {
  public:
@@ -1303,31 +1312,41 @@ void MainWindow::InitializeDebugROMs() {
 }
 
 void MainWindow::LoadTestRomIfSpecified() {
-  if (!FLAGS_test_rom.empty()) {
-    if (FLAGS_enable_debug) {
-      LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_rom));
-    }
+  if (FLAGS_test_rom.empty() || !FLAGS_enable_debug) {
+    return;
   }
+
+  std::optional<kiwi::base::FilePath> save_path;
+  if (!FLAGS_sav.empty()) {
+    save_path = kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_sav);
+  }
+  LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_rom),
+                save_path);
 }
 
-void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path) {
+void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path,
+                               std::optional<kiwi::base::FilePath> save_path) {
   SDL_assert(runtime_data_->emulator);
   SetLoading(true);
-  current_game_title_ = rom_path.BaseName().AsUTF8Unsafe();
-  hd_texture_available_ = false;
-  hd_texture_enabled_ = false;
-  SetHDTextureToggleState(false, false);
-  canvas_->SetHDTextureToggleAvailable(false);
-  canvas_->frame()->SetTextureRenderer(nullptr);
+  StopAutoSave();
 
-  runtime_data_->emulator->LoadAndRun(
-      rom_path, kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                                     kiwi::base::Unretained(this),
-                                     current_game_title_, false));
+  auto pending_rom = std::make_unique<PendingROM>();
+  pending_rom->game_title = rom_path.BaseName().AsUTF8Unsafe();
+  pending_rom->window_title = pending_rom->game_title;
+
+  runtime_data_->LoadROM(rom_path,
+                         kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                                              kiwi::base::Unretained(this),
+                                              std::move(pending_rom)),
+                         save_path);
 }
 
 void MainWindow::StartAutoSave() {
-  // Disable auto save in wasm because it may cause performance issue.
+  constexpr int kBatterySaveTimeDelta = 30000;
+  runtime_data_->StartBatterySave(
+      kiwi::base::Milliseconds(kBatterySaveTimeDelta));
+
+  // Disable automatic save states in wasm because they are expensive.
 #if !KIWI_WASM
   constexpr int kAutoSaveTimeDelta = 5000;
   runtime_data_->StartAutoSave(
@@ -1338,6 +1357,7 @@ void MainWindow::StartAutoSave() {
 
 void MainWindow::StopAutoSave() {
   SDL_assert(runtime_data_);
+  runtime_data_->StopBatterySave();
   runtime_data_->StopAutoSave();
 }
 
@@ -1885,26 +1905,31 @@ void MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter() {
   }
 }
 
-void MainWindow::OnRomLoaded(const std::string& name,
-                             bool load_from_finger_gesture,
+void MainWindow::OnRomLoaded(std::unique_ptr<PendingROM> pending_rom,
                              bool success) {
-  SetLoading(false);
-  ShowMainMenu(false, load_from_finger_gesture);
-  SetTitle(name);
-  canvas_->SetHDTextureToggleAvailable(success && hd_texture_available_);
-  SetHDTextureToggleState(success && hd_texture_available_,
-                          hd_texture_enabled_);
-  StartAutoSave();
-  PauseGameIfDisassemblyVisible();
-  PauseForFocusLossIfNeeded();
-
   if (!success) {
-    hd_texture_available_ = false;
-    hd_texture_enabled_ = false;
+    SetLoading(false);
+    if (runtime_data_->emulator->GetRomData()) {
+      StartAutoSave();
+    }
     Toast::ShowToast(this,
                      GetLocalizedString(
                          string_resources::IDR_MAIN_WINDOW_ROM_NOT_SUPPORTED));
+    return;
   }
+
+  current_game_title_ = std::move(pending_rom->game_title);
+  hd_texture_available_ = pending_rom->hd_texture_available;
+  hd_texture_enabled_ = pending_rom->hd_texture_enabled;
+  canvas_->frame()->SetTextureRenderer(
+      std::move(pending_rom->texture_renderer));
+  canvas_->frame()->SetHDTextureRenderingEnabled(hd_texture_enabled_);
+  canvas_->SetHDTextureToggleAvailable(hd_texture_available_);
+  ShowMainMenu(false, pending_rom->load_from_finger_gesture);
+  SetTitle(pending_rom->window_title);
+  StartAutoSave();
+  PauseGameIfDisassemblyVisible();
+  PauseForFocusLossIfNeeded();
 }
 
 void MainWindow::OnQuit() {
@@ -1925,25 +1950,31 @@ void MainWindow::OnResetROM() {
 }
 
 void MainWindow::OnBackToMainMenu() {
-  // Unload ROM, and show main menu.
-  SetTitle("Kiwi Machine");
-  current_game_title_.clear();
-  hd_texture_available_ = false;
-  hd_texture_enabled_ = false;
-  SetHDTextureToggleState(false, false);
-  canvas_->SetHDTextureToggleAvailable(false);
   SetLoading(true);
   StopAutoSave();
 
   SDL_assert(runtime_data_->emulator);
-  runtime_data_->emulator->Unload(
-      kiwi::base::BindRepeating(&MainWindow::ShowMainMenu,
-                                kiwi::base::Unretained(this), true, false)
-          .Then(kiwi::base::BindRepeating(
-              &LoadingWidget::set_visible,
-              kiwi::base::Unretained(loading_widget_), false))
-          .Then(kiwi::base::BindRepeating(&Canvas::Clear,
-                                          kiwi::base::Unretained(canvas_))));
+  runtime_data_->UnloadROM(kiwi::base::BindOnce(&MainWindow::OnRomUnloaded,
+                                                kiwi::base::Unretained(this)));
+}
+
+void MainWindow::OnRomUnloaded(bool success) {
+  if (!success) {
+    SetLoading(false);
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                "Could not save battery-backed data before unloading ROM.");
+    StartAutoSave();
+    return;
+  }
+
+  SetTitle("Kiwi Machine");
+  current_game_title_.clear();
+  hd_texture_available_ = false;
+  hd_texture_enabled_ = false;
+  canvas_->SetHDTextureToggleAvailable(false);
+  canvas_->frame()->SetTextureRenderer(nullptr);
+  ShowMainMenu(true, false);
+  canvas_->Clear();
 }
 
 void MainWindow::OnSaveState(int which_state) {
@@ -2116,44 +2147,43 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
   SDL_assert(edition == preset_roms::ROMEdition::kOriginal ||
              rom.hd_edition_available);
   SetLoading(true);
-  SetHDTextureToggleState(false, false);
+  StopAutoSave();
 
   Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE, kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), edition),
       kiwi::base::BindOnce(
-          [](MainWindow* this_window,
-             scoped_refptr<kiwi::nes::Emulator> emulator,
-             preset_roms::PresetROM& rom, preset_roms::ROMEdition edition,
-             bool load_from_finger_gesture, LoadedPresetROM loaded_rom) {
+          [](MainWindow* this_window, preset_roms::PresetROM& rom,
+             preset_roms::ROMEdition edition, bool load_from_finger_gesture,
+             LoadedPresetROM loaded_rom) {
             const bool has_hd_renderer = loaded_rom.texture_renderer != nullptr;
             const bool hd_enabled =
                 has_hd_renderer && edition == preset_roms::ROMEdition::kHD;
-            this_window->current_game_title_ = GetROMLocalizedTitle(rom);
-            this_window->hd_texture_available_ =
+            auto pending_rom = std::make_unique<PendingROM>();
+            pending_rom->game_title = GetROMLocalizedTitle(rom);
+            pending_rom->window_title = GetROMEditionTitle(
+                rom, hd_enabled ? preset_roms::ROMEdition::kHD
+                                : preset_roms::ROMEdition::kOriginal);
+            pending_rom->load_from_finger_gesture = load_from_finger_gesture;
+            pending_rom->hd_texture_available =
                 has_hd_renderer && loaded_rom.hd_texture_toggle_available;
-            this_window->hd_texture_enabled_ = hd_enabled;
-            kiwi::nes::Emulator::LoadCallback callback = kiwi::base::BindOnce(
-                &MainWindow::OnRomLoaded, kiwi::base::Unretained(this_window),
-                GetROMEditionTitle(
-                    rom, hd_enabled ? preset_roms::ROMEdition::kHD
-                                    : preset_roms::ROMEdition::kOriginal),
-                load_from_finger_gesture);
+            pending_rom->hd_texture_enabled = hd_enabled;
             kiwi::nes::Emulator::LoadOptions load_options;
             if (has_hd_renderer) {
               load_options.capture_ppu_texture_metadata = hd_enabled;
               load_options.uses_chr_ram =
                   loaded_rom.texture_renderer->IsUseChrRam();
             }
-            this_window->canvas_->frame()->SetTextureRenderer(
-                std::move(loaded_rom.texture_renderer));
-            this_window->canvas_->frame()->SetHDTextureRenderingEnabled(
-                hd_enabled);
-            emulator->LoadAndRun(loaded_rom.rom_data, std::move(callback),
-                                 load_options);
+            pending_rom->texture_renderer =
+                std::move(loaded_rom.texture_renderer);
+            this_window->runtime_data_->LoadROM(
+                std::move(loaded_rom.rom_data),
+                kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                                     kiwi::base::Unretained(this_window),
+                                     std::move(pending_rom)),
+                load_options);
           },
-          kiwi::base::Unretained(this),
-          kiwi::base::RetainedRef(runtime_data_->emulator), std::ref(rom),
-          edition, load_from_finger_gesture));
+          kiwi::base::Unretained(this), std::ref(rom), edition,
+          load_from_finger_gesture));
 }
 
 void MainWindow::OnSetHDTextureRenderingEnabled(bool enabled) {
