@@ -254,6 +254,11 @@ void CPU::SetZN(Byte value) {
   registers_.P.N = (value & 0x80) ? 1 : 0;
 }
 
+void CPU::WriteRMW(Address address, Byte original, Byte result) {
+  cpu_bus_->Write(address, original);
+  cpu_bus_->Write(address, result);
+}
+
 bool CPU::Execute(Opcode opcode) {
   return ExecuteMove(opcode) || ExecuteArithmetic(opcode) ||
          ExecuteJumpFlags(opcode) || ExecuteBlock0(static_cast<Byte>(opcode)) ||
@@ -786,11 +791,12 @@ bool CPU::ExecuteBlock2(Byte opcode) {
           SetZN(registers_.A);
         } else {
           auto prev_C = registers_.P.C;
-          uint16_t operand = cpu_bus_->Read(location);
+          Byte operand = cpu_bus_->Read(location);
+          const Byte original = operand;
           registers_.P.C = (operand & 0x80) ? 1 : 0;
           operand = operand << 1 | (prev_C && (op == Operation2::ROL));
-          SetZN(static_cast<Byte>(operand));
-          cpu_bus_->Write(location, static_cast<Byte>(operand));
+          SetZN(operand);
+          WriteRMW(location, original, operand);
         }
         break;
       case Operation2::LSR:
@@ -809,11 +815,12 @@ bool CPU::ExecuteBlock2(Byte opcode) {
           SetZN(registers_.A);
         } else {
           auto prev_C = registers_.P.C;
-          uint16_t operand = cpu_bus_->Read(location);
+          Byte operand = cpu_bus_->Read(location);
+          const Byte original = operand;
           registers_.P.C = operand & 1;
           operand = operand >> 1 | (prev_C && (op == Operation2::ROR)) << 7;
-          SetZN(static_cast<Byte>(operand));
-          cpu_bus_->Write(location, static_cast<Byte>(operand));
+          SetZN(operand);
+          WriteRMW(location, original, operand);
         }
         break;
       case Operation2::STX:
@@ -827,15 +834,17 @@ bool CPU::ExecuteBlock2(Byte opcode) {
         break;
       case Operation2::DEC: {
         DCHECK_OPCODE_BY_NAME(opcode, DEC);
-        auto operand = cpu_bus_->Read(location) - 1;
-        SetZN(operand);
-        cpu_bus_->Write(location, operand);
+        const Byte original = cpu_bus_->Read(location);
+        const Byte result = original - 1;
+        SetZN(result);
+        WriteRMW(location, original, result);
       } break;
       case Operation2::INC: {
         DCHECK_OPCODE_BY_NAME(opcode, INC);
-        auto operand = cpu_bus_->Read(location) + 1;
-        SetZN(operand);
-        cpu_bus_->Write(location, operand);
+        const Byte original = cpu_bus_->Read(location);
+        const Byte result = original + 1;
+        SetZN(result);
+        WriteRMW(location, original, result);
       } break;
       default:
         return false;
@@ -985,15 +994,17 @@ bool CPU::ExecuteBlock3(Byte opcode) {
       case Operation3::SLO: {
         DCHECK_OPCODE_BY_NAME(opcode, SLO);
         Byte operand = cpu_bus_->Read(location);
+        const Byte original = operand;
         registers_.P.C = (operand & 0x80) ? 1 : 0;
         operand <<= 1;
         registers_.A |= operand;
         SetZN(registers_.A);
-        cpu_bus_->Write(location, operand);
+        WriteRMW(location, original, operand);
       } break;
       case Operation3::RLA: {
         DCHECK_OPCODE_BY_NAME(opcode, RLA);
         Byte operand = cpu_bus_->Read(location);
+        const Byte original = operand;
         if (registers_.P.C) {
           registers_.P.C = (operand & 0x80) ? 1 : 0;
           operand = (operand << 1) | 1;
@@ -1003,20 +1014,22 @@ bool CPU::ExecuteBlock3(Byte opcode) {
         }
         registers_.A &= operand;
         SetZN(registers_.A);
-        cpu_bus_->Write(location, operand);
+        WriteRMW(location, original, operand);
       } break;
       case Operation3::SRE: {
         DCHECK_OPCODE_BY_NAME(opcode, SRE);
         Byte operand = cpu_bus_->Read(location);
+        const Byte original = operand;
         registers_.P.C = (operand & 0x01) ? 1 : 0;
         operand >>= 1;
         registers_.A ^= operand;
         SetZN(registers_.A);
-        cpu_bus_->Write(location, operand);
+        WriteRMW(location, original, operand);
       } break;
       case Operation3::RRA: {
         DCHECK_OPCODE_BY_NAME(opcode, RRA);
         Byte operand = cpu_bus_->Read(location);
+        const Byte original = operand;
         if (registers_.P.C) {
           registers_.P.C = (operand & 0x01) ? 1 : 0;
           operand = (operand >> 1) | 0x80;
@@ -1024,7 +1037,7 @@ bool CPU::ExecuteBlock3(Byte opcode) {
           registers_.P.C = (operand & 0x01) ? 1 : 0;
           operand >>= 1;
         }
-        cpu_bus_->Write(location, operand);
+        WriteRMW(location, original, operand);
 
         // ADC
         uint16_t sum = registers_.A + operand + registers_.P.C;
@@ -1046,17 +1059,19 @@ bool CPU::ExecuteBlock3(Byte opcode) {
       } break;
       case Operation3::DCP: {
         DCHECK_OPCODE_BY_NAME(opcode, DCP);
-        Byte operand = cpu_bus_->Read(location) - 1;
+        const Byte original = cpu_bus_->Read(location);
+        const Byte operand = original - 1;
         uint16_t diff = registers_.A - operand;
         registers_.P.C = ((diff & 0x8000) == 0) ? 1 : 0;
         SetZN(static_cast<Byte>(diff));
-        cpu_bus_->Write(location, operand);
+        WriteRMW(location, original, operand);
       } break;
       case Operation3::ISC: {
         DCHECK_OPCODE_BY_NAME(opcode, ISC);
         // INC
-        Byte operand = cpu_bus_->Read(location) + 1;
-        cpu_bus_->Write(location, operand);
+        const Byte original = cpu_bus_->Read(location);
+        const Byte operand = original + 1;
+        WriteRMW(location, original, operand);
         // SBC
         uint16_t diff = registers_.A - operand - (1 - registers_.P.C);
         registers_.P.C = diff < 0x100;

@@ -104,8 +104,10 @@ bool DeserializeMapper(Mapper* mapper, const Bytes& state) {
 }
 
 void WriteMMC1Register(Mapper* mapper, Address address, Byte value) {
-  for (int bit = 0; bit < 5; ++bit)
+  for (int bit = 0; bit < 5; ++bit) {
     mapper->WritePRG(address, (value >> bit) & 1);
+    mapper->M2CycleIRQ();
+  }
 }
 
 void WriteMMC3Register(Mapper* mapper,

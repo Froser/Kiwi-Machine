@@ -7,7 +7,10 @@
 
 #include "nes/mappers/mapper_test_support.h"
 
+#include <algorithm>
 #include <array>
+
+#include "base/functional/bind.h"
 
 namespace kiwi {
 namespace nes {
@@ -17,6 +20,7 @@ namespace {
 constexpr size_t k4K = 0x1000;
 constexpr size_t k8K = 0x2000;
 constexpr size_t k16K = 0x4000;
+constexpr size_t kINESHeaderSize = 0x10;
 
 }  // namespace
 
@@ -130,6 +134,41 @@ TEST_F(Mapper001Test, ResetWriteRestoresLastFixedPRGMode) {
   mapper->WritePRG(0x8000, 0x80);
   EXPECT_EQ(mapper->ReadPRG(0x8000), TestPRGByte(4 * k16K));
   EXPECT_EQ(mapper->ReadPRG(0xc000), TestPRGByte(7 * k16K));
+}
+
+TEST_F(Mapper001Test, HandlesReadModifyWriteRegisterWrites) {
+  Bytes rom = MakeTestROM(1, 8, 1);
+  const size_t fixed_bank = kINESHeaderSize + 7 * k16K;
+  constexpr std::array<Byte, 20> kProgram = {
+      0xee, 0x23, 0xe1,  // INC $E123
+      0xa9, 0x00,        // LDA #$00
+      0x8d, 0x00, 0xe0,  // STA $E000
+      0x8d, 0x00, 0xe0,  // STA $E000
+      0x8d, 0x00, 0xe0,  // STA $E000
+      0x8d, 0x00, 0xe0,  // STA $E000
+      0x4c, 0x11, 0xc0,  // JMP $C011
+  };
+  std::copy(kProgram.begin(), kProgram.end(), rom.begin() + fixed_bank);
+  rom[fixed_bank + 0x2123] = 0x00;
+  rom[fixed_bank + 0x3ffa] = 0x11;
+  rom[fixed_bank + 0x3ffb] = 0xc0;
+  rom[fixed_bank + 0x3ffc] = 0x00;
+  rom[fixed_bank + 0x3ffd] = 0xc0;
+  rom[fixed_bank + 0x3ffe] = 0x11;
+  rom[fixed_bank + 0x3fff] = 0xc0;
+
+  bool loaded = false;
+  emulator_->LoadFromBinary(
+      rom, base::BindOnce([](bool* loaded, bool success) { *loaded = success; },
+                          &loaded));
+  ASSERT_TRUE(loaded);
+
+  for (int cycle = 0; cycle < 30; ++cycle)
+    emulator_->Step();
+
+  DebugPort debug_port(emulator_.get());
+  EXPECT_EQ(debug_port.GetCPUContext().registers.PC, 0xc011);
+  EXPECT_EQ(debug_port.CPUReadByte(0x8000), TestPRGByte(0));
 }
 
 TEST_F(Mapper001Test, PersistsRegistersAndCHRRAM) {
