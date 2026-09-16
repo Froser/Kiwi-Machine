@@ -33,6 +33,8 @@ class Mapper001 : public Mapper {
   Byte ReadCHR(Address address) override;
 
   NametableMirroring GetNametableMirroring() override;
+  bool NeedsM2CycleIRQ() const override;
+  void M2CycleIRQ() override;
 
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;
@@ -61,6 +63,7 @@ class Mapper001 : public Mapper {
   Byte chr_reg_0_ = 0;
   Byte chr_reg_1_ = 0;
   Byte prg_reg_ = 0;
+  bool wrote_prg_this_cycle_ = false;
   NametableMirroring mirroring_ = NametableMirroring::kHorizontal;
 };
 

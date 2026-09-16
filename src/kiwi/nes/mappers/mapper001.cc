@@ -38,6 +38,12 @@ void Mapper001::WritePRG(Address address, Byte value) {
   if (address < 0x8000)
     return;
 
+  // The MMC1 ignores the second write of a 6502 read-modify-write sequence.
+  // Reset writes are still honored for compatibility with existing software.
+  if (wrote_prg_this_cycle_ && !(value & 0x80))
+    return;
+  wrote_prg_this_cycle_ = true;
+
   // https://www.nesdev.org/wiki/MMC1
   // Writing a value with bit 7 set ($80 through $FF) to any address in
   // $8000-$FFFF clears the shift register to its initial state. To change a
@@ -136,6 +142,14 @@ Byte Mapper001::ReadCHR(Address address) {
 
 NametableMirroring Mapper001::GetNametableMirroring() {
   return mirroring_;
+}
+
+bool Mapper001::NeedsM2CycleIRQ() const {
+  return true;
+}
+
+void Mapper001::M2CycleIRQ() {
+  wrote_prg_this_cycle_ = false;
 }
 
 void Mapper001::WriteRegister(Address address, Byte value) {

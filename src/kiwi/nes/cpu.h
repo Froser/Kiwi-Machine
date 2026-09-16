@@ -88,6 +88,7 @@ class CPU : public EmulatorStates::SerializableState {
   // Set Z flag and N flag indicated by |value|. |opcode| just check whether ZN
   // flags should be set.
   ALWAYS_INLINE void SetZN(Byte value);
+  ALWAYS_INLINE void WriteRMW(Address address, Byte original, Byte result);
 
   // Run Opcode.
   // See http://www.oxyron.de/html/opcodes02.html,
