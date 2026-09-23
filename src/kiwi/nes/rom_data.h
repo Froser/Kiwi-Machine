@@ -48,7 +48,7 @@ class NES_EXPORT RomData {
   Bytes raw_headers;
   Bytes PRG;
   Bytes CHR;
-  Byte mapper;
+  MapperId mapper;
   Byte submapper;
   NametableMirroring name_table_mirroring;
   ConsoleType console_type;

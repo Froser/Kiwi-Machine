@@ -17,6 +17,7 @@
 
 #include "base/functional/callback.h"
 #include "nes/emulator_states.h"
+#include "nes/nes_buildflags.h"
 #include "nes/types.h"
 #include "third_party/nes_apu/Blip_Buffer.h"
 #include "third_party/nes_apu/Nes_Apu.h"
@@ -25,6 +26,7 @@ namespace kiwi {
 namespace nes {
 class EmulatorImpl;
 class CPUBus;
+class Mapper;
 
 class APU : public Device, public EmulatorStates::SerializableState {
  public:
@@ -52,6 +54,10 @@ class APU : public Device, public EmulatorStates::SerializableState {
 
   void Reset();
   void StepFrame();
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_085)
+  void SetMapper(Mapper* mapper);
+#endif
   void SetIRQCallback(IRQCallback irq_callback);
   void RunIRQCallback();
 
@@ -60,7 +66,6 @@ class APU : public Device, public EmulatorStates::SerializableState {
 
   void SetVolume(float volume);
   float GetVolume();
-
 
   // Device:
   Byte Read(Address address) override;
@@ -77,6 +82,10 @@ class APU : public Device, public EmulatorStates::SerializableState {
   Blip_Buffer buffer_;
   EmulatorImpl* emulator_ = nullptr;
   CPUBus* cpu_bus_ = nullptr;
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_085)
+  Mapper* mapper_ = nullptr;
+#endif
   IRQCallback irq_callback_;
   float volume_ = 1.f;
   blip_sample_t out_buffer_[kOutBufferConstantSize] = {0};

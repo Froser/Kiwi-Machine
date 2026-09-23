@@ -25,6 +25,7 @@
 #include "nes/cpu_bus.h"
 #include "nes/emulator.h"
 #include "nes/emulator_states.h"
+#include "nes/nes_buildflags.h"
 #include "nes/ppu.h"
 #include "nes/ppu_bus.h"
 #include "nes/registers.h"
@@ -551,6 +552,10 @@ bool EmulatorImpl::HandleLoadedResult(
   // Set mapper for buses.
   cpu_bus_->SetMapper(cartridge->mapper());
   ppu_bus_->SetMapper(cartridge->mapper());
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_085)
+  apu_->SetMapper(cartridge->mapper());
+#endif
   cartridge->mapper()->set_mirroring_changed_callback(base::BindRepeating(
       &PPUBus::UpdateMirroring, base::Unretained(ppu_bus_.get())));
   cartridge->mapper()->set_irq_callback(base::BindRepeating(
@@ -567,7 +572,9 @@ bool EmulatorImpl::HandleLoadedResult(
 }
 
 void EmulatorImpl::StepInternal() {
+#if !BUILDFLAG(ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX)
   apu_->increase_cycles();
+#endif
 
   // https://www.nesdev.org/wiki/Cycle_reference_chart
   // PPU
@@ -578,6 +585,12 @@ void EmulatorImpl::StepInternal() {
   ppu_->Step();
   if (debug_port_)
     debug_port_->performance_counter().PPUEnd();
+
+#if BUILDFLAG(ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX)
+  // PPU may end the audio frame above. Count the upcoming CPU cycle against
+  // the new frame so APU register timestamps never move backwards.
+  apu_->increase_cycles();
+#endif
 
   // CPU
   if (debug_port_)

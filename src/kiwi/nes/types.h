@@ -23,6 +23,7 @@ using Register = int32_t;
 using Bit = unsigned short;
 using Byte = uint8_t;
 using Word = uint16_t;
+using MapperId = uint16_t;
 using Bytes = std::vector<Byte>;
 using Address = Word;
 using Color = uint32_t;

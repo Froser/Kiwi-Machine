@@ -29,7 +29,7 @@ Byte TestCHRByte(size_t index) {
   return static_cast<Byte>((0x80 + (index >> 10) * 17 + (index & 0xff)) & 0xff);
 }
 
-Bytes MakeTestROM(Byte mapper,
+Bytes MakeTestROM(MapperId mapper,
                   Byte prg_banks,
                   Byte chr_banks,
                   Byte flags6,
@@ -46,9 +46,12 @@ Bytes MakeTestROM(Byte mapper,
   rom[3] = 0x1a;
   rom[4] = prg_banks;
   rom[5] = chr_banks;
+  const bool is_nes_20 = submapper != 0 || mapper > 0xff;
   rom[6] = static_cast<Byte>(((mapper & 0x0f) << 4) | (flags6 & 0x0f));
-  rom[7] = static_cast<Byte>((mapper & 0xf0) | (submapper ? 0x08 : 0));
-  rom[8] = submapper ? static_cast<Byte>(submapper << 4) : prg_ram_banks;
+  rom[7] = static_cast<Byte>((mapper & 0xf0) | (is_nes_20 ? 0x08 : 0));
+  rom[8] = is_nes_20
+               ? static_cast<Byte>((submapper << 4) | ((mapper >> 8) & 0x0f))
+               : prg_ram_banks;
   rom[10] = nes20_prg_ram_sizes;
 
   for (size_t i = 0; i < prg_size; ++i)
@@ -130,7 +133,7 @@ void MapperTest::TearDown() {
     emulator_->PowerOff();
 }
 
-scoped_refptr<Cartridge> MapperTest::LoadMapper(Byte mapper,
+scoped_refptr<Cartridge> MapperTest::LoadMapper(MapperId mapper,
                                                 Byte prg_banks,
                                                 Byte chr_banks,
                                                 Byte flags6,

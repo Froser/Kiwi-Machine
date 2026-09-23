@@ -16,6 +16,7 @@
 #include <array>
 
 #include "nes/emulator_states.h"
+#include "nes/nes_buildflags.h"
 #include "nes/types.h"
 
 namespace kiwi {
@@ -64,7 +65,8 @@ class PPUBus : public EmulatorStates::SerializableState {
   // Providing extra information for MMC5
   void SetCurrentPatternState(CurrentPatternType pattern_type,
                               bool is_8x16_sprite,
-                              int current_dot_in_scanline);
+                              int current_dot_in_scanline,
+                              Address nametable_address = 0x2000);
 
   // MMC5 will use its own x_fine and data address when rendering split region.
   Byte GetAdjustedXFine(Byte x_fine_in);
@@ -89,6 +91,16 @@ class PPUBus : public EmulatorStates::SerializableState {
 
   // For MMC5
   bool is_mmc5_ = false;
+#if BUILDFLAG(ENABLE_MAPPER_096)
+  bool needs_ppu_address_notifications_ = false;
+#endif
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_068) || \
+    BUILDFLAG(ENABLE_MAPPER_080) || BUILDFLAG(ENABLE_MAPPER_118) || \
+    BUILDFLAG(ENABLE_MAPPER_150) || BUILDFLAG(ENABLE_MAPPER_177) || \
+    BUILDFLAG(ENABLE_MAPPER_206)
+  bool uses_custom_ppu_memory_mapping_ = false;
+#endif
 };
 
 }  // namespace nes
