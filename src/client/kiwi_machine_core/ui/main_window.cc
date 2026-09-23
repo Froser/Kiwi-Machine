@@ -860,10 +860,15 @@ void MainWindow::HandleDisplayEvent(SDL_DisplayEvent* event) {
 }
 
 void MainWindow::HandleDropFileEvent(SDL_DropEvent* event) {
-  if (FLAGS_enable_debug) {
-    SDL_assert(event->file);
-    LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(event->file));
+#if defined(NDEBUG)
+  if (!FLAGS_enable_debug) {
+    SDL_free(event->file);
+    return;
   }
+#endif
+
+  SDL_assert(event->file);
+  LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(event->file));
   SDL_free(event->file);
 }
 
