@@ -45,9 +45,11 @@ SDL2SingleThreadTaskExecutorInterface::SDL2SingleThreadTaskExecutorInterface(
   DCHECK(type == MessagePumpType::DEFAULT || type == MessagePumpType::UI)
       << "MessagePumpType is useless here, but DEFAULT and UI is suggested.";
   if (type == MessagePumpType::DEFAULT || type == MessagePumpType::UI) {
-    int init_result = SDL_Init(SDL_INIT_EVERYTHING);
+    initialized_subsystems_ = SDL_INIT_EVERYTHING;
+    int init_result = SDL_Init(initialized_subsystems_);
     if (init_result < 0) {
-      init_result = SDL_Init(SDL_INIT_EVERYTHING & ~SDL_INIT_AUDIO);
+      initialized_subsystems_ &= ~SDL_INIT_AUDIO;
+      init_result = SDL_Init(initialized_subsystems_);
       LOG(WARNING) << "Failed to init everything. Remove audio and try again.";
       if (init_result < 0) {
         CHECK(false) << SDL_GetError();
@@ -70,6 +72,8 @@ SDL2SingleThreadTaskExecutorInterface::
   SingleThreadTaskRunner::SetCurrentDefault(nullptr);
   SequencedTaskRunner::SetCurrentDefault(nullptr);
   SDL_DestroyMutex(mutex_);
+  if (initialized_subsystems_)
+    SDL_QuitSubSystem(initialized_subsystems_);
 }
 
 bool SDL2SingleThreadTaskExecutorInterface::PostTask(base::OnceClosure task,
