@@ -16,6 +16,7 @@
 #include "nes/cpu_bus.h"
 #include "nes/emulator_impl.h"
 #include "nes/io_devices.h"
+#include "nes/mapper.h"
 #include "nes/registers.h"
 #include "third_party/nes_apu/apu_snapshot.h"
 
@@ -64,6 +65,11 @@ void APU::Reset() {
 void APU::StepFrame() {
   // APU runs at kNTSCFrequency. If frame rendered to fast, just return and do
   // nothing.
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_085)
+  if (mapper_)
+    mapper_->EndExpansionAudioFrame(cycles_);
+#endif
   apu_impl_.end_frame(cycles_);
   buffer_.end_frame(cycles_);
   cycles_ = 0;
@@ -78,6 +84,17 @@ void APU::StepFrame() {
   }
 }
 
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_085)
+void APU::SetMapper(Mapper* mapper) {
+  mapper_ = mapper;
+  if (mapper_) {
+    mapper_->SetExpansionAudioOutput(&buffer_);
+    mapper_->SetExpansionAudioVolume(volume_);
+  }
+}
+#endif
+
 void APU::SetIRQCallback(IRQCallback irq_callback) {
   irq_callback_ = irq_callback;
   apu_impl_.irq_notifier(IRQNotifier, this);
@@ -91,6 +108,11 @@ void APU::RunIRQCallback() {
 void APU::SetVolume(float volume) {
   volume_ = volume;
   apu_impl_.volume(volume);
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_085)
+  if (mapper_)
+    mapper_->SetExpansionAudioVolume(volume);
+#endif
 }
 
 float APU::GetVolume() {

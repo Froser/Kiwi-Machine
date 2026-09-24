@@ -14,6 +14,11 @@ project(kiwi CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
+unset(KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX CACHE)
+unset(KIWI_ENABLE_INES1_TV_SYSTEM_FIX CACHE)
+set(KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX ON)
+set(KIWI_ENABLE_INES1_TV_SYSTEM_FIX ON)
+
 add_subdirectory(third_party)
 
 # Make 'kiwi' as root.
@@ -180,6 +185,7 @@ set(nes_sources
         nes/io_devices.h
         nes/mapper.cc
         nes/mapper.h
+        nes/nes_buildflags.h
         nes/mappers/mapper000.cc
         nes/mappers/mapper000.h
         nes/mappers/mapper001.cc
@@ -216,6 +222,154 @@ set(nes_sources
         nes/mappers/mapper087.h
         nes/mappers/mapper185.cc
         nes/mappers/mapper185.h
+        nes/mappers/mapper013.cc
+        nes/mappers/mapper013.h
+        nes/mappers/mapper016.cc
+        nes/mappers/mapper016.h
+        nes/mappers/mapper018.cc
+        nes/mappers/mapper018.h
+        nes/mappers/mapper019.cc
+        nes/mappers/mapper019.h
+        nes/mappers/mapper023.cc
+        nes/mappers/mapper023.h
+        nes/mappers/mapper024.cc
+        nes/mappers/mapper024.h
+        nes/mappers/mapper032.cc
+        nes/mappers/mapper032.h
+        nes/mappers/mapper034.cc
+        nes/mappers/mapper034.h
+        nes/mappers/mapper037.cc
+        nes/mappers/mapper037.h
+        nes/mappers/mapper038.cc
+        nes/mappers/mapper038.h
+        nes/mappers/mapper041.cc
+        nes/mappers/mapper041.h
+        nes/mappers/mapper046.cc
+        nes/mappers/mapper046.h
+        nes/mappers/mapper047.cc
+        nes/mappers/mapper047.h
+        nes/mappers/mapper064.cc
+        nes/mappers/mapper064.h
+        nes/mappers/mapper065.cc
+        nes/mappers/mapper065.h
+        nes/mappers/mapper067.cc
+        nes/mappers/mapper067.h
+        nes/mappers/mapper068.cc
+        nes/mappers/mapper068.h
+        nes/mappers/mapper069.cc
+        nes/mappers/mapper069.h
+        nes/mappers/mapper070.cc
+        nes/mappers/mapper070.h
+        nes/mappers/mapper071.cc
+        nes/mappers/mapper071.h
+        nes/mappers/mapper072.cc
+        nes/mappers/mapper072.h
+        nes/mappers/mapper073.cc
+        nes/mappers/mapper073.h
+        nes/mappers/mapper077.cc
+        nes/mappers/mapper077.h
+        nes/mappers/mapper078.cc
+        nes/mappers/mapper078.h
+        nes/mappers/mapper079.cc
+        nes/mappers/mapper079.h
+        nes/mappers/mapper080.cc
+        nes/mappers/mapper080.h
+        nes/mappers/mapper085.cc
+        nes/mappers/mapper085.h
+        nes/mappers/mapper086.cc
+        nes/mappers/mapper086.h
+        nes/mappers/mapper089.cc
+        nes/mappers/mapper089.h
+        nes/mappers/mapper092.cc
+        nes/mappers/mapper092.h
+        nes/mappers/mapper093.cc
+        nes/mappers/mapper093.h
+        nes/mappers/mapper094.cc
+        nes/mappers/mapper094.h
+        nes/mappers/mapper096.cc
+        nes/mappers/mapper096.h
+        nes/mappers/mapper097.cc
+        nes/mappers/mapper097.h
+        nes/mappers/mapper104.cc
+        nes/mappers/mapper104.h
+        nes/mappers/mapper105.cc
+        nes/mappers/mapper105.h
+        nes/mappers/mapper112.cc
+        nes/mappers/mapper112.h
+        nes/mappers/mapper113.cc
+        nes/mappers/mapper113.h
+        nes/mappers/mapper115.cc
+        nes/mappers/mapper115.h
+        nes/mappers/mapper118.cc
+        nes/mappers/mapper118.h
+        nes/mappers/mapper119.cc
+        nes/mappers/mapper119.h
+        nes/mappers/mapper132.cc
+        nes/mappers/mapper132.h
+        nes/mappers/mapper133.cc
+        nes/mappers/mapper133.h
+        nes/mappers/mapper137.cc
+        nes/mappers/mapper137.h
+        nes/mappers/mapper139.cc
+        nes/mappers/mapper139.h
+        nes/mappers/mapper140.cc
+        nes/mappers/mapper140.h
+        nes/mappers/mapper141.cc
+        nes/mappers/mapper141.h
+        nes/mappers/mapper143.cc
+        nes/mappers/mapper143.h
+        nes/mappers/mapper147.cc
+        nes/mappers/mapper147.h
+        nes/mappers/mapper148.cc
+        nes/mappers/mapper148.h
+        nes/mappers/mapper150.cc
+        nes/mappers/mapper150.h
+        nes/mappers/mapper156.cc
+        nes/mappers/mapper156.h
+        nes/mappers/mapper168.cc
+        nes/mappers/mapper168.h
+        nes/mappers/mapper176.cc
+        nes/mappers/mapper176.h
+        nes/mappers/mapper177.cc
+        nes/mappers/mapper177.h
+        nes/mappers/mapper178.cc
+        nes/mappers/mapper178.h
+        nes/mappers/mapper180.cc
+        nes/mappers/mapper180.h
+        nes/mappers/mapper184.cc
+        nes/mappers/mapper184.h
+        nes/mappers/mapper186.cc
+        nes/mappers/mapper186.h
+        nes/mappers/mapper188.cc
+        nes/mappers/mapper188.h
+        nes/mappers/mapper189.cc
+        nes/mappers/mapper189.h
+        nes/mappers/mapper193.cc
+        nes/mappers/mapper193.h
+        nes/mappers/mapper206.cc
+        nes/mappers/mapper206.h
+        nes/mappers/mapper216.cc
+        nes/mappers/mapper216.h
+        nes/mappers/mapper228.cc
+        nes/mappers/mapper228.h
+        nes/mappers/mapper232.cc
+        nes/mappers/mapper232.h
+        nes/mappers/mapper234.cc
+        nes/mappers/mapper234.h
+        nes/mappers/mapper240.cc
+        nes/mappers/mapper240.h
+        nes/mappers/mapper241.cc
+        nes/mappers/mapper241.h
+        nes/mappers/mapper244.cc
+        nes/mappers/mapper244.h
+        nes/mappers/mapper245.cc
+        nes/mappers/mapper245.h
+        nes/mappers/mapper246.cc
+        nes/mappers/mapper246.h
+        nes/mappers/mapper355.cc
+        nes/mappers/mapper355.h
+        nes/mappers/mapper512.cc
+        nes/mappers/mapper512.h
         nes/opcodes.cc
         nes/opcodes.h
         nes/palette.cc
@@ -245,7 +399,11 @@ set(sources
 # Setup for static kiwi library
 set(STATIC_PROJECT_NAME ${PROJECT_NAME}_static)
 KIWI_ADD_LIBRARY(${STATIC_PROJECT_NAME} STATIC ${sources})
-target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC KIWI_STATIC_LIBRARY)
+target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC
+        KIWI_STATIC_LIBRARY
+        KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX=$<BOOL:${KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX}>
+        KIWI_ENABLE_INES1_TV_SYSTEM_FIX=$<BOOL:${KIWI_ENABLE_INES1_TV_SYSTEM_FIX}>
+)
 if (USE_SDL2)
     target_compile_definitions(${STATIC_PROJECT_NAME} PRIVATE USE_SDL2)
 endif ()
@@ -265,7 +423,11 @@ if (NOT EMSCRIPTEN)
     # Setup for dynamic library
     KIWI_ADD_LIBRARY(${PROJECT_NAME} SHARED ${sources})
 
-    target_compile_definitions(${PROJECT_NAME} PRIVATE KIWI_IMPL)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+            KIWI_IMPL
+            KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX=$<BOOL:${KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX}>
+            KIWI_ENABLE_INES1_TV_SYSTEM_FIX=$<BOOL:${KIWI_ENABLE_INES1_TV_SYSTEM_FIX}>
+    )
     if (USE_SDL2)
         target_compile_definitions(${PROJECT_NAME} PRIVATE USE_SDL2)
     endif ()

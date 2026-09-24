@@ -26,7 +26,7 @@ namespace testing {
 
 Byte TestPRGByte(size_t index);
 Byte TestCHRByte(size_t index);
-Bytes MakeTestROM(Byte mapper,
+Bytes MakeTestROM(MapperId mapper,
                   Byte prg_banks,
                   Byte chr_banks,
                   Byte flags6 = 0,
@@ -68,7 +68,7 @@ class MapperTest : public ::testing::Test {
   void SetUp() override;
   void TearDown() override;
 
-  scoped_refptr<Cartridge> LoadMapper(Byte mapper,
+  scoped_refptr<Cartridge> LoadMapper(MapperId mapper,
                                       Byte prg_banks,
                                       Byte chr_banks,
                                       Byte flags6 = 0,

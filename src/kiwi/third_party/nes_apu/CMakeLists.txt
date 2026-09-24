@@ -10,7 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-project(nes_apu CXX)
+project(nes_apu C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -32,8 +32,12 @@ set(Sources
         Nes_Oscs.h
         Nes_Vrc6.cpp
         Nes_Vrc6.h
+        Nes_Vrc7_Apu.cpp
+        Nes_Vrc7_Apu.h
         Nonlinear_Buffer.cpp
         Nonlinear_Buffer.h
+        emu2413/emu2413.c
+        emu2413/emu2413.h
 )
 
 add_library(${PROJECT_NAME} STATIC ${Sources})

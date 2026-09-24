@@ -19,9 +19,12 @@
 
 #include "base/functional/callback.h"
 #include "nes/emulator_states.h"
+#include "nes/nes_buildflags.h"
 #include "nes/nes_export.h"
 #include "nes/rom_data.h"
 #include "nes/types.h"
+
+class Blip_Buffer;
 
 namespace kiwi {
 namespace nes {
@@ -95,8 +98,8 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   // snapshot remain dirty.
   void AcknowledgePRGNVRAMSaved(uint64_t generation);
 
-  static std::unique_ptr<Mapper> Create(Cartridge* cartridge, Byte mapper);
-  static bool IsMapperSupported(Byte mapper);
+  static std::unique_ptr<Mapper> Create(Cartridge* cartridge, MapperId mapper);
+  static bool IsMapperSupported(MapperId mapper);
 
   // EmulatorStates::SerializableState:
   void Serialize(EmulatorStates::SerializableStateData& data) override;
@@ -122,6 +125,35 @@ class NES_EXPORT Mapper : public EmulatorStates::SerializableState {
   // Returns true when the mapper stores PRG-RAM outside the base
   // implementation.
   virtual bool UsesCustomPRGRAM() const;
+#if BUILDFLAG(ENABLE_MAPPER_096)
+  // Returns true when PPU pattern fetches must update mapper address latches.
+  virtual bool NeedsPPUAddressNotifications() const;
+#endif
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_068) || \
+    BUILDFLAG(ENABLE_MAPPER_077) || BUILDFLAG(ENABLE_MAPPER_080) || \
+    BUILDFLAG(ENABLE_MAPPER_118) || BUILDFLAG(ENABLE_MAPPER_137) || \
+    BUILDFLAG(ENABLE_MAPPER_139) || BUILDFLAG(ENABLE_MAPPER_141) || \
+    BUILDFLAG(ENABLE_MAPPER_150) || BUILDFLAG(ENABLE_MAPPER_177) || \
+    BUILDFLAG(ENABLE_MAPPER_206)
+  // Some boards route PPU pattern or nametable windows outside fixed mirroring.
+  virtual bool UsesCustomPPUMemoryMapping() const;
+  virtual Byte ReadPPUMemoryByte(Byte* ciram, Address address);
+  virtual void WritePPUMemoryByte(Byte* ciram, Address address, Byte value);
+#endif
+
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_085)
+  // Expansion audio is mixed into the APU's clock-domain output buffer.
+  virtual void SetExpansionAudioOutput(Blip_Buffer* output);
+  virtual void SetExpansionAudioVolume(float volume);
+  virtual void EndExpansionAudioFrame(int64_t cycles);
+#endif
+#if BUILDFLAG(ENABLE_MAPPER_168)
+  // Allows cartridge memory other than PRG-RAM to use the existing
+  // battery-save transport without exposing it in the CPU RAM window.
+  virtual size_t GetCustomNVRAMSize() const;
+#endif
 
  protected:
   void EnsurePRGRAM(size_t minimum_size);

@@ -26,6 +26,16 @@ void PPUBus::SetMapper(Mapper* mapper) {
 
   mapper_ = mapper;
   is_mmc5_ = mapper_->IsMMC5();
+#if BUILDFLAG(ENABLE_MAPPER_096)
+  needs_ppu_address_notifications_ = mapper_->NeedsPPUAddressNotifications();
+#endif
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_068) || \
+    BUILDFLAG(ENABLE_MAPPER_077) || BUILDFLAG(ENABLE_MAPPER_080) || \
+    BUILDFLAG(ENABLE_MAPPER_118) || BUILDFLAG(ENABLE_MAPPER_150) || \
+    BUILDFLAG(ENABLE_MAPPER_177) || BUILDFLAG(ENABLE_MAPPER_206)
+  uses_custom_ppu_memory_mapping_ = mapper_->UsesCustomPPUMemoryMapping();
+#endif
 
   UpdateMirroring();
   SetDefaultPalettes();
@@ -33,7 +43,15 @@ void PPUBus::SetMapper(Mapper* mapper) {
 
 void PPUBus::SetCurrentPatternState(CurrentPatternType pattern_type,
                                     bool is_8x16_sprite,
-                                    int current_dot_in_scanline) {
+                                    int current_dot_in_scanline,
+                                    Address nametable_address) {
+#if BUILDFLAG(ENABLE_MAPPER_096)
+  if (needs_ppu_address_notifications_) {
+    mapper_->PPUAddressChanged(pattern_type == CurrentPatternType::kSprite
+                                   ? 0x2000
+                                   : nametable_address);
+  }
+#endif
   if (is_mmc5_) {
     // MMC5 needs know whether is fetching background tile or sprite tile.
     // Uchuu Keibitai SDF (Japan) will fetch nametable and write bytes before
@@ -82,6 +100,18 @@ Byte PPUBus::Read(Address address) {
   // nametable address space from $2000-2FFF, but this can be rerouted through
   // custom cartridge wiring.
   if (address < 0x2000) {
+#if BUILDFLAG(ENABLE_MAPPER_096)
+    if (needs_ppu_address_notifications_)
+      mapper_->PPUAddressChanged(address);
+#endif
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_068) || \
+    BUILDFLAG(ENABLE_MAPPER_077) || BUILDFLAG(ENABLE_MAPPER_080) || \
+    BUILDFLAG(ENABLE_MAPPER_118) || BUILDFLAG(ENABLE_MAPPER_150) || \
+    BUILDFLAG(ENABLE_MAPPER_177) || BUILDFLAG(ENABLE_MAPPER_206)
+    if (uses_custom_ppu_memory_mapping_)
+      return mapper_->ReadPPUMemoryByte(ram_.data(), address);
+#endif
     return mapper_->ReadCHR(address);
   } else if (address < 0x3f00) {
     // Nametables up to $2FFF are mirrored from $3000 through $3EFF.
@@ -90,6 +120,15 @@ Byte PPUBus::Read(Address address) {
       normalized_address -= 0x1000;
     }
     const Address index = normalized_address & 0x3ff;
+
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_068) || \
+    BUILDFLAG(ENABLE_MAPPER_080) || BUILDFLAG(ENABLE_MAPPER_118) || \
+    BUILDFLAG(ENABLE_MAPPER_150) || BUILDFLAG(ENABLE_MAPPER_177) || \
+    BUILDFLAG(ENABLE_MAPPER_206)
+    if (uses_custom_ppu_memory_mapping_)
+      return mapper_->ReadPPUMemoryByte(ram_.data(), normalized_address);
+#endif
 
     if (nametable_[0] >= RAM_SIZE) {
       return mapper_->ReadCHR(normalized_address);
@@ -109,6 +148,20 @@ Byte PPUBus::Read(Address address) {
 
 void PPUBus::Write(Address address, Byte value) {
   if (address < 0x2000) {
+#if BUILDFLAG(ENABLE_MAPPER_096)
+    if (needs_ppu_address_notifications_)
+      mapper_->PPUAddressChanged(address);
+#endif
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_068) || \
+    BUILDFLAG(ENABLE_MAPPER_080) || BUILDFLAG(ENABLE_MAPPER_118) || \
+    BUILDFLAG(ENABLE_MAPPER_150) || BUILDFLAG(ENABLE_MAPPER_177) || \
+    BUILDFLAG(ENABLE_MAPPER_206)
+    if (uses_custom_ppu_memory_mapping_) {
+      mapper_->WritePPUMemoryByte(ram_.data(), address, value);
+      return;
+    }
+#endif
     mapper_->WriteCHR(address, value);
   } else if (address < 0x3f00) {
     // Nametables up to $2FFF are mirrored from $3000 through $3EFF.
@@ -118,7 +171,16 @@ void PPUBus::Write(Address address, Byte value) {
     }
     const Address index = normalized_address & 0x03ff;
 
-    if (nametable_[0] >= RAM_SIZE)
+#if BUILDFLAG(ENABLE_MAPPER_019) || BUILDFLAG(ENABLE_MAPPER_024) || \
+    BUILDFLAG(ENABLE_MAPPER_026) || BUILDFLAG(ENABLE_MAPPER_068) || \
+    BUILDFLAG(ENABLE_MAPPER_077) || BUILDFLAG(ENABLE_MAPPER_080) || \
+    BUILDFLAG(ENABLE_MAPPER_150) || BUILDFLAG(ENABLE_MAPPER_177) || \
+    BUILDFLAG(ENABLE_MAPPER_206)
+    if (uses_custom_ppu_memory_mapping_) {
+      mapper_->WritePPUMemoryByte(ram_.data(), normalized_address, value);
+    } else
+#endif
+        if (nametable_[0] >= RAM_SIZE)
       mapper_->WriteCHR(normalized_address, value);
     else if (is_mmc5_)
       mapper_->WriteNametableByte(ram_.data(), normalized_address, value);

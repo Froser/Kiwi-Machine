@@ -197,7 +197,8 @@ void PPU::Step() {
             // Fetch tile (nametable byte).
             ppu_bus_->SetCurrentPatternState(
                 PPUBus::CurrentPatternType::kBackground,
-                registers_.PPUCTRL.H && is_render_enabled(), x);
+                registers_.PPUCTRL.H && is_render_enabled(), x,
+                static_cast<Address>(0x2000 | (data_address_ & 0x0fff)));
             const Address data_address =
                 ppu_bus_->GetAdjustedDataAddress(data_address_);
             Address pixel_address = 0x2000 | (data_address & 0x0fff);
