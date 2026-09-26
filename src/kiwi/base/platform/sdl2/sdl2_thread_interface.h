@@ -19,8 +19,8 @@
 
 #include "base/platform/platform_factory.h"
 #include "base/platform/sdl2/sdl2_single_thread_task_runner.h"
-#include "third_party/SDL2/include/SDL_mutex.h"
-#include "third_party/SDL2/include/SDL_thread.h"
+#include <SDL_mutex.h>
+#include <SDL_thread.h>
 
 namespace kiwi::base {
 namespace platform {

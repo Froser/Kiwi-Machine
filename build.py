@@ -4,9 +4,15 @@ import os
 import sys
 import subprocess
 import platform
+import shlex
+import shutil
 
 # Project root directory
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+SWITCH_DOCKER_IMAGE = os.environ.get(
+    "KIWI_SWITCH_DOCKER_IMAGE", "devkitpro/devkita64:20260219")
+SWITCH_ENVIRONMENT_CHECK = os.path.join(
+    PROJECT_ROOT, "build", "cmake", "switch_environment.cmake")
 
 
 def run_command(cmd, cwd=None):
@@ -17,6 +23,16 @@ def run_command(cmd, cwd=None):
     if result.returncode != 0:
         print(f"Error running command: {cmd}")
         print(f"Stderr: {result.stderr}")
+        return False
+    return True
+
+
+def run_command_args(args, cwd=None, env=None):
+    """Run a command without shell interpolation."""
+    print(f"Running: {shlex.join(args)}")
+    result = subprocess.run(args, cwd=cwd, env=env)
+    if result.returncode != 0:
+        print(f"Error running command: {shlex.join(args)}")
         return False
     return True
 
@@ -387,6 +403,146 @@ def build_wasm():
         print("\nSome WebAssembly builds failed!")
         return False
 
+
+def get_switch_package_dir():
+    """Return the directory containing PAK resources embedded in the NRO."""
+    package_dir = os.environ.get("KIWI_PACKAGE_DIR")
+    if not package_dir:
+        package_dir = os.path.join(
+            PROJECT_ROOT, "src", "third_party", "Kiwi-Machine-Workspace", "out")
+    package_dir = os.path.realpath(package_dir)
+    if not os.path.isdir(package_dir):
+        return None
+    if not os.path.isfile(os.path.join(package_dir, "main.pak")):
+        return None
+    return package_dir
+
+
+def report_missing_switch_packages():
+    """Report how to provide the mandatory Switch PAK resources."""
+    configured_dir = os.environ.get(
+        "KIWI_PACKAGE_DIR",
+        os.path.join(
+            PROJECT_ROOT, "src", "third_party",
+            "Kiwi-Machine-Workspace", "out"))
+    return report_switch_environment_error(
+        "Switch PAK resources were not found. Expected "
+        f"{os.path.join(configured_dir, 'main.pak')}. Run the desktop "
+        "auto_package target first or set KIWI_PACKAGE_DIR.")
+
+
+def report_switch_environment_error(reason):
+    """Print the shared Switch setup guide through CMake."""
+    cmake = shutil.which("cmake")
+    if not cmake:
+        print(reason)
+        print("CMake is required to display the Switch setup guide.")
+        return False
+    args = [
+        cmake,
+        f"-DKIWI_SWITCH_FAILURE_REASON={reason}",
+        "-P", SWITCH_ENVIRONMENT_CHECK,
+    ]
+    print(f"Running: {shlex.join(args)}", flush=True)
+    subprocess.run(args)
+    return False
+
+
+def build_switch_native(build_project=False):
+    """Configure or build Switch homebrew with an installed devkitPro."""
+    devkitpro = os.environ.get("DEVKITPRO", "/opt/devkitpro")
+    toolchain = os.path.join(devkitpro, "cmake", "Switch.cmake")
+    if not os.path.isfile(toolchain):
+        return report_switch_environment_error(
+            f"Switch CMake toolchain not found: {toolchain}")
+
+    build_dir = os.path.join(PROJECT_ROOT, "cmake-build-switch")
+    os.makedirs(build_dir, exist_ok=True)
+
+    package_dir = get_switch_package_dir()
+    if not package_dir:
+        return report_missing_switch_packages()
+
+    configure_args = [
+        "cmake",
+        "-S", PROJECT_ROOT,
+        "-B", build_dir,
+        "-G", "Ninja",
+        f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
+        "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+        "-DKIWI_SWITCH=ON",
+        f"-DKIWI_PACKAGE_DIR={package_dir}",
+    ]
+    if not run_command_args(configure_args):
+        return False
+
+    if not build_project:
+        return True
+
+    return run_command_args([
+        "cmake", "--build", build_dir, "--target", "kiwi_machine_nro"
+    ])
+
+
+def build_switch(build_project=False, force_native=False):
+    """Build Switch homebrew natively or in the pinned devkitPro container."""
+    use_native = force_native or os.environ.get(
+        "KIWI_SWITCH_USE_NATIVE") == "1"
+    if use_native:
+        return build_switch_native(build_project)
+
+    package_dir = get_switch_package_dir()
+    if not package_dir:
+        return report_missing_switch_packages()
+
+    docker = shutil.which("docker")
+    if not docker:
+        return report_switch_environment_error(
+            "Docker is required for the portable Switch build.")
+
+    docker_info = subprocess.run(
+        [docker, "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if docker_info.returncode != 0:
+        return report_switch_environment_error(
+            "Docker is installed, but its daemon is not running.")
+
+    if os.environ.get("KIWI_SWITCH_SKIP_PULL") != "1":
+        if not run_command_args([docker, "pull", SWITCH_DOCKER_IMAGE]):
+            return False
+
+    docker_args = [
+        docker, "run", "--rm",
+        "--volume", f"{PROJECT_ROOT}:/workspace",
+        "--workdir", "/workspace",
+        "--env", "KIWI_SWITCH_USE_NATIVE=1",
+    ]
+    if platform.system() == "Linux":
+        docker_args.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
+
+    try:
+        relative_package_dir = os.path.relpath(package_dir, PROJECT_ROOT)
+        package_is_in_project = not relative_package_dir.startswith("..")
+    except ValueError:
+        package_is_in_project = False
+    if package_is_in_project:
+        container_package_dir = os.path.join(
+            "/workspace", relative_package_dir).replace("\\", "/")
+    else:
+        container_package_dir = "/kiwi-packages"
+        docker_args.extend(
+            ["--volume", f"{package_dir}:{container_package_dir}:ro"])
+    docker_args.extend(
+        ["--env", f"KIWI_PACKAGE_DIR={container_package_dir}"])
+
+    docker_args.extend([
+        SWITCH_DOCKER_IMAGE,
+        "python3", "build.py", "switch", "--switch-native",
+    ])
+    if build_project:
+        docker_args.append("--build")
+    return run_command_args(docker_args)
+
+
 def sync_workspace():
     """Sync workspace dependencies"""
     print("\n=== Syncing workspace dependencies ===")
@@ -403,6 +559,7 @@ def print_help():
     print("  pc          Build PC platform projects (Debug and Release)")
     print("  ios         Build iOS platform projects (Debug and Release)")
     print("  wasm        Build WebAssembly platform projects (Debug and Release)")
+    print("  switch      Configure or build the Nintendo Switch NRO")
     print("  workspace   Sync workspace dependencies")
     print("  all         Build all platforms and sync dependencies")
     print("  help        Print this help message")
@@ -673,7 +830,10 @@ def main():
     
     # Check for --build flag
     build_mode = "--build" in sys.argv
-    
+
+    # Internal flag used when the portable Switch build enters its container.
+    switch_native_mode = "--switch-native" in sys.argv
+
     # Remove flags from arguments if present
     if clion_mode:
         sys.argv.remove("--clion")
@@ -683,6 +843,8 @@ def main():
         sys.argv.remove("--cleanup")
     if build_mode:
         sys.argv.remove("--build")
+    if switch_native_mode:
+        sys.argv.remove("--switch-native")
     
     # Handle cleanup modes
     if cleanup_clion_mode:
@@ -737,6 +899,13 @@ def main():
                 else:
                     if not build_wasm():
                         overall_success = False
+            elif arg == "switch":
+                if clion_mode:
+                    print("Switch CLion configuration requires a native "
+                          "devkitPro installation")
+                    overall_success = False
+                elif not build_switch(build_mode, switch_native_mode):
+                    overall_success = False
             elif arg == "workspace":
                 if not sync_workspace():
                     overall_success = False

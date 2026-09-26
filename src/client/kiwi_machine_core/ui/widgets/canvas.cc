@@ -233,7 +233,7 @@ void Canvas::PaintHDTextureToggleHint() {
                   : string_resources::IDR_HD_TEXTURE_TOGGLE_KEYBOARD_HINT;
 #endif
   const std::string& text = GetLocalizedString(string_id);
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k2x;
 #else
   constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k1x;

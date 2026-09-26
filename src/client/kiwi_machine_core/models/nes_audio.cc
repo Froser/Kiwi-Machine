@@ -12,15 +12,24 @@
 
 #include "models/nes_audio.h"
 
+#if KIWI_SWITCH
+#include <SDL_mixer.h>
+#endif
 #include <kiwi_nes.h>
 
+#include <algorithm>
 #include <mutex>
 
 NESAudio::NESAudio(NESRuntimeID runtime_id) : runtime_id_(runtime_id) {}
 
 NESAudio::~NESAudio() {
+#if KIWI_SWITCH
+  if (post_mix_registered_)
+    Mix_SetPostMix(nullptr, nullptr);
+#else
   if (audio_device_id_)
     SDL_CloseAudioDevice(audio_device_id_);
+#endif
 }
 
 void NESAudio::Reset() {
@@ -34,32 +43,71 @@ void NESAudio::Initialize() {
 
   ResetBuffer();
 
-  if (SDL_WasInit(SDL_INIT_AUDIO)) {
-    SDL_AudioSpec as;
-    as.freq = kiwi::nes::IODevices::AudioDevice::kFrequency;
-    as.format = AUDIO_S16SYS;
-    as.channels = 1;
-    as.silence = 0;
-    as.callback = &NESAudio::ReadAudioBuffer;
-    as.samples = kBufferSize;
-    as.userdata = this;
-
-    audio_device_id_ = SDL_OpenAudioDevice(nullptr, 0, &as, &audio_spec_, 0);
-    SDL_PauseAudioDevice(audio_device_id_, true);
-    if (!audio_device_id_) {
-      SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Error in open audio device: %s",
-                   SDL_GetError());
-    }
+  if (!SDL_WasInit(SDL_INIT_AUDIO)) {
+    SDL_LogError(SDL_LOG_CATEGORY_AUDIO,
+                 "Cannot open NES audio: SDL audio is not initialized");
+    return;
   }
+
+#if KIWI_SWITCH
+  int frequency = 0;
+  Uint16 format = 0;
+  int channels = 0;
+  if (!Mix_QuerySpec(&frequency, &format, &channels)) {
+    SDL_LogError(SDL_LOG_CATEGORY_AUDIO,
+                 "Cannot mix NES audio: SDL_mixer is not initialized");
+    return;
+  }
+  if (frequency != kiwi::nes::IODevices::AudioDevice::kFrequency ||
+      format != AUDIO_S16SYS || channels != 2) {
+    SDL_LogError(SDL_LOG_CATEGORY_AUDIO,
+                 "Unsupported Switch mixer format: %d Hz, 0x%x, %d channels",
+                 frequency, format, channels);
+    return;
+  }
+
+  audio_spec_ = {};
+  audio_spec_.freq = frequency;
+  audio_spec_.format = format;
+  audio_spec_.channels = channels;
+  post_mix_registered_ = true;
+  Mix_SetPostMix(&NESAudio::MixAudioBuffer, this);
+#else
+  SDL_AudioSpec desired = {};
+  desired.freq = kiwi::nes::IODevices::AudioDevice::kFrequency;
+  desired.format = AUDIO_S16SYS;
+  desired.channels = 1;
+  desired.callback = &NESAudio::ReadAudioBuffer;
+  desired.samples = kBufferSize;
+  desired.userdata = this;
+
+  audio_device_id_ = SDL_OpenAudioDevice(nullptr, 0, &desired, &audio_spec_, 0);
+  if (!audio_device_id_) {
+    SDL_LogError(SDL_LOG_CATEGORY_AUDIO, "Error opening NES audio device: %s",
+                 SDL_GetError());
+    return;
+  }
+
+  SDL_PauseAudioDevice(audio_device_id_, true);
+#endif
 }
 
 void NESAudio::Start() {
+#if !KIWI_SWITCH
   if (audio_device_id_)
     SDL_PauseAudioDevice(audio_device_id_, false);
+#endif
 }
 
 void NESAudio::ResetBuffer() {
-  SDL_LockAudioDevice(audio_device_id_);
+#if KIWI_SWITCH
+  const bool restore_post_mix = post_mix_registered_;
+  if (restore_post_mix)
+    Mix_SetPostMix(nullptr, nullptr);
+#else
+  if (audio_device_id_)
+    SDL_LockAudioDevice(audio_device_id_);
+#endif
 
   // Clear all buffers
   for (auto& buf : buffers_) {
@@ -67,13 +115,20 @@ void NESAudio::ResetBuffer() {
   }
   temp_buffer_.fill(0);
   temp_pos_ = 0;
+  read_pos_ = 0;
 
   // Reset atomic counters
   write_buf_.store(0, std::memory_order_relaxed);
   read_buf_.store(0, std::memory_order_relaxed);
   filled_count_.store(0, std::memory_order_relaxed);
 
-  SDL_UnlockAudioDevice(audio_device_id_);
+#if KIWI_SWITCH
+  if (restore_post_mix)
+    Mix_SetPostMix(&NESAudio::MixAudioBuffer, this);
+#else
+  if (audio_device_id_)
+    SDL_UnlockAudioDevice(audio_device_id_);
+#endif
 }
 
 void NESAudio::ReadAudioBuffer(void* userdata, Uint8* stream, int len) {
@@ -83,40 +138,88 @@ void NESAudio::ReadAudioBuffer(void* userdata, Uint8* stream, int len) {
 }
 
 void NESAudio::ReadAudioBuffer(Uint8* stream, int count) {
-  // Check if there are any filled buffers available
-  size_t current_filled = filled_count_.load(std::memory_order_acquire);
-  if (current_filled > 0) {
+  if (!SDL_AUDIO_ISLITTLEENDIAN(audio_spec_.format)) {
+    static std::once_flag flag;
+    std::call_once(flag, []() {
+      SDL_LogWarn(SDL_LOG_CATEGORY_AUDIO, "Big endian is not supported yet.");
+    });
+    memset(stream, 0, count);
+    return;
+  }
+
+  SDL_assert(count % sizeof(kiwi::nes::Sample) == 0);
+  const size_t sample_count = count / sizeof(kiwi::nes::Sample);
+  auto* output = reinterpret_cast<kiwi::nes::Sample*>(stream);
+  const size_t samples_read = ReadSamples(output, sample_count);
+  std::fill(output + samples_read, output + sample_count, 0);
+}
+
+#if KIWI_SWITCH
+void NESAudio::MixAudioBuffer(void* userdata, Uint8* stream, int len) {
+  SDL_assert(userdata);
+  NESAudio* audio = reinterpret_cast<NESAudio*>(userdata);
+  audio->MixAudioBuffer(stream, len);
+}
+
+void NESAudio::MixAudioBuffer(Uint8* stream, int count) {
+  constexpr size_t kMixerChannels = 2;
+  constexpr size_t kMixerFrameSize = sizeof(kiwi::nes::Sample) * kMixerChannels;
+  SDL_assert(count % kMixerFrameSize == 0);
+
+  size_t frames_remaining = count / kMixerFrameSize;
+  while (frames_remaining > 0) {
+    const size_t frames_to_mix =
+        std::min(frames_remaining, static_cast<size_t>(kBufferSize));
+    const size_t frames_read =
+        ReadSamples(mixer_mono_buffer_.data(), frames_to_mix);
+    for (size_t i = 0; i < frames_read; ++i) {
+      mixer_stereo_buffer_[i * 2] = mixer_mono_buffer_[i];
+      mixer_stereo_buffer_[i * 2 + 1] = mixer_mono_buffer_[i];
+    }
+
+    const size_t bytes_to_mix = frames_read * kMixerFrameSize;
+    SDL_MixAudioFormat(stream,
+                       reinterpret_cast<Uint8*>(mixer_stereo_buffer_.data()),
+                       audio_spec_.format, bytes_to_mix, SDL_MIX_MAXVOLUME);
+    stream += frames_to_mix * kMixerFrameSize;
+    frames_remaining -= frames_to_mix;
+  }
+}
+#endif
+
+size_t NESAudio::ReadSamples(kiwi::nes::Sample* output, size_t count) {
+  size_t samples_read = 0;
+  while (samples_read < count) {
+    const size_t current_filled = filled_count_.load(std::memory_order_acquire);
+    if (current_filled == 0)
+      break;
+
     size_t current_read = read_buf_.load(std::memory_order_relaxed);
+    const size_t samples_to_copy =
+        std::min(count - samples_read, kBufferSize - read_pos_);
+    memcpy(output + samples_read, buffers_[current_read].data() + read_pos_,
+           samples_to_copy * sizeof(kiwi::nes::Sample));
+    samples_read += samples_to_copy;
+    read_pos_ += samples_to_copy;
 
-    // TODO MSB is not supported yet.
-    if (SDL_AUDIO_ISLITTLEENDIAN(audio_spec_.format)) {
-      memcpy(stream, buffers_[current_read].data(), count);
-
-      // Update read index
-      read_buf_.store((current_read + 1) % kBufferCount,
-                      std::memory_order_release);
-
-      // Decrement filled count
-      filled_count_.fetch_sub(1, std::memory_order_release);
-    } else {
-      static std::once_flag flag;
-      std::call_once(flag, [this]() {
-        SDL_LogWarn(SDL_LOG_CATEGORY_AUDIO, "Big endian is not supported yet.");
-      });
-      // Even if big endian is not supported, update counters to avoid deadlock
+    if (read_pos_ == kBufferSize) {
+      read_pos_ = 0;
       read_buf_.store((current_read + 1) % kBufferCount,
                       std::memory_order_release);
       filled_count_.fetch_sub(1, std::memory_order_release);
     }
-  } else {
-    // No data available, play silence
-    memset(stream, 0, count);
   }
+  return samples_read;
 }
 
 void NESAudio::Write(kiwi::nes::Sample* samples, size_t count) {
+#if KIWI_SWITCH
+  if (!post_mix_registered_)
+    return;
+#else
   if (!audio_device_id_)
     return;
+#endif
 
   const kiwi::nes::Sample* in = samples;
   while (count > 0) {

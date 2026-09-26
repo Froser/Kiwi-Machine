@@ -77,6 +77,7 @@ Consistent programming style means that the Kiwi kernel uses asynchronous progra
 - Linux
 - Android (phone, TV)
 - iOS
+- Nintendo Switch (Homebrew, experimental)
 
 > ROM resources are maintained separately from the source tree. Use the
 > `auto_package` target described below to generate and stage them, or configure
@@ -131,6 +132,7 @@ python3 build.py
 python3 build.py pc        # Configure desktop Debug and Release
 python3 build.py ios       # Configure iOS Simulator Debug and Release (macOS only)
 python3 build.py wasm      # Configure and build WebAssembly Debug and Release
+python3 build.py switch --build # Build a Switch NRO using Docker
 python3 build.py workspace # Sync workspace dependencies
 python3 build.py all       # Run the same workflow as the no-argument command
 python3 build.py help      # Print help information
@@ -145,6 +147,51 @@ python3 build.py pc --clion        # Generate CLion config for PC platform
 python3 build.py ios --clion       # Generate CLion config for iOS platform
 python3 build.py wasm --clion      # Generate CLion config for WebAssembly platform
 python3 build.py all --clion       # Generate CLion config for all platforms
+```
+
+### Nintendo Switch Homebrew
+
+Run the setup script before the first Switch build:
+
+```bash
+python3 build/setup_switch.py
+```
+
+The script detects the host platform, prepares a Docker-compatible runtime,
+pulls `devkitpro/devkita64:20260219`, and verifies devkitA64, libnx,
+`elf2nro`, `nacptool`, SDL2, SDL2_image, and SDL2_mixer. On macOS it installs
+Docker CLI and Colima through Homebrew. Linux package managers and Windows
+`winget` are also supported.
+
+```bash
+# Validate without installing or pulling
+python3 build/setup_switch.py --check-only
+
+# Setup and build the NRO
+python3 build/setup_switch.py --build
+```
+
+After setup, the normal build command remains available:
+
+```bash
+python3 build.py switch --build
+```
+
+The output is staged under
+`cmake-build-switch/dist/switch/KiwiMachine/`. Keep `KiwiMachine.elf` on the
+development machine for crash symbolization; copy `KiwiMachine.nro` to the SD
+card. The build requires
+`src/third_party/Kiwi-Machine-Workspace/out/main.pak` and embeds all PAK files
+under that directory into the NRO's RomFS. An alternative resource directory
+can be selected with `KIWI_PACKAGE_DIR`.
+
+Place the self-contained NRO at
+`/switch/KiwiMachine/KiwiMachine.nro` on the SD card. For network deployment,
+enable NetLoader in Homebrew Menu and run:
+
+```bash
+nxlink -a <switch-ip> \
+  cmake-build-switch/dist/switch/KiwiMachine/KiwiMachine.nro
 ```
 
 ### Build Flag

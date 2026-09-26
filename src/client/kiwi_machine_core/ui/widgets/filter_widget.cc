@@ -45,7 +45,7 @@ constexpr ImU32 kButtonBrandColor = IM_COL32(148, 216, 45, 255);
 constexpr ImU32 kButtonBrandOnColor = IM_COL32(43, 63, 14, 255);
 constexpr float kButtonCornerRadius = 8.f;
 
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
 constexpr PreferredFontSize kSearchPrimaryFontSize = PreferredFontSize::k3x;
 constexpr PreferredFontSize kSearchActionFontSize = PreferredFontSize::k3x;
 #else
@@ -347,12 +347,23 @@ bool FilterWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
     case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
       MoveControllerSelection(0, 1);
       break;
+#if KIWI_SWITCH
+    // Keep the search overlay consistent with the game list: physical A
+    // confirms and physical B closes it. Switch SDL reports those as B/A.
+    case SDL_CONTROLLER_BUTTON_B:
+      ActivateControllerKey();
+      break;
+    case SDL_CONTROLLER_BUTTON_A:
+      EndFilter();
+      break;
+#else
     case SDL_CONTROLLER_BUTTON_A:
       ActivateControllerKey();
       break;
     case SDL_CONTROLLER_BUTTON_B:
       QueueControllerEdit(ControllerEditType::kBackspace);
       break;
+#endif
     case SDL_CONTROLLER_BUTTON_X:
       QueueControllerEdit(ControllerEditType::kClear);
       break;

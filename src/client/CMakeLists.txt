@@ -12,6 +12,6 @@
 
 add_subdirectory(kiwi_machine_core)
 add_subdirectory(kiwi_machine)
-if (NOT EMSCRIPTEN)
+if (NOT EMSCRIPTEN AND NOT KIWI_SWITCH)
     add_subdirectory(tools)
 endif()

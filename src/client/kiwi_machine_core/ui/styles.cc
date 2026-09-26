@@ -22,6 +22,8 @@ namespace flex_items_widget {
 int GetItemHeightHint() {
 #if KIWI_ANDROID
   return 480;
+#elif KIWI_SWITCH
+  return 360;
 #else
   return 160;
 #endif
@@ -36,7 +38,7 @@ int GetItemHighlightedSize() {
 }
 
 PreferredFontSize GetDetailFontSize() {
-#if KIWI_ANDROID
+#if KIWI_ANDROID || KIWI_SWITCH
   return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k1x;
@@ -44,7 +46,7 @@ PreferredFontSize GetDetailFontSize() {
 }
 
 PreferredFontSize GetDetailMetaFontSize() {
-#if KIWI_ANDROID
+#if KIWI_ANDROID || KIWI_SWITCH
   return PreferredFontSize::k2x;
 #else
   return PreferredFontSize::k1x;
@@ -75,6 +77,8 @@ PreferredFontSize GetPreferredFontSize(float window_scale) {
 #if KIWI_IOS
   return PreferredFontSize::k1x;
 #elif KIWI_ANDROID
+  return PreferredFontSize::k3x;
+#elif KIWI_SWITCH
   return PreferredFontSize::k3x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
@@ -149,6 +153,8 @@ namespace side_menu {
 int GetItemHeight() {
 #if KIWI_ANDROID
   return 80;
+#elif KIWI_SWITCH
+  return 34;
 #else
   return 20;
 #endif
@@ -169,7 +175,7 @@ int GetMarginBottom() {
 }
 
 PreferredFontSize GetPreferredFontSize() {
-#if KIWI_ANDROID
+#if KIWI_ANDROID || KIWI_SWITCH
   return PreferredFontSize::k2x;
 #else
   return PreferredFontSize::k1x;
@@ -191,7 +197,7 @@ int GetMarginX(float window_scale) {
 }
 
 PreferredFontSize PreferredTitleFontSize(float window_scale) {
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   return PreferredFontSize::k4x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
@@ -199,7 +205,7 @@ PreferredFontSize PreferredTitleFontSize(float window_scale) {
 }
 
 PreferredFontSize PreferredContentFontSize() {
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k1x;
@@ -220,7 +226,7 @@ SDL_Point GetTopLeft() {
 }
 
 PreferredFontSize GetFontSize() {
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k2x;

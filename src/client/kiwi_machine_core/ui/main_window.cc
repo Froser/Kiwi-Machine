@@ -708,9 +708,7 @@ bool MainWindow::IsKeyDown(int controller_id,
     SDL_GameController* game_controller =
         reinterpret_cast<SDL_GameController*>(joystick_mapping.which);
 
-    // Unknown type may have wrong axis behaviour.
-    if (SDL_GameControllerGetType(game_controller) ==
-        SDL_CONTROLLER_TYPE_UNKNOWN)
+    if (!IsGameControllerInputSupported(game_controller))
       return false;
 
     matched = SDL_GameControllerGetButton(
@@ -720,7 +718,8 @@ bool MainWindow::IsKeyDown(int controller_id,
                 .mapping.mapping[static_cast<int>(physical_button)]));
 
     if (!matched) {
-      // Not matched, try axis motion.
+      // X and Y are evaluated independently for each requested NES direction,
+      // so diagonal stick positions hold one horizontal and one vertical key.
       constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
       switch (physical_button) {
         case kiwi::nes::ControllerButton::kLeft: {
@@ -1167,15 +1166,24 @@ void MainWindow::InitializeUI() {
 #endif
 
     {
+#if KIWI_SWITCH
+      constexpr int kSearchStringId =
+          string_resources::IDR_SIDE_MENU_SEARCH_SWITCH;
+      constexpr SDL_GameControllerButton kSearchControllerHotkey =
+          SDL_CONTROLLER_BUTTON_X;
+#else
+      constexpr int kSearchStringId = string_resources::IDR_SIDE_MENU_SEARCH;
+      constexpr SDL_GameControllerButton kSearchControllerHotkey =
+          SDL_CONTROLLER_BUTTON_INVALID;
+#endif
       SideMenu::ButtonCallbacks button_callbacks = {
           // Callback when search button is triggered
           kiwi::base::BindRepeating(
               &MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter,
               kiwi::base::Unretained(this))};
-      side_menu->AddButton(std::make_unique<StringUpdater>(
-                               string_resources::IDR_SIDE_MENU_SEARCH),
+      side_menu->AddButton(std::make_unique<StringUpdater>(kSearchStringId),
                            image_resources::ImageID::kMenuSearch,
-                           button_callbacks, SDLK_f);
+                           button_callbacks, SDLK_f, kSearchControllerHotkey);
     }
 
     side_menu->Layout();
@@ -1407,6 +1415,7 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
          kiwi::base::BindRepeating(&MainWindow::IsAudioEnabled,
                                    kiwi::base::Unretained(this))});
 
+#if !KIWI_SWITCH
     // Window mode
     {
       MenuBar::MenuItem window_mode;
@@ -1426,6 +1435,7 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
                                      kiwi::base::Unretained(this))});
       emulator.menu_items.push_back(std::move(window_mode));
     }
+#endif
 
     // Controllers
     {
@@ -1646,29 +1656,40 @@ void MainWindow::UpdateUIScale() {
 
 void MainWindow::UpdateGameControllerMapping() {
   const auto& game_controllers = Application::Get()->game_controllers();
-  int index = 0;
-  for (auto* game_controller : game_controllers) {
-    // If one's controller is already set, we don't change it.
-    if (runtime_data_->joystick_mappings[0].which != game_controller &&
-        runtime_data_->joystick_mappings[1].which != game_controller) {
-      SetControllerMapping(runtime_data_, index++, game_controller, false);
-    }
-    if (index >= 2)
-      break;
-  }
 
   // If any game controller is removed, remove it from joystick mapping as well.
-  if (std::find(game_controllers.begin(), game_controllers.end(),
-                reinterpret_cast<SDL_GameController*>(
-                    runtime_data_->joystick_mappings[0].which)) ==
-      game_controllers.end()) {
-    runtime_data_->joystick_mappings[0].which = nullptr;
+  for (int player = 0; player < 2; ++player) {
+    auto* mapped_controller = reinterpret_cast<SDL_GameController*>(
+        runtime_data_->joystick_mappings[player].which);
+    if (mapped_controller &&
+        game_controllers.find(mapped_controller) == game_controllers.end()) {
+      runtime_data_->joystick_mappings[player].which = nullptr;
+    }
   }
-  if (std::find(game_controllers.begin(), game_controllers.end(),
-                reinterpret_cast<SDL_GameController*>(
-                    runtime_data_->joystick_mappings[1].which)) ==
-      game_controllers.end()) {
-    runtime_data_->joystick_mappings[1].which = nullptr;
+
+  const std::vector<SDL_GameController*> ordered_controllers =
+      GetControllerList();
+  auto is_mapped = [this](SDL_GameController* controller) {
+    return runtime_data_->joystick_mappings[0].which == controller ||
+           runtime_data_->joystick_mappings[1].which == controller;
+  };
+
+  // devkitPro SDL announces all eight Switch controller slots at startup.
+  // Preserve existing assignments and only fill empty players; restarting from
+  // P1 on every add event can otherwise leave gameplay bound to an idle slot.
+  for (int player = 0; player < 2; ++player) {
+    if (runtime_data_->joystick_mappings[player].which)
+      continue;
+
+    auto controller =
+        std::find_if(ordered_controllers.begin(), ordered_controllers.end(),
+                     [&is_mapped](SDL_GameController* candidate) {
+                       return candidate && !is_mapped(candidate);
+                     });
+    if (controller == ordered_controllers.end())
+      break;
+
+    SetControllerMapping(runtime_data_, player, *controller, false);
   }
 }
 
@@ -2397,10 +2418,12 @@ void MainWindow::OnInGameSettingsItemTrigger(
       else
         OnSetAudioVolume(*value_ptr);
       break;
+#if !KIWI_SWITCH
     case InGameMenu::SettingsItem::kWindowMode:
       SDL_assert(go_left_ptr);
       OnInGameSettingsHandleWindowMode(*go_left_ptr);
       break;
+#endif
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
       SDL_assert(go_left_ptr);

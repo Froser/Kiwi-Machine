@@ -61,11 +61,13 @@ constexpr std::array<int, 7> kMenuStringIds = {
     string_resources::IDR_IN_GAME_MENU_BACK_TO_MAIN,
 };
 
-constexpr std::array<int, 7> kSettingsStringIds = {
+constexpr std::array<int,
+                     static_cast<size_t>(InGameMenu::SettingsItem::kMax)>
+    kSettingsStringIds = {
     string_resources::IDR_IN_GAME_MENU_VOLUME,
 #if KIWI_MOBILE
     string_resources::IDR_IN_GAME_MENU_SCALING_MODE,
-#else
+#elif !KIWI_SWITCH
     string_resources::IDR_IN_GAME_MENU_WINDOW_MODE,
 #endif
     string_resources::IDR_IN_GAME_MENU_P1,
@@ -146,7 +148,7 @@ float GetMenuFontScale(PreferredFontSize size) {
 }
 
 float GetMenuHorizontalPadding(float layout_padding) {
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   return std::max(12.f, layout_padding * .5f);
 #else
   return layout_padding;
@@ -582,8 +584,15 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
   layout.row_height =
       std::max(44.f, layout.font_height + layout.padding * 1.5f);
 
+  SDL_Rect candidate_panel;
+#if KIWI_SWITCH
+  candidate_panel =
+      MakeRect(layout.safe_area.x + 60.f, layout.safe_area.y + 32.f,
+               layout.safe_area.w - 120.f, layout.safe_area.h - 64.f);
+#else
   const float candidate_margin = std::min(32.f, std::max(16.f, 24.f * scale));
-  SDL_Rect candidate_panel = InsetRect(layout.safe_area, candidate_margin);
+  candidate_panel = InsetRect(layout.safe_area, candidate_margin);
+#endif
 #if KIWI_MOBILE
   const float menu_horizontal_padding =
       GetMenuHorizontalPadding(layout.padding);
@@ -591,6 +600,9 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
   const float navigation_width =
       std::max(190.f * scale, widest_menu_item + chevron_width +
                                   menu_horizontal_padding * 4.f);
+#elif KIWI_SWITCH
+  const float navigation_width =
+      std::max(420.f, widest_menu_item + layout.padding * 3.f);
 #else
   const float navigation_width =
       std::max(190.f * scale, widest_menu_item + layout.padding * 3.f);
@@ -598,6 +610,8 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
 #if KIWI_MOBILE
   const float detail_min_width =
       std::max(240.f * scale, layout.font_height * 10.f);
+#elif KIWI_SWITCH
+  constexpr float detail_min_width = 600.f;
 #else
   const float detail_min_width =
       std::max(300.f * scale, layout.font_height * 15.f);
@@ -649,7 +663,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
                                     layout.header_title.w, subtitle_height);
 
   if (layout.mode == LayoutMode::kTwoPane) {
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
     const float resolved_navigation_width = navigation_width;
 #else
     const float resolved_navigation_width =
@@ -710,7 +724,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
 void InGameMenu::LayoutMenu(const FrameText& text, FrameLayout& layout) {
   std::array<float, kMenuItemCount> row_heights = {};
   const float horizontal_padding = GetMenuHorizontalPadding(layout.padding);
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   const float text_width = 0.f;
 #else
   const float text_width =
@@ -1007,7 +1021,7 @@ void InGameMenu::DrawMenu(const FrameText& text, const FrameLayout& layout) {
       text_color = kBrandOnColor;
     else if (danger)
       text_color = kDangerColor;
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
     const float chevron_width = std::max(36.f, layout.font_height);
 #else
     const float chevron_width = layout.row_height;
@@ -1018,7 +1032,7 @@ void InGameMenu::DrawMenu(const FrameText& text, const FrameLayout& layout) {
         layout.menu_items[i].w - chevron_width, layout.menu_items[i].h);
     DrawTextInRect(text.menu_items[i], text_rect, layout.font_size, text_color,
                    horizontal_padding, false,
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
                    false,
 #else
                    true,
@@ -1310,6 +1324,16 @@ bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
       return HandleNavigationAction(NavigationAction::kRight,
                                     InputModality::kController);
+#if KIWI_SWITCH
+    // devkitPro SDL reports the physical Switch A/B buttons as SDL B/A.
+    // Menu actions follow the physical labels, not the gameplay A/B setting.
+    case SDL_CONTROLLER_BUTTON_B:
+      return HandleNavigationAction(NavigationAction::kActivate,
+                                    InputModality::kController);
+    case SDL_CONTROLLER_BUTTON_A:
+      return HandleNavigationAction(NavigationAction::kBack,
+                                    InputModality::kController);
+#else
     case SDL_CONTROLLER_BUTTON_A:
       return HandleNavigationAction(NavigationAction::kActivate,
                                     InputModality::kController);
@@ -1317,6 +1341,7 @@ bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     case SDL_CONTROLLER_BUTTON_X:
       return HandleNavigationAction(NavigationAction::kBack,
                                     InputModality::kController);
+#endif
     default:
       return false;
   }
@@ -1967,6 +1992,7 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
       return direction == StepDirection::kPrevious ? volume > 0.f
                                                    : volume < 1.f;
     }
+#if !KIWI_SWITCH
     case SettingsItem::kWindowMode:
 #if !KIWI_MOBILE
 #if KIWI_WASM
@@ -1978,6 +2004,7 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
 #endif
 #else
       return true;
+#endif
 #endif
     case SettingsItem::kJoyP1:
     case SettingsItem::kJoyP2: {
@@ -2026,6 +2053,7 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
               100.f)));
       return buffer;
     }
+#if !KIWI_SWITCH
     case SettingsItem::kWindowMode:
 #if !KIWI_MOBILE
       if (main_window_->is_fullscreen()) {
@@ -2038,6 +2066,7 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
           main_window_->is_stretch_mode()
               ? string_resources::IDR_IN_GAME_MENU_STRETCH
               : string_resources::IDR_IN_GAME_MENU_ORIGINAL);
+#endif
 #endif
     case SettingsItem::kJoyP1:
     case SettingsItem::kJoyP2: {

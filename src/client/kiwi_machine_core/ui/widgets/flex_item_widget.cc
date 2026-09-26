@@ -34,7 +34,7 @@ constexpr float kVersionSwitchAnimationSplit = .34f;
 constexpr int kVersionSwitchAnimationMs = 520;
 constexpr int kVersionSwitchIdleMs = 3200;
 const int kVersionSwitchIconSize =
-    styles::flex_item_widget::GetBadgeSize() * 5 / 4;
+    styles::flex_item_widget::GetBadgeSize() * 5 / 2;
 constexpr int kVersionSwitchIconMargin = 5;
 
 constexpr ImU32 kVersionCardShadowColor = IM_COL32(0, 0, 0, 180);

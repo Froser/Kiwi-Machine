@@ -165,6 +165,11 @@ endif ()
 if (KIWI_MOBILE)
     list(APPEND Sources
             ui/main_window_mobile.cc
+    )
+endif ()
+
+if (KIWI_MOBILE OR KIWI_SWITCH)
+    list(APPEND Sources
             ui/widgets/flex_items_widget_mobile.cc
             ui/widgets/side_menu_mobile.cc
     )
@@ -198,6 +203,15 @@ if (ANDROID)
     )
 endif ()
 
+if (KIWI_SWITCH)
+    list(APPEND Sources
+            ui/widgets/flex_item_widget_switch.cc
+            utility/switch/paths.cc
+            utility/switch/paths.h
+            utility/switch/tiny_jpeg.cc
+    )
+endif ()
+
 # Resources generation:
 if (EMSCRIPTEN)
     set(USE_WASM_IGNORE ON)
@@ -208,7 +222,9 @@ add_custom_command(
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_image_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS resources/images/files.json
+        DEPENDS
+        resources/images/files.json
+        resources/images/item_badge.svg
         VERBATIM
 )
 
@@ -253,19 +269,22 @@ target_link_libraries(${PROJECT_NAME}
         Kiwi::kiwi_static imgui
         mesen_hd_pack
         gflags_nothreads_static
-        SDL2_image
-        SDL2_mixer
+        ${KIWI_SDL2_IMAGE_TARGET}
+        ${KIWI_SDL2_MIXER_TARGET}
         libminizipstatic
+        ${KIWI_PLATFORM_TARGET}
 )
 target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
 target_include_directories(${PROJECT_NAME}
         PRIVATE
         "../../third_party/imgui"
 )
-
-target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
+if(KIWI_SWITCH)
+    target_include_directories(${PROJECT_NAME} PRIVATE
+            "${CMAKE_SOURCE_DIR}/src/third_party/SDL_image-release-2.6.3")
+endif()
 
 # Add testing directory
-if (NOT EMSCRIPTEN)
+if (NOT EMSCRIPTEN AND NOT KIWI_SWITCH)
     add_subdirectory(testing)
 endif()

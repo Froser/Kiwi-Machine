@@ -43,7 +43,9 @@ class InGameMenu : public Widget {
 
   enum class SettingsItem {
     kVolume,
+#if !KIWI_SWITCH
     kWindowMode,
+#endif
     kJoyP1,
     kSwapABP1,
     kJoyP2,

@@ -31,8 +31,15 @@ constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
 constexpr int kHoverAnimationMs = 180;
 constexpr int kPointerCollapseDelayMs = 120;
-constexpr int kIconSpacing = 4;
+#if KIWI_SWITCH
+constexpr int kIconInset = 16;
+constexpr int kTextSpacing = 12;
+constexpr float kIconSizeScale = .68f;
+#else
+constexpr int kIconInset = 4;
+constexpr int kTextSpacing = 4;
 constexpr float kIconSizeScale = .7f;
+#endif
 constexpr ImU32 kBackgroundColor = IM_COL32(244, 252, 227, 255);
 constexpr ImU32 kBorderColor = IM_COL32(116, 184, 22, 255);
 constexpr ImU32 kDividerColor = IM_COL32(216, 245, 162, 255);
@@ -122,7 +129,13 @@ void SideMenu::Paint() {
         MapLocalBoundsToWindow(buttons_bounds_map_[i]);
     const int kIconSize = kIconSizeScale * button_bounds.h;
     const int kIconTop = button_bounds.y + (button_bounds.h - kIconSize) / 2;
-    const int kIconLeft = button_bounds.x + SCALED(kIconSpacing);
+#if KIWI_SWITCH
+    const int kIconLeft =
+        expanded() ? button_bounds.x + kIconInset
+                   : button_bounds.x + (button_bounds.w - kIconSize) / 2;
+#else
+    const int kIconLeft = button_bounds.x + SCALED(kIconInset);
+#endif
     const float hover_opacity = button_hover_opacities_[i];
 
     if (hover_opacity > 0.f) {
@@ -145,10 +158,10 @@ void SideMenu::Paint() {
       ScopedFont font = GetPreferredFont(kPreferredFontSize, contents.c_str());
       const ImVec2 text_size = ImGui::CalcTextSize(contents.c_str());
       int text_top = button_bounds.y + (button_bounds.h - text_size.y) / 2;
-      const float text_left = kIconLeft + kIconSize + SCALED(kIconSpacing);
+      const float text_left = kIconLeft + kIconSize + SCALED(kTextSpacing);
       const ImVec4 text_clip(
           text_left, button_bounds.y,
-          button_bounds.x + button_bounds.w - SCALED(kIconSpacing),
+          button_bounds.x + button_bounds.w - SCALED(kTextSpacing),
           button_bounds.y + button_bounds.h);
       draw_list->AddText(
           font.GetFont(), font.GetFontSize(), ImVec2(text_left, text_top),
@@ -170,7 +183,14 @@ void SideMenu::Paint() {
     const SDL_Rect global_item_rect =
         MapLocalBoundsToWindow(items_bounds_map_[i]);
     const int kIconSize = kIconSizeScale * global_item_rect.h;
-    const int kIconLeft = global_item_rect.x + SCALED(kIconSpacing);
+#if KIWI_SWITCH
+    const int kIconLeft =
+        expanded() ? global_item_rect.x + kIconInset
+                   : global_item_rect.x +
+                         (global_item_rect.w - kIconSize) / 2;
+#else
+    const int kIconLeft = global_item_rect.x + SCALED(kIconInset);
+#endif
     const int kIconTop =
         global_item_rect.y + (global_item_rect.h - kIconSize) / 2;
 
@@ -227,11 +247,11 @@ void SideMenu::Paint() {
         const ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
         const int text_top = global_target_selection_rect.y +
                              (global_target_selection_rect.h - text_size.y) / 2;
-        const float text_left = kIconLeft + kIconSize + SCALED(kIconSpacing);
+        const float text_left = kIconLeft + kIconSize + SCALED(kTextSpacing);
         const ImVec4 text_clip(
             text_left, global_target_selection_rect.y,
             global_target_selection_rect.x + global_target_selection_rect.w -
-                SCALED(kIconSpacing),
+                SCALED(kTextSpacing),
             global_target_selection_rect.y + global_target_selection_rect.h);
         draw_list->AddText(font.GetFont(), font.GetFontSize(),
                            ImVec2(text_left, text_top), kAccentTextColor,
@@ -242,10 +262,10 @@ void SideMenu::Paint() {
       const ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
       const int text_top =
           global_item_rect.y + (global_item_rect.h - text_size.y) / 2;
-      const float text_left = kIconLeft + kIconSize + SCALED(kIconSpacing);
+      const float text_left = kIconLeft + kIconSize + SCALED(kTextSpacing);
       const ImVec4 text_clip(
           text_left, global_item_rect.y,
-          global_item_rect.x + global_item_rect.w - SCALED(kIconSpacing),
+          global_item_rect.x + global_item_rect.w - SCALED(kTextSpacing),
           global_item_rect.y + global_item_rect.h);
       draw_list->AddText(
           font.GetFont(), font.GetFontSize(), ImVec2(text_left, text_top),
@@ -291,15 +311,21 @@ void SideMenu::AddMenu(std::unique_ptr<LocalizedStringUpdater> string_updater,
 void SideMenu::AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
                          image_resources::ImageID icon,
                          ButtonCallbacks callbacks,
-                         SDL_KeyCode hotkey) {
+                         SDL_KeyCode hotkey,
+                         SDL_GameControllerButton controller_hotkey) {
   button_items_.push_back(ButtonItem(std::move(string_updater), icon,
-                                     std::move(callbacks), hotkey));
+                                     std::move(callbacks), hotkey,
+                                     controller_hotkey));
 }
 
 int SideMenu::GetSuggestedCollapsedWidth() {
+#if KIWI_SWITCH
+  return 64;
+#else
   const int item_x = SCALED(kItemSpacing.x);
   const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
-  return (item_x + SCALED(kIconSpacing)) * 2 + item_height * kIconSizeScale;
+  return (item_x + SCALED(kIconInset)) * 2 + item_height * kIconSizeScale;
+#endif
 }
 
 int SideMenu::GetSuggestedExtendedWidth(int available_width) {
@@ -307,6 +333,10 @@ int SideMenu::GetSuggestedExtendedWidth(int available_width) {
   constexpr float kWidthRatio = .13f;
   constexpr int kMinWidth = 260;
   constexpr int kMaxWidth = 340;
+#elif KIWI_SWITCH
+  constexpr float kWidthRatio = .144f;
+  constexpr int kMinWidth = 184;
+  constexpr int kMaxWidth = 184;
 #elif KIWI_IOS
   constexpr float kWidthRatio = .14f;
   constexpr int kMinWidth = 108;
@@ -321,7 +351,7 @@ int SideMenu::GetSuggestedExtendedWidth(int available_width) {
 }
 
 void SideMenu::UpdateHoverState() {
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   return;
 #else
   int hovered_menu_index = -1;
@@ -435,8 +465,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
           runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
       IsKeyboardOrControllerAxisMotionMatch(
           runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
-      (c && c->button == SDL_CONTROLLER_BUTTON_A) ||
-      (c && c->button == SDL_CONTROLLER_BUTTON_START)) {
+      IsGameSelectionConfirmButton(c)) {
     if (activate_) {
       TriggerCurrentItem();
     }
@@ -444,9 +473,11 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
   }
 
   for (const auto& button : button_items_) {
-    if (k && k->keysym.sym == button.hotkey &&
-        button.callbacks.trigger_callback) {
+    const bool hotkey_matches = (k && k->keysym.sym == button.hotkey) ||
+                                (c && c->button == button.controller_hotkey);
+    if (hotkey_matches && button.callbacks.trigger_callback) {
       button.callbacks.trigger_callback.Run();
+      return true;
     }
   }
 
@@ -645,11 +676,13 @@ SideMenu::ButtonItem::ButtonItem(
     std::unique_ptr<LocalizedStringUpdater> string_updater,
     image_resources::ImageID icon,
     ButtonCallbacks callbacks,
-    SDL_KeyCode hotkey) {
+    SDL_KeyCode hotkey,
+    SDL_GameControllerButton controller_hotkey) {
   this->string_updater = std::move(string_updater);
   this->icon = icon;
   this->callbacks = callbacks;
   this->hotkey = hotkey;
+  this->controller_hotkey = controller_hotkey;
 }
 
 SideMenu::ButtonItem::~ButtonItem() {
@@ -666,7 +699,9 @@ SideMenu::ButtonItem& SideMenu::ButtonItem::operator=(
   string_updater = std::move(rhs.string_updater);
   icon = rhs.icon;
   hotkey = rhs.hotkey;
+  controller_hotkey = rhs.controller_hotkey;
   rhs.hotkey = SDLK_UNKNOWN;
+  rhs.controller_hotkey = SDL_CONTROLLER_BUTTON_INVALID;
   rhs.icon = image_resources::ImageID::kLast;
   callbacks = rhs.callbacks;
   rhs.callbacks = ButtonCallbacks{};

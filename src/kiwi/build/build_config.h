@@ -17,7 +17,7 @@
 //  Operating System:
 //    IS_AIX / IS_ANDROID / IS_ASMJS / IS_CHROMEOS / IS_FREEBSD / IS_FUCHSIA /
 //    IS_IOS / IS_IOS_MACCATALYST / IS_LINUX / IS_MAC / IS_NACL / IS_NETBSD /
-//    IS_OPENBSD / IS_QNX / IS_SOLARIS / IS_WIN
+//    IS_OPENBSD / IS_QNX / IS_SOLARIS / IS_SWITCH / IS_WIN
 //  Operating System family:
 //    IS_APPLE: IOS or MAC or IOS_MACCATALYST
 //    IS_BSD: FREEBSD or NETBSD or OPENBSD
@@ -57,6 +57,8 @@
 #define OS_NACL 1
 #elif defined(ANDROID)
 #define OS_ANDROID 1
+#elif defined(__SWITCH__)
+#define OS_SWITCH 1
 #elif defined(__APPLE__)
 // Only include TargetConditionals after testing ANDROID as some Android builds
 // on the Mac have this header available and it's not needed unless the target
@@ -126,7 +128,7 @@
     defined(OS_FREEBSD) || defined(OS_IOS) || defined(OS_LINUX) ||  \
     defined(OS_CHROMEOS) || defined(OS_MAC) || defined(OS_NACL) ||  \
     defined(OS_NETBSD) || defined(OS_OPENBSD) || defined(OS_QNX) || \
-    defined(OS_SOLARIS) || defined(OS_ZOS)
+    defined(OS_SOLARIS) || defined(OS_SWITCH) || defined(OS_ZOS)
 #define OS_POSIX 1
 #endif
 
@@ -237,6 +239,12 @@
 #define BUILDFLAG_INTERNAL_IS_SOLARIS() (1)
 #else
 #define BUILDFLAG_INTERNAL_IS_SOLARIS() (0)
+#endif
+
+#if defined(OS_SWITCH)
+#define BUILDFLAG_INTERNAL_IS_SWITCH() (1)
+#else
+#define BUILDFLAG_INTERNAL_IS_SWITCH() (0)
 #endif
 
 #if defined(OS_WIN)

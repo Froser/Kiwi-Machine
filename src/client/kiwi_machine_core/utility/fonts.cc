@@ -27,6 +27,9 @@ std::array<ImFont*, static_cast<int>(FontType::kMax)> g_fonts;
 
 ImFont* GetFont(FontType type) {
   ImFont* font = g_fonts[static_cast<int>(type)];
+  if (!font) {
+    font = g_fonts[static_cast<int>(FontType::kSystemDefault)];
+  }
   IM_ASSERT(font);
   return font;
 }
@@ -113,6 +116,8 @@ void InitializeStartupFonts() {
   ImGui::GetIO().Fonts->Clear();
   g_fonts.fill(nullptr);
   InitializeSystemFonts();
+  RegisterFont(FontType::kDefault, font_resources::FontID::kSupermario256,
+               kDefaultFontSize);
 
   switch (GetCurrentSupportedLanguage()) {
 #if !DISABLE_CHINESE_FONT

@@ -12,6 +12,10 @@
 
 include (FindPackageHandleStandardArgs)
 
+if(NOT DEFINED KIWI_SDL2_TARGET)
+    set(KIWI_SDL2_TARGET SDL2-static)
+endif()
+
 set(Kiwi_INCLUDE_DIR
         ${CMAKE_CURRENT_LIST_DIR}/../../include
         ${CMAKE_CURRENT_LIST_DIR}/../../src/kiwi
@@ -41,7 +45,7 @@ if (NOT TARGET Kiwi::kiwi_static)
             INTERFACE_INCLUDE_DIRECTORIES ${Kiwi_INCLUDE_DIR}
     )
     set_property(TARGET Kiwi::kiwi_static PROPERTY
-            INTERFACE_LINK_LIBRARIES ${Kiwi_STATIC_LIBRARY} SDL2-static
+            INTERFACE_LINK_LIBRARIES ${Kiwi_STATIC_LIBRARY} ${KIWI_SDL2_TARGET}
     )
     set_property(TARGET Kiwi::kiwi_static PROPERTY
             INTERFACE_COMPILE_DEFINITIONS KIWI_STATIC_LIBRARY

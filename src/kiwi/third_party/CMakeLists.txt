@@ -10,16 +10,31 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# Emscripten does not support shared libraries
-if(EMSCRIPTEN)
+# Emscripten and Switch homebrew do not support shared libraries.
+if(EMSCRIPTEN OR KIWI_SWITCH)
     set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
     set(ZLIB_BUILD_STATIC ON CACHE BOOL "" FORCE)
     set(MINIZIP_BUILD_SHARED OFF CACHE BOOL "" FORCE)
     set(MINIZIP_BUILD_STATIC ON CACHE BOOL "" FORCE)
 endif()
+if(KIWI_SWITCH)
+    set(HAVE_DBGHELP OFF CACHE INTERNAL "" FORCE)
+    set(ZLIB_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(ZLIB_INSTALL OFF CACHE BOOL "" FORCE)
+    set(MINIZIP_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(MINIZIP_INSTALL OFF CACHE BOOL "" FORCE)
+endif()
 
+if(KIWI_SWITCH)
+    KIWI_SWITCH_PREPARE_GLOG("${CMAKE_CURRENT_BINARY_DIR}/glog")
+endif()
 add_subdirectory(glog)
-add_subdirectory(SDL2)
+if(KIWI_SWITCH)
+    KIWI_SWITCH_CONFIGURE_GLOG()
+endif()
+if(NOT KIWI_SWITCH)
+    add_subdirectory(SDL2)
+endif()
 add_subdirectory(nes_apu)
 add_subdirectory(zlib-1.3.2)
 add_subdirectory(zlib-1.3.2/contrib/minizip)

@@ -12,6 +12,24 @@
 
 #include <kiwi_main.h>
 
+#if defined(__SWITCH__)
+#include <stdio.h>
+#include <switch.h>
+
+namespace {
+Result g_romfs_result = MAKERESULT(Module_Libnx, LibnxError_InitFail_FS);
+}  // namespace
+
+extern "C" void userAppInit() {
+  g_romfs_result = romfsInit();
+}
+
+extern "C" void userAppExit() {
+  if (R_SUCCEEDED(g_romfs_result))
+    romfsExit();
+}
+#endif
+
 #if defined(_WIN32)
 #include <windows.h>
 int WINAPI wWinMain(HINSTANCE hInstance,
@@ -19,6 +37,13 @@ int WINAPI wWinMain(HINSTANCE hInstance,
                     PWSTR pCmdLine,
                     int nCmdShow) {
   return KiwiMain(hInstance, hPrevInstance, pCmdLine, nCmdShow);
+#elif defined(__SWITCH__)
+int main(int argc, char** argv) {
+  if (R_FAILED(g_romfs_result)) {
+    fprintf(stderr, "Failed to mount embedded RomFS: 0x%08x\n", g_romfs_result);
+    return 1;
+  }
+  return KiwiMain(argc, argv);
 #else
 int main(int argc, char** argv) {
   return KiwiMain(argc, argv);

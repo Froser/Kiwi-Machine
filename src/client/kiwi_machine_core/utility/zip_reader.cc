@@ -300,8 +300,8 @@ struct Unz : kiwi::base::RefCounted<Unz> {
 };
 
 scoped_refptr<Unz> OpenUnz(const kiwi::base::FilePath& file) {
-#if KIWI_ANDROID
-  // PAK assets are stored uncompressed in the APK and support random access.
+#if KIWI_ANDROID || KIWI_SWITCH
+  // PAK assets support random access through the platform SDL filesystem.
   // Let minizip read them through SDL instead of copying the entire asset.
   return kiwi::base::MakeRefCounted<Unz>(
       OpenUnzFromRWops(SDL_RWFromFile(file.AsUTF8Unsafe().c_str(), "rb")));
@@ -796,7 +796,11 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             kiwi::nes::Bytes& icon_highlight,
                             const kiwi::base::FilePath& package) {
   scoped_refptr<Unz> pak = OpenUnz(package);
-  SDL_assert(pak);
+  if (!*pak) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open package: %s",
+                 package.AsUTF8Unsafe().c_str());
+    return;
+  }
 
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       rom_sha1s;

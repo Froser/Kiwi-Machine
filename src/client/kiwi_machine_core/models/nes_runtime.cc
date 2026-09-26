@@ -28,6 +28,8 @@
 
 #if KIWI_WASM
 #include "utility/emscripten/bridge_api.h"
+#elif KIWI_SWITCH
+#include "utility/switch/paths.h"
 #endif
 
 namespace {
@@ -51,6 +53,9 @@ kiwi::base::FilePath GetProfilePath(const std::string& name) {
   // In WASM, use /persistent directory for IDBFS
   return kiwi::base::FilePath::FromUTF8Unsafe("/persistent")
       .Append(kiwi::base::FilePath::FromUTF8Unsafe(name));
+#elif KIWI_SWITCH
+  return kiwi::switch_platform::GetUserDataDirectory().Append(
+      kiwi::base::FilePath::FromUTF8Unsafe(name));
 #else
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
   kiwi::base::FilePath profile_path =

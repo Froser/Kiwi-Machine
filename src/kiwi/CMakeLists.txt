@@ -121,7 +121,7 @@ if (APPLE)
     )
 endif ()
 
-if (UNIX)
+if (UNIX OR KIWI_SWITCH)
     list(APPEND base_sources
             base/files/file_enumerator_posix.cc
             base/files/file_posix.cc
@@ -407,7 +407,12 @@ target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC
 if (USE_SDL2)
     target_compile_definitions(${STATIC_PROJECT_NAME} PRIVATE USE_SDL2)
 endif ()
-target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
+target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE
+        nes_apu
+        glog::glog
+        ${KIWI_SDL2_TARGET}
+        zlibstatic
+)
 
 if (WIN32)
     target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE Shlwapi)
@@ -419,7 +424,7 @@ if (MSVC)
     target_compile_options(${STATIC_PROJECT_NAME} PUBLIC /wd4275 /wd4251 /wd4267 /wd4244)
 endif ()
 
-if (NOT EMSCRIPTEN)
+if (NOT EMSCRIPTEN AND NOT KIWI_SWITCH)
     # Setup for dynamic library
     KIWI_ADD_LIBRARY(${PROJECT_NAME} SHARED ${sources})
 

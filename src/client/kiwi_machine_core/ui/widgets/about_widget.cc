@@ -48,7 +48,7 @@ constexpr ImU32 kKeyColor = IM_COL32(47, 54, 47, 255);
 constexpr ImU32 kBadgeColor = IM_COL32(240, 82, 82, 255);
 constexpr float kCornerRadius = 8.f;
 constexpr char kRepositoryUrl[] = "https://github.com/Froser/Kiwi-Machine";
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
 constexpr float kTouchMoveThreshold = 12.f;
 #endif
 
@@ -364,7 +364,7 @@ AboutWidget::~AboutWidget() = default;
 void AboutWidget::Close() {
   SDL_assert(parent_);
   mouse_pressed_ = false;
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   touch_active_ = false;
 #endif
   parent_->PopWidget();
@@ -438,7 +438,7 @@ bool AboutWidget::OnMouseReleased(SDL_MouseButtonEvent* event) {
   return true;
 }
 
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
 bool AboutWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   if (!has_layout_)
     return true;
@@ -507,14 +507,24 @@ AboutWidget::FrameText AboutWidget::BuildFrameText() const {
   text.menu = GetLocalizedString(IDR_ABOUT_CONTROLLER_INVOKE_MENU);
   text.player_one = GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD_1);
   text.player_two = GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD_2);
-  text.xbox = GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX);
-  text.xbox_direction = GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_DIRECTION);
-  text.xbox_menu = GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_MENU);
+#if KIWI_SWITCH
+  text.gamepad_name = GetLocalizedString(IDR_ABOUT_CONTROLLER_SWITCH);
+  text.gamepad_start = "+";
+#else
+  text.gamepad_name = GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX);
+  text.gamepad_start = GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_MENU);
+#endif
+  text.gamepad_direction =
+      GetLocalizedString(IDR_ABOUT_CONTROLLER_XBOX_DIRECTION);
   text.game_selection = GetLocalizedString(IDR_ABOUT_GAME_SELECTION);
   text.game_selection_description = {
       GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0),
       GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_1),
+#if KIWI_SWITCH
+      GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_SWITCH),
+#else
       GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_2),
+#endif
   };
   text.about = GetLocalizedString(IDR_ABOUT_ABOUT);
   text.repository_label = "Froser / Kiwi-Machine";
@@ -559,6 +569,8 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
 
 #if KIWI_MOBILE
   layout.mode = LayoutMode::kSingleColumn;
+#elif KIWI_SWITCH
+  layout.mode = LayoutMode::kTwoColumn;
 #else
   layout.mode = layout.page.w >= 620.f * layout.scale &&
                         layout.page.w > layout.page.h * .95f
@@ -693,11 +705,19 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
       RectRight(layout.controls_panel) - layout.padding - tab_width,
       layout.controls_panel.y + (panel_header_height - tab_height) / 2.f,
       tab_width, tab_height);
+#if !KIWI_SWITCH
   layout.keyboard_tab = MakeRect(layout.gamepad_tab.x - tab_width,
                                  layout.gamepad_tab.y, tab_width, tab_height);
+#endif
+  const float controls_title_right =
+#if KIWI_SWITCH
+      layout.gamepad_tab.x;
+#else
+      layout.keyboard_tab.x;
+#endif
   layout.controls_title = MakeRect(
       layout.controls_panel.x + layout.padding, layout.controls_panel.y,
-      layout.keyboard_tab.x - layout.controls_panel.x - layout.padding * 2.f,
+      controls_title_right - layout.controls_panel.x - layout.padding * 2.f,
       panel_header_height);
   layout.controls_body =
       MakeRect(layout.controls_panel.x + layout.padding,
@@ -881,8 +901,10 @@ void AboutWidget::DrawControls(const FrameText& text,
     DrawTextInRect(label, rect, GetSecondaryFontSize(layout.body_font),
                    selected ? kBrandTextColor : kMutedTextColor, 2.f, true);
   };
+#if !KIWI_SWITCH
   draw_tab(text.keyboard, layout.keyboard_tab, InputPage::kKeyboard,
            HitTarget::kKeyboardTab);
+#endif
   draw_tab(text.gamepad, layout.gamepad_tab, InputPage::kGamepad,
            HitTarget::kGamepadTab);
 
@@ -1073,7 +1095,7 @@ void AboutWidget::DrawGamepad(const FrameText& text,
   SDL_Rect controller_label =
       MakeRect(illustration.x, RectBottom(illustration) - 26.f * layout.scale,
                illustration.w, 22.f * layout.scale);
-  DrawTextInRect(text.xbox, controller_label,
+  DrawTextInRect(text.gamepad_name, controller_label,
                  GetSecondaryFontSize(layout.body_font), kMutedTextColor, 0.f,
                  true, false, FontType::kSystemDefault);
 
@@ -1081,9 +1103,15 @@ void AboutWidget::DrawGamepad(const FrameText& text,
       text.direction, text.button_a, text.button_b,
       text.select,    text.start,    text.menu,
   };
+#if KIWI_SWITCH
   const std::array<std::string, 6> values = {
-      text.xbox_direction, "A", "X", "Y", text.xbox_menu, "LB + RB",
+      text.gamepad_direction, "A", "B", "-", text.gamepad_start, "L + R",
   };
+#else
+  const std::array<std::string, 6> values = {
+      text.gamepad_direction, "A", "X", "Y", text.gamepad_start, "LB + RB",
+  };
+#endif
   const float row_height = mapping.h / labels.size();
   for (size_t i = 0; i < labels.size(); ++i) {
     SDL_Rect row =
@@ -1121,36 +1149,44 @@ void AboutWidget::DrawGameSelection(const FrameText& text,
       MeasureText("Ag", font_size, FontType::kSystemDefault).y * 1.35f;
   const float content_right = RectRight(layout.game_selection_body);
   float y = layout.game_selection_body.y;
-  const std::string& before_badge = text.game_selection_description[0];
-  const std::string& after_badge = text.game_selection_description[1];
-  ImVec2 before_size = MeasureText(before_badge, font_size);
-  ImVec2 after_size = MeasureText(after_badge, font_size);
-  const float badge_size = std::min(
-      line_height * .85f, static_cast<float>(layout.game_selection_body.h));
-
-  DrawTextAt(before_badge, ImVec2(layout.game_selection_body.x, y), font_size,
-             kMutedTextColor);
-  SDL_Rect badge = MakeRect(
-      layout.game_selection_body.x + before_size.x + 3.f * layout.scale,
-      y + (line_height - badge_size) / 2.f, badge_size, badge_size);
-  if (RectRight(badge) > content_right) {
-    badge.x = layout.game_selection_body.x;
+  const std::string& before_icon = text.game_selection_description[0];
+  const std::string& after_icon = text.game_selection_description[1];
+  ImVec2 before_size = MeasureText(before_icon, font_size);
+  ImVec2 after_size = MeasureText(after_icon, font_size);
+  const float icon_size = std::min(
+      line_height * 1.45f, static_cast<float>(layout.game_selection_body.h));
+  SDL_Rect version_icon = MakeRect(
+      layout.game_selection_body.x + before_size.x + 3.f * layout.scale, y,
+      icon_size, icon_size);
+  const bool icon_wrapped = RectRight(version_icon) > content_right;
+  DrawTextAt(
+      before_icon,
+      ImVec2(layout.game_selection_body.x,
+             y + (icon_wrapped
+                      ? 0.f
+                      : std::max(0.f, (icon_size - before_size.y) / 2.f))),
+      font_size, kMutedTextColor);
+  if (icon_wrapped) {
+    version_icon.x = layout.game_selection_body.x;
     y += line_height;
-    badge.y = static_cast<int>(y + (line_height - badge_size) / 2.f);
+    version_icon.y = static_cast<int>(y);
   }
-  SDL_Texture* badge_texture =
+  SDL_Texture* version_icon_texture =
       GetImage(window()->renderer(), image_resources::ImageID::kItemBadge);
-  draw_list->AddImage(reinterpret_cast<ImTextureID>(badge_texture),
-                      RectMin(badge), RectMax(badge));
+  draw_list->AddImage(reinterpret_cast<ImTextureID>(version_icon_texture),
+                      RectMin(version_icon), RectMax(version_icon));
 
-  const float after_x = RectRight(badge) + 3.f * layout.scale;
+  const float after_x = RectRight(version_icon) + 3.f * layout.scale;
   const float after_width = content_right - after_x;
   if (after_size.x <= after_width) {
-    DrawTextAt(after_badge, ImVec2(after_x, y), font_size, kMutedTextColor);
-    y += line_height;
+    DrawTextAt(
+        after_icon,
+        ImVec2(after_x, y + std::max(0.f, (icon_size - after_size.y) / 2.f)),
+        font_size, kMutedTextColor);
+    y += std::max(line_height, icon_size);
   } else {
-    y += line_height;
-    std::string wrapped_after = after_badge;
+    y += icon_size;
+    std::string wrapped_after = after_icon;
     while (!wrapped_after.empty() &&
            (wrapped_after.front() == ',' || wrapped_after.front() == ' ')) {
       wrapped_after.erase(wrapped_after.begin());
@@ -1227,7 +1263,7 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
       MoveMobilePage(1);
       return true;
     }
-#else
+#elif !KIWI_SWITCH
     if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {
       SelectInputPage(InputPage::kKeyboard);
       return true;
@@ -1248,21 +1284,34 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
   if (controller) {
     switch (controller->button) {
       case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+#if KIWI_SWITCH
+        return true;
+#else
 #if KIWI_MOBILE
         MoveMobilePage(-1);
 #else
         SelectInputPage(InputPage::kKeyboard);
 #endif
         return true;
+#endif
       case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+#if KIWI_SWITCH
+        return true;
+#else
 #if KIWI_MOBILE
         MoveMobilePage(1);
 #else
         SelectInputPage(InputPage::kGamepad);
 #endif
         return true;
+#endif
+#if KIWI_SWITCH
+      // devkitPro SDL reports the physical Switch B button as SDL A.
+      case SDL_CONTROLLER_BUTTON_A:
+#else
       case SDL_CONTROLLER_BUTTON_B:
       case SDL_CONTROLLER_BUTTON_X:
+#endif
         PlayEffect(audio_resources::AudioID::kBack);
         Close();
         return true;
@@ -1272,20 +1321,28 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
   }
 
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kLeft)) {
+#if KIWI_SWITCH
+    return true;
+#else
 #if KIWI_MOBILE
     MoveMobilePage(-1);
 #else
     SelectInputPage(InputPage::kKeyboard);
 #endif
     return true;
+#endif
   }
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kRight)) {
+#if KIWI_SWITCH
+    return true;
+#else
 #if KIWI_MOBILE
     MoveMobilePage(1);
 #else
     SelectInputPage(InputPage::kGamepad);
 #endif
     return true;
+#endif
   }
   return false;
 }

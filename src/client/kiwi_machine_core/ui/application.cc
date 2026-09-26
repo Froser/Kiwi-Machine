@@ -36,6 +36,8 @@
 #elif BUILDFLAG(IS_ANDROID)
 #include <jni.h>
 #include "utility/android/asset.h"
+#elif BUILDFLAG(IS_SWITCH)
+#include "utility/switch/paths.h"
 #endif
 
 namespace {
@@ -251,21 +253,37 @@ void Application::HandleEvent(SDL_Event* event) {
     }
 #if !KIWI_MOBILE
     case SDL_MOUSEMOTION: {
+#if KIWI_SWITCH
+      if (event->motion.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->motion.windowID);
       if (target)
         target->HandleMouseMoveEvent(&event->motion);
     } break;
     case SDL_MOUSEWHEEL: {
+#if KIWI_SWITCH
+      if (event->wheel.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->wheel.windowID);
       if (target)
         target->HandleMouseWheelEvent(&event->wheel);
     } break;
     case SDL_MOUSEBUTTONDOWN: {
+#if KIWI_SWITCH
+      if (event->button.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->button.windowID);
       if (target)
         target->HandleMousePressedEvent(&event->button);
     } break;
     case SDL_MOUSEBUTTONUP: {
+#if KIWI_SWITCH
+      if (event->button.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->button.windowID);
       if (target)
         target->HandleMouseReleasedEvent(&event->button);
@@ -599,6 +617,16 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
     }
   }
   return result;
+#elif BUILDFLAG(IS_SWITCH)
+  std::vector<kiwi::base::FilePath> list;
+  kiwi::base::FileEnumerator package_enumerator(
+      kiwi::switch_platform::GetResourceDirectory(), false,
+      kiwi::base::FileEnumerator::FILES, FILE_PATH_LITERAL("*.pak"));
+  for (kiwi::base::FilePath path = package_enumerator.Next(); !path.empty();
+       path = package_enumerator.Next()) {
+    list.push_back(std::move(path));
+  }
+  return list;
 #else
   std::vector<kiwi::base::FilePath> list;
   kiwi::base::FileEnumerator package_enumerator(
