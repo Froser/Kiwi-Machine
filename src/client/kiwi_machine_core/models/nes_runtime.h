@@ -92,6 +92,9 @@ class NESRuntime {
       int slot_or_timestamp;
     };
 
+    void GetSavedStatesCount(int crc32,
+                             kiwi::base::OnceCallback<void(int)> callback);
+
     void GetAutoSavedStatesCount(int crc32,
                                  kiwi::base::OnceCallback<void(int)> callback);
 

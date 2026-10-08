@@ -23,6 +23,10 @@
 #include "utility/fonts.h"
 #include "utility/localization.h"
 
+#if KIWI_SWITCH
+#include "utility/switch/system_keyboard.h"
+#endif
+
 namespace {
 int g_global_input = 0;
 
@@ -127,6 +131,20 @@ FilterWidget::~FilterWidget() {
 }
 
 void FilterWidget::BeginFilter() {
+#if KIWI_SWITCH
+  const size_t kMaxSystemKeyboardCharacters = (filter_buffer_.size() - 1) / 4;
+  std::string result;
+  if (kiwi::switch_platform::ShowSystemKeyboard(
+          GetLocalizedString(string_resources::IDR_FILTER_WIDGET_TITLE),
+          GetLocalizedString(string_resources::IDR_COMMON_CONFIRM),
+          filter_contents_, kMaxSystemKeyboardCharacters, &result)) {
+    filter_buffer_.fill(0);
+    std::copy(result.begin(), result.end(), filter_buffer_.begin());
+    CommitFilterIfChanged();
+  }
+  return;
+#endif
+
   if (!input_started_) {
     set_visible(true);
     focus_requested_ = true;

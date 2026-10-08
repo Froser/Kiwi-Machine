@@ -23,6 +23,7 @@ set(Sources
     ${kiwi_machine_core_SOURCE_DIR}/utility/ips_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/math_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/texture_parser/mesen_texture_parser_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/utility/zip_reader_unittest.cc
 )
 
 # Create test executable
@@ -44,6 +45,7 @@ target_include_directories(kiwi_machine_core_unittests PRIVATE
     ${kiwi_machine_core_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${SDL2_SOURCE_DIR}/include
+    ${gflags_BINARY_DIR}/include
     ../../../../src/third_party/imgui
     ${kiwi_SOURCE_DIR}
     ../../../../include

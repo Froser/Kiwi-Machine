@@ -365,6 +365,9 @@ TEST(MesenTextureParserTest, LimitsOutputScaleAndSamplesSourceTexture) {
   pixels[1 * kImageWidth + 3] = 0xff002200;
   pixels[3 * kImageWidth + 1] = 0xff000033;
   pixels[3 * kImageWidth + 3] = 0xff445566;
+  pixels[1 * kImageWidth + 30] = 0xff778899;
+  pixels[30 * kImageWidth + 1] = 0xff99aabb;
+  pixels[30 * kImageWidth + 30] = 0xffbbccdd;
   FakeTextureResourceProvider resources;
   resources.AddFile("textures/mesen/tiles.png",
                     EncodePng(kImageWidth, kImageHeight, pixels));
@@ -388,6 +391,19 @@ TEST(MesenTextureParserTest, LimitsOutputScaleAndSamplesSourceTexture) {
   EXPECT_EQ(output[1], 0xff002200u);
   EXPECT_EQ(output[kOutputWidth], 0xff000033u);
   EXPECT_EQ(output[kOutputWidth + 1], 0xff445566u);
+
+  tile.horizontal_mirroring = true;
+  ASSERT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
+  EXPECT_EQ(output[0], 0xff778899u);
+
+  tile.horizontal_mirroring = false;
+  tile.vertical_mirroring = true;
+  ASSERT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
+  EXPECT_EQ(output[0], 0xff99aabbu);
+
+  tile.horizontal_mirroring = true;
+  ASSERT_TRUE(RenderBackgroundTile(*renderer, tile, 0xff000000, &output));
+  EXPECT_EQ(output[0], 0xffbbccddu);
 }
 
 TEST(MesenTextureParserTest, SamplesBackgroundAtLimitedOutputScale) {

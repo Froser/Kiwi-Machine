@@ -1105,7 +1105,8 @@ void AboutWidget::DrawGamepad(const FrameText& text,
   };
 #if KIWI_SWITCH
   const std::array<std::string, 6> values = {
-      text.gamepad_direction, "A", "B", "-", text.gamepad_start, "L + R",
+      text.gamepad_direction, "A / Y", "B / X", "-",
+      text.gamepad_start,     "L + R",
   };
 #else
   const std::array<std::string, 6> values = {

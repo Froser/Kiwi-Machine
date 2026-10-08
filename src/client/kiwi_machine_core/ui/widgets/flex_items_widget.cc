@@ -292,6 +292,23 @@ FlexItemsWidget::~FlexItemsWidget() {
   filter_lifetime_token_.reset();
 }
 
+void FlexItemsWidget::SetIndexingProgress(size_t completed, size_t total) {
+  indexing_ = true;
+  indexing_failed_ = false;
+  indexing_progress_ = total == 0 ? 0.f
+                                  : std::clamp(static_cast<float>(completed) /
+                                                   static_cast<float>(total),
+                                               0.f, 1.f);
+}
+
+void FlexItemsWidget::FinishIndexing(bool success) {
+  indexing_ = false;
+  indexing_failed_ = !success;
+  if (success) {
+    indexing_progress_ = 1.f;
+  }
+}
+
 size_t FlexItemsWidget::AddItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
@@ -1307,7 +1324,7 @@ void FlexItemsWidget::HandleTriggerItemByLeftMouseButtonDownOrFingerUp(
 }
 
 void FlexItemsWidget::Paint() {
-  if (first_paint_) {
+  if (first_paint_ || need_layout_all_) {
     Layout(LayoutOption::kAdjustScrolling);
     first_paint_ = false;
   }
@@ -1348,8 +1365,51 @@ void FlexItemsWidget::Paint() {
   }
 
   SDL_Rect rect_in_window = MapToWindow(GetLocalBounds());
-  DrawLibraryBackground(ImGui::GetWindowDrawList(), rect_in_window,
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  DrawLibraryBackground(draw_list, rect_in_window,
                         static_cast<float>(ImGui::GetTime()));
+}
+
+void FlexItemsWidget::PaintIndexingStatus() {
+  if (indexing_ || indexing_failed_) {
+    const SDL_Rect rect_in_window = MapToWindow(GetLocalBounds());
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const std::string& message = GetLocalizedString(
+        indexing_ ? string_resources::IDR_ITEMS_WIDGET_BUILDING_INDEX
+                  : string_resources::IDR_ITEMS_WIDGET_INDEX_FAILED);
+    ScopedFont font = GetPreferredFont(
+        styles::flex_items_widget::GetDetailFontSize(), message.c_str());
+    ImFont* im_font = font.GetFont();
+    const float font_size = font.GetFontSize();
+    const ImVec2 text_size =
+        im_font->CalcTextSizeA(font_size, FLT_MAX, 0.f, message.c_str());
+    const float center_x = rect_in_window.x + rect_in_window.w * .5f;
+    const float center_y = rect_in_window.y + rect_in_window.h * .5f;
+    draw_list->AddText(
+        im_font, font_size,
+        ImVec2(center_x - text_size.x * .5f, center_y - text_size.y - 16.f),
+        activate_ ? IM_COL32(43, 55, 48, 255) : IM_COL32(248, 249, 250, 255),
+        message.c_str());
+
+    if (indexing_) {
+      const float bar_width =
+          std::min(420.f * main_window_->window_scale(),
+                   static_cast<float>(rect_in_window.w) * .6f);
+      const float bar_height =
+          std::max(8.f, 8.f * main_window_->window_scale());
+      const ImVec2 bar_min(center_x - bar_width * .5f, center_y + 8.f);
+      const ImVec2 bar_max(center_x + bar_width * .5f,
+                           center_y + 8.f + bar_height);
+      draw_list->AddRectFilled(bar_min, bar_max, IM_COL32(197, 210, 194, 255),
+                               bar_height * .5f);
+      if (indexing_progress_ > 0.f) {
+        draw_list->AddRectFilled(
+            bar_min,
+            ImVec2(bar_min.x + bar_width * indexing_progress_, bar_max.y),
+            IM_COL32(80, 148, 28, 255), bar_height * .5f);
+      }
+    }
+  }
 }
 
 void FlexItemsWidget::EnsureUniqueFilterSearchIndex() {
@@ -1454,6 +1514,8 @@ void FlexItemsWidget::PostPaint() {
                bounds_to_window.y + bounds_to_window.h),
         ImColor(0, 0, 0, 196));
   }
+
+  PaintIndexingStatus();
 }
 
 void FlexItemsWidget::OnWindowResized() {

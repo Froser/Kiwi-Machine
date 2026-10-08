@@ -15,8 +15,10 @@
 
 #include <gflags/gflags.h>
 #include <kiwi_nes.h>
+#include <cstddef>
 #include <map>
 #include <set>
+#include <vector>
 
 #include "build/kiwi_defines.h"
 #include "models/nes_runtime.h"
@@ -25,6 +27,9 @@
 #include "utility/timer.h"
 
 class WindowBase;
+namespace preset_roms {
+struct Package;
+}
 
 class ApplicationObserver {
  public:
@@ -49,6 +54,11 @@ class Application {
   scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
   // Initialize application's necessary data.
   void Initialize(kiwi::base::OnceClosure callback);
+  void InitializePackageIndex(
+      preset_roms::Package* package,
+      kiwi::base::RepeatingCallback<void(size_t completed, size_t total)>
+          progress_callback,
+      kiwi::base::OnceCallback<void(bool)> completion_callback);
 
   void Run();
   void AddObserver(ApplicationObserver* observer);
@@ -96,6 +106,7 @@ class Application {
   bool initialized_ = false;
   NESRuntimeID runtime_id_ = 0;
   scoped_refptr<NESConfig> config_;
+  std::vector<kiwi::base::FilePath> texture_pack_paths_;
 #if !KIWI_WASM
   std::unique_ptr<kiwi::base::Thread> io_thread_;
 #endif

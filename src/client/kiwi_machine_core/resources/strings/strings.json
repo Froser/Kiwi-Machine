@@ -4,6 +4,16 @@
     "zh": "正在载入游戏库",
     "ja": "ゲームライブラリを読み込み中"
   },
+  "IDR_ITEMS_WIDGET_BUILDING_INDEX": {
+    "default": "First launch: creating game index",
+    "zh": "首次进入游戏，正在创建索引",
+    "ja": "初回起動：ゲームインデックスを作成中"
+  },
+  "IDR_ITEMS_WIDGET_INDEX_FAILED": {
+    "default": "Failed to create game index",
+    "zh": "创建游戏索引失败",
+    "ja": "ゲームインデックスの作成に失敗しました"
+  },
   "IDR_HD_TEXTURE_TOGGLE_KEYBOARD_HINT": {
     "default": "HD switching available · Press Tab to switch",
     "zh": "本游戏支持实时切换高清素材 · 按下 Tab 切换",
@@ -476,9 +486,9 @@
     "ja": "SELECTを押す又は選択されている間にゲームを長押すると、バージョンを変更できる。"
   },
   "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_SWITCH": {
-    "default": "Press - or tap the icon to switch versions.",
-    "zh": "按下 - 键，或点击该图标即可切换版本。",
-    "ja": "- ボタンを押すか、アイコンをタップしてバージョンを切り替えます。"
+    "default": "Press A or + to start a game. Press - or tap the icon to switch versions.",
+    "zh": "按下 A 键或 + 键进入游戏；按下 - 键或点击该图标切换版本。",
+    "ja": "A または + ボタンでゲームを開始します。- ボタンを押すか、アイコンをタップしてバージョンを切り替えます。"
   },
   "IDR_ABOUT_ABOUT": {
     "default": "About this app",

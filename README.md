@@ -194,6 +194,38 @@ nxlink -a <switch-ip> \
   cmake-build-switch/dist/switch/KiwiMachine/KiwiMachine.nro
 ```
 
+#### Optional Switch Forwarder NSP
+
+The Switch build can also create a small HOME-menu forwarder NSP. The
+forwarder launches the NRO at
+`sdmc:/switch/KiwiMachine/KiwiMachine.nro`; it does not embed or replace the
+NRO.
+
+NSP generation is enabled by default, but is skipped with a CMake warning until
+a valid Title ID and `prod.keys` path are configured. It requires a native
+[`hacbrewpack`](https://github.com/rlaphoenix/hacBrewPack) executable and
+`prod.keys` obtained from your own console. Keep keys outside the repository.
+
+```bash
+cmake -S . -B cmake-build-switch \
+  -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/Switch.cmake \
+  -DKIWI_SWITCH=ON \
+  -DKIWI_PACKAGE_DIR=/path/to/package/output \
+  -DKIWI_NS_NSP=ON \
+  -DKIWI_NS_TITLEID=0100A1B2C3D4E000 \
+  -DKIWI_NS_PROD_KEYS="$HOME/.switch/prod.keys" \
+  -DKIWI_NS_HACBREWPACK_EXECUTABLE=/path/to/hacbrewpack
+
+cmake --build cmake-build-switch --target kiwi_machine_nsp
+```
+
+`KIWI_NS_TITLEID` must be exactly 16 hexadecimal digits and must not conflict
+with an installed or reserved title. The output is
+`cmake-build-switch/dist/switch/KiwiMachine/KiwiMachine-Forwarder.nsp`.
+Installing an unofficial NSP requires a compatible CFW environment and can
+carry account or console-ban risk when used on a network-connected system.
+
 ### Build Flag
 
 For desktop and iOS builds, `build.py` configures CMake without compiling by

@@ -20,6 +20,15 @@ endif()
 project(KiwiMachine)
 
 OPTION(USE_SDL2 "Use SDL2 as Kiwi's backend." ON)
+OPTION(KIWI_NS_NSP "Build a Nintendo Switch NRO forwarder NSP." ON)
+set(KIWI_NS_TITLEID "" CACHE STRING
+        "16-digit hexadecimal Title ID used by the Switch forwarder NSP")
+set(KIWI_NS_PROD_KEYS "$ENV{KIWI_NS_PROD_KEYS}" CACHE FILEPATH
+        "Path to prod.keys used only when KIWI_NS_NSP is enabled")
+set(KIWI_NS_HACBREWPACK_EXECUTABLE "" CACHE FILEPATH
+        "Path to the host hacbrewpack executable")
+set(KIWI_NS_NRO_PATH "sdmc:/switch/KiwiMachine/KiwiMachine.nro"
+        CACHE STRING "NRO path launched by the Switch forwarder NSP")
 
 if(KIWI_SWITCH OR SWITCH OR CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch")
     set(KIWI_SWITCH ON)

@@ -208,6 +208,8 @@ if (KIWI_SWITCH)
             ui/widgets/flex_item_widget_switch.cc
             utility/switch/paths.cc
             utility/switch/paths.h
+            utility/switch/system_keyboard.cc
+            utility/switch/system_keyboard.h
             utility/switch/tiny_jpeg.cc
     )
 endif ()

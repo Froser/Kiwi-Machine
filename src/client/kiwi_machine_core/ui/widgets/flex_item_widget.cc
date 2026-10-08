@@ -19,6 +19,7 @@
 #include <array>
 #include <iterator>
 
+#include "build/kiwi_defines.h"
 #include "ui/application.h"
 #include "ui/main_window.h"
 #include "ui/styles.h"
@@ -33,8 +34,13 @@ constexpr float kVersionSwitchDesignSize = 48.f;
 constexpr float kVersionSwitchAnimationSplit = .34f;
 constexpr int kVersionSwitchAnimationMs = 520;
 constexpr int kVersionSwitchIdleMs = 3200;
+#if KIWI_SWITCH
 const int kVersionSwitchIconSize =
     styles::flex_item_widget::GetBadgeSize() * 5 / 2;
+#else
+const int kVersionSwitchIconSize =
+    styles::flex_item_widget::GetBadgeSize() * 5 / 4;
+#endif
 constexpr int kVersionSwitchIconMargin = 5;
 
 constexpr ImU32 kVersionCardShadowColor = IM_COL32(0, 0, 0, 180);

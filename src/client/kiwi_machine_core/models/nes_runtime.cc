@@ -222,6 +222,20 @@ bool SaveAutoSavedStateOnIOThread(
   return success;
 }
 
+int GetSavedStatesCountOnIOThread(const kiwi::base::FilePath& profile_path,
+                                  int crc32) {
+  int count = 0;
+  for (int slot = 0; slot < NESRuntime::Data::MaxSaveStates; ++slot) {
+    if (kiwi::base::PathExists(
+            GetSnapshotDataPath(profile_path, crc32, slot)) &&
+        kiwi::base::PathExists(
+            GetSnapshotThumbnailPath(profile_path, crc32, slot))) {
+      ++count;
+    }
+  }
+  return count;
+}
+
 int GetAutoSavedStatesCountOnIOThread(const kiwi::base::FilePath& profile_path,
                                       int crc32) {
   kiwi::base::FilePath auto_saved_snapshot_path =
@@ -755,6 +769,15 @@ void NESRuntime::Data::OnBatterySaveFlushed(bool success) {
   for (auto& callback : callbacks) {
     std::move(callback).Run(success);
   }
+}
+
+void NESRuntime::Data::GetSavedStatesCount(
+    int crc32,
+    kiwi::base::OnceCallback<void(int)> callback) {
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(&GetSavedStatesCountOnIOThread, profile_path, crc32),
+      std::move(callback));
 }
 
 void NESRuntime::Data::GetAutoSavedStatesCount(

@@ -22,7 +22,7 @@
 #include "utility/texture_renderer.h"
 
 namespace {
-#if KIWI_ANDROID
+#if KIWI_ANDROID || KIWI_SWITCH
 constexpr uint32_t kMaximumHDTextureOutputScale = 2;
 #endif
 }  // namespace
@@ -40,7 +40,7 @@ NESFrame::~NESFrame() {
 
 void NESFrame::SetTextureRenderer(
     std::unique_ptr<TextureRenderer> texture_renderer) {
-#if KIWI_ANDROID
+#if KIWI_ANDROID || KIWI_SWITCH
   if (texture_renderer) {
     texture_renderer->SetMaximumOutputScale(kMaximumHDTextureOutputScale);
   }

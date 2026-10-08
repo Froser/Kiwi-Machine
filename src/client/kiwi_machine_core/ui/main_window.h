@@ -16,7 +16,12 @@
 #include <SDL.h>
 #include <gflags/gflags.h>
 
+#include <cstddef>
+#include <map>
 #include <optional>
+#include <set>
+#include <string>
+#include <vector>
 
 #include "build/kiwi_defines.h"
 #include "kiwi/nes/controller.h"
@@ -44,6 +49,7 @@ class TextureRenderer;
 
 namespace preset_roms {
 enum class ROMEdition;
+struct Package;
 struct PresetROM;
 }  // namespace preset_roms
 
@@ -188,10 +194,21 @@ class MainWindow : public WindowBase,
   void CloseInGameMenu();
   void FlexLayout(bool animate = true);
   FlexItemsWidget* GetMainItemsWidget();
+  void PopulatePackageItems(preset_roms::Package* package,
+                            FlexItemsWidget* items_widget);
+  void EnsurePackageIndex(preset_roms::Package* package,
+                          FlexItemsWidget* items_widget);
+  void OnPackageIndexProgress(FlexItemsWidget* items_widget,
+                              size_t completed,
+                              size_t total);
+  void OnPackageIndexReady(preset_roms::Package* package,
+                           FlexItemsWidget* items_widget,
+                           bool success);
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
   SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
   SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
+      preset_roms::Package* package,
       FlexItemsWidget* items_widget);
   void SwitchToWidgetForSideMenu(int menu_index);
   void SwitchToSideMenuByCurrentFlexItemWidget();
@@ -293,6 +310,7 @@ class MainWindow : public WindowBase,
   StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
   std::vector<FlexItemsWidget*> items_widgets_;
+  std::set<preset_roms::Package*> indexing_packages_;
   LoadingWidget* loading_widget_ = nullptr;
   SideMenu* side_menu_ = nullptr;
   // Side menu index to item widgets' map

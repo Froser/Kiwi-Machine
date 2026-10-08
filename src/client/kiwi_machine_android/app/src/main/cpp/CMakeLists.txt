@@ -7,6 +7,11 @@ cmake_minimum_required(VERSION 3.22.1)
 
 OPTION(USE_SDL2 "Use SDL2 as Kiwi's backend." ON)
 
+set(KIWI_SDL2_TARGET SDL2-static)
+set(KIWI_SDL2_IMAGE_TARGET SDL2_image)
+set(KIWI_SDL2_MIXER_TARGET SDL2_mixer)
+set(KIWI_PLATFORM_TARGET "")
+
 include(../../../../../../../build/cmake/build_tools.cmake)
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../../src/kiwi" "kiwi")

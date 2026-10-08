@@ -392,6 +392,52 @@ void Application::Initialize(kiwi::base::OnceClosure callback) {
   }
 }
 
+void Application::InitializePackageIndex(
+    preset_roms::Package* package,
+    kiwi::base::RepeatingCallback<void(size_t completed, size_t total)>
+        progress_callback,
+    kiwi::base::OnceCallback<void(bool)> completion_callback) {
+  if (IsPackageIndexReady(package)) {
+    std::move(completion_callback).Run(true);
+    return;
+  }
+
+  scoped_refptr<kiwi::base::SingleThreadTaskRunner> ui_task_runner =
+      kiwi::base::SingleThreadTaskRunner::GetCurrentDefault();
+  PackageIndexProgressCallback io_progress = kiwi::base::BindRepeating(
+      [](scoped_refptr<kiwi::base::SingleThreadTaskRunner> ui_task_runner,
+         kiwi::base::RepeatingCallback<void(size_t, size_t)> callback,
+         size_t completed, size_t total) {
+        ui_task_runner->PostTask(
+            FROM_HERE,
+            kiwi::base::BindOnce(
+                [](kiwi::base::RepeatingCallback<void(size_t, size_t)> callback,
+                   size_t completed,
+                   size_t total) { callback.Run(completed, total); },
+                callback, completed, total));
+      },
+      ui_task_runner, std::move(progress_callback));
+
+  NESRuntime::Data* runtime_data =
+      NESRuntime::GetInstance()->GetDataById(runtime_id_);
+  SDL_assert(runtime_data);
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(
+          [](preset_roms::Package* package, kiwi::base::FilePath profile_path,
+             std::vector<kiwi::base::FilePath> texture_pack_paths,
+             PackageIndexProgressCallback progress_callback) {
+            if (!BuildPackageIndex(package, profile_path, progress_callback)) {
+              return false;
+            }
+            InitializeTexturePacksForPackage(package, texture_pack_paths);
+            return true;
+          },
+          kiwi::base::Unretained(package), runtime_data->profile_path,
+          texture_pack_paths_, std::move(io_progress)),
+      std::move(completion_callback));
+}
+
 void Application::Run() {
   runloop_.Run();
 }
@@ -543,16 +589,15 @@ void Application::InitializeROMs() {
     OpenPackageFromFile(file_path);
   }
 
+  NESRuntime::Data* runtime_data =
+      NESRuntime::GetInstance()->GetDataById(runtime_id_);
+  SDL_assert(runtime_data);
   for (auto* package : preset_roms::GetPresetOrTestRomsPackages()) {
-    for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-      auto& rom = package->GetRomsByIndex(i);
-      InitializePresetROM(rom);
-    }
+    RestorePackageIndexFromCache(package, runtime_data->profile_path);
   }
 
-  std::vector<kiwi::base::FilePath> texture_paths =
-      GetTexturePackPathList(file_paths);
-  InitializeTexturePacks(texture_paths);
+  texture_pack_paths_ = GetTexturePackPathList(file_paths);
+  InitializeTexturePacks(texture_pack_paths_);
 }
 
 std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {

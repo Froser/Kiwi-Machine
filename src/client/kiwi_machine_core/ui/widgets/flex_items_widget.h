@@ -56,6 +56,8 @@ class FlexItemsWidget : public Widget {
   void SetActivate(bool activate);
   void ScrollWith(int scrolling_delta, const int* mouse_x, const int* mouse_y);
   void ShowFilterWidget();
+  void SetIndexingProgress(size_t completed, size_t total);
+  void FinishIndexing(bool success);
 
   bool empty() { return items_.empty(); }
   size_t size() { return items_.size(); }
@@ -102,6 +104,7 @@ class FlexItemsWidget : public Widget {
   void RestoreCurrentItemToDefault();
   void RefreshCurrentItemBounds();
 
+  void PaintIndexingStatus();
   void PaintDetails();
   void PaintFilter();
 
@@ -172,6 +175,9 @@ class FlexItemsWidget : public Widget {
   std::vector<FlexItemWidget*> items_;
   std::vector<FlexItemWidget*> all_items_;
   bool first_paint_ = true;
+  bool indexing_ = false;
+  bool indexing_failed_ = false;
+  float indexing_progress_ = 0.f;
   size_t current_index_ = 0;
   FlexItemWidget* current_item_widget_ = nullptr;
   SDL_Rect current_item_original_bounds_;

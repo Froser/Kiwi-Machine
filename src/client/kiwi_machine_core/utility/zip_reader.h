@@ -34,13 +34,32 @@ preset_roms::Package* CreatePackageFromFile(
 void OpenPackageFromFile(const kiwi::base::FilePath& package_path);
 void ClosePackages();
 
+using PackageIndexProgressCallback =
+    kiwi::base::RepeatingCallback<void(size_t completed, size_t total)>;
+
+// Restores a package index only when its cache exactly matches the package's
+// central directory.
+bool RestorePackageIndexFromCache(preset_roms::Package* package,
+                                  const kiwi::base::FilePath& profile_path);
+
+// Builds and caches a package index. This function must run on the IO thread.
+bool BuildPackageIndex(preset_roms::Package* package,
+                       const kiwi::base::FilePath& profile_path,
+                       PackageIndexProgressCallback progress_callback);
+
+bool IsPackageIndexReady(const preset_roms::Package* package);
+
 // Loads each ROM's title, SHA-1, i18n names, and alternative titles. This
-// function should be called before InitializeTexturePacks() and LoadPresetROM().
+// function should be called before InitializeTexturePacks() and
+// LoadPresetROM().
 void InitializePresetROM(preset_roms::PresetROM& rom_data);
 
 // Loads standalone texture package manifests and associates valid packs with
 // preset ROMs. This function must be called on the IO thread.
 void InitializeTexturePacks(
+    const std::vector<kiwi::base::FilePath>& texture_pack_paths);
+void InitializeTexturePacksForPackage(
+    preset_roms::Package* package,
     const std::vector<kiwi::base::FilePath>& texture_pack_paths);
 
 // Loads ROM's box art. This function must be called on the IO thread.

@@ -141,8 +141,9 @@ bool IsGameSelectionConfirmButton(const SDL_ControllerButtonEvent* event) {
     return false;
 
 #if KIWI_SWITCH
-  // The Switch SDL2 mapping exposes the physical A button as SDL B.
-  return event->button == SDL_CONTROLLER_BUTTON_B;
+  // Switch SDL exposes the physical A and plus buttons as SDL B and START.
+  return event->button == SDL_CONTROLLER_BUTTON_B ||
+         event->button == SDL_CONTROLLER_BUTTON_START;
 #else
   return event->button == SDL_CONTROLLER_BUTTON_A ||
          event->button == SDL_CONTROLLER_BUTTON_START;

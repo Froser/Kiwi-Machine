@@ -448,7 +448,7 @@ def report_switch_environment_error(reason):
     return False
 
 
-def build_switch_native(build_project=False):
+def build_switch_native(build_project=False, build_nsp=False):
     """Configure or build Switch homebrew with an installed devkitPro."""
     devkitpro = os.environ.get("DEVKITPRO", "/opt/devkitpro")
     toolchain = os.path.join(devkitpro, "cmake", "Switch.cmake")
@@ -473,23 +473,48 @@ def build_switch_native(build_project=False):
         "-DKIWI_SWITCH=ON",
         f"-DKIWI_PACKAGE_DIR={package_dir}",
     ]
+    if build_nsp:
+        title_id = os.environ.get("KIWI_NS_TITLEID", "")
+        prod_keys = os.environ.get("KIWI_NS_PROD_KEYS", "")
+        hacbrewpack = os.environ.get(
+            "KIWI_NS_HACBREWPACK_EXECUTABLE", "")
+        if not title_id:
+            print("KIWI_NS_TITLEID is required for an NSP build.")
+            return False
+        if not os.path.isfile(prod_keys):
+            print(f"KIWI_NS_PROD_KEYS is not a file: {prod_keys}")
+            return False
+        if not os.path.isfile(hacbrewpack):
+            print("KIWI_NS_HACBREWPACK_EXECUTABLE is not a file: "
+                  f"{hacbrewpack}")
+            return False
+        configure_args.extend([
+            "-DKIWI_NS_NSP=ON",
+            f"-DKIWI_NS_TITLEID={title_id}",
+            f"-DKIWI_NS_PROD_KEYS={prod_keys}",
+            f"-DKIWI_NS_HACBREWPACK_EXECUTABLE={hacbrewpack}",
+        ])
+        nro_path = os.environ.get("KIWI_NS_NRO_PATH")
+        if nro_path:
+            configure_args.append(f"-DKIWI_NS_NRO_PATH={nro_path}")
     if not run_command_args(configure_args):
         return False
 
     if not build_project:
         return True
 
+    target = "kiwi_machine_nsp" if build_nsp else "kiwi_machine_nro"
     return run_command_args([
-        "cmake", "--build", build_dir, "--target", "kiwi_machine_nro"
+        "cmake", "--build", build_dir, "--target", target
     ])
 
 
-def build_switch(build_project=False, force_native=False):
+def build_switch(build_project=False, force_native=False, build_nsp=False):
     """Build Switch homebrew natively or in the pinned devkitPro container."""
     use_native = force_native or os.environ.get(
         "KIWI_SWITCH_USE_NATIVE") == "1"
     if use_native:
-        return build_switch_native(build_project)
+        return build_switch_native(build_project, build_nsp)
 
     package_dir = get_switch_package_dir()
     if not package_dir:
@@ -534,12 +559,47 @@ def build_switch(build_project=False, force_native=False):
     docker_args.extend(
         ["--env", f"KIWI_PACKAGE_DIR={container_package_dir}"])
 
+    if build_nsp:
+        title_id = os.environ.get("KIWI_NS_TITLEID", "")
+        prod_keys = os.path.realpath(
+            os.environ.get("KIWI_NS_PROD_KEYS", ""))
+        hacbrewpack = os.path.realpath(
+            os.environ.get("KIWI_NS_HACBREWPACK_EXECUTABLE", ""))
+        if not title_id:
+            print("KIWI_NS_TITLEID is required for an NSP build.")
+            return False
+        if not os.path.isfile(prod_keys):
+            print(f"KIWI_NS_PROD_KEYS is not a file: {prod_keys}")
+            return False
+        if not os.path.isfile(hacbrewpack):
+            print("KIWI_NS_HACBREWPACK_EXECUTABLE is not a file: "
+                  f"{hacbrewpack}")
+            return False
+
+        container_prod_keys = "/kiwi-nsp/prod.keys"
+        container_hacbrewpack = "/kiwi-nsp/hacbrewpack"
+        docker_args.extend([
+            "--volume", f"{prod_keys}:{container_prod_keys}:ro",
+            "--volume", f"{hacbrewpack}:{container_hacbrewpack}:ro",
+            "--env", f"KIWI_NS_TITLEID={title_id}",
+            "--env", f"KIWI_NS_PROD_KEYS={container_prod_keys}",
+            "--env",
+            "KIWI_NS_HACBREWPACK_EXECUTABLE="
+            f"{container_hacbrewpack}",
+        ])
+        nro_path = os.environ.get("KIWI_NS_NRO_PATH")
+        if nro_path:
+            docker_args.extend(
+                ["--env", f"KIWI_NS_NRO_PATH={nro_path}"])
+
     docker_args.extend([
         SWITCH_DOCKER_IMAGE,
         "python3", "build.py", "switch", "--switch-native",
     ])
     if build_project:
         docker_args.append("--build")
+    if build_nsp:
+        docker_args.append("--nsp")
     return run_command_args(docker_args)
 
 
@@ -567,6 +627,7 @@ def print_help():
     print("  --cleanup-clion     Remove CLion configuration directory")
     print("  --cleanup   Remove all binary output directories")
     print("  --build     Actually build the projects after CMake configuration")
+    print("  --nsp       Build the Switch NRO forwarder NSP (use with switch --build)")
     print("")
     print("For Apple Silicon machines, additional Intel architecture builds are created.")
 
@@ -834,6 +895,9 @@ def main():
     # Internal flag used when the portable Switch build enters its container.
     switch_native_mode = "--switch-native" in sys.argv
 
+    # Build the optional Switch NRO forwarder NSP.
+    switch_nsp_mode = "--nsp" in sys.argv
+
     # Remove flags from arguments if present
     if clion_mode:
         sys.argv.remove("--clion")
@@ -845,6 +909,8 @@ def main():
         sys.argv.remove("--build")
     if switch_native_mode:
         sys.argv.remove("--switch-native")
+    if switch_nsp_mode:
+        sys.argv.remove("--nsp")
     
     # Handle cleanup modes
     if cleanup_clion_mode:
@@ -904,7 +970,8 @@ def main():
                     print("Switch CLion configuration requires a native "
                           "devkitPro installation")
                     overall_success = False
-                elif not build_switch(build_mode, switch_native_mode):
+                elif not build_switch(
+                        build_mode, switch_native_mode, switch_nsp_mode):
                     overall_success = False
             elif arg == "workspace":
                 if not sync_workspace():

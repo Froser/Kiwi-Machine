@@ -67,6 +67,26 @@ constexpr int kSplashTimeoutMs = 2000;
 constexpr float kMinUIScale = 1.f;
 constexpr float kMaxUIScale = 4.f;
 
+#if KIWI_SWITCH
+// devkitPro uses Xbox-style SDL labels: Switch A/Y map to SDL B/X, while
+// Switch B/X map to SDL A/Y.
+SDL_GameControllerButton GetEquivalentSwitchFaceButton(
+    SDL_GameControllerButton button) {
+  switch (button) {
+    case SDL_CONTROLLER_BUTTON_B:
+      return SDL_CONTROLLER_BUTTON_X;
+    case SDL_CONTROLLER_BUTTON_X:
+      return SDL_CONTROLLER_BUTTON_B;
+    case SDL_CONTROLLER_BUTTON_A:
+      return SDL_CONTROLLER_BUTTON_Y;
+    case SDL_CONTROLLER_BUTTON_Y:
+      return SDL_CONTROLLER_BUTTON_A;
+    default:
+      return SDL_CONTROLLER_BUTTON_INVALID;
+  }
+}
+#endif
+
 float EaseOutQuadratic(float progress) {
   progress = std::clamp(progress, 0.f, 1.f);
   return 1.f - (1.f - progress) * (1.f - progress);
@@ -711,11 +731,22 @@ bool MainWindow::IsKeyDown(int controller_id,
     if (!IsGameControllerInputSupported(game_controller))
       return false;
 
-    matched = SDL_GameControllerGetButton(
-        game_controller,
+    const SDL_GameControllerButton mapped_button =
         static_cast<SDL_GameControllerButton>(
             runtime_data_->joystick_mappings[controller_id]
-                .mapping.mapping[static_cast<int>(physical_button)]));
+                .mapping.mapping[static_cast<int>(physical_button)]);
+    matched = SDL_GameControllerGetButton(game_controller, mapped_button);
+
+#if KIWI_SWITCH
+    if (!matched) {
+      const SDL_GameControllerButton equivalent_button =
+          GetEquivalentSwitchFaceButton(mapped_button);
+      if (equivalent_button != SDL_CONTROLLER_BUTTON_INVALID) {
+        matched =
+            SDL_GameControllerGetButton(game_controller, equivalent_button);
+      }
+    }
+#endif
 
     if (!matched) {
       // X and Y are evaluated independently for each requested NES direction,
@@ -1040,80 +1071,15 @@ void MainWindow::InitializeUI() {
           &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
           MainWindow::MainFocus::kSideMenu));
       SDL_assert(package->GetRomsCount() > 0);
-      for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-        // `roms` is used for sorting.
-        std::vector<preset_roms::PresetROM*> roms;
-
-        auto& rom = package->GetRomsByIndex(i);
-        roms.push_back(&rom);
-        for (auto& alternative_rom : rom.alternates) {
-          roms.push_back(&alternative_rom);
-        }
-
-        // HD-capable ROMs take priority. Locale breaks ties within the same
-        // capability level.
-        preset_roms::PresetROM* priority_rom = FindPreferredROM(roms);
-        std::vector<preset_roms::PresetROM*> ordered_roms;
-        ordered_roms.push_back(priority_rom);
-        for (preset_roms::PresetROM* candidate : roms) {
-          if (candidate != priority_rom) {
-            ordered_roms.push_back(candidate);
-          }
-        }
-
-        std::vector<const preset_roms::PresetROM*> filter_aliases;
-        filter_aliases.reserve(roms.size());
-        for (preset_roms::PresetROM* candidate : roms) {
-          filter_aliases.push_back(candidate);
-        }
-
-        for (preset_roms::PresetROM* candidate : ordered_roms) {
-          if (!candidate->hd_edition_available) {
-            continue;
-          }
-          items_widget->AddItem(
-              std::make_unique<ROMTitleUpdater>(
-                  *candidate, preset_roms::ROMEdition::kHD, filter_aliases),
-              candidate->boxart_width, candidate->boxart_height, true,
-              kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
-              kiwi::base::BindRepeating(
-                  &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-                  std::ref(*candidate), preset_roms::ROMEdition::kHD));
-        }
-
-        SDL_assert(!ordered_roms.empty());
-        preset_roms::PresetROM* default_rom = ordered_roms.front();
-        size_t main_item_index = items_widget->AddItem(
-            std::make_unique<ROMTitleUpdater>(
-                *default_rom, preset_roms::ROMEdition::kOriginal),
-            default_rom->boxart_width, default_rom->boxart_height,
-            default_rom->hd_texture_toggle_available,
-            kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *default_rom),
-            kiwi::base::BindRepeating(
-                &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-                std::ref(*default_rom), preset_roms::ROMEdition::kOriginal));
-
-        for (size_t rom_index = 1; rom_index < ordered_roms.size();
-             ++rom_index) {
-          preset_roms::PresetROM* candidate = ordered_roms[rom_index];
-          items_widget->AddSubItem(
-              main_item_index,
-              std::make_unique<ROMTitleUpdater>(
-                  *candidate, preset_roms::ROMEdition::kOriginal),
-              candidate->boxart_width, candidate->boxart_height,
-              candidate->hd_texture_toggle_available,
-              kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
-              kiwi::base::BindRepeating(
-                  &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-                  std::ref(*candidate), preset_roms::ROMEdition::kOriginal));
-        }
+      if (IsPackageIndexReady(package)) {
+        PopulatePackageItems(package, items_widget.get());
       }
 
       contents_card_widget_->AddWidget(std::move(items_widget));
     }
 
     if (FlexItemsWidget* main_items_widget = GetMainItemsWidget();
-        main_items_widget) {
+        main_items_widget && !main_items_widget->empty()) {
       int main_items_index =
           std::clamp(config_->data().last_index, 0,
                      static_cast<int>(main_items_widget->size() - 1));
@@ -1139,7 +1105,7 @@ void MainWindow::InitializeUI() {
       side_menu->AddMenu(
           std::make_unique<SideMenuTitleStringUpdater>(package),
           package->GetSideMenuImage(), package->GetSideMenuHighlightImage(),
-          CreateMenuChangeFocusToGameItemsCallbacks(items_widget));
+          CreateMenuChangeFocusToGameItemsCallbacks(package, items_widget));
       package_index++;
     }
     side_menu->AddMenu(std::make_unique<StringUpdater>(
@@ -1153,8 +1119,8 @@ void MainWindow::InitializeUI() {
         image_resources::ImageID::kMenuAboutHighlight,
         CreateMenuAboutCallbacks());
 
-#if !KIWI_MOBILE
-    // Mobile apps needn't quit the application manually.
+#if !KIWI_MOBILE && !KIWI_SWITCH
+    // Mobile and Switch apps needn't quit the application manually.
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         [](MainWindow* this_window, int) { this_window->OnQuit(); },
@@ -1825,6 +1791,119 @@ FlexItemsWidget* MainWindow::GetMainItemsWidget() {
   return nullptr;
 }
 
+void MainWindow::PopulatePackageItems(preset_roms::Package* package,
+                                      FlexItemsWidget* items_widget) {
+  SDL_assert(package);
+  SDL_assert(items_widget);
+  SDL_assert(items_widget->empty());
+  for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+    std::vector<preset_roms::PresetROM*> roms;
+    preset_roms::PresetROM& rom = package->GetRomsByIndex(i);
+    roms.push_back(&rom);
+    for (preset_roms::PresetROM& alternative_rom : rom.alternates) {
+      roms.push_back(&alternative_rom);
+    }
+
+    preset_roms::PresetROM* priority_rom = FindPreferredROM(roms);
+    std::vector<preset_roms::PresetROM*> ordered_roms = {priority_rom};
+    for (preset_roms::PresetROM* candidate : roms) {
+      if (candidate != priority_rom) {
+        ordered_roms.push_back(candidate);
+      }
+    }
+
+    std::vector<const preset_roms::PresetROM*> filter_aliases;
+    filter_aliases.reserve(roms.size());
+    for (preset_roms::PresetROM* candidate : roms) {
+      filter_aliases.push_back(candidate);
+    }
+
+    for (preset_roms::PresetROM* candidate : ordered_roms) {
+      if (!candidate->hd_edition_available) {
+        continue;
+      }
+      items_widget->AddItem(
+          std::make_unique<ROMTitleUpdater>(
+              *candidate, preset_roms::ROMEdition::kHD, filter_aliases),
+          candidate->boxart_width, candidate->boxart_height, true,
+          kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
+          kiwi::base::BindRepeating(
+              &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+              std::ref(*candidate), preset_roms::ROMEdition::kHD));
+    }
+
+    preset_roms::PresetROM* default_rom = ordered_roms.front();
+    size_t main_item_index = items_widget->AddItem(
+        std::make_unique<ROMTitleUpdater>(*default_rom,
+                                          preset_roms::ROMEdition::kOriginal),
+        default_rom->boxart_width, default_rom->boxart_height,
+        default_rom->hd_texture_toggle_available,
+        kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *default_rom),
+        kiwi::base::BindRepeating(
+            &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+            std::ref(*default_rom), preset_roms::ROMEdition::kOriginal));
+
+    for (size_t rom_index = 1; rom_index < ordered_roms.size(); ++rom_index) {
+      preset_roms::PresetROM* candidate = ordered_roms[rom_index];
+      items_widget->AddSubItem(
+          main_item_index,
+          std::make_unique<ROMTitleUpdater>(*candidate,
+                                            preset_roms::ROMEdition::kOriginal),
+          candidate->boxart_width, candidate->boxart_height,
+          candidate->hd_texture_toggle_available,
+          kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
+          kiwi::base::BindRepeating(
+              &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+              std::ref(*candidate), preset_roms::ROMEdition::kOriginal));
+    }
+  }
+}
+
+void MainWindow::EnsurePackageIndex(preset_roms::Package* package,
+                                    FlexItemsWidget* items_widget) {
+  if (IsPackageIndexReady(package)) {
+    if (items_widget->empty()) {
+      PopulatePackageItems(package, items_widget);
+    }
+    return;
+  }
+  if (!indexing_packages_.insert(package).second) {
+    return;
+  }
+
+  items_widget->SetIndexingProgress(0, package->GetRomsCount());
+  Application::Get()->InitializePackageIndex(
+      package,
+      kiwi::base::BindRepeating(&MainWindow::OnPackageIndexProgress,
+                                kiwi::base::Unretained(this),
+                                kiwi::base::Unretained(items_widget)),
+      kiwi::base::BindOnce(&MainWindow::OnPackageIndexReady,
+                           kiwi::base::Unretained(this),
+                           kiwi::base::Unretained(package),
+                           kiwi::base::Unretained(items_widget)));
+}
+
+void MainWindow::OnPackageIndexProgress(FlexItemsWidget* items_widget,
+                                        size_t completed,
+                                        size_t total) {
+  items_widget->SetIndexingProgress(completed, total);
+}
+
+void MainWindow::OnPackageIndexReady(preset_roms::Package* package,
+                                     FlexItemsWidget* items_widget,
+                                     bool success) {
+  indexing_packages_.erase(package);
+  if (success && items_widget->empty()) {
+    PopulatePackageItems(package, items_widget);
+    if (items_widget == GetMainItemsWidget() && !items_widget->empty()) {
+      const int index = std::clamp(config_->data().last_index, 0,
+                                   static_cast<int>(items_widget->size() - 1));
+      items_widget->SetIndex(index);
+    }
+  }
+  items_widget->FinishIndexing(success);
+}
+
 SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
@@ -1879,16 +1958,20 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuAboutCallbacks() {
 }
 
 SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
+    preset_roms::Package* package,
     FlexItemsWidget* items_widget) {
+  SDL_assert(package);
   SDL_assert(items_widget);
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* this_window, FlexItemsWidget* items_widget,
-         int menu_index) {
+      [](MainWindow* this_window, preset_roms::Package* package,
+         FlexItemsWidget* items_widget, int menu_index) {
         this_window->flex_items_map_[menu_index] = items_widget;
         this_window->SwitchToWidgetForSideMenu(menu_index);
+        this_window->EnsurePackageIndex(package, items_widget);
       },
-      kiwi::base::Unretained(this), kiwi::base::Unretained(items_widget));
+      kiwi::base::Unretained(this), kiwi::base::Unretained(package),
+      kiwi::base::Unretained(items_widget));
   callbacks.enter_callback = kiwi::base::BindRepeating(
       &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
       MainFocus::kContents);
@@ -2059,6 +2142,7 @@ void MainWindow::OnStateSaved(int slot, bool succeed) {
 
   if (succeed) {
     SDL_assert(in_game_menu_);
+    in_game_menu_->RefreshStateAvailability();
     in_game_menu_->RefreshStatePreview();
 #if !KIWI_WASM
     Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_SUCCEEDED));
