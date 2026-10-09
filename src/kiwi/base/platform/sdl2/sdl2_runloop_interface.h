@@ -18,7 +18,7 @@
 #include <memory>
 
 #include "base/platform/platform_factory.h"
-#include "third_party/SDL2/include/SDL_events.h"
+#include <SDL_events.h>
 
 namespace kiwi::base {
 namespace platform {

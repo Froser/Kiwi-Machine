@@ -184,6 +184,38 @@ class NESRuntimeBatterySaveTest : public ::testing::Test {
   std::unique_ptr<NESRuntime::Data> runtime_;
 };
 
+TEST_F(NESRuntimeBatterySaveTest, CountsOnlyCompleteManualSaveStates) {
+  constexpr int kCrc32 = 1234;
+  int count = -1;
+  auto request_count = [this, &count]() {
+    count = -1;
+    runtime_->GetSavedStatesCount(
+        kCrc32, kiwi::base::BindOnce(
+                    [](int* output, int result) { *output = result; }, &count));
+    EXPECT_EQ(count, -1);
+    io_task_runner_->RunNextTask();
+  };
+
+  request_count();
+  EXPECT_EQ(count, 0);
+
+  const kiwi::base::FilePath snapshot_path =
+      runtime_->profile_path.Append(FILE_PATH_LITERAL("States"))
+          .Append(FILE_PATH_LITERAL("1234"))
+          .Append(FILE_PATH_LITERAL("3"));
+  ASSERT_TRUE(kiwi::base::CreateDirectory(snapshot_path));
+  ASSERT_TRUE(kiwi::base::WriteFile(
+      snapshot_path.Append(FILE_PATH_LITERAL("data")), "state", 5));
+
+  request_count();
+  EXPECT_EQ(count, 0);
+
+  ASSERT_TRUE(kiwi::base::WriteFile(
+      snapshot_path.Append(FILE_PATH_LITERAL("thumbnail")), "image", 5));
+  request_count();
+  EXPECT_EQ(count, 1);
+}
+
 TEST_F(NESRuntimeBatterySaveTest,
        PreservesDirtyGenerationAcrossAsynchronousExplicitPathWrite) {
   kiwi::nes::Bytes rom = MakeWritingBatteryROM(0x10);

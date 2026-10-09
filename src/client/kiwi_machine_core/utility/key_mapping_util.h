@@ -22,11 +22,26 @@ bool IsJoystickButtonMatch(NESRuntime::Data* runtime_data,
                            kiwi::nes::ControllerButton button,
                            SDL_Keysym key);
 
+bool IsGameControllerInputSupported(SDL_GameController* controller);
+
 bool IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton button);
 
 bool IsKeyboardOrControllerAxisMotionMatch(NESRuntime::Data* runtime_data,
                                            kiwi::nes::ControllerButton button,
                                            SDL_KeyboardEvent* k);
+
+// Game selection uses the physical button labels and deliberately ignores the
+// gameplay A/B swap setting.
+bool IsGameSelectionConfirmButton(const SDL_ControllerButtonEvent* event);
+
+bool IsGameSelectionBackButton(const SDL_ControllerButtonEvent* event);
+
+bool IsGameSelectionSearchButton(const SDL_ControllerButtonEvent* event);
+
+bool IsGameSelectionPreviousVersionButton(
+    const SDL_ControllerButtonEvent* event);
+
+bool IsGameSelectionNextVersionButton(const SDL_ControllerButtonEvent* event);
 
 void SetControllerMapping(NESRuntime::Data* runtime_data,
                           int player,

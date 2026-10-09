@@ -1,5 +1,6 @@
 /cmake-build-debug/
 /cmake-build-release/
+/cmake-build-switch/
 /cmake-build-ios-debug/
 /cmake-build-ios-release/
 /cmake-build-intel-debug/
@@ -22,9 +23,10 @@ src/client/kiwi_machine_android/.idea/
 !/src/client/kiwi_machine_wasm/kiwi-machine/public/kiwi_machine.js
 /CMakePresets.json
 
-/build/
-!/build/cmake
+/build/*
+!/build/cmake/
 !/build/install_emsdk.py
+!/build/setup_switch.py
 !/build/workspace-sync.py
 
 # Python cache

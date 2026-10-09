@@ -64,7 +64,7 @@ ImU32 ColorWithOpacity(int red,
 }
 
 PreferredFontSize GetTitleFontSize(float scale) {
-#if KIWI_ANDROID
+#if KIWI_ANDROID || KIWI_SWITCH
   return PreferredFontSize::k4x;
 #elif KIWI_IOS
   return PreferredFontSize::k3x;
@@ -74,7 +74,7 @@ PreferredFontSize GetTitleFontSize(float scale) {
 }
 
 PreferredFontSize GetStatusFontSize() {
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   return PreferredFontSize::k2x;
 #else
   return PreferredFontSize::k1x;

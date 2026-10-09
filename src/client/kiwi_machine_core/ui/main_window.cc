@@ -48,7 +48,12 @@
 #include "utility/localization.h"
 #include "utility/logging.h"
 #include "utility/math.h"
+#if KIWI_ENABLE_HD_TEXTURE
 #include "utility/texture_renderer.h"
+#endif
+#if KIWI_SWITCH
+#include "utility/switch/controller_support.h"
+#endif
 #include "utility/zip_reader.h"
 
 DEFINE_bool(enable_debug, false, "Shows a menu bar at the top of the window.");
@@ -66,6 +71,26 @@ constexpr int kSideMenuAnimationMs = 180;
 constexpr int kSplashTimeoutMs = 2000;
 constexpr float kMinUIScale = 1.f;
 constexpr float kMaxUIScale = 4.f;
+
+#if KIWI_SWITCH
+// devkitPro uses Xbox-style SDL labels: Switch A/Y map to SDL B/X, while
+// Switch B/X map to SDL A/Y.
+SDL_GameControllerButton GetEquivalentSwitchFaceButton(
+    SDL_GameControllerButton button) {
+  switch (button) {
+    case SDL_CONTROLLER_BUTTON_B:
+      return SDL_CONTROLLER_BUTTON_X;
+    case SDL_CONTROLLER_BUTTON_X:
+      return SDL_CONTROLLER_BUTTON_B;
+    case SDL_CONTROLLER_BUTTON_A:
+      return SDL_CONTROLLER_BUTTON_Y;
+    case SDL_CONTROLLER_BUTTON_Y:
+      return SDL_CONTROLLER_BUTTON_A;
+    default:
+      return SDL_CONTROLLER_BUTTON_INVALID;
+  }
+}
+#endif
 
 float EaseOutQuadratic(float progress) {
   progress = std::clamp(progress, 0.f, 1.f);
@@ -85,7 +110,21 @@ void FillLayout(WindowBase* window, Widget* widget) {
 }
 
 bool HasHDVersion(const preset_roms::PresetROM* rom) {
+#if KIWI_ENABLE_HD_TEXTURE
   return rom->hd_texture_toggle_available || rom->hd_edition_available;
+#else
+  static_cast<void>(rom);
+  return false;
+#endif
+}
+
+bool HasSwitchableHDTexture(const preset_roms::PresetROM* rom) {
+#if KIWI_ENABLE_HD_TEXTURE
+  return rom->hd_texture_toggle_available;
+#else
+  static_cast<void>(rom);
+  return false;
+#endif
 }
 
 bool MatchesCurrentLanguage(const preset_roms::PresetROM* rom) {
@@ -260,8 +299,12 @@ bool StringUpdater::IsTitleMatchedFilter(const std::string& filter,
 std::string GetROMEditionTitle(const preset_roms::PresetROM& rom,
                                preset_roms::ROMEdition edition) {
   std::string title = GetROMLocalizedTitle(rom);
+#if KIWI_ENABLE_HD_TEXTURE
   if (edition == preset_roms::ROMEdition::kHD)
     title.append(" [HD]");
+#else
+  static_cast<void>(edition);
+#endif
   return title;
 }
 
@@ -309,8 +352,10 @@ std::string ROMTitleUpdater::GetLocalizedString() {
 
 std::string ROMTitleUpdater::GetCollateStringHint() {
   std::string title = GetROMLocalizedCollateStringHint(preset_rom_);
+#if KIWI_ENABLE_HD_TEXTURE
   if (edition_ == preset_roms::ROMEdition::kHD)
     title.append(" HD");
+#endif
   return title;
 }
 
@@ -345,9 +390,11 @@ struct MainWindow::PendingROM {
   std::string game_title;
   std::string window_title;
   bool load_from_finger_gesture = false;
+#if KIWI_ENABLE_HD_TEXTURE
   bool hd_texture_available = false;
   bool hd_texture_enabled = false;
   std::unique_ptr<TextureRenderer> texture_renderer;
+#endif
 };
 
 // A mask widget to handle finger events.
@@ -708,19 +755,29 @@ bool MainWindow::IsKeyDown(int controller_id,
     SDL_GameController* game_controller =
         reinterpret_cast<SDL_GameController*>(joystick_mapping.which);
 
-    // Unknown type may have wrong axis behaviour.
-    if (SDL_GameControllerGetType(game_controller) ==
-        SDL_CONTROLLER_TYPE_UNKNOWN)
+    if (!IsGameControllerInputSupported(game_controller))
       return false;
 
-    matched = SDL_GameControllerGetButton(
-        game_controller,
+    const SDL_GameControllerButton mapped_button =
         static_cast<SDL_GameControllerButton>(
             runtime_data_->joystick_mappings[controller_id]
-                .mapping.mapping[static_cast<int>(physical_button)]));
+                .mapping.mapping[static_cast<int>(physical_button)]);
+    matched = SDL_GameControllerGetButton(game_controller, mapped_button);
+
+#if KIWI_SWITCH
+    if (!matched) {
+      const SDL_GameControllerButton equivalent_button =
+          GetEquivalentSwitchFaceButton(mapped_button);
+      if (equivalent_button != SDL_CONTROLLER_BUTTON_INVALID) {
+        matched =
+            SDL_GameControllerGetButton(game_controller, equivalent_button);
+      }
+    }
+#endif
 
     if (!matched) {
-      // Not matched, try axis motion.
+      // X and Y are evaluated independently for each requested NES direction,
+      // so diagonal stick positions hold one horizontal and one vertical key.
       constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
       switch (physical_button) {
         case kiwi::nes::ControllerButton::kLeft: {
@@ -1041,80 +1098,15 @@ void MainWindow::InitializeUI() {
           &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
           MainWindow::MainFocus::kSideMenu));
       SDL_assert(package->GetRomsCount() > 0);
-      for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-        // `roms` is used for sorting.
-        std::vector<preset_roms::PresetROM*> roms;
-
-        auto& rom = package->GetRomsByIndex(i);
-        roms.push_back(&rom);
-        for (auto& alternative_rom : rom.alternates) {
-          roms.push_back(&alternative_rom);
-        }
-
-        // HD-capable ROMs take priority. Locale breaks ties within the same
-        // capability level.
-        preset_roms::PresetROM* priority_rom = FindPreferredROM(roms);
-        std::vector<preset_roms::PresetROM*> ordered_roms;
-        ordered_roms.push_back(priority_rom);
-        for (preset_roms::PresetROM* candidate : roms) {
-          if (candidate != priority_rom) {
-            ordered_roms.push_back(candidate);
-          }
-        }
-
-        std::vector<const preset_roms::PresetROM*> filter_aliases;
-        filter_aliases.reserve(roms.size());
-        for (preset_roms::PresetROM* candidate : roms) {
-          filter_aliases.push_back(candidate);
-        }
-
-        for (preset_roms::PresetROM* candidate : ordered_roms) {
-          if (!candidate->hd_edition_available) {
-            continue;
-          }
-          items_widget->AddItem(
-              std::make_unique<ROMTitleUpdater>(
-                  *candidate, preset_roms::ROMEdition::kHD, filter_aliases),
-              candidate->boxart_width, candidate->boxart_height, true,
-              kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
-              kiwi::base::BindRepeating(
-                  &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-                  std::ref(*candidate), preset_roms::ROMEdition::kHD));
-        }
-
-        SDL_assert(!ordered_roms.empty());
-        preset_roms::PresetROM* default_rom = ordered_roms.front();
-        size_t main_item_index = items_widget->AddItem(
-            std::make_unique<ROMTitleUpdater>(
-                *default_rom, preset_roms::ROMEdition::kOriginal),
-            default_rom->boxart_width, default_rom->boxart_height,
-            default_rom->hd_texture_toggle_available,
-            kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *default_rom),
-            kiwi::base::BindRepeating(
-                &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-                std::ref(*default_rom), preset_roms::ROMEdition::kOriginal));
-
-        for (size_t rom_index = 1; rom_index < ordered_roms.size();
-             ++rom_index) {
-          preset_roms::PresetROM* candidate = ordered_roms[rom_index];
-          items_widget->AddSubItem(
-              main_item_index,
-              std::make_unique<ROMTitleUpdater>(
-                  *candidate, preset_roms::ROMEdition::kOriginal),
-              candidate->boxart_width, candidate->boxart_height,
-              candidate->hd_texture_toggle_available,
-              kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
-              kiwi::base::BindRepeating(
-                  &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-                  std::ref(*candidate), preset_roms::ROMEdition::kOriginal));
-        }
+      if (IsPackageIndexReady(package)) {
+        PopulatePackageItems(package, items_widget.get());
       }
 
       contents_card_widget_->AddWidget(std::move(items_widget));
     }
 
     if (FlexItemsWidget* main_items_widget = GetMainItemsWidget();
-        main_items_widget) {
+        main_items_widget && !main_items_widget->empty()) {
       int main_items_index =
           std::clamp(config_->data().last_index, 0,
                      static_cast<int>(main_items_widget->size() - 1));
@@ -1140,7 +1132,7 @@ void MainWindow::InitializeUI() {
       side_menu->AddMenu(
           std::make_unique<SideMenuTitleStringUpdater>(package),
           package->GetSideMenuImage(), package->GetSideMenuHighlightImage(),
-          CreateMenuChangeFocusToGameItemsCallbacks(items_widget));
+          CreateMenuChangeFocusToGameItemsCallbacks(package, items_widget));
       package_index++;
     }
     side_menu->AddMenu(std::make_unique<StringUpdater>(
@@ -1154,8 +1146,8 @@ void MainWindow::InitializeUI() {
         image_resources::ImageID::kMenuAboutHighlight,
         CreateMenuAboutCallbacks());
 
-#if !KIWI_MOBILE
-    // Mobile apps needn't quit the application manually.
+#if !KIWI_MOBILE && !KIWI_SWITCH
+    // Mobile and Switch apps needn't quit the application manually.
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
         [](MainWindow* this_window, int) { this_window->OnQuit(); },
@@ -1167,15 +1159,24 @@ void MainWindow::InitializeUI() {
 #endif
 
     {
+#if KIWI_SWITCH
+      constexpr int kSearchStringId =
+          string_resources::IDR_SIDE_MENU_SEARCH_SWITCH;
+      constexpr SDL_GameControllerButton kSearchControllerHotkey =
+          SDL_CONTROLLER_BUTTON_X;
+#else
+      constexpr int kSearchStringId = string_resources::IDR_SIDE_MENU_SEARCH;
+      constexpr SDL_GameControllerButton kSearchControllerHotkey =
+          SDL_CONTROLLER_BUTTON_INVALID;
+#endif
       SideMenu::ButtonCallbacks button_callbacks = {
           // Callback when search button is triggered
           kiwi::base::BindRepeating(
               &MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter,
               kiwi::base::Unretained(this))};
-      side_menu->AddButton(std::make_unique<StringUpdater>(
-                               string_resources::IDR_SIDE_MENU_SEARCH),
+      side_menu->AddButton(std::make_unique<StringUpdater>(kSearchStringId),
                            image_resources::ImageID::kMenuSearch,
-                           button_callbacks, SDLK_f);
+                           button_callbacks, SDLK_f, kSearchControllerHotkey);
     }
 
     side_menu->Layout();
@@ -1196,8 +1197,10 @@ void MainWindow::InitializeUI() {
   canvas_->set_frame_scale(2.f);
   canvas_->set_in_menu_trigger_callback(kiwi::base::BindRepeating(
       &MainWindow::OnInGameMenuTrigger, kiwi::base::Unretained(this)));
+#if KIWI_ENABLE_HD_TEXTURE
   canvas_->set_hd_texture_toggle_callback(kiwi::base::BindRepeating(
       &MainWindow::OnToggleHDTextureRendering, kiwi::base::Unretained(this)));
+#endif
   AddWidget(std::move(canvas));
 
   std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
@@ -1407,6 +1410,7 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
          kiwi::base::BindRepeating(&MainWindow::IsAudioEnabled,
                                    kiwi::base::Unretained(this))});
 
+#if !KIWI_SWITCH
     // Window mode
     {
       MenuBar::MenuItem window_mode;
@@ -1426,6 +1430,7 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
                                      kiwi::base::Unretained(this))});
       emulator.menu_items.push_back(std::move(window_mode));
     }
+#endif
 
     // Controllers
     {
@@ -1626,7 +1631,9 @@ void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
   } else {
     SetVirtualButtonsVisible(!show);
   }
+#if KIWI_ENABLE_HD_TEXTURE
   SetHDTextureToggleState(!show && hd_texture_available_, hd_texture_enabled_);
+#endif
   SetLoading(false);
 }
 
@@ -1646,29 +1653,40 @@ void MainWindow::UpdateUIScale() {
 
 void MainWindow::UpdateGameControllerMapping() {
   const auto& game_controllers = Application::Get()->game_controllers();
-  int index = 0;
-  for (auto* game_controller : game_controllers) {
-    // If one's controller is already set, we don't change it.
-    if (runtime_data_->joystick_mappings[0].which != game_controller &&
-        runtime_data_->joystick_mappings[1].which != game_controller) {
-      SetControllerMapping(runtime_data_, index++, game_controller, false);
-    }
-    if (index >= 2)
-      break;
-  }
 
   // If any game controller is removed, remove it from joystick mapping as well.
-  if (std::find(game_controllers.begin(), game_controllers.end(),
-                reinterpret_cast<SDL_GameController*>(
-                    runtime_data_->joystick_mappings[0].which)) ==
-      game_controllers.end()) {
-    runtime_data_->joystick_mappings[0].which = nullptr;
+  for (int player = 0; player < 2; ++player) {
+    auto* mapped_controller = reinterpret_cast<SDL_GameController*>(
+        runtime_data_->joystick_mappings[player].which);
+    if (mapped_controller &&
+        game_controllers.find(mapped_controller) == game_controllers.end()) {
+      runtime_data_->joystick_mappings[player].which = nullptr;
+    }
   }
-  if (std::find(game_controllers.begin(), game_controllers.end(),
-                reinterpret_cast<SDL_GameController*>(
-                    runtime_data_->joystick_mappings[1].which)) ==
-      game_controllers.end()) {
-    runtime_data_->joystick_mappings[1].which = nullptr;
+
+  const std::vector<SDL_GameController*> ordered_controllers =
+      GetControllerList();
+  auto is_mapped = [this](SDL_GameController* controller) {
+    return runtime_data_->joystick_mappings[0].which == controller ||
+           runtime_data_->joystick_mappings[1].which == controller;
+  };
+
+  // devkitPro SDL announces all eight Switch controller slots at startup.
+  // Preserve existing assignments and only fill empty players; restarting from
+  // P1 on every add event can otherwise leave gameplay bound to an idle slot.
+  for (int player = 0; player < 2; ++player) {
+    if (runtime_data_->joystick_mappings[player].which)
+      continue;
+
+    auto controller =
+        std::find_if(ordered_controllers.begin(), ordered_controllers.end(),
+                     [&is_mapped](SDL_GameController* candidate) {
+                       return candidate && !is_mapped(candidate);
+                     });
+    if (controller == ordered_controllers.end())
+      break;
+
+    SetControllerMapping(runtime_data_, player, *controller, false);
   }
 }
 
@@ -1680,7 +1698,9 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
 
 void MainWindow::LayoutVirtualTouchButtons() {}
 
+#if KIWI_ENABLE_HD_TEXTURE
 void MainWindow::SetHDTextureToggleState(bool visible, bool hd_enabled) {}
+#endif
 
 void MainWindow::OnVirtualJoystickChanged(int state) {}
 
@@ -1804,6 +1824,121 @@ FlexItemsWidget* MainWindow::GetMainItemsWidget() {
   return nullptr;
 }
 
+void MainWindow::PopulatePackageItems(preset_roms::Package* package,
+                                      FlexItemsWidget* items_widget) {
+  SDL_assert(package);
+  SDL_assert(items_widget);
+  SDL_assert(items_widget->empty());
+  for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+    std::vector<preset_roms::PresetROM*> roms;
+    preset_roms::PresetROM& rom = package->GetRomsByIndex(i);
+    roms.push_back(&rom);
+    for (preset_roms::PresetROM& alternative_rom : rom.alternates) {
+      roms.push_back(&alternative_rom);
+    }
+
+    preset_roms::PresetROM* priority_rom = FindPreferredROM(roms);
+    std::vector<preset_roms::PresetROM*> ordered_roms = {priority_rom};
+    for (preset_roms::PresetROM* candidate : roms) {
+      if (candidate != priority_rom) {
+        ordered_roms.push_back(candidate);
+      }
+    }
+
+    std::vector<const preset_roms::PresetROM*> filter_aliases;
+    filter_aliases.reserve(roms.size());
+    for (preset_roms::PresetROM* candidate : roms) {
+      filter_aliases.push_back(candidate);
+    }
+
+#if KIWI_ENABLE_HD_TEXTURE
+    for (preset_roms::PresetROM* candidate : ordered_roms) {
+      if (!candidate->hd_edition_available) {
+        continue;
+      }
+      items_widget->AddItem(
+          std::make_unique<ROMTitleUpdater>(
+              *candidate, preset_roms::ROMEdition::kHD, filter_aliases),
+          candidate->boxart_width, candidate->boxart_height, true,
+          kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
+          kiwi::base::BindRepeating(
+              &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+              std::ref(*candidate), preset_roms::ROMEdition::kHD));
+    }
+#endif
+
+    preset_roms::PresetROM* default_rom = ordered_roms.front();
+    size_t main_item_index = items_widget->AddItem(
+        std::make_unique<ROMTitleUpdater>(*default_rom,
+                                          preset_roms::ROMEdition::kOriginal),
+        default_rom->boxart_width, default_rom->boxart_height,
+        HasSwitchableHDTexture(default_rom),
+        kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *default_rom),
+        kiwi::base::BindRepeating(
+            &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+            std::ref(*default_rom), preset_roms::ROMEdition::kOriginal));
+
+    for (size_t rom_index = 1; rom_index < ordered_roms.size(); ++rom_index) {
+      preset_roms::PresetROM* candidate = ordered_roms[rom_index];
+      items_widget->AddSubItem(
+          main_item_index,
+          std::make_unique<ROMTitleUpdater>(*candidate,
+                                            preset_roms::ROMEdition::kOriginal),
+          candidate->boxart_width, candidate->boxart_height,
+          HasSwitchableHDTexture(candidate),
+          kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
+          kiwi::base::BindRepeating(
+              &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
+              std::ref(*candidate), preset_roms::ROMEdition::kOriginal));
+    }
+  }
+}
+
+void MainWindow::EnsurePackageIndex(preset_roms::Package* package,
+                                    FlexItemsWidget* items_widget) {
+  if (IsPackageIndexReady(package)) {
+    if (items_widget->empty()) {
+      PopulatePackageItems(package, items_widget);
+    }
+    return;
+  }
+  if (!indexing_packages_.insert(package).second) {
+    return;
+  }
+
+  items_widget->SetIndexingProgress(0, package->GetRomsCount());
+  Application::Get()->InitializePackageIndex(
+      package,
+      kiwi::base::BindRepeating(&MainWindow::OnPackageIndexProgress,
+                                kiwi::base::Unretained(this),
+                                kiwi::base::Unretained(items_widget)),
+      kiwi::base::BindOnce(&MainWindow::OnPackageIndexReady,
+                           kiwi::base::Unretained(this),
+                           kiwi::base::Unretained(package),
+                           kiwi::base::Unretained(items_widget)));
+}
+
+void MainWindow::OnPackageIndexProgress(FlexItemsWidget* items_widget,
+                                        size_t completed,
+                                        size_t total) {
+  items_widget->SetIndexingProgress(completed, total);
+}
+
+void MainWindow::OnPackageIndexReady(preset_roms::Package* package,
+                                     FlexItemsWidget* items_widget,
+                                     bool success) {
+  indexing_packages_.erase(package);
+  if (success && items_widget->empty()) {
+    PopulatePackageItems(package, items_widget);
+    if (items_widget == GetMainItemsWidget() && !items_widget->empty()) {
+      const int index = std::clamp(config_->data().last_index, 0,
+                                   static_cast<int>(items_widget->size() - 1));
+      items_widget->SetIndex(index);
+    }
+  }
+  items_widget->FinishIndexing(success);
+}
+
 SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
@@ -1858,16 +1993,20 @@ SideMenu::MenuCallbacks MainWindow::CreateMenuAboutCallbacks() {
 }
 
 SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
+    preset_roms::Package* package,
     FlexItemsWidget* items_widget) {
+  SDL_assert(package);
   SDL_assert(items_widget);
   SideMenu::MenuCallbacks callbacks;
   callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* this_window, FlexItemsWidget* items_widget,
-         int menu_index) {
+      [](MainWindow* this_window, preset_roms::Package* package,
+         FlexItemsWidget* items_widget, int menu_index) {
         this_window->flex_items_map_[menu_index] = items_widget;
         this_window->SwitchToWidgetForSideMenu(menu_index);
+        this_window->EnsurePackageIndex(package, items_widget);
       },
-      kiwi::base::Unretained(this), kiwi::base::Unretained(items_widget));
+      kiwi::base::Unretained(this), kiwi::base::Unretained(package),
+      kiwi::base::Unretained(items_widget));
   callbacks.enter_callback = kiwi::base::BindRepeating(
       &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
       MainFocus::kContents);
@@ -1924,12 +2063,14 @@ void MainWindow::OnRomLoaded(std::unique_ptr<PendingROM> pending_rom,
   }
 
   current_game_title_ = std::move(pending_rom->game_title);
+#if KIWI_ENABLE_HD_TEXTURE
   hd_texture_available_ = pending_rom->hd_texture_available;
   hd_texture_enabled_ = pending_rom->hd_texture_enabled;
   canvas_->frame()->SetTextureRenderer(
       std::move(pending_rom->texture_renderer));
   canvas_->frame()->SetHDTextureRenderingEnabled(hd_texture_enabled_);
   canvas_->SetHDTextureToggleAvailable(hd_texture_available_);
+#endif
   ShowMainMenu(false, pending_rom->load_from_finger_gesture);
   SetTitle(pending_rom->window_title);
   StartAutoSave();
@@ -1974,10 +2115,12 @@ void MainWindow::OnRomUnloaded(bool success) {
 
   SetTitle("Kiwi Machine");
   current_game_title_.clear();
+#if KIWI_ENABLE_HD_TEXTURE
   hd_texture_available_ = false;
   hd_texture_enabled_ = false;
   canvas_->SetHDTextureToggleAvailable(false);
   canvas_->frame()->SetTextureRenderer(nullptr);
+#endif
   ShowMainMenu(true, false);
   canvas_->Clear();
 }
@@ -2038,6 +2181,7 @@ void MainWindow::OnStateSaved(int slot, bool succeed) {
 
   if (succeed) {
     SDL_assert(in_game_menu_);
+    in_game_menu_->RefreshStateAvailability();
     in_game_menu_->RefreshStatePreview();
 #if !KIWI_WASM
     Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_SUCCEEDED));
@@ -2116,7 +2260,9 @@ void MainWindow::OnPause() {
     disassembly_widget_->UpdateDisassembly();
   StashVirtualButtonsVisible();
   SetVirtualButtonsVisible(false);
+#if KIWI_ENABLE_HD_TEXTURE
   SetHDTextureToggleState(false, hd_texture_enabled_);
+#endif
 }
 
 void MainWindow::OnResume() {
@@ -2129,8 +2275,10 @@ void MainWindow::OnResume() {
   resume_after_focus_gained_ = false;
   runtime_data_->emulator->Run();
   PopVirtualButtonsVisible();
+#if KIWI_ENABLE_HD_TEXTURE
   SetHDTextureToggleState(hd_texture_available_ && canvas_->visible(),
                           hd_texture_enabled_);
+#endif
   StartAutoSave();
 }
 
@@ -2149,8 +2297,12 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
                                  preset_roms::ROMEdition edition,
                                  bool load_from_finger_gesture) {
   SDL_assert(runtime_data_->emulator);
+#if KIWI_ENABLE_HD_TEXTURE
   SDL_assert(edition == preset_roms::ROMEdition::kOriginal ||
              rom.hd_edition_available);
+#else
+  SDL_assert(edition == preset_roms::ROMEdition::kOriginal);
+#endif
   SetLoading(true);
   StopAutoSave();
 
@@ -2160,19 +2312,26 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
           [](MainWindow* this_window, preset_roms::PresetROM& rom,
              preset_roms::ROMEdition edition, bool load_from_finger_gesture,
              LoadedPresetROM loaded_rom) {
+            auto pending_rom = std::make_unique<PendingROM>();
+            pending_rom->game_title = GetROMLocalizedTitle(rom);
+#if KIWI_ENABLE_HD_TEXTURE
             const bool has_hd_renderer = loaded_rom.texture_renderer != nullptr;
             const bool hd_enabled =
                 has_hd_renderer && edition == preset_roms::ROMEdition::kHD;
-            auto pending_rom = std::make_unique<PendingROM>();
-            pending_rom->game_title = GetROMLocalizedTitle(rom);
             pending_rom->window_title = GetROMEditionTitle(
                 rom, hd_enabled ? preset_roms::ROMEdition::kHD
                                 : preset_roms::ROMEdition::kOriginal);
-            pending_rom->load_from_finger_gesture = load_from_finger_gesture;
             pending_rom->hd_texture_available =
                 has_hd_renderer && loaded_rom.hd_texture_toggle_available;
             pending_rom->hd_texture_enabled = hd_enabled;
+#else
+            static_cast<void>(edition);
+            pending_rom->window_title =
+                GetROMEditionTitle(rom, preset_roms::ROMEdition::kOriginal);
+#endif
+            pending_rom->load_from_finger_gesture = load_from_finger_gesture;
             kiwi::nes::Emulator::LoadOptions load_options;
+#if KIWI_ENABLE_HD_TEXTURE
             if (has_hd_renderer) {
               load_options.capture_ppu_texture_metadata = hd_enabled;
               load_options.uses_chr_ram =
@@ -2180,6 +2339,7 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
             }
             pending_rom->texture_renderer =
                 std::move(loaded_rom.texture_renderer);
+#endif
             this_window->runtime_data_->LoadROM(
                 std::move(loaded_rom.rom_data),
                 kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
@@ -2191,6 +2351,7 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
           load_from_finger_gesture));
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 void MainWindow::OnSetHDTextureRenderingEnabled(bool enabled) {
   if (!hd_texture_available_ || !canvas_->frame()->HasHDTextureRenderer()) {
     return;
@@ -2207,6 +2368,7 @@ void MainWindow::OnSetHDTextureRenderingEnabled(bool enabled) {
 void MainWindow::OnToggleHDTextureRendering() {
   OnSetHDTextureRenderingEnabled(!hd_texture_enabled_);
 }
+#endif
 
 void MainWindow::OnLoadDebugROM(kiwi::base::FilePath rom_path) {
   LoadROMByPath(rom_path);
@@ -2397,10 +2559,29 @@ void MainWindow::OnInGameSettingsItemTrigger(
       else
         OnSetAudioVolume(*value_ptr);
       break;
+#if !KIWI_SWITCH
     case InGameMenu::SettingsItem::kWindowMode:
       SDL_assert(go_left_ptr);
       OnInGameSettingsHandleWindowMode(*go_left_ptr);
       break;
+#endif
+#if KIWI_SWITCH
+    case InGameMenu::SettingsItem::kControllerSupport: {
+      SDL_assert(go_left_ptr);
+      if (!kiwi::switch_platform::ShowControllerSupport(1, 2))
+        break;
+
+      for (auto& mapping : runtime_data_->joystick_mappings)
+        mapping.which = nullptr;
+      if (!Application::Get()->ReloadGameControllers()) {
+        SDL_LogError(SDL_LOG_CATEGORY_INPUT,
+                     "Could not reload controllers after native selection: %s",
+                     SDL_GetError());
+        break;
+      }
+      UpdateGameControllerMapping();
+    } break;
+#else
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
       SDL_assert(go_left_ptr);
@@ -2422,6 +2603,7 @@ void MainWindow::OnInGameSettingsItemTrigger(
                              false);
       }
     } break;
+#endif
     case InGameMenu::SettingsItem::kSwapABP1:
     case InGameMenu::SettingsItem::kSwapABP2: {
       SDL_assert(go_left_ptr);

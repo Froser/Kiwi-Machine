@@ -20,6 +20,9 @@ def GetData(file):
 
 def main():
     output_dir = sys.argv[1]
+    disabled_prefixes = ()
+    if '--disable-hd-texture' in sys.argv[2:]:
+        disabled_prefixes = ('IDR_HD_TEXTURE_',)
     print("String resources output dir is", output_dir)
 
     if not os.path.isdir(output_dir):
@@ -48,6 +51,8 @@ const StringMap& GetGlobalStringMap();
         if f.suffix == '.json':
             data = GetData(f)
             for idr in data:
+                if idr.startswith(disabled_prefixes):
+                    continue
                 all_idrs += '  ' + idr + ',\n'
                 all_strings += '  { ' + idr + ' , { \n'
                 for lang in data[idr]:
@@ -88,6 +93,6 @@ const StringMap& GetGlobalStringMap();
     print("Generated: ", cc_file)
 
 
-# Usage: gen_string_resources.py {OutputDir}
+# Usage: gen_string_resources.py {OutputDir} [--disable-hd-texture]
 if __name__ == "__main__":
     main()

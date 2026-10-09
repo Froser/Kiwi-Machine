@@ -10,4 +10,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-add_subdirectory(mesen_hd_pack)
+if (NOT KIWI_SWITCH)
+    add_subdirectory(mesen_hd_pack)
+endif()

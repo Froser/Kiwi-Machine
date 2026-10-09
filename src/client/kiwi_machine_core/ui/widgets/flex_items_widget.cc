@@ -33,6 +33,11 @@ namespace {
 const int kItemHeightHint = styles::flex_items_widget::GetItemHeightHint();
 const int kItemSelectedHighlightedSize =
     styles::flex_items_widget::GetItemHighlightedSize();
+#if KIWI_SWITCH
+constexpr int kItemGap = 10;
+#else
+constexpr int kItemGap = 0;
+#endif
 constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
 #if KIWI_ANDROID
@@ -287,6 +292,23 @@ FlexItemsWidget::~FlexItemsWidget() {
   filter_lifetime_token_.reset();
 }
 
+void FlexItemsWidget::SetIndexingProgress(size_t completed, size_t total) {
+  indexing_ = true;
+  indexing_failed_ = false;
+  indexing_progress_ = total == 0 ? 0.f
+                                  : std::clamp(static_cast<float>(completed) /
+                                                   static_cast<float>(total),
+                                               0.f, 1.f);
+}
+
+void FlexItemsWidget::FinishIndexing(bool success) {
+  indexing_ = false;
+  indexing_failed_ = !success;
+  if (success) {
+    indexing_progress_ = 1.f;
+  }
+}
+
 size_t FlexItemsWidget::AddItem(
     std::unique_ptr<LocalizedStringUpdater> title_updater,
     int image_width,
@@ -367,7 +389,10 @@ void FlexItemsWidget::SetActivate(bool activate) {
     last_wheel_motion_timestamp_ = 0;
     has_wheel_velocity_sample_ = false;
     wheel_gesture_active_ = false;
-#if KIWI_MOBILE
+#if KIWI_SWITCH
+    ResetSwitchNavigation();
+#endif
+#if KIWI_MOBILE || KIWI_SWITCH
     touch_active_ = false;
     scrolling_by_finger_ = false;
     gesture_locked_ = false;
@@ -511,7 +536,7 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
   for (auto* item : items_) {
     SDL_Rect item_bounds = item->GetSuggestedSize(kItemHeightHint);
     if (anchor_x + item_bounds.w > bounds().w) {
-      anchor_y += item_bounds.h;
+      anchor_y += item_bounds.h + kItemGap;
       anchor_x = 0;
       row_index++;
       column_index = 0;
@@ -525,7 +550,7 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
 
     item_bounds.x = anchor_x;
     item_bounds.y = anchor_y;
-    anchor_x += item_bounds.w;
+    anchor_x += item_bounds.w + kItemGap;
 
     bounds_map_without_scrolling_[item] = item_bounds;
     if (IsItemSelected(item)) {
@@ -656,6 +681,11 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   if (c && filter_widget_->has_begun())
     return true;
 
+  if (IsGameSelectionSearchButton(c)) {
+    ShowFilterWidget();
+    return true;
+  }
+
   if (k) {
     if (k->keysym.sym == SDLK_f) {
       ShowFilterWidget();
@@ -677,76 +707,81 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
     return true;
   }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kLeft, k) ||
+  auto keyboard_or_axis_matches = [this,
+                                   k](kiwi::nes::ControllerButton button) {
+#if KIWI_SWITCH
+    return k && IsJoystickButtonMatch(runtime_data_, button, k->keysym);
+#else
+    return IsKeyboardOrControllerAxisMotionMatch(runtime_data_, button, k);
+#endif
+  };
+
+  if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kLeft) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
-    size_t next_index = FindNextIndex(kLeft);
-    if (next_index != current_index_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetIndex(next_index);
-    } else {
-      back_callback_.Run();
-    }
+#if KIWI_SWITCH
+    if (c)
+      return true;
+#endif
+    MoveSelection(kLeft);
     return true;
   }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kB, k) ||
-      (c && c->button == SDL_CONTROLLER_BUTTON_X) ||
-      (k && k->keysym.sym == SDLK_ESCAPE)) {
+  if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kB) ||
+      IsGameSelectionBackButton(c) || (k && k->keysym.sym == SDLK_ESCAPE)) {
     back_callback_.Run();
   }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
+  if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kRight) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
-    size_t next_index = FindNextIndex(kRight);
-    if (next_index != current_index_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetIndex(next_index);
-    }
+#if KIWI_SWITCH
+    if (c)
+      return true;
+#endif
+    MoveSelection(kRight);
     return true;
   }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
+  if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kUp) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
-    size_t next_index = FindNextIndex(kUp);
-    if (next_index != current_index_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetIndex(next_index);
-    }
+#if KIWI_SWITCH
+    if (c)
+      return true;
+#endif
+    MoveSelection(kUp);
     return true;
   }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kDown, k) ||
+  if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kDown) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
-    size_t next_index = FindNextIndex(kDown);
-    if (next_index != current_index_) {
-      PlayEffect(audio_resources::AudioID::kSelect);
-      SetIndex(next_index);
-    }
+#if KIWI_SWITCH
+    if (c)
+      return true;
+#endif
+    MoveSelection(kDown);
     return true;
   }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_START ||
-      IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
-      c && c->button == SDL_CONTROLLER_BUTTON_A) {
+  if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kStart) ||
+      keyboard_or_axis_matches(kiwi::nes::ControllerButton::kA) ||
+      IsGameSelectionConfirmButton(c)) {
     if (TriggerCurrentItem(false))
       PlayEffect(audio_resources::AudioID::kStart);
     return true;
   }
 
-  if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kSelect, k) ||
-      (c && c->button == SDL_CONTROLLER_BUTTON_Y)) {
+  if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kSelect) ||
+      IsGameSelectionNextVersionButton(c)) {
     if (!items_.empty() && items_[current_index_]->has_sub_items()) {
       PlayEffect(audio_resources::AudioID::kSelect);
       SwapCurrentItemToNextSubItem();
+    }
+    return true;
+  }
+
+  if (IsGameSelectionPreviousVersionButton(c)) {
+    if (!items_.empty() && items_[current_index_]->has_sub_items()) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      SwapCurrentItemToPreviousSubItem();
     }
     return true;
   }
@@ -793,6 +828,20 @@ void FlexItemsWidget::ApplyScrolling(int scrolling) {
     item->set_visible(cached);
     if (!cached)
       item->EvictImageTextures();
+  }
+}
+
+void FlexItemsWidget::MoveSelection(Direction direction) {
+  if (items_.empty())
+    return;
+
+  StopInertialScrolling();
+  size_t next_index = FindNextIndex(direction);
+  if (next_index != current_index_) {
+    PlayEffect(audio_resources::AudioID::kSelect);
+    SetIndex(next_index);
+  } else if (direction == kLeft) {
+    back_callback_.Run();
   }
 }
 
@@ -918,6 +967,12 @@ bool FlexItemsWidget::FindItemIndexByMousePosition(int x_in_window,
   }
 
   return false;
+}
+
+void FlexItemsWidget::SwapCurrentItemToPreviousSubItem() {
+  if (items_[current_index_]->SwapToPreviousSubItem()) {
+    RefreshCurrentItemBounds();
+  }
 }
 
 void FlexItemsWidget::SwapCurrentItemToNextSubItem() {
@@ -1283,11 +1338,14 @@ void FlexItemsWidget::HandleTriggerItemByLeftMouseButtonDownOrFingerUp(
 }
 
 void FlexItemsWidget::Paint() {
-  if (first_paint_) {
+  if (first_paint_ || need_layout_all_) {
     Layout(LayoutOption::kAdjustScrolling);
     first_paint_ = false;
   }
 
+#if KIWI_SWITCH
+  UpdateSwitchNavigation();
+#endif
   UpdateInertialScrolling();
 
   // Scrolling animation
@@ -1321,8 +1379,51 @@ void FlexItemsWidget::Paint() {
   }
 
   SDL_Rect rect_in_window = MapToWindow(GetLocalBounds());
-  DrawLibraryBackground(ImGui::GetWindowDrawList(), rect_in_window,
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  DrawLibraryBackground(draw_list, rect_in_window,
                         static_cast<float>(ImGui::GetTime()));
+}
+
+void FlexItemsWidget::PaintIndexingStatus() {
+  if (indexing_ || indexing_failed_) {
+    const SDL_Rect rect_in_window = MapToWindow(GetLocalBounds());
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const std::string& message = GetLocalizedString(
+        indexing_ ? string_resources::IDR_ITEMS_WIDGET_BUILDING_INDEX
+                  : string_resources::IDR_ITEMS_WIDGET_INDEX_FAILED);
+    ScopedFont font = GetPreferredFont(
+        styles::flex_items_widget::GetDetailFontSize(), message.c_str());
+    ImFont* im_font = font.GetFont();
+    const float font_size = font.GetFontSize();
+    const ImVec2 text_size =
+        im_font->CalcTextSizeA(font_size, FLT_MAX, 0.f, message.c_str());
+    const float center_x = rect_in_window.x + rect_in_window.w * .5f;
+    const float center_y = rect_in_window.y + rect_in_window.h * .5f;
+    draw_list->AddText(
+        im_font, font_size,
+        ImVec2(center_x - text_size.x * .5f, center_y - text_size.y - 16.f),
+        activate_ ? IM_COL32(43, 55, 48, 255) : IM_COL32(248, 249, 250, 255),
+        message.c_str());
+
+    if (indexing_) {
+      const float bar_width =
+          std::min(420.f * main_window_->window_scale(),
+                   static_cast<float>(rect_in_window.w) * .6f);
+      const float bar_height =
+          std::max(8.f, 8.f * main_window_->window_scale());
+      const ImVec2 bar_min(center_x - bar_width * .5f, center_y + 8.f);
+      const ImVec2 bar_max(center_x + bar_width * .5f,
+                           center_y + 8.f + bar_height);
+      draw_list->AddRectFilled(bar_min, bar_max, IM_COL32(197, 210, 194, 255),
+                               bar_height * .5f);
+      if (indexing_progress_ > 0.f) {
+        draw_list->AddRectFilled(
+            bar_min,
+            ImVec2(bar_min.x + bar_width * indexing_progress_, bar_max.y),
+            IM_COL32(80, 148, 28, 255), bar_height * .5f);
+      }
+    }
+  }
 }
 
 void FlexItemsWidget::EnsureUniqueFilterSearchIndex() {
@@ -1427,6 +1528,8 @@ void FlexItemsWidget::PostPaint() {
                bounds_to_window.y + bounds_to_window.h),
         ImColor(0, 0, 0, 196));
   }
+
+  PaintIndexingStatus();
 }
 
 void FlexItemsWidget::OnWindowResized() {
@@ -1596,7 +1699,14 @@ bool FlexItemsWidget::OnControllerButtonPressed(
 
 bool FlexItemsWidget::OnControllerAxisMotionEvent(
     SDL_ControllerAxisEvent* event) {
+#if KIWI_SWITCH
+  if (filter_widget_->has_begun())
+    return false;
+  return activate_ && (event->axis == SDL_CONTROLLER_AXIS_LEFTX ||
+                       event->axis == SDL_CONTROLLER_AXIS_LEFTY);
+#else
   return HandleInputEvent(nullptr, nullptr);
+#endif
 }
 
 void FlexItemsWidget::OnWindowPreRender() {

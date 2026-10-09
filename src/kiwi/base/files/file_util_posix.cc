@@ -61,7 +61,7 @@ bool DoDeleteFile(const FilePath& path, bool recursive) {
   return success;
 }
 
-#if !BUILDFLAG(IS_APPLE)
+#if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_SWITCH)
 // Appends |mode_char| to |mode| before the optional character set encoding; see
 // https://www.gnu.org/software/libc/manual/html_node/Opening-Streams.html for
 // details.
@@ -210,7 +210,7 @@ FILE* OpenFile(const FilePath& filename, const char* mode) {
   // ScopedBlockingCall scoped_blocking_call(FROM_HERE,
   // BlockingType::MAY_BLOCK);
   FILE* result = nullptr;
-#if BUILDFLAG(IS_APPLE)
+#if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_SWITCH)
   // macOS does not provide a mode character to set O_CLOEXEC; see
   // https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man3/fopen.3.html.
   const char* the_mode = mode;
@@ -235,7 +235,12 @@ int WriteFile(const FilePath& filename, const char* data, int size) {
   // BlockingType::MAY_BLOCK);
   if (size < 0)
     return -1;
+#if BUILDFLAG(IS_SWITCH)
+  int fd = HANDLE_EINTR(
+      open(filename.value().c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666));
+#else
   int fd = HANDLE_EINTR(creat(filename.value().c_str(), 0666));
+#endif
   if (fd < 0)
     return -1;
 

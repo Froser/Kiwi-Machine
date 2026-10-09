@@ -43,10 +43,16 @@ class InGameMenu : public Widget {
 
   enum class SettingsItem {
     kVolume,
+#if !KIWI_SWITCH
     kWindowMode,
     kJoyP1,
+#else
+    kControllerSupport,
+#endif
     kSwapABP1,
+#if !KIWI_SWITCH
     kJoyP2,
+#endif
     kSwapABP2,
     kLanguage,
 
@@ -83,6 +89,7 @@ class InGameMenu : public Widget {
   void Close();
   void Show();
   void RefreshStatePreview();
+  void RefreshStateAvailability();
   void SetMenuItemVisible(MenuItem item, bool visible);
 
  protected:
@@ -161,7 +168,9 @@ class InGameMenu : public Widget {
     std::string subtitle;
     std::string state_title;
     std::string state_position;
+#if !KIWI_SWITCH
     std::string state_action;
+#endif
     std::string confirmation_title;
     std::string confirmation_message;
     std::string cancel;
@@ -201,9 +210,11 @@ class InGameMenu : public Widget {
     SDL_Rect state_previous = {};
     SDL_Rect state_position = {};
     SDL_Rect state_next = {};
+#if !KIWI_SWITCH
     SDL_Rect state_action = {};
 
     SDL_Rect contextual_action = {};
+#endif
     SDL_Rect confirmation_body = {};
     SDL_Rect confirmation_cancel = {};
     SDL_Rect confirmation_accept = {};
@@ -217,8 +228,10 @@ class InGameMenu : public Widget {
     kStatePrevious,
     kStatePosition,
     kStateNext,
+#if !KIWI_SWITCH
     kStateAction,
     kContextualAction,
+#endif
     kSettingItem,
     kSettingPrevious,
     kSettingValue,
@@ -262,7 +275,9 @@ class InGameMenu : public Widget {
   void DrawStateBrowser(const FrameText& text, const FrameLayout& layout);
   void DrawSettings(const FrameText& text, const FrameLayout& layout);
   void DrawConfirmation(const FrameText& text, const FrameLayout& layout);
+#if !KIWI_SWITCH
   void DrawContextualAction(const FrameText& text, const FrameLayout& layout);
+#endif
 
   bool HandleInputEvent(SDL_KeyboardEvent* keyboard,
                         SDL_ControllerButtonEvent* controller);
@@ -290,7 +305,12 @@ class InGameMenu : public Widget {
   void ScrollSettingsSelectionIntoView();
   void SetFirstSelection();
 
+  void RequestSavedStateCount();
   void RequestAutoSavedStateCount();
+  static void DispatchSavedStateCount(std::weak_ptr<int> weak_lifetime,
+                                      InGameMenu* menu,
+                                      uint64_t request_id,
+                                      int count);
   static void DispatchAutoSavedStateCount(std::weak_ptr<int> weak_lifetime,
                                           InGameMenu* menu,
                                           uint64_t request_id,
@@ -299,12 +319,14 @@ class InGameMenu : public Widget {
                                   InGameMenu* menu,
                                   uint64_t request_id,
                                   const NESRuntime::Data::StateResult& result);
+  void OnGotSavedStateCount(uint64_t request_id, int count);
   void OnGotAutoSavedStateCount(uint64_t request_id, int count);
   void OnGotState(uint64_t request_id,
                   const NESRuntime::Data::StateResult& result);
   void CancelStatePreviewRequest();
 
   bool IsMenuItemVisible(MenuItem item) const;
+  bool IsMenuItemEnabled(MenuItem item) const;
   bool IsStateMenuItem(MenuItem item) const;
   bool IsStandaloneSettingsMenu() const;
   bool CanStepState(StepDirection direction) const;
@@ -326,7 +348,10 @@ class InGameMenu : public Widget {
 
   int which_state_ = 0;
   int which_autosave_state_slot_ = 0;
+  int current_saved_states_count_ = 0;
   int current_auto_states_count_ = 0;
+  bool saved_state_count_ready_ = false;
+  bool auto_save_count_ready_ = false;
 
   FrameLayout last_layout_;
   bool has_layout_ = false;
@@ -347,6 +372,7 @@ class InGameMenu : public Widget {
 
   std::shared_ptr<int> lifetime_token_ = std::make_shared<int>(0);
   uint64_t state_preview_request_id_ = 0;
+  uint64_t saved_state_count_request_id_ = 0;
   uint64_t auto_save_count_request_id_ = 0;
   StatePreview state_preview_;
   SDL_Texture* snapshot_ = nullptr;

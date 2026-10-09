@@ -1,0 +1,47 @@
+name: Build Nintendo Switch Homebrew
+
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ 'main' ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Switch NRO
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:20260219
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Checkout resource workspace
+      uses: actions/checkout@v4
+      with:
+        repository: Froser/Kiwi-Machine-Workspace
+        path: src/third_party/Kiwi-Machine-Workspace
+
+    - name: Build PAK resources
+      run: |
+        cmake -S . -B cmake-build-assets -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release
+        cmake --build cmake-build-assets --target package_manager
+        mkdir -p src/third_party/Kiwi-Machine-Workspace/out/textures
+        cmake-build-assets/src/client/tools/package_manager/package_manager \
+          --zipped_path=src/third_party/Kiwi-Machine-Workspace/zipped/nes \
+          --output_path=src/third_party/Kiwi-Machine-Workspace/out
+        cmake-build-assets/src/client/tools/package_manager/package_manager \
+          --mesen_hd_texture_path=src/third_party/Kiwi-Machine-Workspace/extras/mesen_hd_textures \
+          --output_path=src/third_party/Kiwi-Machine-Workspace/out/textures
+
+    - name: Build Switch NRO
+      run: python3 build.py switch --build --switch-native
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiwi-machine-switch
+        path: cmake-build-switch/dist/switch/KiwiMachine/
+        retention-days: 30

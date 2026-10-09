@@ -23,6 +23,7 @@ set(Sources
     ${kiwi_machine_core_SOURCE_DIR}/utility/ips_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/math_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/texture_parser/mesen_texture_parser_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/utility/zip_reader_unittest.cc
 )
 
 # Create test executable
@@ -31,6 +32,7 @@ add_executable(kiwi_machine_core_unittests ${Sources})
 # Link against required libraries
 target_link_libraries(kiwi_machine_core_unittests PRIVATE
     kiwi_machine_core
+    gflags_nothreads_static
     gtest_main
     glog::glog
     SDL2-static

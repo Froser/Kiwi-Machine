@@ -11,6 +11,9 @@
 // GNU General Public License for more details.
 
 #include "utility/key_mapping_util.h"
+
+#include <algorithm>
+
 #include "ui/application.h"
 #include "utility/timer.h"
 
@@ -25,6 +28,20 @@ bool IsJoystickButtonMatch(NESRuntime::Data* runtime_data,
   return false;
 }
 
+bool IsGameControllerInputSupported(SDL_GameController* controller) {
+  if (!controller)
+    return false;
+
+#if KIWI_SWITCH
+  // devkitPro's generic "Switch Controller" can have an unknown SDL type even
+  // though its fixed mapping provides valid buttons and leftx/lefty axes.
+  return true;
+#else
+  // Unknown desktop controllers may expose axes with incorrect semantics.
+  return SDL_GameControllerGetType(controller) != SDL_CONTROLLER_TYPE_UNKNOWN;
+#endif
+}
+
 bool IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton button) {
   // An array to cache last trigger timestamp for X and Y axis motion, avoiding
   // trigger to fast.
@@ -36,9 +53,7 @@ bool IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton button) {
   std::set<SDL_GameController*> controllers =
       Application::Get()->game_controllers();
   for (auto game_controller : controllers) {
-    // Unknown type may have wrong axis behaviour.
-    if (SDL_GameControllerGetType(game_controller) ==
-        SDL_CONTROLLER_TYPE_UNKNOWN)
+    if (!IsGameControllerInputSupported(game_controller))
       continue;
 
     constexpr Sint16 kDeadZoom = SDL_JOYSTICK_AXIS_MAX / 3;
@@ -121,11 +136,93 @@ bool IsKeyboardOrControllerAxisMotionMatch(NESRuntime::Data* runtime_data,
          IsJoystickAxisMotionMatch(button);
 }
 
+bool IsGameSelectionConfirmButton(const SDL_ControllerButtonEvent* event) {
+  if (!event)
+    return false;
+
+#if KIWI_SWITCH
+  // Switch SDL exposes the physical A and plus buttons as SDL B and START.
+  return event->button == SDL_CONTROLLER_BUTTON_B ||
+         event->button == SDL_CONTROLLER_BUTTON_START;
+#else
+  return event->button == SDL_CONTROLLER_BUTTON_A ||
+         event->button == SDL_CONTROLLER_BUTTON_START;
+#endif
+}
+
+bool IsGameSelectionBackButton(const SDL_ControllerButtonEvent* event) {
+  if (!event)
+    return false;
+
+#if KIWI_SWITCH
+  // The Switch SDL2 mapping exposes the physical B button as SDL A.
+  return event->button == SDL_CONTROLLER_BUTTON_A;
+#else
+  return event->button == SDL_CONTROLLER_BUTTON_X;
+#endif
+}
+
+bool IsGameSelectionSearchButton(const SDL_ControllerButtonEvent* event) {
+  if (!event)
+    return false;
+
+#if KIWI_SWITCH
+  // Switch SDL uses Xbox-style positions, so physical Y is exposed as SDL X.
+  return event->button == SDL_CONTROLLER_BUTTON_X;
+#else
+  return false;
+#endif
+}
+
+bool IsGameSelectionPreviousVersionButton(
+    const SDL_ControllerButtonEvent* event) {
+  if (!event)
+    return false;
+
+#if KIWI_SWITCH
+  return event->button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
+#else
+  return false;
+#endif
+}
+
+bool IsGameSelectionNextVersionButton(const SDL_ControllerButtonEvent* event) {
+  if (!event)
+    return false;
+
+#if KIWI_SWITCH
+  return event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
+#else
+  return event->button == SDL_CONTROLLER_BUTTON_Y;
+#endif
+}
+
 void SetControllerMapping(NESRuntime::Data* runtime_data,
                           int player,
                           SDL_GameController* controller,
                           bool ab_reverse) {
   SDL_assert(player == 0 || player == 1);
+#if KIWI_SWITCH
+  // devkitPro's SDL mapping uses Xbox-style button positions: Nintendo A/B
+  // arrive as SDL B/A. BACK and START are the physical minus and plus buttons.
+  // Keep this gameplay mapping separate from the fixed game-selection UI.
+  NESRuntime::Data::ControllerMapping joy_mapping =
+      !ab_reverse
+          ? NESRuntime::Data::ControllerMapping{
+                SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_A,
+                SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_START,
+                SDL_CONTROLLER_BUTTON_DPAD_UP,
+                SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+                SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+                SDL_CONTROLLER_BUTTON_DPAD_RIGHT}
+          : NESRuntime::Data::ControllerMapping{
+                SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B,
+                SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_START,
+                SDL_CONTROLLER_BUTTON_DPAD_UP,
+                SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+                SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+                SDL_CONTROLLER_BUTTON_DPAD_RIGHT};
+#else
   NESRuntime::Data::ControllerMapping joy_mapping =
       !ab_reverse ? NESRuntime::Data::
                         ControllerMapping{SDL_CONTROLLER_BUTTON_A,
@@ -145,6 +242,7 @@ void SetControllerMapping(NESRuntime::Data* runtime_data,
                         SDL_CONTROLLER_BUTTON_DPAD_DOWN,
                         SDL_CONTROLLER_BUTTON_DPAD_LEFT,
                         SDL_CONTROLLER_BUTTON_DPAD_RIGHT};
+#endif
   runtime_data->joystick_mappings[player] = {controller, joy_mapping};
 }
 
@@ -153,12 +251,22 @@ std::vector<SDL_GameController*> GetControllerList() {
   std::set<SDL_GameController*> controllers =
       Application::Get()->game_controllers();
 
-  // First controller means no joystick, or doesn't use any joysticks.
-  result.push_back(nullptr);
-
   for (auto* controller : controllers) {
-    result.push_back(controller);
+    if (controller)
+      result.push_back(controller);
   }
 
+  // Application stores controllers by pointer. Use SDL instance IDs instead so
+  // the Switch primary controller (slot 0) is considered before idle slots.
+  std::sort(result.begin(), result.end(),
+            [](SDL_GameController* lhs, SDL_GameController* rhs) {
+              return SDL_JoystickInstanceID(
+                         SDL_GameControllerGetJoystick(lhs)) <
+                     SDL_JoystickInstanceID(
+                         SDL_GameControllerGetJoystick(rhs));
+            });
+
+  // The first entry means no joystick, or doesn't use any joysticks.
+  result.insert(result.begin(), nullptr);
   return result;
 }

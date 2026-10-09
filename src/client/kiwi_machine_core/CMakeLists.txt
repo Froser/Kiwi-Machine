@@ -59,7 +59,6 @@ set(Sources
         preset_roms/preset_roms.h
         preset_roms/preset_roms.cc
         resources/audio_resources.cc
-        resources/font_resources.cc
         resources/string_resources.cc
         resources/string_resources.h
         resources/image_resources.cc
@@ -81,8 +80,6 @@ set(Sources
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
         ui/widgets/flex_items_widget.h
-        ui/widgets/hd_edition_badge.cc
-        ui/widgets/hd_edition_badge.h
         ui/widgets/performance_widget.cc
         ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc
@@ -142,12 +139,6 @@ set(Sources
         utility/logging.h
         utility/math.cc
         utility/math.h
-        utility/texture_parser/mesen_texture_parser.cc
-        utility/texture_parser/mesen_texture_parser.h
-        utility/texture_parser/texture_parser.h
-        utility/texture_parser/texture_resource_provider.h
-        utility/texture_renderer.cc
-        utility/texture_renderer.h
         utility/timer.cc
         utility/timer.h
         utility/fps_counter.cc
@@ -155,6 +146,21 @@ set(Sources
         utility/zip_reader.cc
         utility/zip_reader.h
 )
+
+if (NOT KIWI_SWITCH)
+    list(APPEND Sources
+            resources/font_resources.cc
+            ui/widgets/hd_edition_badge.cc
+            ui/widgets/hd_edition_badge.h
+            utility/texture_parser/mesen_texture_parser.cc
+            utility/texture_parser/mesen_texture_parser.h
+            utility/texture_parser/texture_parser.h
+            utility/texture_parser/texture_resource_provider.h
+            utility/texture_renderer.cc
+            utility/texture_renderer.h
+    )
+    set(KIWI_HD_TEXTURE_LIBRARIES mesen_hd_pack)
+endif ()
 
 if (IOS OR ANDROID)
     set(KIWI_MOBILE TRUE)
@@ -165,6 +171,11 @@ endif ()
 if (KIWI_MOBILE)
     list(APPEND Sources
             ui/main_window_mobile.cc
+    )
+endif ()
+
+if (KIWI_MOBILE OR KIWI_SWITCH)
+    list(APPEND Sources
             ui/widgets/flex_items_widget_mobile.cc
             ui/widgets/side_menu_mobile.cc
     )
@@ -198,6 +209,19 @@ if (ANDROID)
     )
 endif ()
 
+if (KIWI_SWITCH)
+    list(APPEND Sources
+            ui/widgets/flex_item_widget_switch.cc
+            utility/switch/controller_support.cc
+            utility/switch/controller_support.h
+            utility/switch/paths.cc
+            utility/switch/paths.h
+            utility/switch/system_keyboard.cc
+            utility/switch/system_keyboard.h
+            utility/switch/tiny_jpeg.cc
+    )
+endif ()
+
 # Resources generation:
 if (EMSCRIPTEN)
     set(USE_WASM_IGNORE ON)
@@ -208,7 +232,9 @@ add_custom_command(
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_image_resources.py
         ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS resources/images/files.json
+        DEPENDS
+        resources/images/files.json
+        resources/images/item_badge.svg
         VERBATIM
 )
 
@@ -226,21 +252,27 @@ add_custom_command(
         VERBATIM
 )
 
-add_custom_command(
-        OUTPUT resources/font_resources.cc
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS resources/fonts/files.json
-        VERBATIM
-)
+if (NOT KIWI_SWITCH)
+    add_custom_command(
+            OUTPUT resources/font_resources.cc
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
+            ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            DEPENDS resources/fonts/files.json
+            VERBATIM
+    )
+endif ()
+
+if (KIWI_SWITCH)
+    set(KIWI_STRING_RESOURCE_ARGS --disable-hd-texture)
+endif ()
 
 add_custom_command(
         OUTPUT
         resources/string_resources.cc
         resources/string_resources.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
+        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${KIWI_STRING_RESOURCE_ARGS}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         DEPENDS resources/strings/files.json resources/strings/strings.json
         VERBATIM
@@ -251,21 +283,25 @@ KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Kiwi::kiwi_static imgui
-        mesen_hd_pack
+        ${KIWI_HD_TEXTURE_LIBRARIES}
         gflags_nothreads_static
-        SDL2_image
-        SDL2_mixer
+        ${KIWI_SDL2_IMAGE_TARGET}
+        ${KIWI_SDL2_MIXER_TARGET}
         libminizipstatic
+        ${KIWI_PLATFORM_TARGET}
 )
 target_include_directories(${PROJECT_NAME} PRIVATE Kiwi::kiwi_static)
 target_include_directories(${PROJECT_NAME}
         PRIVATE
         "../../third_party/imgui"
 )
-
-target_compile_definitions(${PROJECT_NAME} INTERFACE Kiwi::kiwi_static)
+if(KIWI_SWITCH)
+    target_link_libraries(${PROJECT_NAME} PRIVATE glog::glog)
+    target_include_directories(${PROJECT_NAME} PRIVATE
+            "${CMAKE_SOURCE_DIR}/src/third_party/SDL_image-release-2.6.3")
+endif()
 
 # Add testing directory
-if (NOT EMSCRIPTEN)
+if (NOT EMSCRIPTEN AND NOT KIWI_SWITCH)
     add_subdirectory(testing)
 endif()

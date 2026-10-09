@@ -44,7 +44,7 @@ class AboutWidget : public Widget {
   bool OnMouseMove(SDL_MouseMotionEvent* event) override;
   bool OnMousePressed(SDL_MouseButtonEvent* event) override;
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
@@ -99,9 +99,9 @@ class AboutWidget : public Widget {
     std::string menu;
     std::string player_one;
     std::string player_two;
-    std::string xbox;
-    std::string xbox_direction;
-    std::string xbox_menu;
+    std::string gamepad_name;
+    std::string gamepad_direction;
+    std::string gamepad_start;
     std::string game_selection;
     std::array<std::string, 3> game_selection_description;
     std::string about;
@@ -175,7 +175,11 @@ class AboutWidget : public Widget {
   NESRuntime::Data* runtime_data_ = nullptr;
   StackWidget* parent_ = nullptr;
   MainWindow* main_window_ = nullptr;
+#if KIWI_SWITCH
+  InputPage input_page_ = InputPage::kGamepad;
+#else
   InputPage input_page_ = InputPage::kKeyboard;
+#endif
 #if KIWI_MOBILE
   MobileSection mobile_section_ = MobileSection::kControls;
 #endif
@@ -184,7 +188,7 @@ class AboutWidget : public Widget {
   HitTarget hovered_target_ = HitTarget::kNone;
   HitTarget pressed_target_ = HitTarget::kNone;
   bool mouse_pressed_ = false;
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   bool touch_active_ = false;
   SDL_FingerID active_touch_id_ = 0;
   ImVec2 touch_down_position_;

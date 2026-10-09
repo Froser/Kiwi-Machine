@@ -51,10 +51,10 @@ void InitializeAudioEffects() {
     if (g_all_effects[0])
       return;
 
-    int audio_rate = MIX_DEFAULT_FREQUENCY;
+    int audio_rate = KIWI_SWITCH ? 44100 : MIX_DEFAULT_FREQUENCY;
     Uint16 audio_format = MIX_DEFAULT_FORMAT;
     int audio_channels = MIX_DEFAULT_CHANNELS;
-    int audio_buffers = 4096;
+    int audio_buffers = KIWI_SWITCH ? 1024 : 4096;
     if (Mix_OpenAudio(audio_rate, audio_format, audio_channels, audio_buffers) <
         0) {
       SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't open audio: %s\n",

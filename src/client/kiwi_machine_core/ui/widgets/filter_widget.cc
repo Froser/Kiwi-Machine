@@ -23,6 +23,10 @@
 #include "utility/fonts.h"
 #include "utility/localization.h"
 
+#if KIWI_SWITCH
+#include "utility/switch/system_keyboard.h"
+#endif
+
 namespace {
 int g_global_input = 0;
 
@@ -45,7 +49,7 @@ constexpr ImU32 kButtonBrandColor = IM_COL32(148, 216, 45, 255);
 constexpr ImU32 kButtonBrandOnColor = IM_COL32(43, 63, 14, 255);
 constexpr float kButtonCornerRadius = 8.f;
 
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
 constexpr PreferredFontSize kSearchPrimaryFontSize = PreferredFontSize::k3x;
 constexpr PreferredFontSize kSearchActionFontSize = PreferredFontSize::k3x;
 #else
@@ -127,6 +131,20 @@ FilterWidget::~FilterWidget() {
 }
 
 void FilterWidget::BeginFilter() {
+#if KIWI_SWITCH
+  const size_t kMaxSystemKeyboardCharacters = (filter_buffer_.size() - 1) / 4;
+  std::string result;
+  if (kiwi::switch_platform::ShowSystemKeyboard(
+          GetLocalizedString(string_resources::IDR_FILTER_WIDGET_TITLE),
+          GetLocalizedString(string_resources::IDR_COMMON_CONFIRM),
+          filter_contents_, kMaxSystemKeyboardCharacters, &result)) {
+    filter_buffer_.fill(0);
+    std::copy(result.begin(), result.end(), filter_buffer_.begin());
+    CommitFilterIfChanged();
+  }
+  return;
+#endif
+
   if (!input_started_) {
     set_visible(true);
     focus_requested_ = true;
@@ -347,12 +365,23 @@ bool FilterWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
     case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
       MoveControllerSelection(0, 1);
       break;
+#if KIWI_SWITCH
+    // Keep the search overlay consistent with the game list: physical A
+    // confirms and physical B closes it. Switch SDL reports those as B/A.
+    case SDL_CONTROLLER_BUTTON_B:
+      ActivateControllerKey();
+      break;
+    case SDL_CONTROLLER_BUTTON_A:
+      EndFilter();
+      break;
+#else
     case SDL_CONTROLLER_BUTTON_A:
       ActivateControllerKey();
       break;
     case SDL_CONTROLLER_BUTTON_B:
       QueueControllerEdit(ControllerEditType::kBackspace);
       break;
+#endif
     case SDL_CONTROLLER_BUTTON_X:
       QueueControllerEdit(ControllerEditType::kClear);
       break;

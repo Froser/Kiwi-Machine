@@ -381,6 +381,14 @@ std::vector<FilePath::StringType> FilePath::GetComponents() const {
 }
 
 void FilePath::StripTrailingSeparatorsInternal() {
+#if BUILDFLAG(IS_SWITCH)
+  // Newlib devoptab roots such as romfs:/ and sdmc:/ require the slash.
+  if (path_.size() >= 2 && path_[path_.size() - 2] == ':' &&
+      IsSeparator(path_.back())) {
+    return;
+  }
+#endif
+
   // If there is no drive letter, start will be 1, which will prevent stripping
   // the leading separator if there is only one separator.  If there is a drive
   // letter, start will be set appropriately to prevent stripping the first

@@ -365,6 +365,15 @@ class MesenTextureRenderer final : public TextureRenderer {
           [](kiwi::nes::Color color) { return (color >> 24) == 0xff; });
       prepared_backgrounds_.push_back(std::move(prepared_background));
     }
+
+    using kiwi::nes::mesen_hd_pack::ConditionType;
+    needs_background_spatial_index_ = std::any_of(
+        pack_data_.conditions.begin(), pack_data_.conditions.end(),
+        [](const kiwi::nes::mesen_hd_pack::Condition& condition) {
+          return condition.type == ConditionType::kTileAtPosition ||
+                 condition.type == ConditionType::kTileNearby;
+        });
+    PrepareOutputCoordinateCaches();
   }
 
   ~MesenTextureRenderer() override = default;
@@ -374,8 +383,13 @@ class MesenTextureRenderer final : public TextureRenderer {
 
   using TextureRenderer::RenderFrame;
   void SetMaximumOutputScale(uint32_t maximum_scale) override {
-    output_scale_ =
+    const uint32_t output_scale =
         std::min(texture_scale(), std::max(uint32_t{1}, maximum_scale));
+    if (output_scale_ == output_scale) {
+      return;
+    }
+    output_scale_ = output_scale;
+    PrepareOutputCoordinateCaches();
   }
   uint32_t GetScale() const override { return output_scale(); }
   bool IsUseChrRam() const override { return uses_chr_ram_; }
@@ -394,11 +408,34 @@ class MesenTextureRenderer final : public TextureRenderer {
            GetSourceSubpixel(output_coordinate % output_scale());
   }
 
+  void PrepareOutputCoordinateCaches() {
+    const size_t output_tile_size = 8 * output_scale();
+    source_tile_coordinates_.resize(output_tile_size);
+    mirrored_source_tile_coordinates_.resize(output_tile_size);
+    for (size_t coordinate = 0; coordinate < output_tile_size; ++coordinate) {
+      const uint32_t source_coordinate =
+          GetSourceCoordinate(static_cast<uint32_t>(coordinate));
+      source_tile_coordinates_[coordinate] = source_coordinate;
+      mirrored_source_tile_coordinates_[coordinate] =
+          8 * texture_scale() - source_coordinate - 1;
+    }
+
+    source_screen_x_coordinates_.resize(kScreenWidth * output_scale());
+    for (size_t x = 0; x < source_screen_x_coordinates_.size(); ++x) {
+      source_screen_x_coordinates_[x] =
+          GetSourceCoordinate(static_cast<uint32_t>(x));
+    }
+    source_screen_y_coordinates_.resize(kScreenHeight * output_scale());
+    for (size_t y = 0; y < source_screen_y_coordinates_.size(); ++y) {
+      source_screen_y_coordinates_[y] =
+          GetSourceCoordinate(static_cast<uint32_t>(y));
+    }
+  }
+
   uint32_t GetSourceTileCoordinate(uint32_t output_coordinate,
                                    bool mirrored) const {
-    const uint32_t source_coordinate = GetSourceCoordinate(output_coordinate);
-    return mirrored ? 8 * texture_scale() - source_coordinate - 1
-                    : source_coordinate;
+    return mirrored ? mirrored_source_tile_coordinates_[output_coordinate]
+                    : source_tile_coordinates_[output_coordinate];
   }
 
   bool DrawTile(const kiwi::nes::PPUTextureTileCommand& command,
@@ -466,22 +503,25 @@ class MesenTextureRenderer final : public TextureRenderer {
 
     BlitBackdrop(frame, target);
     const uint64_t frame_number = frame_number_++;
-    BuildSpatialIndex(frame);
+    if (needs_background_spatial_index_) {
+      BuildSpatialIndex(frame);
+    }
     // OAM order remains authoritative across both background-priority passes.
     sprite_oam_mask_.assign(
         target.stride * static_cast<size_t>(target.height),
         std::numeric_limits<kiwi::nes::Byte>::max());
     DrawBackgrounds(frame, frame_number, 0, 10, target);
 
-    std::vector<const kiwi::nes::PPUTextureTileCommand*> sprites;
-    sprites.reserve(frame.texture_sprite_tiles.size());
+    sorted_sprites_.clear();
+    sorted_sprites_.reserve(frame.texture_sprite_tiles.size());
     for (const kiwi::nes::PPUTextureTileCommand& sprite :
          frame.texture_sprite_tiles) {
-      sprites.push_back(&sprite);
+      sorted_sprites_.push_back(&sprite);
     }
-    std::stable_sort(sprites.begin(), sprites.end(), CompareSpriteOamIndex);
+    std::stable_sort(sorted_sprites_.begin(), sorted_sprites_.end(),
+                     CompareSpriteOamIndex);
 
-    for (const kiwi::nes::PPUTextureTileCommand* sprite : sprites) {
+    for (const kiwi::nes::PPUTextureTileCommand* sprite : sorted_sprites_) {
       if (sprite->tile.background_priority) {
         DrawCommand(*sprite, frame, frame_number, true, target);
       }
@@ -495,7 +535,7 @@ class MesenTextureRenderer final : public TextureRenderer {
     }
     DrawBackgrounds(frame, frame_number, 20, 30, target);
 
-    for (const kiwi::nes::PPUTextureTileCommand* sprite : sprites) {
+    for (const kiwi::nes::PPUTextureTileCommand* sprite : sorted_sprites_) {
       if (!sprite->tile.background_priority) {
         DrawCommand(*sprite, frame, frame_number, true, target);
       }
@@ -576,7 +616,7 @@ class MesenTextureRenderer final : public TextureRenderer {
       const int64_t source_y =
           (static_cast<int64_t>(background.image_top) + scroll_y) *
               source_scale +
-          (direct_copy ? y : GetSourceCoordinate(y));
+          (direct_copy ? y : source_screen_y_coordinates_[y]);
       if (source_y < 0 || source_y >= prepared.height) {
         continue;
       }
@@ -619,7 +659,7 @@ class MesenTextureRenderer final : public TextureRenderer {
           target.pixels + static_cast<size_t>(y) * target.stride;
       for (int x = 0; x < target.width; ++x) {
         const int64_t source_x =
-            source_origin_x + GetSourceCoordinate(x);
+            source_origin_x + source_screen_x_coordinates_[x];
         if (source_x < 0 || source_x >= prepared.width) {
           continue;
         }
@@ -928,6 +968,9 @@ class MesenTextureRenderer final : public TextureRenderer {
     const kiwi::nes::PPUTextureTile& tile = command.tile;
     const uint32_t source_tile_size = 8 * texture_scale();
     const uint32_t output_tile_size = 8 * output_scale();
+    const std::vector<uint32_t>& source_x_coordinates =
+        tile.horizontal_mirroring ? mirrored_source_tile_coordinates_
+                                  : source_tile_coordinates_;
     if (!sprite_mask &&
         command.visible_mask == std::numeric_limits<uint64_t>::max() &&
         command.x >= 0 && command.x + 8 <= kScreenWidth && command.y >= 0 &&
@@ -942,15 +985,20 @@ class MesenTextureRenderer final : public TextureRenderer {
         const kiwi::nes::Color* source_row =
             rule.pixels.data() +
             static_cast<size_t>(source_y) * source_tile_size;
-        if (rule.fully_opaque && !tile.horizontal_mirroring &&
-            output_scale() == texture_scale()) {
-          std::copy_n(source_row, output_tile_size, destination);
+        if (rule.fully_opaque) {
+          if (!tile.horizontal_mirroring &&
+              output_scale() == texture_scale()) {
+            std::copy_n(source_row, output_tile_size, destination);
+          } else {
+            for (uint32_t x = 0; x < output_tile_size; ++x) {
+              destination[x] = source_row[source_x_coordinates[x]];
+            }
+          }
         } else {
           for (uint32_t x = 0; x < output_tile_size; ++x) {
-            const uint32_t source_x =
-                GetSourceTileCoordinate(x, tile.horizontal_mirroring);
             destination[x] =
-                AlphaBlend(destination[x], source_row[source_x]);
+                AlphaBlend(destination[x],
+                           source_row[source_x_coordinates[x]]);
           }
         }
         destination += output_stride;
@@ -989,30 +1037,48 @@ class MesenTextureRenderer final : public TextureRenderer {
               rule.pixels.data() +
               static_cast<size_t>(source_y) * source_tile_size;
           if (mask) {
-            for (uint32_t x = 0; x < output_scale(); ++x) {
-              const uint32_t source_x = GetSourceTileCoordinate(
-                  tile_x * output_scale() + x, tile.horizontal_mirroring);
-              const kiwi::nes::Color color = source_row[source_x];
-              const uint32_t alpha = color >> 24;
-              if (alpha == 0 || command.oam_index > mask[x]) {
-                continue;
+            const size_t output_x = tile_x * output_scale();
+            if (rule.fully_opaque) {
+              for (uint32_t x = 0; x < output_scale(); ++x) {
+                if (command.oam_index <= mask[x]) {
+                  destination[x] =
+                      source_row[source_x_coordinates[output_x + x]];
+                  mask[x] = command.oam_index;
+                }
               }
-              destination[x] = AlphaBlend(destination[x], color);
-              if (alpha == 0xff) {
-                mask[x] = command.oam_index;
+            } else {
+              for (uint32_t x = 0; x < output_scale(); ++x) {
+                const kiwi::nes::Color color =
+                    source_row[source_x_coordinates[output_x + x]];
+                const uint32_t alpha = color >> 24;
+                if (alpha == 0 || command.oam_index > mask[x]) {
+                  continue;
+                }
+                destination[x] = AlphaBlend(destination[x], color);
+                if (alpha == 0xff) {
+                  mask[x] = command.oam_index;
+                }
               }
             }
             mask += output_stride;
-          } else if (rule.fully_opaque && !tile.horizontal_mirroring &&
-                     output_scale() == texture_scale()) {
-            const uint32_t source_x = tile_x * texture_scale();
-            std::copy_n(source_row + source_x, output_scale(), destination);
+          } else if (rule.fully_opaque) {
+            if (!tile.horizontal_mirroring &&
+                output_scale() == texture_scale()) {
+              const uint32_t source_x = tile_x * texture_scale();
+              std::copy_n(source_row + source_x, output_scale(), destination);
+            } else {
+              const size_t output_x = tile_x * output_scale();
+              for (uint32_t x = 0; x < output_scale(); ++x) {
+                destination[x] =
+                    source_row[source_x_coordinates[output_x + x]];
+              }
+            }
           } else {
+            const size_t output_x = tile_x * output_scale();
             for (uint32_t x = 0; x < output_scale(); ++x) {
-              const uint32_t source_x = GetSourceTileCoordinate(
-                  tile_x * output_scale() + x, tile.horizontal_mirroring);
               destination[x] =
-                  AlphaBlend(destination[x], source_row[source_x]);
+                  AlphaBlend(destination[x],
+                             source_row[source_x_coordinates[output_x + x]]);
             }
           }
           destination += output_stride;
@@ -1036,11 +1102,17 @@ class MesenTextureRenderer final : public TextureRenderer {
   mutable MatchCache sprite_cache_;
   mutable uint64_t frame_number_ = 0;
   mutable std::vector<kiwi::nes::Byte> sprite_oam_mask_;
+  mutable std::vector<const kiwi::nes::PPUTextureTileCommand*> sorted_sprites_;
   mutable std::array<const kiwi::nes::PPUTextureTileCommand*,
                      kScreenWidth * kScreenHeight>
       background_at_pixel_{};
+  std::vector<uint32_t> source_tile_coordinates_;
+  std::vector<uint32_t> mirrored_source_tile_coordinates_;
+  std::vector<uint32_t> source_screen_x_coordinates_;
+  std::vector<uint32_t> source_screen_y_coordinates_;
   uint32_t output_scale_ = 1;
   bool uses_chr_ram_ = false;
+  bool needs_background_spatial_index_ = false;
 };
 
 }  // namespace

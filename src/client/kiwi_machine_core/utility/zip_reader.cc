@@ -16,7 +16,9 @@
 #include <SDL_image.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -26,20 +28,47 @@
 #include <unordered_set>
 #include <utility>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#if defined(min)
+#undef min
+#endif
+#if defined(max)
+#undef max
+#endif
+#if defined(CreateDirectory)
+#undef CreateDirectory
+#endif
+#endif
+
+#include "base/files/file_util.h"
 #include "nes/rom_hash.h"
 #include "preset_roms/preset_roms.h"
 #include "third_party/nlohmann_json/json.hpp"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "ui/application.h"
 #include "utility/localization.h"
+#if KIWI_ENABLE_HD_TEXTURE
 #include "utility/texture_parser/mesen_texture_parser.h"
 #include "utility/texture_parser/texture_resource_provider.h"
 #include "utility/texture_renderer.h"
+#endif
+
+#if KIWI_WASM
+#include "utility/emscripten/bridge_api.h"
+#endif
 
 namespace {
 constexpr size_t kFileNameMaxLength = 256;
+constexpr int kPackageIndexVersion = 1;
+constexpr size_t kMaximumCachedStringLength = 16 * 1024;
 
+#if KIWI_ENABLE_HD_TEXTURE
 using TexturePackIndex = std::unordered_map<std::string, kiwi::base::FilePath>;
+#endif
 
 preset_roms::PresetROM* FindAlternateROMByName(
     std::vector<preset_roms::PresetROM>* alternates,
@@ -122,6 +151,7 @@ bool GetCurrentZipFileName(unzFile file, std::string* filename) {
   return true;
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 std::unordered_set<std::string> GetZipEntries(unzFile file) {
   std::unordered_set<std::string> entries;
   int located = unzGoToFirstFile(file);
@@ -255,6 +285,7 @@ std::unique_ptr<TextureParser> CreateTextureParser(
   }
   return std::make_unique<MesenTextureParserCollection>(std::move(parsers));
 }
+#endif
 
 unzFile OpenUnzFromRWops(SDL_RWops* ops) {
   if (!ops) {
@@ -300,8 +331,8 @@ struct Unz : kiwi::base::RefCounted<Unz> {
 };
 
 scoped_refptr<Unz> OpenUnz(const kiwi::base::FilePath& file) {
-#if KIWI_ANDROID
-  // PAK assets are stored uncompressed in the APK and support random access.
+#if KIWI_ANDROID || KIWI_SWITCH
+  // PAK assets support random access through the platform SDL filesystem.
   // Let minizip read them through SDL instead of copying the entire asset.
   return kiwi::base::MakeRefCounted<Unz>(
       OpenUnzFromRWops(SDL_RWFromFile(file.AsUTF8Unsafe().c_str(), "rb")));
@@ -325,7 +356,11 @@ class PackageImpl : public preset_roms::Package {
   PackageImpl(std::vector<preset_roms::PresetROM>&& roms,
               std::map<std::string, std::string>&& titles,
               kiwi::nes::Bytes&& icon,
-              kiwi::nes::Bytes&& icon_highlight);
+              kiwi::nes::Bytes&& icon_highlight,
+              kiwi::base::FilePath package_path,
+              std::string fingerprint,
+              std::vector<std::string>&& entry_names,
+              scoped_refptr<Unz> archive);
   ~PackageImpl() override = default;
 
   size_t GetRomsCount() override;
@@ -334,21 +369,43 @@ class PackageImpl : public preset_roms::Package {
   kiwi::nes::Bytes GetSideMenuHighlightImage() override;
   std::string GetTitleForLanguage(SupportedLanguage language) override;
 
+  bool index_ready() const { return index_ready_; }
+  void set_index_ready(bool ready) { index_ready_ = ready; }
+  const kiwi::base::FilePath& package_path() const { return package_path_; }
+  const std::string& fingerprint() const { return fingerprint_; }
+  const std::string& entry_name(size_t index) const {
+    return entry_names_.at(index);
+  }
+  bool ValidateFilePosition(size_t index, const unz_file_pos& position);
+
  private:
   std::vector<preset_roms::PresetROM> roms_;
   std::map<std::string, std::string> titles_;
   kiwi::nes::Bytes icon_;
   kiwi::nes::Bytes icon_highlight_;
+  kiwi::base::FilePath package_path_;
+  std::string fingerprint_;
+  std::vector<std::string> entry_names_;
+  scoped_refptr<Unz> archive_;
+  bool index_ready_ = false;
 };
 
 PackageImpl::PackageImpl(std::vector<preset_roms::PresetROM>&& roms,
                          std::map<std::string, std::string>&& titles,
                          kiwi::nes::Bytes&& icon,
-                         kiwi::nes::Bytes&& icon_highlight)
+                         kiwi::nes::Bytes&& icon_highlight,
+                         kiwi::base::FilePath package_path,
+                         std::string fingerprint,
+                         std::vector<std::string>&& entry_names,
+                         scoped_refptr<Unz> archive)
     : roms_(std::move(roms)),
       titles_(std::move(titles)),
       icon_(std::move(icon)),
-      icon_highlight_(std::move(icon_highlight)) {}
+      icon_highlight_(std::move(icon_highlight)),
+      package_path_(std::move(package_path)),
+      fingerprint_(std::move(fingerprint)),
+      entry_names_(std::move(entry_names)),
+      archive_(std::move(archive)) {}
 
 size_t PackageImpl::GetRomsCount() {
   return roms_.size();
@@ -370,6 +427,18 @@ std::string PackageImpl::GetTitleForLanguage(SupportedLanguage language) {
   return titles_[ToLanguageCode(language)];
 }
 
+bool PackageImpl::ValidateFilePosition(size_t index,
+                                       const unz_file_pos& position) {
+  if (!archive_ || !*archive_ || index >= entry_names_.size() ||
+      unzGoToFilePos(*archive_, const_cast<unz_file_pos*>(&position)) !=
+          UNZ_OK) {
+    return false;
+  }
+  std::string filename;
+  return GetCurrentZipFileName(*archive_, &filename) &&
+         filename == entry_names_[index];
+}
+
 preset_roms::Region GuessROMRegion(std::string_view filename) {
   if (filename.find("(USA)") != std::string_view::npos ||
       filename.find("(US)") != std::string_view::npos ||
@@ -382,6 +451,211 @@ preset_roms::Region GuessROMRegion(std::string_view filename) {
     return preset_roms::Region::kCN;
   }
   return preset_roms::Region::kUnknown;
+}
+
+struct CachedROMMetadata {
+  std::string name;
+  std::unordered_map<std::string, std::string> i18n_names;
+  int boxart_width = 0;
+  int boxart_height = 0;
+  preset_roms::Region region = preset_roms::Region::kUnknown;
+  std::string sha1;
+  std::vector<CachedROMMetadata> alternates;
+};
+
+void AppendFingerprintInteger(std::string* input, uint64_t value) {
+  for (size_t i = 0; i < sizeof(value); ++i) {
+    input->push_back(static_cast<char>(value & 0xff));
+    value >>= 8;
+  }
+}
+
+void AppendFingerprintEntry(std::string* input,
+                            const std::string& filename,
+                            const unz_file_info& info,
+                            const unz_file_pos& position) {
+  AppendFingerprintInteger(input, filename.size());
+  input->append(filename);
+  AppendFingerprintInteger(input, info.crc);
+  AppendFingerprintInteger(input, info.compressed_size);
+  AppendFingerprintInteger(input, info.uncompressed_size);
+  AppendFingerprintInteger(input, position.num_of_file);
+  AppendFingerprintInteger(input, position.pos_in_zip_directory);
+}
+
+std::string CalculateStringSha1(std::string_view value) {
+  const auto* bytes = reinterpret_cast<const uint8_t*>(value.data());
+  return kiwi::nes::CalculateSha1Hex(
+      std::span<const uint8_t>(bytes, value.size()));
+}
+
+std::string CalculatePackagePathId(const kiwi::base::FilePath& package_path) {
+  return CalculateStringSha1(package_path.AsUTF8Unsafe());
+}
+
+kiwi::base::FilePath GetPackageIndexPath(
+    const PackageImpl& package,
+    const kiwi::base::FilePath& profile_path) {
+  return profile_path.Append(FILE_PATH_LITERAL("PackageIndex"))
+      .Append(kiwi::base::FilePath::FromUTF8Unsafe(
+          CalculatePackagePathId(package.package_path()) + ".json"));
+}
+
+bool ReplaceFileAtomically(const kiwi::base::FilePath& temporary_path,
+                           const kiwi::base::FilePath& target_path) {
+#if defined(_WIN32)
+  return ::MoveFileExW(temporary_path.value().c_str(),
+                       target_path.value().c_str(),
+                       MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+#else
+  return std::rename(temporary_path.value().c_str(),
+                     target_path.value().c_str()) == 0;
+#endif
+}
+
+nlohmann::json SerializeROMMetadata(const preset_roms::PresetROM& rom) {
+  nlohmann::json result = {
+      {"name", rom.name},
+      {"i18n_names", rom.i18n_names},
+      {"boxart_width", rom.boxart_width},
+      {"boxart_height", rom.boxart_height},
+      {"region", static_cast<int>(rom.region)},
+      {"sha1", rom.sha1},
+  };
+  result["alternates"] = nlohmann::json::array();
+  for (const preset_roms::PresetROM& alternate : rom.alternates) {
+    result["alternates"].push_back(SerializeROMMetadata(alternate));
+  }
+  return result;
+}
+
+bool IsROMMetadataComplete(const preset_roms::PresetROM& rom) {
+  if (!rom.title_loaded || rom.boxart_width <= 0 || rom.boxart_height <= 0 ||
+      !kiwi::nes::NormalizeSha1Hex(rom.sha1)) {
+    return false;
+  }
+  return std::all_of(rom.alternates.begin(), rom.alternates.end(),
+                     [](const preset_roms::PresetROM& alternate) {
+                       return IsROMMetadataComplete(alternate);
+                     });
+}
+
+bool ReadCachedString(const nlohmann::json& object,
+                      const char* key,
+                      std::string* value) {
+  const auto field = object.find(key);
+  if (field == object.end() || !field->is_string()) {
+    return false;
+  }
+  *value = field->get<std::string>();
+  return value->size() <= kMaximumCachedStringLength;
+}
+
+bool ParseROMMetadata(const nlohmann::json& value,
+                      bool allow_alternates,
+                      CachedROMMetadata* metadata) {
+  if (!value.is_object() || !ReadCachedString(value, "name", &metadata->name) ||
+      metadata->name.empty() ||
+      !ReadCachedString(value, "sha1", &metadata->sha1)) {
+    return false;
+  }
+
+  const auto names = value.find("i18n_names");
+  const auto width = value.find("boxart_width");
+  const auto height = value.find("boxart_height");
+  const auto region = value.find("region");
+  const auto alternates = value.find("alternates");
+  if (names == value.end() || !names->is_object() || width == value.end() ||
+      !width->is_number_integer() || height == value.end() ||
+      !height->is_number_integer() || region == value.end() ||
+      !region->is_number_integer() || alternates == value.end() ||
+      !alternates->is_array()) {
+    return false;
+  }
+
+  const int64_t parsed_width = width->get<int64_t>();
+  const int64_t parsed_height = height->get<int64_t>();
+  const int64_t parsed_region = region->get<int64_t>();
+  if (parsed_width <= 0 || parsed_width > std::numeric_limits<int>::max() ||
+      parsed_height <= 0 || parsed_height > std::numeric_limits<int>::max() ||
+      parsed_region < static_cast<int>(preset_roms::Region::kUnknown) ||
+      parsed_region > static_cast<int>(preset_roms::Region::kCN) ||
+      !kiwi::nes::NormalizeSha1Hex(metadata->sha1)) {
+    return false;
+  }
+
+  metadata->boxart_width = static_cast<int>(parsed_width);
+  metadata->boxart_height = static_cast<int>(parsed_height);
+  metadata->region = static_cast<preset_roms::Region>(parsed_region);
+  for (const auto& name : names->items()) {
+    if (name.key().size() > kMaximumCachedStringLength ||
+        !name.value().is_string()) {
+      return false;
+    }
+    std::string localized_name = name.value().get<std::string>();
+    if (localized_name.size() > kMaximumCachedStringLength) {
+      return false;
+    }
+    metadata->i18n_names.emplace(name.key(), std::move(localized_name));
+  }
+
+  if (!allow_alternates && !alternates->empty()) {
+    return false;
+  }
+  if (alternates->size() > 64) {
+    return false;
+  }
+  for (const nlohmann::json& alternate : *alternates) {
+    CachedROMMetadata parsed;
+    if (!ParseROMMetadata(alternate, false, &parsed)) {
+      return false;
+    }
+    metadata->alternates.push_back(std::move(parsed));
+  }
+  return true;
+}
+
+void ApplyCachedMetadata(const CachedROMMetadata& metadata,
+                         preset_roms::PresetROM* rom) {
+  rom->i18n_names = metadata.i18n_names;
+  rom->boxart_width = metadata.boxart_width;
+  rom->boxart_height = metadata.boxart_height;
+  rom->region = metadata.region;
+  rom->sha1 = metadata.sha1;
+  rom->title_loaded = true;
+  rom->alternates.clear();
+  for (const CachedROMMetadata& cached_alternate : metadata.alternates) {
+    preset_roms::PresetROM alternate;
+    alternate.name = new char[cached_alternate.name.size() + 1];
+    std::memcpy(const_cast<char*>(alternate.name),
+                cached_alternate.name.c_str(),
+                cached_alternate.name.size() + 1);
+    alternate.file_pos = rom->file_pos;
+    alternate.zip_data_loader = rom->zip_data_loader;
+    ApplyCachedMetadata(cached_alternate, &alternate);
+    rom->alternates.push_back(std::move(alternate));
+  }
+}
+
+bool ReadCachedPosition(const nlohmann::json& value, unz_file_pos* position) {
+  if (!value.is_object()) {
+    return false;
+  }
+  const auto number = value.find("num_of_file");
+  const auto directory = value.find("pos_in_zip_directory");
+  if (number == value.end() || !number->is_number_unsigned() ||
+      directory == value.end() || !directory->is_number_unsigned()) {
+    return false;
+  }
+  const uint64_t parsed_number = number->get<uint64_t>();
+  const uint64_t parsed_directory = directory->get<uint64_t>();
+  if (parsed_number > std::numeric_limits<uLong>::max() ||
+      parsed_directory > std::numeric_limits<uLong>::max()) {
+    return false;
+  }
+  position->num_of_file = static_cast<uLong>(parsed_number);
+  position->pos_in_zip_directory = static_cast<uLong>(parsed_directory);
+  return true;
 }
 
 kiwi::nes::Bytes LoadZipDataFromFilePos(scoped_refptr<Unz> f,
@@ -409,6 +683,7 @@ kiwi::nes::Bytes LoadZipDataFromFilePos(scoped_refptr<Unz> f,
   return data;
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 std::optional<nlohmann::json> ReadTexturePackManifest(unzFile archive) {
   kiwi::nes::Bytes manifest;
   if (!ReadFileFromZip(archive, "manifest.json", manifest)) {
@@ -468,6 +743,75 @@ void ConfigureTexturePackForROMFromIndex(
                 "Texture package failed validation for ROM: %s", rom->name);
   }
 }
+
+TexturePackIndex BuildTexturePackIndex(
+    const std::vector<kiwi::base::FilePath>& texture_pack_paths) {
+  TexturePackIndex pack_by_rom_sha1;
+  for (const kiwi::base::FilePath& path : texture_pack_paths) {
+    scoped_refptr<Unz> archive = OpenUnz(path);
+    if (!*archive) {
+      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                  "Failed to open texture package: %s",
+                  path.AsUTF8Unsafe().c_str());
+      continue;
+    }
+    std::optional<nlohmann::json> manifest = ReadTexturePackManifest(*archive);
+    if (!manifest) {
+      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                  "Invalid texture package manifest: %s",
+                  path.AsUTF8Unsafe().c_str());
+      continue;
+    }
+    const auto type = manifest->find("type");
+    if (type == manifest->end() || !type->is_string() ||
+        type->get<std::string>() != "mesen") {
+      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                  "Invalid texture package type: %s",
+                  path.AsUTF8Unsafe().c_str());
+      continue;
+    }
+    const auto roms = manifest->find("roms");
+    if (roms == manifest->end() || !roms->is_array()) {
+      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                  "Texture package manifest has no ROM list: %s",
+                  path.AsUTF8Unsafe().c_str());
+      continue;
+    }
+
+    for (const auto& value : *roms) {
+      if (!value.is_string()) {
+        continue;
+      }
+      std::optional<std::string> sha1 =
+          kiwi::nes::NormalizeSha1Hex(value.get<std::string>());
+      if (!sha1) {
+        continue;
+      }
+      const auto [existing, inserted] = pack_by_rom_sha1.emplace(*sha1, path);
+      if (!inserted && existing->second != path) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "Multiple texture packages target ROM SHA-1 %s",
+                    sha1->c_str());
+      }
+    }
+  }
+  return pack_by_rom_sha1;
+}
+
+void ConfigureTexturePacksForPackage(preset_roms::Package* package,
+                                     const TexturePackIndex& pack_by_rom_sha1) {
+  if (!IsPackageIndexReady(package)) {
+    return;
+  }
+  for (size_t i = 0; i < package->GetRomsCount(); ++i) {
+    preset_roms::PresetROM& rom = package->GetRomsByIndex(i);
+    ConfigureTexturePackForROMFromIndex(&rom, pack_by_rom_sha1);
+    for (preset_roms::PresetROM& alternative : rom.alternates) {
+      ConfigureTexturePackForROMFromIndex(&alternative, pack_by_rom_sha1);
+    }
+  }
+}
+#endif
 
 }  // namespace
 
@@ -545,6 +889,16 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
       }
 
       if (!success) {
+        const auto indexed_sha1 = rom_data.sha1_by_name.find(rom_data.name);
+        if (indexed_sha1 != rom_data.sha1_by_name.end()) {
+          rom_data.sha1 = indexed_sha1->second;
+        } else {
+          kiwi::nes::Bytes rom_contents;
+          if (ReadFileFromZip(file, std::string(rom_data.name) + ".nes",
+                              rom_contents)) {
+            rom_data.sha1 = kiwi::nes::CalculateSha1Hex(rom_contents);
+          }
+        }
         unzClose(file);
         return;
       }
@@ -625,8 +979,8 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
 
           // Leaky name
           new_alternative_rom.name = new char[alter_name.size() + 1];
-          strcpy(const_cast<char*>(new_alternative_rom.name),
-                 alter_name.c_str());
+          std::memcpy(const_cast<char*>(new_alternative_rom.name),
+                      alter_name.c_str(), alter_name.size() + 1);
           new_alternative_rom.i18n_names = names;
           new_alternative_rom.region = GuessROMRegion(alter_name);
           rom_data.alternates.push_back(std::move(new_alternative_rom));
@@ -641,73 +995,183 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
   }
 }
 
+bool RestorePackageIndexFromCache(preset_roms::Package* package,
+                                  const kiwi::base::FilePath& profile_path) {
+  auto* package_impl = static_cast<PackageImpl*>(package);
+  if (package_impl->index_ready() || package_impl->fingerprint().empty()) {
+    return package_impl->index_ready();
+  }
+
+  const kiwi::base::FilePath cache_path =
+      GetPackageIndexPath(*package_impl, profile_path);
+  std::optional<std::vector<uint8_t>> cache_data =
+      kiwi::base::ReadFileToBytes(cache_path);
+  constexpr size_t kMaximumIndexSize = 64 * 1024 * 1024;
+  if (!cache_data || cache_data->empty() ||
+      cache_data->size() > kMaximumIndexSize) {
+    return false;
+  }
+
+  const char* cache_begin =
+      reinterpret_cast<const char*>(cache_data->data());
+  nlohmann::json cache = nlohmann::json::parse(
+      cache_begin, cache_begin + cache_data->size(), nullptr, false);
+  if (cache.is_discarded() || !cache.is_object()) {
+    return false;
+  }
+  const auto version = cache.find("version");
+  const auto source = cache.find("package_path");
+  const auto fingerprint = cache.find("fingerprint");
+  const auto roms = cache.find("roms");
+  const auto payload_sha1 = cache.find("payload_sha1");
+  if (version == cache.end() || !version->is_number_integer() ||
+      version->get<int>() != kPackageIndexVersion || source == cache.end() ||
+      !source->is_string() ||
+      source->get<std::string>() !=
+          package_impl->package_path().AsUTF8Unsafe() ||
+      fingerprint == cache.end() || !fingerprint->is_string() ||
+      fingerprint->get<std::string>() != package_impl->fingerprint() ||
+      roms == cache.end() || !roms->is_array() ||
+      roms->size() != package_impl->GetRomsCount() ||
+      payload_sha1 == cache.end() || !payload_sha1->is_string() ||
+      payload_sha1->get<std::string>() != CalculateStringSha1(roms->dump())) {
+    return false;
+  }
+
+  std::vector<CachedROMMetadata> parsed_metadata;
+  parsed_metadata.reserve(roms->size());
+  for (size_t i = 0; i < roms->size(); ++i) {
+    const nlohmann::json& cached_rom = (*roms)[i];
+    const auto entry_name = cached_rom.find("entry_name");
+    const auto position_json = cached_rom.find("file_position");
+    const auto metadata_json = cached_rom.find("metadata");
+    if (!cached_rom.is_object() || entry_name == cached_rom.end() ||
+        !entry_name->is_string() ||
+        entry_name->get<std::string>() != package_impl->entry_name(i) ||
+        position_json == cached_rom.end() ||
+        metadata_json == cached_rom.end()) {
+      return false;
+    }
+
+    unz_file_pos cached_position = {};
+    CachedROMMetadata metadata;
+    preset_roms::PresetROM& current_rom = package_impl->GetRomsByIndex(i);
+    if (!ReadCachedPosition(*position_json, &cached_position) ||
+        cached_position.num_of_file != current_rom.file_pos.num_of_file ||
+        cached_position.pos_in_zip_directory !=
+            current_rom.file_pos.pos_in_zip_directory ||
+        !package_impl->ValidateFilePosition(i, cached_position) ||
+        !ParseROMMetadata(*metadata_json, true, &metadata) ||
+        metadata.name != current_rom.name) {
+      return false;
+    }
+    parsed_metadata.push_back(std::move(metadata));
+  }
+
+  for (size_t i = 0; i < parsed_metadata.size(); ++i) {
+    ApplyCachedMetadata(parsed_metadata[i], &package_impl->GetRomsByIndex(i));
+  }
+  package_impl->set_index_ready(true);
+  return true;
+}
+
+bool BuildPackageIndex(preset_roms::Package* package,
+                       const kiwi::base::FilePath& profile_path,
+                       PackageIndexProgressCallback progress_callback) {
+  auto* package_impl = static_cast<PackageImpl*>(package);
+  if (package_impl->index_ready()) {
+    return true;
+  }
+
+  const size_t rom_count = package_impl->GetRomsCount();
+  if (progress_callback) {
+    progress_callback.Run(0, rom_count);
+  }
+  for (size_t i = 0; i < rom_count; ++i) {
+    preset_roms::PresetROM& rom = package_impl->GetRomsByIndex(i);
+    InitializePresetROM(rom);
+    if (!IsROMMetadataComplete(rom)) {
+      return false;
+    }
+    if (progress_callback) {
+      progress_callback.Run(i + 1, rom_count);
+    }
+  }
+
+  nlohmann::json cache = {
+      {"version", kPackageIndexVersion},
+      {"package_path", package_impl->package_path().AsUTF8Unsafe()},
+      {"fingerprint", package_impl->fingerprint()},
+      {"roms", nlohmann::json::array()},
+  };
+  for (size_t i = 0; i < rom_count; ++i) {
+    const preset_roms::PresetROM& rom = package_impl->GetRomsByIndex(i);
+    cache["roms"].push_back(
+        {{"entry_name", package_impl->entry_name(i)},
+         {"file_position",
+          {{"num_of_file", rom.file_pos.num_of_file},
+           {"pos_in_zip_directory", rom.file_pos.pos_in_zip_directory}}},
+         {"metadata", SerializeROMMetadata(rom)}});
+  }
+  cache["payload_sha1"] = CalculateStringSha1(cache["roms"].dump());
+
+  const kiwi::base::FilePath cache_path =
+      GetPackageIndexPath(*package_impl, profile_path);
+  const kiwi::base::FilePath temporary_path =
+      kiwi::base::FilePath::FromUTF8Unsafe(cache_path.AsUTF8Unsafe() + ".tmp");
+  const std::string serialized = cache.dump();
+  const bool cache_written =
+      serialized.size() <=
+          static_cast<size_t>(std::numeric_limits<int>::max()) &&
+      kiwi::base::CreateDirectory(cache_path.DirName()) &&
+      kiwi::base::WriteFile(temporary_path, serialized.data(),
+                            static_cast<int>(serialized.size())) ==
+          static_cast<int>(serialized.size()) &&
+      ReplaceFileAtomically(temporary_path, cache_path);
+  if (!cache_written) {
+    kiwi::base::DeletePathRecursively(temporary_path);
+    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                "Failed to write package index cache: %s",
+                cache_path.AsUTF8Unsafe().c_str());
+  }
+#if KIWI_WASM
+  if (cache_written) {
+    SyncFilesystem();
+  }
+#endif
+
+  package_impl->set_index_ready(true);
+  return true;
+}
+
+bool IsPackageIndexReady(const preset_roms::Package* package) {
+  return static_cast<const PackageImpl*>(package)->index_ready();
+}
+
+#if KIWI_ENABLE_HD_TEXTURE
 void InitializeTexturePacks(
     const std::vector<kiwi::base::FilePath>& texture_pack_paths) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
       Application::Get()->GetIOTaskRunner();
   SDL_assert(io_task_runner->RunsTasksInCurrentSequence());
 
-  TexturePackIndex pack_by_rom_sha1;
-  for (const kiwi::base::FilePath& path : texture_pack_paths) {
-    scoped_refptr<Unz> archive = OpenUnz(path);
-    if (!*archive) {
-      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                  "Failed to open texture package: %s",
-                  path.AsUTF8Unsafe().c_str());
-      continue;
-    }
-    std::optional<nlohmann::json> manifest = ReadTexturePackManifest(*archive);
-    if (!manifest) {
-      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                  "Invalid texture package manifest: %s",
-                  path.AsUTF8Unsafe().c_str());
-      continue;
-    }
-    const auto type = manifest->find("type");
-    if (type == manifest->end() || !type->is_string() ||
-        type->get<std::string>() != "mesen") {
-      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                  "Invalid texture package type: %s",
-                  path.AsUTF8Unsafe().c_str());
-      continue;
-    }
-    const auto roms = manifest->find("roms");
-    if (roms == manifest->end() || !roms->is_array()) {
-      SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                  "Texture package manifest has no ROM list: %s",
-                  path.AsUTF8Unsafe().c_str());
-      continue;
-    }
-
-    for (const auto& value : *roms) {
-      if (!value.is_string()) {
-        continue;
-      }
-      std::optional<std::string> sha1 =
-          kiwi::nes::NormalizeSha1Hex(value.get<std::string>());
-      if (!sha1) {
-        continue;
-      }
-      const auto [existing, inserted] = pack_by_rom_sha1.emplace(*sha1, path);
-      if (!inserted && existing->second != path) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                    "Multiple texture packages target ROM SHA-1 %s",
-                    sha1->c_str());
-      }
-    }
-  }
-
+  TexturePackIndex pack_by_rom_sha1 = BuildTexturePackIndex(texture_pack_paths);
   for (preset_roms::Package* package :
        preset_roms::GetPresetOrTestRomsPackages()) {
-    for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-      preset_roms::PresetROM& rom = package->GetRomsByIndex(i);
-      ConfigureTexturePackForROMFromIndex(&rom, pack_by_rom_sha1);
-      for (preset_roms::PresetROM& alternative : rom.alternates) {
-        ConfigureTexturePackForROMFromIndex(&alternative, pack_by_rom_sha1);
-      }
-    }
+    ConfigureTexturePacksForPackage(package, pack_by_rom_sha1);
   }
 }
+
+void InitializeTexturePacksForPackage(
+    preset_roms::Package* package,
+    const std::vector<kiwi::base::FilePath>& texture_pack_paths) {
+  scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
+      Application::Get()->GetIOTaskRunner();
+  SDL_assert(io_task_runner->RunsTasksInCurrentSequence());
+  ConfigureTexturePacksForPackage(package,
+                                  BuildTexturePackIndex(texture_pack_paths));
+}
+#endif
 
 kiwi::nes::Bytes LoadPresetROMBoxArt(const preset_roms::PresetROM& rom_data) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
@@ -748,6 +1212,7 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
     return result;
   }
 
+#if KIWI_ENABLE_HD_TEXTURE
   const bool should_load_texture = !rom_data.hd_texture_path.empty() &&
                                    (rom_data.hd_texture_toggle_available ||
                                     edition == preset_roms::ROMEdition::kHD);
@@ -786,6 +1251,9 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
                  "Failed to load HD texture data for name %s", rom_data.name);
     result.rom_data.clear();
   }
+#else
+  static_cast<void>(edition);
+#endif
   return result;
 }
 
@@ -794,21 +1262,35 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             std::map<std::string, std::string>& titles,
                             kiwi::nes::Bytes& icon,
                             kiwi::nes::Bytes& icon_highlight,
-                            const kiwi::base::FilePath& package) {
+                            const kiwi::base::FilePath& package,
+                            std::string& fingerprint,
+                            std::vector<std::string>& entry_names,
+                            scoped_refptr<Unz>& archive) {
   scoped_refptr<Unz> pak = OpenUnz(package);
-  SDL_assert(pak);
+  if (!*pak) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open package: %s",
+                 package.AsUTF8Unsafe().c_str());
+    return;
+  }
 
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
       rom_sha1s;
+  std::string fingerprint_input = "kiwi-package-index-v1";
   int located = unzGoToFirstFile(*pak);
-  std::string filename;
-  filename.resize(kFileNameMaxLength);
   while (located == UNZ_OK) {
-    unz_file_info fi;
-    unzGetCurrentFileInfo(*pak, &fi, filename.data(), filename.size(), nullptr,
-                          0, nullptr, 0);
+    unz_file_info fi = {};
+    std::string filename;
+    unz_file_pos file_pos = {};
+    if (unzGetCurrentFileInfo(*pak, &fi, nullptr, 0, nullptr, 0, nullptr, 0) !=
+            UNZ_OK ||
+        !GetCurrentZipFileName(*pak, &filename) ||
+        unzGetFilePos(*pak, &file_pos) != UNZ_OK) {
+      roms.clear();
+      return;
+    }
+    AppendFingerprintEntry(&fingerprint_input, filename, fi, file_pos);
 
-    if (strcmp(filename.data(), "manifest.json") == 0) {
+    if (filename == "manifest.json") {
       kiwi::nes::Bytes manifest_data;
       manifest_data.resize(fi.uncompressed_size);
       unzOpenCurrentFile(*pak);
@@ -855,11 +1337,9 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
 
     preset_roms::PresetROM rom;
     kiwi::base::FilePath filepath =
-        kiwi::base::FilePath::FromUTF8Unsafe(filename.c_str());
+        kiwi::base::FilePath::FromUTF8Unsafe(filename);
     std::string name = filepath.RemoveExtension().AsUTF8Unsafe();
 
-    unz_file_pos file_pos;
-    unzGetFilePos(*pak, &file_pos);
     rom.file_pos = file_pos;
     rom.zip_data_loader = kiwi::base::BindRepeating(
         &LoadZipDataFromFilePos,
@@ -872,7 +1352,13 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
     strncpy(const_cast<char*>(rom.name), name.data(), name.size() + 1);
     unzCloseCurrentFile(*pak);
     roms.push_back(std::move(rom));
+    entry_names.push_back(std::move(filename));
     located = unzGoToNextFile(*pak);
+  }
+  if (located != UNZ_END_OF_LIST_OF_FILE || roms.size() != entry_names.size()) {
+    roms.clear();
+    entry_names.clear();
+    return;
   }
 
   for (preset_roms::PresetROM& rom : roms) {
@@ -881,6 +1367,11 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
       rom.sha1_by_name = hashes->second;
     }
   }
+  const auto* fingerprint_bytes =
+      reinterpret_cast<const uint8_t*>(fingerprint_input.data());
+  fingerprint = kiwi::nes::CalculateSha1Hex(
+      std::span<const uint8_t>(fingerprint_bytes, fingerprint_input.size()));
+  archive = std::move(pak);
 }
 
 preset_roms::Package* CreatePackageFromFile(
@@ -888,14 +1379,22 @@ preset_roms::Package* CreatePackageFromFile(
   std::vector<preset_roms::PresetROM> roms;
   std::map<std::string, std::string> titles;
   kiwi::nes::Bytes icon, icon_highlight;
-  OpenRomDataFromPackage(roms, titles, icon, icon_highlight, package_path);
-  preset_roms::Package* package =
-      new PackageImpl(std::move(roms), std::move(titles), std::move(icon),
-                      std::move(icon_highlight));
+  std::string fingerprint;
+  std::vector<std::string> entry_names;
+  scoped_refptr<Unz> archive;
+  OpenRomDataFromPackage(roms, titles, icon, icon_highlight, package_path,
+                         fingerprint, entry_names, archive);
+  preset_roms::Package* package = new PackageImpl(
+      std::move(roms), std::move(titles), std::move(icon),
+      std::move(icon_highlight), package_path, std::move(fingerprint),
+      std::move(entry_names), std::move(archive));
   return package;
 }
 
 void CloseRomDataFromPackage(preset_roms::PresetROM& rom) {
+  for (preset_roms::PresetROM& alternate : rom.alternates) {
+    CloseRomDataFromPackage(alternate);
+  }
   delete[] rom.name;
 }
 

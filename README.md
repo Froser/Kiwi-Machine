@@ -77,6 +77,7 @@ Consistent programming style means that the Kiwi kernel uses asynchronous progra
 - Linux
 - Android (phone, TV)
 - iOS
+- Nintendo Switch (Homebrew, experimental)
 
 > ROM resources are maintained separately from the source tree. Use the
 > `auto_package` target described below to generate and stage them, or configure
@@ -131,6 +132,7 @@ python3 build.py
 python3 build.py pc        # Configure desktop Debug and Release
 python3 build.py ios       # Configure iOS Simulator Debug and Release (macOS only)
 python3 build.py wasm      # Configure and build WebAssembly Debug and Release
+python3 build.py switch --build # Build a Switch NRO using Docker
 python3 build.py workspace # Sync workspace dependencies
 python3 build.py all       # Run the same workflow as the no-argument command
 python3 build.py help      # Print help information
@@ -146,6 +148,85 @@ python3 build.py ios --clion       # Generate CLion config for iOS platform
 python3 build.py wasm --clion      # Generate CLion config for WebAssembly platform
 python3 build.py all --clion       # Generate CLion config for all platforms
 ```
+
+### Nintendo Switch Homebrew
+
+Run the setup script before the first Switch build:
+
+```bash
+python3 build/setup_switch.py
+```
+
+The script detects the host platform, prepares a Docker-compatible runtime,
+pulls `devkitpro/devkita64:20260219`, and verifies devkitA64, libnx,
+`elf2nro`, `nacptool`, SDL2, SDL2_image, and SDL2_mixer. On macOS it installs
+Docker CLI and Colima through Homebrew. Linux package managers and Windows
+`winget` are also supported.
+
+```bash
+# Validate without installing or pulling
+python3 build/setup_switch.py --check-only
+
+# Setup and build the NRO
+python3 build/setup_switch.py --build
+```
+
+After setup, the normal build command remains available:
+
+```bash
+python3 build.py switch --build
+```
+
+The output is staged under
+`cmake-build-switch/dist/switch/KiwiMachine/`. Keep `KiwiMachine.elf` on the
+development machine for crash symbolization; copy `KiwiMachine.nro` to the SD
+card. The build requires
+`src/third_party/Kiwi-Machine-Workspace/out/main.pak` and embeds only top-level
+ROM PAK files from that directory into the NRO's RomFS. HD Texture support is
+disabled on Nintendo Switch, so `textures/` packages are not embedded. An
+alternative resource directory can be selected with `KIWI_PACKAGE_DIR`.
+
+Place the self-contained NRO at
+`/switch/KiwiMachine/KiwiMachine.nro` on the SD card. Runtime logs are written
+to the `logs/` directory next to the launched NRO. For network deployment,
+enable NetLoader in Homebrew Menu and run:
+
+```bash
+nxlink -a <switch-ip> \
+  cmake-build-switch/dist/switch/KiwiMachine/KiwiMachine.nro
+```
+
+#### Optional Switch Forwarder NSP
+
+The Switch build can also create a small HOME-menu forwarder NSP. The
+forwarder launches the NRO at
+`sdmc:/switch/KiwiMachine/KiwiMachine.nro`; it does not embed or replace the
+NRO.
+
+NSP generation is enabled by default, but is skipped with a CMake warning until
+a valid Title ID and `prod.keys` path are configured. It requires a native
+[`hacbrewpack`](https://github.com/rlaphoenix/hacBrewPack) executable and
+`prod.keys` obtained from your own console. Keep keys outside the repository.
+
+```bash
+cmake -S . -B cmake-build-switch \
+  -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=/opt/devkitpro/cmake/Switch.cmake \
+  -DKIWI_SWITCH=ON \
+  -DKIWI_PACKAGE_DIR=/path/to/package/output \
+  -DKIWI_NS_NSP=ON \
+  -DKIWI_NS_TITLEID=0100A1B2C3D4E000 \
+  -DKIWI_NS_PROD_KEYS="$HOME/.switch/prod.keys" \
+  -DKIWI_NS_HACBREWPACK_EXECUTABLE=/path/to/hacbrewpack
+
+cmake --build cmake-build-switch --target kiwi_machine_nsp
+```
+
+`KIWI_NS_TITLEID` must be exactly 16 hexadecimal digits and must not conflict
+with an installed or reserved title. The output is
+`cmake-build-switch/dist/switch/KiwiMachine/KiwiMachine-Forwarder.nsp`.
+Installing an unofficial NSP requires a compatible CFW environment and can
+carry account or console-ban risk when used on a network-connected system.
 
 ### Build Flag
 
@@ -269,9 +350,10 @@ is exposed as another version of the game.
 
 For example, I've organized many games' Japanese, English, and even Chinese
 versions. A game with multiple versions displays a stacked-card icon in the
-top-right corner. Click or tap the icon to switch without launching the game,
-or press the configured `SELECT` button. The icon animates on the selected
-game to make the action discoverable:
+top-right corner. Click or tap the icon to advance without launching the game.
+On Nintendo Switch, press `L` to cycle ROM regions counterclockwise or `R` to
+cycle clockwise; other controllers use the configured `SELECT` button. The
+icon animates on the selected game to make the action discoverable:
 
 > ![Multiple ROM versions](docs/multi_version.png)
 
@@ -284,6 +366,8 @@ Kiwi-Machine supports standalone
 matched by ROM SHA-1 and display an `HD` badge in the game library. HD editions
 are prioritized while preserving the original ROM's localized title and search
 aliases.
+
+HD Texture support is not available in Nintendo Switch builds.
 
 ![Super Mario Bros. HD texture pack](docs/hd_texture.png)
 

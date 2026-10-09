@@ -114,7 +114,7 @@ void File::Info::FromStat(const stat_wrapper_t& stat_info) {
 }
 
 #if BUILDFLAG(IS_BSD) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_NACL) || \
-    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_ANDROID)
+    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_SWITCH)
 int File::Stat(const char* path, stat_wrapper_t* sb) {
   return stat(path, sb);
 }

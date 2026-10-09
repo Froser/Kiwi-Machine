@@ -19,6 +19,7 @@
 #include <array>
 #include <atomic>
 
+#include "build/kiwi_defines.h"
 #include "models/nes_runtime.h"
 
 class NESAudio : public kiwi::nes::IODevices::AudioDevice {
@@ -33,10 +34,17 @@ class NESAudio : public kiwi::nes::IODevices::AudioDevice {
 
  private:
   static void ReadAudioBuffer(void* userdata, Uint8* stream, int len);
+#if KIWI_SWITCH
+  static void MixAudioBuffer(void* userdata, Uint8* stream, int len);
+#endif
 
  private:
   void ResetBuffer();
   void ReadAudioBuffer(Uint8* stream, int count);
+#if KIWI_SWITCH
+  void MixAudioBuffer(Uint8* stream, int count);
+#endif
+  size_t ReadSamples(kiwi::nes::Sample* output, size_t count);
   void Write(kiwi::nes::Sample* samples, size_t count);
 
  protected:
@@ -60,12 +68,19 @@ class NESAudio : public kiwi::nes::IODevices::AudioDevice {
   std::array<kiwi::nes::Sample, kBufferSize> temp_buffer_;
   // Current position in temp buffer
   size_t temp_pos_ = 0;
+  // Current position in the buffer being read
+  size_t read_pos_ = 0;
   // Next buffer index to write
   std::atomic<size_t> write_buf_{0};
   // Next buffer index to read
   std::atomic<size_t> read_buf_{0};
   // Number of filled buffers
   std::atomic<size_t> filled_count_{0};
+#if KIWI_SWITCH
+  bool post_mix_registered_ = false;
+  std::array<kiwi::nes::Sample, kBufferSize> mixer_mono_buffer_;
+  std::array<kiwi::nes::Sample, kBufferSize * 2> mixer_stereo_buffer_;
+#endif
 };
 
 #endif  // MODELS_NES_AUDIO_H

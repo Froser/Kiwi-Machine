@@ -24,7 +24,11 @@ DEFINE_string(renderer_backend, "", "Default backend for renderer");
 WindowBase::WindowBase(const std::string& title,
                        int window_width,
                        int window_height) {
-#if !KIWI_MOBILE
+#if KIWI_SWITCH
+  window_ = SDL_CreateWindow(title.c_str(), 0, 0, 1280, 720,
+                             SDL_WINDOW_FULLSCREEN_DESKTOP |
+                                 SDL_WINDOW_SHOWN);
+#elif !KIWI_MOBILE
   window_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
                              SDL_WINDOWPOS_CENTERED, window_width,
                              window_height,
@@ -45,7 +49,11 @@ WindowBase::WindowBase(const std::string& title,
 
   if (!FLAGS_renderer_backend.empty())
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, FLAGS_renderer_backend.c_str());
-  renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
+  Uint32 renderer_flags = SDL_RENDERER_ACCELERATED;
+#if KIWI_SWITCH
+  renderer_flags |= SDL_RENDERER_PRESENTVSYNC;
+#endif
+  renderer_ = SDL_CreateRenderer(window_, -1, renderer_flags);
   SDL_assert(renderer_);
 
   Application::Get()->AddWindowToEventHandler(this);

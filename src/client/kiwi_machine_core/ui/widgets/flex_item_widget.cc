@@ -19,6 +19,7 @@
 #include <array>
 #include <iterator>
 
+#include "build/kiwi_defines.h"
 #include "ui/application.h"
 #include "ui/main_window.h"
 #include "ui/styles.h"
@@ -33,8 +34,13 @@ constexpr float kVersionSwitchDesignSize = 48.f;
 constexpr float kVersionSwitchAnimationSplit = .34f;
 constexpr int kVersionSwitchAnimationMs = 520;
 constexpr int kVersionSwitchIdleMs = 3200;
+#if KIWI_SWITCH
+const int kVersionSwitchIconSize =
+    styles::flex_item_widget::GetBadgeSize() * 5 / 2;
+#else
 const int kVersionSwitchIconSize =
     styles::flex_item_widget::GetBadgeSize() * 5 / 4;
+#endif
 constexpr int kVersionSwitchIconMargin = 5;
 
 constexpr ImU32 kVersionCardShadowColor = IM_COL32(0, 0, 0, 180);
@@ -306,6 +312,19 @@ bool FlexItemWidget::RestoreToDefaultItem() {
   return changed;
 }
 
+bool FlexItemWidget::SwapToPreviousSubItem() {
+  int sub_item_index_before = current_sub_item_index_;
+  --current_sub_item_index_;
+  if (current_sub_item_index_ < 0)
+    current_sub_item_index_ = static_cast<int>(sub_data_.size()) - 1;
+
+  current_data_ = sub_data_[current_sub_item_index_].get();
+  const bool changed = current_sub_item_index_ != sub_item_index_before;
+  if (changed)
+    StartVersionSwitchAnimation();
+  return changed;
+}
+
 bool FlexItemWidget::SwapToNextSubItem() {
   int sub_item_index_before = current_sub_item_index_;
   ++current_sub_item_index_;
@@ -491,8 +510,10 @@ void FlexItemWidget::Paint() {
   }
 
   const bool is_selected = !parent_->empty() && parent_->IsItemSelected(this);
+#if KIWI_ENABLE_HD_TEXTURE
   if (current_data()->is_hd_edition)
     hd_edition_badge_.Paint(draw_list, kBoundsToWindow, is_selected);
+#endif
 
   if (has_sub_items())
     PaintVersionSwitchIcon(draw_list, kBoundsToWindow, is_selected);

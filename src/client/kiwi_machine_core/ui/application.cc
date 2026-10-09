@@ -36,6 +36,8 @@
 #elif BUILDFLAG(IS_ANDROID)
 #include <jni.h>
 #include "utility/android/asset.h"
+#elif BUILDFLAG(IS_SWITCH)
+#include "utility/switch/paths.h"
 #endif
 
 namespace {
@@ -251,21 +253,37 @@ void Application::HandleEvent(SDL_Event* event) {
     }
 #if !KIWI_MOBILE
     case SDL_MOUSEMOTION: {
+#if KIWI_SWITCH
+      if (event->motion.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->motion.windowID);
       if (target)
         target->HandleMouseMoveEvent(&event->motion);
     } break;
     case SDL_MOUSEWHEEL: {
+#if KIWI_SWITCH
+      if (event->wheel.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->wheel.windowID);
       if (target)
         target->HandleMouseWheelEvent(&event->wheel);
     } break;
     case SDL_MOUSEBUTTONDOWN: {
+#if KIWI_SWITCH
+      if (event->button.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->button.windowID);
       if (target)
         target->HandleMousePressedEvent(&event->button);
     } break;
     case SDL_MOUSEBUTTONUP: {
+#if KIWI_SWITCH
+      if (event->button.which == SDL_TOUCH_MOUSEID)
+        break;
+#endif
       WindowBase* target = FindWindowFromID(event->button.windowID);
       if (target)
         target->HandleMouseReleasedEvent(&event->button);
@@ -374,6 +392,60 @@ void Application::Initialize(kiwi::base::OnceClosure callback) {
   }
 }
 
+void Application::InitializePackageIndex(
+    preset_roms::Package* package,
+    kiwi::base::RepeatingCallback<void(size_t completed, size_t total)>
+        progress_callback,
+    kiwi::base::OnceCallback<void(bool)> completion_callback) {
+  if (IsPackageIndexReady(package)) {
+    std::move(completion_callback).Run(true);
+    return;
+  }
+
+  scoped_refptr<kiwi::base::SingleThreadTaskRunner> ui_task_runner =
+      kiwi::base::SingleThreadTaskRunner::GetCurrentDefault();
+  PackageIndexProgressCallback io_progress = kiwi::base::BindRepeating(
+      [](scoped_refptr<kiwi::base::SingleThreadTaskRunner> ui_task_runner,
+         kiwi::base::RepeatingCallback<void(size_t, size_t)> callback,
+         size_t completed, size_t total) {
+        ui_task_runner->PostTask(
+            FROM_HERE,
+            kiwi::base::BindOnce(
+                [](kiwi::base::RepeatingCallback<void(size_t, size_t)> callback,
+                   size_t completed,
+                   size_t total) { callback.Run(completed, total); },
+                callback, completed, total));
+      },
+      ui_task_runner, std::move(progress_callback));
+
+  NESRuntime::Data* runtime_data =
+      NESRuntime::GetInstance()->GetDataById(runtime_id_);
+  SDL_assert(runtime_data);
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(
+          [](preset_roms::Package* package, kiwi::base::FilePath profile_path,
+#if KIWI_ENABLE_HD_TEXTURE
+             std::vector<kiwi::base::FilePath> texture_pack_paths,
+#endif
+             PackageIndexProgressCallback progress_callback) {
+            if (!BuildPackageIndex(package, profile_path, progress_callback)) {
+              return false;
+            }
+#if KIWI_ENABLE_HD_TEXTURE
+            InitializeTexturePacksForPackage(package, texture_pack_paths);
+#endif
+            return true;
+          },
+          kiwi::base::Unretained(package), runtime_data->profile_path,
+#if KIWI_ENABLE_HD_TEXTURE
+          texture_pack_paths_, std::move(io_progress)),
+#else
+          std::move(io_progress)),
+#endif
+      std::move(completion_callback));
+}
+
 void Application::Run() {
   runloop_.Run();
 }
@@ -392,6 +464,28 @@ void Application::SetLanguage(SupportedLanguage language) {
   config_->data().language = static_cast<int>(language);
   config_->SaveConfig();
 }
+
+#if KIWI_SWITCH
+bool Application::ReloadGameControllers() {
+  UninitializeGameControllers();
+
+  SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK);
+  SDL_FlushEvents(SDL_JOYAXISMOTION, SDL_JOYDEVICEREMOVED);
+  SDL_FlushEvents(SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERDEVICEREMAPPED);
+
+  if (SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0)
+    return false;
+
+  // Reinitialization snapshots the Npad styles selected by the native applet.
+  // Consume its synthetic device events and open the fixed logical slots now,
+  // so the UI does not report all eight slots as newly connected.
+  SDL_FlushEvents(SDL_JOYAXISMOTION, SDL_JOYDEVICEREMOVED);
+  SDL_FlushEvents(SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERDEVICEREMAPPED);
+  for (int i = 0; i < SDL_NumJoysticks(); ++i)
+    AddGameController(i);
+  return true;
+}
+#endif
 
 void Application::InitializeApplication(int& argc, char** argv) {
   SDL_assert(!g_app_instance);
@@ -449,12 +543,14 @@ void Application::UninitializeGameControllers() {
   for (SDL_GameController* game_controller : game_controllers_) {
     SDL_GameControllerClose(game_controller);
   }
+  game_controllers_.clear();
 }
 
 void Application::AddGameController(int which) {
   if (SDL_IsGameController(which)) {
     SDL_GameController* controller = SDL_GameControllerOpen(which);
-    game_controllers_.insert(controller);
+    if (controller)
+      game_controllers_.insert(controller);
   }
 }
 
@@ -525,16 +621,17 @@ void Application::InitializeROMs() {
     OpenPackageFromFile(file_path);
   }
 
+  NESRuntime::Data* runtime_data =
+      NESRuntime::GetInstance()->GetDataById(runtime_id_);
+  SDL_assert(runtime_data);
   for (auto* package : preset_roms::GetPresetOrTestRomsPackages()) {
-    for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-      auto& rom = package->GetRomsByIndex(i);
-      InitializePresetROM(rom);
-    }
+    RestorePackageIndexFromCache(package, runtime_data->profile_path);
   }
 
-  std::vector<kiwi::base::FilePath> texture_paths =
-      GetTexturePackPathList(file_paths);
-  InitializeTexturePacks(texture_paths);
+#if KIWI_ENABLE_HD_TEXTURE
+  texture_pack_paths_ = GetTexturePackPathList(file_paths);
+  InitializeTexturePacks(texture_pack_paths_);
+#endif
 }
 
 std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
@@ -599,6 +696,16 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
     }
   }
   return result;
+#elif BUILDFLAG(IS_SWITCH)
+  std::vector<kiwi::base::FilePath> list;
+  kiwi::base::FileEnumerator package_enumerator(
+      kiwi::switch_platform::GetResourceDirectory(), false,
+      kiwi::base::FileEnumerator::FILES, FILE_PATH_LITERAL("*.pak"));
+  for (kiwi::base::FilePath path = package_enumerator.Next(); !path.empty();
+       path = package_enumerator.Next()) {
+    list.push_back(std::move(path));
+  }
+  return list;
 #else
   std::vector<kiwi::base::FilePath> list;
   kiwi::base::FileEnumerator package_enumerator(
@@ -613,6 +720,7 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
 #endif
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 std::vector<kiwi::base::FilePath> Application::GetTexturePackPathList(
     const std::vector<kiwi::base::FilePath>& package_paths) {
   std::vector<kiwi::base::FilePath> paths;
@@ -642,6 +750,7 @@ std::vector<kiwi::base::FilePath> Application::GetTexturePackPathList(
   std::sort(paths.begin(), paths.end());
   return paths;
 }
+#endif
 
 void Application::AddWindowToEventHandler(WindowBase* window) {
   windows_.insert(std::make_pair(window->GetWindowID(), window));

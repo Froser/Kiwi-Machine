@@ -26,7 +26,7 @@
 #endif
 
 #if BUILDFLAG(IS_BSD) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_NACL) || \
-    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_ANDROID)
+    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_SWITCH)
 #include <sys/stat.h>
 namespace kiwi::base {
 typedef struct stat stat_wrapper_t;

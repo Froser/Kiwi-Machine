@@ -55,7 +55,9 @@ class SideMenu : public Widget {
   void AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
                  image_resources::ImageID icon,
                  ButtonCallbacks callbacks,
-                 SDL_KeyCode hotkey);
+                 SDL_KeyCode hotkey,
+                 SDL_GameControllerButton controller_hotkey =
+                     SDL_CONTROLLER_BUTTON_INVALID);
 
   void set_activate(bool activate);
   bool activate() { return activate_; }
@@ -78,7 +80,7 @@ class SideMenu : public Widget {
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
 #endif
@@ -133,12 +135,14 @@ class SideMenu : public Widget {
     ButtonItem(std::unique_ptr<LocalizedStringUpdater> string_updater,
                image_resources::ImageID icon,
                ButtonCallbacks callbacks,
-               SDL_KeyCode hotkey);
+               SDL_KeyCode hotkey,
+               SDL_GameControllerButton controller_hotkey);
     ~ButtonItem();
     ButtonItem(ButtonItem&& rhs);
     ButtonItem& operator=(ButtonItem&& rhs);
 
     SDL_KeyCode hotkey = SDLK_UNKNOWN;
+    SDL_GameControllerButton controller_hotkey = SDL_CONTROLLER_BUTTON_INVALID;
     std::unique_ptr<LocalizedStringUpdater> string_updater;
     image_resources::ImageID icon;
     ButtonCallbacks callbacks;

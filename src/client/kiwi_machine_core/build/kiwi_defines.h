@@ -33,10 +33,22 @@
 #define KIWI_WASM 0
 #endif
 
+#if defined(__SWITCH__)
+#define KIWI_SWITCH 1
+#else
+#define KIWI_SWITCH 0
+#endif
+
 #if KIWI_IOS || KIWI_ANDROID
 #define KIWI_MOBILE 1
 #else
 #define KIWI_MOBILE 0
+#endif
+
+#if KIWI_SWITCH
+#define KIWI_ENABLE_HD_TEXTURE 0
+#else
+#define KIWI_ENABLE_HD_TEXTURE 1
 #endif
 
 #if KIWI_WASM

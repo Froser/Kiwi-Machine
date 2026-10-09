@@ -28,6 +28,8 @@
 
 #if KIWI_WASM
 #include "utility/emscripten/bridge_api.h"
+#elif KIWI_SWITCH
+#include "utility/switch/paths.h"
 #endif
 
 namespace {
@@ -51,6 +53,9 @@ kiwi::base::FilePath GetProfilePath(const std::string& name) {
   // In WASM, use /persistent directory for IDBFS
   return kiwi::base::FilePath::FromUTF8Unsafe("/persistent")
       .Append(kiwi::base::FilePath::FromUTF8Unsafe(name));
+#elif KIWI_SWITCH
+  return kiwi::switch_platform::GetUserDataDirectory().Append(
+      kiwi::base::FilePath::FromUTF8Unsafe(name));
 #else
   char* pref_path = SDL_GetPrefPath("Kiwi", "KiwiMachine");
   kiwi::base::FilePath profile_path =
@@ -215,6 +220,20 @@ bool SaveAutoSavedStateOnIOThread(
   }
 
   return success;
+}
+
+int GetSavedStatesCountOnIOThread(const kiwi::base::FilePath& profile_path,
+                                  int crc32) {
+  int count = 0;
+  for (int slot = 0; slot < NESRuntime::Data::MaxSaveStates; ++slot) {
+    if (kiwi::base::PathExists(
+            GetSnapshotDataPath(profile_path, crc32, slot)) &&
+        kiwi::base::PathExists(
+            GetSnapshotThumbnailPath(profile_path, crc32, slot))) {
+      ++count;
+    }
+  }
+  return count;
 }
 
 int GetAutoSavedStatesCountOnIOThread(const kiwi::base::FilePath& profile_path,
@@ -750,6 +769,15 @@ void NESRuntime::Data::OnBatterySaveFlushed(bool success) {
   for (auto& callback : callbacks) {
     std::move(callback).Run(success);
   }
+}
+
+void NESRuntime::Data::GetSavedStatesCount(
+    int crc32,
+    kiwi::base::OnceCallback<void(int)> callback) {
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(&GetSavedStatesCountOnIOThread, profile_path, crc32),
+      std::move(callback));
 }
 
 void NESRuntime::Data::GetAutoSavedStatesCount(

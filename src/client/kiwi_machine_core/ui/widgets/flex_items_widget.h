@@ -15,6 +15,7 @@
 
 #include <kiwi_nes.h>
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -55,6 +56,8 @@ class FlexItemsWidget : public Widget {
   void SetActivate(bool activate);
   void ScrollWith(int scrolling_delta, const int* mouse_x, const int* mouse_y);
   void ShowFilterWidget();
+  void SetIndexingProgress(size_t completed, size_t total);
+  void FinishIndexing(bool success);
 
   bool empty() { return items_.empty(); }
   size_t size() { return items_.size(); }
@@ -83,17 +86,26 @@ class FlexItemsWidget : public Widget {
   bool TriggerCurrentItem(bool triggered_by_finger);
   void ApplyScrolling(int scrolling);
 
-  enum Direction { kUp, kDown, kLeft, kRight };
+  enum Direction { kNone = -1, kUp, kDown, kLeft, kRight };
+  void MoveSelection(Direction direction);
   size_t FindNextIndex(Direction direction);
   size_t FindNextIndex(bool down);
   bool FindItemIndexByMousePosition(int x_in_window,
                                     int y_in_window,
                                     size_t& index_out);
 
+#if KIWI_SWITCH
+  Direction GetSwitchNavigationDirection();
+  void UpdateSwitchNavigation();
+  void ResetSwitchNavigation();
+#endif
+
+  void SwapCurrentItemToPreviousSubItem();
   void SwapCurrentItemToNextSubItem();
   void RestoreCurrentItemToDefault();
   void RefreshCurrentItemBounds();
 
+  void PaintIndexingStatus();
   void PaintDetails();
   void PaintFilter();
 
@@ -145,7 +157,7 @@ class FlexItemsWidget : public Widget {
   void OnWindowPostRender() override;
   int GetHitTestPolicy() override;
 
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
@@ -164,6 +176,9 @@ class FlexItemsWidget : public Widget {
   std::vector<FlexItemWidget*> items_;
   std::vector<FlexItemWidget*> all_items_;
   bool first_paint_ = true;
+  bool indexing_ = false;
+  bool indexing_failed_ = false;
+  float indexing_progress_ = 0.f;
   size_t current_index_ = 0;
   FlexItemWidget* current_item_widget_ = nullptr;
   SDL_Rect current_item_original_bounds_;
@@ -182,6 +197,13 @@ class FlexItemsWidget : public Widget {
   std::unordered_map<int, int> rows_to_first_item_;
   Timer selection_item_timer_;
   Timer scrolling_timer_;
+
+#if KIWI_SWITCH
+  Direction switch_navigation_direction_ = kNone;
+  std::array<int, 2> switch_axis_direction_ = {};
+  bool switch_navigation_repeating_ = false;
+  Timer switch_navigation_repeat_timer_;
+#endif
 
   // Detail widget
   enum { kTop, kBottom } last_detail_widget_position_ = kTop;
@@ -214,10 +236,11 @@ class FlexItemsWidget : public Widget {
   bool wheel_gesture_active_ = false;
   FlexItemWidget* pressed_version_switch_item_ = nullptr;
 
-#if KIWI_MOBILE
+#if KIWI_MOBILE || KIWI_SWITCH
   bool touch_active_ = false;
   SDL_FingerID active_touch_id_ = 0;
   SDL_TouchFingerEvent last_finger_event_{};
+  SDL_FPoint finger_down_position_{};
   float finger_scroll_velocity_ = 0.f;
   float finger_scroll_remainder_ = 0.f;
   bool has_finger_velocity_sample_ = false;

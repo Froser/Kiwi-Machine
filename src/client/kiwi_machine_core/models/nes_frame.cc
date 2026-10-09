@@ -19,10 +19,12 @@
 #include "build/kiwi_defines.h"
 #include "nes/ppu_observer.h"
 #include "ui/window_base.h"
+#if KIWI_ENABLE_HD_TEXTURE
 #include "utility/texture_renderer.h"
+#endif
 
 namespace {
-#if KIWI_ANDROID
+#if KIWI_ENABLE_HD_TEXTURE && KIWI_ANDROID
 constexpr uint32_t kMaximumHDTextureOutputScale = 2;
 #endif
 }  // namespace
@@ -38,6 +40,7 @@ NESFrame::~NESFrame() {
     SDL_DestroyTexture(screen_texture_);
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 void NESFrame::SetTextureRenderer(
     std::unique_ptr<TextureRenderer> texture_renderer) {
 #if KIWI_ANDROID
@@ -63,6 +66,7 @@ bool NESFrame::IsHDTextureRenderingEnabled() const {
 bool NESFrame::HasHDTextureRenderer() const {
   return texture_renderer_ != nullptr;
 }
+#endif
 
 void NESFrame::AddObserver(NESFrameObserver* observer) {
   observers_.insert(observer);
@@ -77,11 +81,13 @@ void NESFrame::Render(const kiwi::nes::PPUFrameData& frame) {
     return;
   }
 
+#if KIWI_ENABLE_HD_TEXTURE
   if (frame.type == kiwi::nes::PPUFrameData::Type::kTextureMetadata &&
       texture_renderer_ && IsHDTextureRenderingEnabled() &&
       RenderTextureFrame(frame)) {
     return;
   }
+#endif
   UpdateTexture(frame.width, frame.height, *frame.native_pixels);
 }
 
@@ -110,6 +116,7 @@ bool NESFrame::EnsureTexture(int width, int height) {
   return true;
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 bool NESFrame::RenderTextureFrame(const kiwi::nes::PPUFrameData& frame) {
   const uint64_t output_width =
       static_cast<uint64_t>(frame.width) * texture_renderer_->GetScale();
@@ -165,6 +172,7 @@ bool NESFrame::RenderTextureFrame(const kiwi::nes::PPUFrameData& frame) {
   }
   return rendered;
 }
+#endif
 
 void NESFrame::UpdateTexture(int width,
                              int height,
@@ -195,9 +203,11 @@ bool NESFrame::NeedRender() {
 }
 
 const NESFrame::Buffer& NESFrame::GetLastFrame() {
+#if KIWI_ENABLE_HD_TEXTURE
   if (IsHDTextureRenderingEnabled() && !last_rendered_frame_.empty()) {
     return last_rendered_frame_;
   }
+#endif
   return runtime_data_->emulator->GetLastFrame();
 }
 

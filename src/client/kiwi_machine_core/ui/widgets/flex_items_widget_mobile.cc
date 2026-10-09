@@ -22,6 +22,12 @@ namespace {
 
 constexpr float kVelocitySmoothing = 0.35f;
 constexpr float kMaximumFlingVelocity = 6000.f;
+#if KIWI_SWITCH
+constexpr float kTouchDragThreshold = 12.f;
+#else
+// One pixel preserves the original mobile y_distance != 0 behavior.
+constexpr float kTouchDragThreshold = 1.f;
+#endif
 constexpr Uint32 kVelocitySampleTimeoutMs = 100;
 
 }  // namespace
@@ -35,6 +41,7 @@ bool FlexItemsWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   touch_active_ = true;
   active_touch_id_ = event->fingerId;
   last_finger_event_ = *event;
+  finger_down_position_ = {event->x, event->y};
   finger_scroll_velocity_ = 0.f;
   finger_scroll_remainder_ = 0.f;
   has_finger_velocity_sample_ = false;
@@ -50,18 +57,32 @@ bool FlexItemsWidget::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
   if (activate_ && gesture_locked_ && touch_active_ &&
       event->fingerId == active_touch_id_) {
     SDL_Rect window_rect = window()->GetWindowBounds();
-    const float precise_y_distance =
-        (event->y - last_finger_event_.y) * window_rect.h +
-        finger_scroll_remainder_;
-    const int y_distance = static_cast<int>(precise_y_distance);
-    finger_scroll_remainder_ = precise_y_distance - y_distance;
-    if (y_distance != 0) {
+    const float distance_y =
+        (event->y - finger_down_position_.y) * window_rect.h;
+    bool scrolling_started = false;
+    if (!scrolling_by_finger_ &&
+        (distance_y <= -kTouchDragThreshold ||
+         distance_y >= kTouchDragThreshold)) {
+      // Switch tolerates touchscreen jitter, while mobile keeps its legacy
+      // one-pixel threshold. Crossing either threshold starts scrolling.
       scrolling_by_finger_ = true;
+      scrolling_started = true;
       if (pressed_version_switch_item_) {
         pressed_version_switch_item_->SetVersionSwitchIconPressed(false);
         pressed_version_switch_item_ = nullptr;
       }
-      ScrollWith(y_distance, nullptr, nullptr);
+    }
+
+    if (scrolling_by_finger_) {
+      const float precise_y_distance =
+          (scrolling_started ? distance_y
+                             : (event->y - last_finger_event_.y) *
+                                   window_rect.h) +
+          finger_scroll_remainder_;
+      const int y_distance = static_cast<int>(precise_y_distance);
+      finger_scroll_remainder_ = precise_y_distance - y_distance;
+      if (y_distance != 0)
+        ScrollWith(y_distance, nullptr, nullptr);
     }
 
     const Uint32 elapsed_ms = event->timestamp - last_finger_event_.timestamp;

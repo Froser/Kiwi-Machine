@@ -16,7 +16,12 @@
 #include <SDL.h>
 #include <gflags/gflags.h>
 
+#include <cstddef>
+#include <map>
 #include <optional>
+#include <set>
+#include <string>
+#include <vector>
 
 #include "build/kiwi_defines.h"
 #include "kiwi/nes/controller.h"
@@ -40,10 +45,13 @@ class FlexItemsWidget;
 class CardWidget;
 class Splash;
 class FpsCounter;
+#if KIWI_ENABLE_HD_TEXTURE
 class TextureRenderer;
+#endif
 
 namespace preset_roms {
 enum class ROMEdition;
+struct Package;
 struct PresetROM;
 }  // namespace preset_roms
 
@@ -170,7 +178,9 @@ class MainWindow : public WindowBase,
   void UpdateGameControllerMapping();
   void CreateVirtualTouchButtons();
   void LayoutVirtualTouchButtons();
+#if KIWI_ENABLE_HD_TEXTURE
   void SetHDTextureToggleState(bool visible, bool hd_enabled);
+#endif
   void SetVirtualButtonsVisible(bool visible);
   void StashVirtualButtonsVisible();
   void PopVirtualButtonsVisible();
@@ -188,10 +198,21 @@ class MainWindow : public WindowBase,
   void CloseInGameMenu();
   void FlexLayout(bool animate = true);
   FlexItemsWidget* GetMainItemsWidget();
+  void PopulatePackageItems(preset_roms::Package* package,
+                            FlexItemsWidget* items_widget);
+  void EnsurePackageIndex(preset_roms::Package* package,
+                          FlexItemsWidget* items_widget);
+  void OnPackageIndexProgress(FlexItemsWidget* items_widget,
+                              size_t completed,
+                              size_t total);
+  void OnPackageIndexReady(preset_roms::Package* package,
+                           FlexItemsWidget* items_widget,
+                           bool success);
 
   SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
   SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
   SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
+      preset_roms::Package* package,
       FlexItemsWidget* items_widget);
   void SwitchToWidgetForSideMenu(int menu_index);
   void SwitchToSideMenuByCurrentFlexItemWidget();
@@ -222,8 +243,10 @@ class MainWindow : public WindowBase,
                        preset_roms::ROMEdition edition,
                        bool load_from_finger_gesture);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
+#if KIWI_ENABLE_HD_TEXTURE
   void OnSetHDTextureRenderingEnabled(bool enabled);
   void OnToggleHDTextureRendering();
+#endif
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
   bool IsAudioEnabled();
@@ -293,6 +316,7 @@ class MainWindow : public WindowBase,
   StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
   std::vector<FlexItemsWidget*> items_widgets_;
+  std::set<preset_roms::Package*> indexing_packages_;
   LoadingWidget* loading_widget_ = nullptr;
   SideMenu* side_menu_ = nullptr;
   // Side menu index to item widgets' map
@@ -323,7 +347,9 @@ class MainWindow : public WindowBase,
   Widget* vtb_start_ = nullptr;
   Widget* vtb_select_ = nullptr;
   Widget* vtb_pause_ = nullptr;
+#if KIWI_ENABLE_HD_TEXTURE
   Widget* hd_texture_toggle_ = nullptr;
+#endif
   bool stashed_virtual_joysticks_visible_state_ = false;
 #endif
 
@@ -333,8 +359,10 @@ class MainWindow : public WindowBase,
   scoped_refptr<NESConfig> config_;
   float ui_scale_ = 1.f;
   std::string current_game_title_;
+#if KIWI_ENABLE_HD_TEXTURE
   bool hd_texture_available_ = false;
   bool hd_texture_enabled_ = false;
+#endif
   bool is_focused_ = true;
   bool resume_after_focus_gained_ = false;
 
