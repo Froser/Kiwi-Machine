@@ -65,6 +65,10 @@ class Application {
   void RemoveObserver(ApplicationObserver* observer);
   void SetLanguage(SupportedLanguage language);
 
+#if KIWI_SWITCH
+  bool ReloadGameControllers();
+#endif
+
   const std::set<SDL_GameController*>& game_controllers() {
     return game_controllers_;
   }

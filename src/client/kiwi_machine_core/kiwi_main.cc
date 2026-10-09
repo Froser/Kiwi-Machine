@@ -13,14 +13,39 @@
 #include "kiwi_main.h"
 
 #include <SDL.h>
+#if defined(__SWITCH__)
+#include <glog/logging.h>
+#endif
 #include <kiwi_nes.h>
 
+#if defined(__SWITCH__)
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#endif
 #include "debug/debug_port.h"
 #include "ui/application.h"
 #include "ui/main_window.h"
 
 #if defined(__IPHONEOS__)
 #include <SDL_main.h>
+#endif
+
+#if defined(__SWITCH__)
+namespace {
+
+void ConfigureSwitchLogDirectory(const char* executable_path) {
+  if (!executable_path || !executable_path[0])
+    return;
+
+  const kiwi::base::FilePath log_directory =
+      kiwi::base::FilePath::FromUTF8Unsafe(executable_path)
+          .DirName()
+          .Append(FILE_PATH_LITERAL("logs"));
+  if (kiwi::base::CreateDirectory(log_directory))
+    FLAGS_log_dir = log_directory.AsUTF8Unsafe();
+}
+
+}  // namespace
 #endif
 
 #if defined(__IPHONEOS__)
@@ -40,6 +65,9 @@ int WINAPI KiwiMain(HINSTANCE hInstance,
   Application application;
 #else
 int KiwiMain(int argc, char** argv) {
+#if defined(__SWITCH__)
+  ConfigureSwitchLogDirectory(argv[0]);
+#endif
   Application application(argc, argv);
 #endif
 

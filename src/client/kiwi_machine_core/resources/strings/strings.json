@@ -144,6 +144,11 @@
     "zh": "游戏手柄",
     "ja": "ゲームパッド"
   },
+  "IDR_IN_GAME_MENU_CONTROLLER_ORDER": {
+    "default": "Change Grip/Order",
+    "zh": "更改握法/顺序",
+    "ja": "持ちかた/順番を変える"
+  },
   "IDR_IN_GAME_MENU_P1": {
     "default": "P1:",
     "zh": "P1:",
@@ -486,9 +491,9 @@
     "ja": "SELECTを押す又は選択されている間にゲームを長押すると、バージョンを変更できる。"
   },
   "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_SWITCH": {
-    "default": "Press A or + to start a game. Press - or tap the icon to switch versions.",
-    "zh": "按下 A 键或 + 键进入游戏；按下 - 键或点击该图标切换版本。",
-    "ja": "A または + ボタンでゲームを開始します。- ボタンを押すか、アイコンをタップしてバージョンを切り替えます。"
+    "default": "A/+ starts. ROM regions: L counterclockwise; R or icon tap clockwise.",
+    "zh": "A/+ 开始；ROM 地区：L 逆时针，R 或点击图标顺时针。",
+    "ja": "A / + で開始。ROM 地域：L は反時計回り、R またはアイコンタップは時計回り。"
   },
   "IDR_ABOUT_ABOUT": {
     "default": "About this app",

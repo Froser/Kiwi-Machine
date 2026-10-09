@@ -465,6 +465,28 @@ void Application::SetLanguage(SupportedLanguage language) {
   config_->SaveConfig();
 }
 
+#if KIWI_SWITCH
+bool Application::ReloadGameControllers() {
+  UninitializeGameControllers();
+
+  SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK);
+  SDL_FlushEvents(SDL_JOYAXISMOTION, SDL_JOYDEVICEREMOVED);
+  SDL_FlushEvents(SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERDEVICEREMAPPED);
+
+  if (SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0)
+    return false;
+
+  // Reinitialization snapshots the Npad styles selected by the native applet.
+  // Consume its synthetic device events and open the fixed logical slots now,
+  // so the UI does not report all eight slots as newly connected.
+  SDL_FlushEvents(SDL_JOYAXISMOTION, SDL_JOYDEVICEREMOVED);
+  SDL_FlushEvents(SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERDEVICEREMAPPED);
+  for (int i = 0; i < SDL_NumJoysticks(); ++i)
+    AddGameController(i);
+  return true;
+}
+#endif
+
 void Application::InitializeApplication(int& argc, char** argv) {
   SDL_assert(!g_app_instance);
   g_app_instance = this;
@@ -521,12 +543,14 @@ void Application::UninitializeGameControllers() {
   for (SDL_GameController* game_controller : game_controllers_) {
     SDL_GameControllerClose(game_controller);
   }
+  game_controllers_.clear();
 }
 
 void Application::AddGameController(int which) {
   if (SDL_IsGameController(which)) {
     SDL_GameController* controller = SDL_GameControllerOpen(which);
-    game_controllers_.insert(controller);
+    if (controller)
+      game_controllers_.insert(controller);
   }
 }
 

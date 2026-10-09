@@ -45,10 +45,14 @@ class InGameMenu : public Widget {
     kVolume,
 #if !KIWI_SWITCH
     kWindowMode,
-#endif
     kJoyP1,
+#else
+    kControllerSupport,
+#endif
     kSwapABP1,
+#if !KIWI_SWITCH
     kJoyP2,
+#endif
     kSwapABP2,
     kLanguage,
 

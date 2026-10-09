@@ -187,7 +187,8 @@ disabled on Nintendo Switch, so `textures/` packages are not embedded. An
 alternative resource directory can be selected with `KIWI_PACKAGE_DIR`.
 
 Place the self-contained NRO at
-`/switch/KiwiMachine/KiwiMachine.nro` on the SD card. For network deployment,
+`/switch/KiwiMachine/KiwiMachine.nro` on the SD card. Runtime logs are written
+to the `logs/` directory next to the launched NRO. For network deployment,
 enable NetLoader in Homebrew Menu and run:
 
 ```bash
@@ -349,9 +350,10 @@ is exposed as another version of the game.
 
 For example, I've organized many games' Japanese, English, and even Chinese
 versions. A game with multiple versions displays a stacked-card icon in the
-top-right corner. Click or tap the icon to switch without launching the game,
-or press the configured `SELECT` button. The icon animates on the selected
-game to make the action discoverable:
+top-right corner. Click or tap the icon to advance without launching the game.
+On Nintendo Switch, press `L` to cycle ROM regions counterclockwise or `R` to
+cycle clockwise; other controllers use the configured `SELECT` button. The
+icon animates on the selected game to make the action discoverable:
 
 > ![Multiple ROM versions](docs/multi_version.png)
 

@@ -51,6 +51,9 @@
 #if KIWI_ENABLE_HD_TEXTURE
 #include "utility/texture_renderer.h"
 #endif
+#if KIWI_SWITCH
+#include "utility/switch/controller_support.h"
+#endif
 #include "utility/zip_reader.h"
 
 DEFINE_bool(enable_debug, false, "Shows a menu bar at the top of the window.");
@@ -2562,6 +2565,23 @@ void MainWindow::OnInGameSettingsItemTrigger(
       OnInGameSettingsHandleWindowMode(*go_left_ptr);
       break;
 #endif
+#if KIWI_SWITCH
+    case InGameMenu::SettingsItem::kControllerSupport: {
+      SDL_assert(go_left_ptr);
+      if (!kiwi::switch_platform::ShowControllerSupport(1, 2))
+        break;
+
+      for (auto& mapping : runtime_data_->joystick_mappings)
+        mapping.which = nullptr;
+      if (!Application::Get()->ReloadGameControllers()) {
+        SDL_LogError(SDL_LOG_CATEGORY_INPUT,
+                     "Could not reload controllers after native selection: %s",
+                     SDL_GetError());
+        break;
+      }
+      UpdateGameControllerMapping();
+    } break;
+#else
     case InGameMenu::SettingsItem::kJoyP1:
     case InGameMenu::SettingsItem::kJoyP2: {
       SDL_assert(go_left_ptr);
@@ -2583,6 +2603,7 @@ void MainWindow::OnInGameSettingsItemTrigger(
                              false);
       }
     } break;
+#endif
     case InGameMenu::SettingsItem::kSwapABP1:
     case InGameMenu::SettingsItem::kSwapABP2: {
       SDL_assert(go_left_ptr);

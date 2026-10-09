@@ -88,6 +88,7 @@ class FlexItemWidget : public Widget {
   bool IsPointInVersionSwitchIcon(int x_in_window, int y_in_window);
   void SetVersionSwitchIconPressed(bool pressed);
   bool RestoreToDefaultItem();
+  bool SwapToPreviousSubItem();
   bool SwapToNextSubItem();
 
  private:

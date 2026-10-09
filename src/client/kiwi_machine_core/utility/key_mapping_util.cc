@@ -174,12 +174,24 @@ bool IsGameSelectionSearchButton(const SDL_ControllerButtonEvent* event) {
 #endif
 }
 
-bool IsGameSelectionVersionButton(const SDL_ControllerButtonEvent* event) {
+bool IsGameSelectionPreviousVersionButton(
+    const SDL_ControllerButtonEvent* event) {
   if (!event)
     return false;
 
 #if KIWI_SWITCH
-  return event->button == SDL_CONTROLLER_BUTTON_BACK;
+  return event->button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
+#else
+  return false;
+#endif
+}
+
+bool IsGameSelectionNextVersionButton(const SDL_ControllerButtonEvent* event) {
+  if (!event)
+    return false;
+
+#if KIWI_SWITCH
+  return event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
 #else
   return event->button == SDL_CONTROLLER_BUTTON_Y;
 #endif

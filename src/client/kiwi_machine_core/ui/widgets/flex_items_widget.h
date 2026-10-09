@@ -100,6 +100,7 @@ class FlexItemsWidget : public Widget {
   void ResetSwitchNavigation();
 #endif
 
+  void SwapCurrentItemToPreviousSubItem();
   void SwapCurrentItemToNextSubItem();
   void RestoreCurrentItemToDefault();
   void RefreshCurrentItemBounds();

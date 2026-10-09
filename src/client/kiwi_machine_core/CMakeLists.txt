@@ -212,6 +212,8 @@ endif ()
 if (KIWI_SWITCH)
     list(APPEND Sources
             ui/widgets/flex_item_widget_switch.cc
+            utility/switch/controller_support.cc
+            utility/switch/controller_support.h
             utility/switch/paths.cc
             utility/switch/paths.h
             utility/switch/system_keyboard.cc
@@ -294,6 +296,7 @@ target_include_directories(${PROJECT_NAME}
         "../../third_party/imgui"
 )
 if(KIWI_SWITCH)
+    target_link_libraries(${PROJECT_NAME} PRIVATE glog::glog)
     target_include_directories(${PROJECT_NAME} PRIVATE
             "${CMAKE_SOURCE_DIR}/src/third_party/SDL_image-release-2.6.3")
 endif()

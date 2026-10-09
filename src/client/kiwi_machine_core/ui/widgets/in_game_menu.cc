@@ -69,9 +69,15 @@ constexpr std::array<int, static_cast<size_t>(InGameMenu::SettingsItem::kMax)>
 #elif !KIWI_SWITCH
         string_resources::IDR_IN_GAME_MENU_WINDOW_MODE,
 #endif
+#if KIWI_SWITCH
+        string_resources::IDR_IN_GAME_MENU_CONTROLLER_ORDER,
+#else
         string_resources::IDR_IN_GAME_MENU_P1,
+#endif
         string_resources::IDR_IN_GAME_MENU_SWAP_AB_P1,
+#if !KIWI_SWITCH
         string_resources::IDR_IN_GAME_MENU_P2,
+#endif
         string_resources::IDR_IN_GAME_MENU_SWAP_AB_P2,
         string_resources::IDR_IN_GAME_MENU_LANGUAGE,
 };
@@ -913,6 +919,16 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
     const float row_height = row_heights[i];
     layout.setting_items[i] = MakeRect(inner.x, y, inner.w, row_height);
     const float button_width = std::min(layout.row_height, control_width / 3.f);
+#if KIWI_SWITCH
+    if (static_cast<SettingsItem>(i) == SettingsItem::kControllerSupport) {
+      layout.setting_previous[i] = {};
+      layout.setting_values[i] = {};
+      layout.setting_next[i] = MakeRect(RectRight(inner) - button_width, y,
+                                        button_width, row_height);
+      y += row_height + kRowGap;
+      continue;
+    }
+#endif
     const float control_x = RectRight(inner) - control_width;
     layout.setting_previous[i] =
         MakeRect(control_x, y, button_width, row_height);
@@ -1196,11 +1212,37 @@ void InGameMenu::DrawSettings(const FrameText& text,
     const bool selected = page_ == Page::kSettings &&
                           focus_.area == FocusArea::kDetail &&
                           focus_.settings_item == item;
-    const bool row_hovered =
+    bool row_hovered = hovered_target_ == HitTarget{HitTargetType::kSettingItem,
+                                                    static_cast<int>(i)};
+#if KIWI_SWITCH
+    if (item == SettingsItem::kControllerSupport &&
         hovered_target_ ==
-        HitTarget{HitTargetType::kSettingItem, static_cast<int>(i)};
+            HitTarget{HitTargetType::kSettingNext, static_cast<int>(i)}) {
+      row_hovered = true;
+    }
+#endif
     DrawButtonBackground(layout.setting_items[i], selected, row_hovered, false,
                          false);
+
+#if KIWI_SWITCH
+    if (item == SettingsItem::kControllerSupport) {
+      SDL_Rect label_rect = MakeRect(
+          layout.setting_items[i].x, layout.setting_items[i].y,
+          layout.setting_next[i].x - layout.setting_items[i].x - layout.padding,
+          layout.setting_items[i].h);
+      DrawTextInRect(text.setting_labels[i], label_rect, layout.font_size,
+                     kTextColor, layout.padding, false, true);
+
+      const bool next_hovered =
+          hovered_target_ ==
+          HitTarget{HitTargetType::kSettingNext, static_cast<int>(i)};
+      DrawButtonBackground(layout.setting_next[i], false, next_hovered, false,
+                           false, true);
+      DrawChevron(layout.setting_next[i], false,
+                  next_hovered ? kBrandColor : kTextColor);
+      continue;
+    }
+#endif
 
     SDL_Rect label_rect =
         MakeRect(layout.setting_items[i].x, layout.setting_items[i].y,
@@ -1851,6 +1893,10 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
     case HitTargetType::kSettingItem:
       OpenPage(Page::kSettings);
       focus_.settings_item = static_cast<SettingsItem>(target.index);
+#if KIWI_SWITCH
+      if (focus_.settings_item == SettingsItem::kControllerSupport)
+        StepSetting(focus_.settings_item, StepDirection::kNext);
+#endif
       break;
     case HitTargetType::kSettingPrevious:
       if (page_ == Page::kMainMenu)
@@ -2162,6 +2208,10 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
       return true;
 #endif
 #endif
+#if KIWI_SWITCH
+    case SettingsItem::kControllerSupport:
+      return direction == StepDirection::kNext;
+#else
     case SettingsItem::kJoyP1:
     case SettingsItem::kJoyP2: {
       const int player = item == SettingsItem::kJoyP1 ? 0 : 1;
@@ -2176,6 +2226,7 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
                  ? current_iter != controllers.begin()
                  : current_iter + 1 != controllers.end();
     }
+#endif
     case SettingsItem::kSwapABP1:
     case SettingsItem::kSwapABP2: {
       const int player = item == SettingsItem::kSwapABP1 ? 0 : 1;
@@ -2224,6 +2275,10 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
               : string_resources::IDR_IN_GAME_MENU_ORIGINAL);
 #endif
 #endif
+#if KIWI_SWITCH
+    case SettingsItem::kControllerSupport:
+      return std::string();
+#else
     case SettingsItem::kJoyP1:
     case SettingsItem::kJoyP2: {
       const int player = item == SettingsItem::kJoyP1 ? 0 : 1;
@@ -2240,6 +2295,7 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
                  ? controller_name
                  : GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NONE);
     }
+#endif
     case SettingsItem::kSwapABP1:
     case SettingsItem::kSwapABP2: {
       const int player = item == SettingsItem::kSwapABP1 ? 0 : 1;

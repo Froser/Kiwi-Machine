@@ -38,7 +38,10 @@ bool IsGameSelectionBackButton(const SDL_ControllerButtonEvent* event);
 
 bool IsGameSelectionSearchButton(const SDL_ControllerButtonEvent* event);
 
-bool IsGameSelectionVersionButton(const SDL_ControllerButtonEvent* event);
+bool IsGameSelectionPreviousVersionButton(
+    const SDL_ControllerButtonEvent* event);
+
+bool IsGameSelectionNextVersionButton(const SDL_ControllerButtonEvent* event);
 
 void SetControllerMapping(NESRuntime::Data* runtime_data,
                           int player,

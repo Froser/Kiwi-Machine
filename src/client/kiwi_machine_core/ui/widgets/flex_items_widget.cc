@@ -770,10 +770,18 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   }
 
   if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kSelect) ||
-      IsGameSelectionVersionButton(c)) {
+      IsGameSelectionNextVersionButton(c)) {
     if (!items_.empty() && items_[current_index_]->has_sub_items()) {
       PlayEffect(audio_resources::AudioID::kSelect);
       SwapCurrentItemToNextSubItem();
+    }
+    return true;
+  }
+
+  if (IsGameSelectionPreviousVersionButton(c)) {
+    if (!items_.empty() && items_[current_index_]->has_sub_items()) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      SwapCurrentItemToPreviousSubItem();
     }
     return true;
   }
@@ -959,6 +967,12 @@ bool FlexItemsWidget::FindItemIndexByMousePosition(int x_in_window,
   }
 
   return false;
+}
+
+void FlexItemsWidget::SwapCurrentItemToPreviousSubItem() {
+  if (items_[current_index_]->SwapToPreviousSubItem()) {
+    RefreshCurrentItemBounds();
+  }
 }
 
 void FlexItemsWidget::SwapCurrentItemToNextSubItem() {

@@ -312,6 +312,19 @@ bool FlexItemWidget::RestoreToDefaultItem() {
   return changed;
 }
 
+bool FlexItemWidget::SwapToPreviousSubItem() {
+  int sub_item_index_before = current_sub_item_index_;
+  --current_sub_item_index_;
+  if (current_sub_item_index_ < 0)
+    current_sub_item_index_ = static_cast<int>(sub_data_.size()) - 1;
+
+  current_data_ = sub_data_[current_sub_item_index_].get();
+  const bool changed = current_sub_item_index_ != sub_item_index_before;
+  if (changed)
+    StartVersionSwitchAnimation();
+  return changed;
+}
+
 bool FlexItemWidget::SwapToNextSubItem() {
   int sub_item_index_before = current_sub_item_index_;
   ++current_sub_item_index_;
