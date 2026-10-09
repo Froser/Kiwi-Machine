@@ -154,7 +154,7 @@ int GetItemHeight() {
 #if KIWI_ANDROID
   return 80;
 #elif KIWI_SWITCH
-  return 34;
+  return 52;
 #else
   return 20;
 #endif
@@ -169,6 +169,8 @@ int GetMarginBottom() {
   // Many mobile screen has a rounded corner, we set margin as a larger value
   // here.
   return 80;
+#elif KIWI_SWITCH
+  return 24;
 #else
   return 15;
 #endif

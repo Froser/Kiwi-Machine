@@ -13,6 +13,7 @@
 #include "ui/widgets/side_menu.h"
 
 #include <algorithm>
+#include <cfloat>
 
 #include "models/nes_runtime.h"
 #include "ui/main_window.h"
@@ -32,13 +33,15 @@ constexpr int kItemAnimationMs = 50;
 constexpr int kHoverAnimationMs = 180;
 constexpr int kPointerCollapseDelayMs = 120;
 #if KIWI_SWITCH
-constexpr int kIconInset = 16;
-constexpr int kTextSpacing = 12;
-constexpr float kIconSizeScale = .68f;
+constexpr int kIconInset = 24;
+constexpr int kTextSpacing = 16;
+constexpr float kIconSizeScale = .78f;
+constexpr float kFontSizeScale = 1.25f;
 #else
 constexpr int kIconInset = 4;
 constexpr int kTextSpacing = 4;
 constexpr float kIconSizeScale = .7f;
+constexpr float kFontSizeScale = 1.f;
 #endif
 constexpr ImU32 kBackgroundColor = IM_COL32(244, 252, 227, 255);
 constexpr ImU32 kBorderColor = IM_COL32(116, 184, 22, 255);
@@ -78,6 +81,15 @@ ImU32 BlendColor(ImU32 from, ImU32 to, float progress) {
   const ImU32 blue = blend_channel(IM_COL32_B_SHIFT)(from, to);
   const ImU32 alpha = blend_channel(IM_COL32_A_SHIFT)(from, to);
   return IM_COL32(red, green, blue, alpha);
+}
+
+float GetFontRenderSize(const ScopedFont& font) {
+  return font.GetFontSize() * kFontSizeScale;
+}
+
+ImVec2 MeasureText(const ScopedFont& font, const char* text) {
+  return font.GetFont()->CalcTextSizeA(GetFontRenderSize(font), FLT_MAX, 0.f,
+                                       text);
 }
 
 }  // namespace
@@ -156,7 +168,7 @@ void SideMenu::Paint() {
       std::string contents =
           button_items_[i].string_updater->GetLocalizedString();
       ScopedFont font = GetPreferredFont(kPreferredFontSize, contents.c_str());
-      const ImVec2 text_size = ImGui::CalcTextSize(contents.c_str());
+      const ImVec2 text_size = MeasureText(font, contents.c_str());
       int text_top = button_bounds.y + (button_bounds.h - text_size.y) / 2;
       const float text_left = kIconLeft + kIconSize + SCALED(kTextSpacing);
       const ImVec4 text_clip(
@@ -164,7 +176,8 @@ void SideMenu::Paint() {
           button_bounds.x + button_bounds.w - SCALED(kTextSpacing),
           button_bounds.y + button_bounds.h);
       draw_list->AddText(
-          font.GetFont(), font.GetFontSize(), ImVec2(text_left, text_top),
+          font.GetFont(), GetFontRenderSize(font),
+          ImVec2(text_left, text_top),
           BlendColor(kTextColor, kAccentTextColor, hover_opacity),
           contents.c_str(), nullptr, 0.f, &text_clip);
     }
@@ -244,7 +257,7 @@ void SideMenu::Paint() {
 
       if (expanded()) {
         // Calculates text area
-        const ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
+        const ImVec2 text_size = MeasureText(font, menu_content.c_str());
         const int text_top = global_target_selection_rect.y +
                              (global_target_selection_rect.h - text_size.y) / 2;
         const float text_left = kIconLeft + kIconSize + SCALED(kTextSpacing);
@@ -253,13 +266,13 @@ void SideMenu::Paint() {
             global_target_selection_rect.x + global_target_selection_rect.w -
                 SCALED(kTextSpacing),
             global_target_selection_rect.y + global_target_selection_rect.h);
-        draw_list->AddText(font.GetFont(), font.GetFontSize(),
+        draw_list->AddText(font.GetFont(), GetFontRenderSize(font),
                            ImVec2(text_left, text_top), kAccentTextColor,
                            menu_content.c_str(), nullptr, 0.f, &text_clip);
       }
     } else if (expanded()) {
       // Calculates text area
-      const ImVec2 text_size = ImGui::CalcTextSize(menu_content.c_str());
+      const ImVec2 text_size = MeasureText(font, menu_content.c_str());
       const int text_top =
           global_item_rect.y + (global_item_rect.h - text_size.y) / 2;
       const float text_left = kIconLeft + kIconSize + SCALED(kTextSpacing);
@@ -268,7 +281,8 @@ void SideMenu::Paint() {
           global_item_rect.x + global_item_rect.w - SCALED(kTextSpacing),
           global_item_rect.y + global_item_rect.h);
       draw_list->AddText(
-          font.GetFont(), font.GetFontSize(), ImVec2(text_left, text_top),
+          font.GetFont(), GetFontRenderSize(font),
+          ImVec2(text_left, text_top),
           BlendColor(kTextColor, kAccentTextColor, hover_opacity),
           menu_content.c_str(), nullptr, 0.f, &text_clip);
     }
@@ -320,7 +334,7 @@ void SideMenu::AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
 
 int SideMenu::GetSuggestedCollapsedWidth() {
 #if KIWI_SWITCH
-  return 64;
+  return 96;
 #else
   const int item_x = SCALED(kItemSpacing.x);
   const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
@@ -334,9 +348,9 @@ int SideMenu::GetSuggestedExtendedWidth(int available_width) {
   constexpr int kMinWidth = 260;
   constexpr int kMaxWidth = 340;
 #elif KIWI_SWITCH
-  constexpr float kWidthRatio = .144f;
-  constexpr int kMinWidth = 184;
-  constexpr int kMaxWidth = 184;
+  constexpr float kWidthRatio = .225f;
+  constexpr int kMinWidth = 288;
+  constexpr int kMaxWidth = 288;
 #elif KIWI_IOS
   constexpr float kWidthRatio = .14f;
   constexpr int kMinWidth = 108;

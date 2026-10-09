@@ -191,7 +191,7 @@ if(KIWI_SWITCH)
         KIWI_SWITCH_ENVIRONMENT_ERROR(
                 "KIWI_PACKAGE_DIR must contain main.pak for Switch builds.")
     endif()
-    file(GLOB_RECURSE KIWI_SWITCH_PAK_FILES CONFIGURE_DEPENDS
+    file(GLOB KIWI_SWITCH_PAK_FILES CONFIGURE_DEPENDS
             "${KIWI_PACKAGE_DIR}/*.pak")
 
     if(NOT NX_NACPTOOL_EXE)
@@ -215,6 +215,8 @@ if(KIWI_SWITCH)
             "${KIWI_SWITCH_DIST_DIR}/KiwiMachine.nro")
     set(KIWI_SWITCH_ELF
             "${KIWI_SWITCH_DIST_DIR}/KiwiMachine.elf")
+    set(KIWI_SWITCH_ROMFS_DIR
+            "${CMAKE_CURRENT_BINARY_DIR}/switch_romfs")
     set(KIWI_NS_ICON
             "${CMAKE_CURRENT_SOURCE_DIR}/build/switch/kiwi_machine_icon.jpg"
             CACHE FILEPATH "Icon used by the Switch NRO and forwarder NSP")
@@ -235,6 +237,13 @@ if(KIWI_SWITCH)
     endif()
 
     add_custom_target(kiwi_machine_nro ALL
+            COMMAND ${CMAKE_COMMAND} -E remove_directory
+                    "${KIWI_SWITCH_ROMFS_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory
+                    "${KIWI_SWITCH_ROMFS_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${KIWI_SWITCH_PAK_FILES}
+                    "${KIWI_SWITCH_ROMFS_DIR}"
             COMMAND ${CMAKE_COMMAND} -E make_directory
                     "${KIWI_SWITCH_DIST_DIR}"
             COMMAND ${CMAKE_COMMAND} -E remove
@@ -251,7 +260,7 @@ if(KIWI_SWITCH)
                     "${KIWI_SWITCH_NRO}"
                     "--icon=${KIWI_NS_ICON}"
                     "--nacp=${KIWI_SWITCH_NACP}"
-                    "--romfsdir=${KIWI_PACKAGE_DIR}"
+                    "--romfsdir=${KIWI_SWITCH_ROMFS_DIR}"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "$<TARGET_FILE:${PROJECT_NAME}>"
                     "${KIWI_SWITCH_ELF}"

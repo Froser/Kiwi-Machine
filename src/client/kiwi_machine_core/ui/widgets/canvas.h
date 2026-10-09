@@ -18,10 +18,15 @@
 #include <string>
 #include <utility>
 
+#include "build/kiwi_defines.h"
 #include "models/nes_frame.h"
+#if KIWI_ENABLE_HD_TEXTURE
 #include "ui/widgets/hd_edition_badge.h"
+#endif
 #include "ui/widgets/widget.h"
+#if KIWI_ENABLE_HD_TEXTURE
 #include "utility/timer.h"
+#endif
 
 // A canvas is a widget to render NES frame.
 class WindowBase;
@@ -44,10 +49,12 @@ class Canvas : public Widget, public NESFrameObserver {
   void set_in_menu_trigger_callback(kiwi::base::RepeatingClosure callback) {
     on_menu_trigger_ = callback;
   }
+#if KIWI_ENABLE_HD_TEXTURE
   void set_hd_texture_toggle_callback(kiwi::base::RepeatingClosure callback) {
     on_hd_texture_toggle_ = std::move(callback);
   }
   void SetHDTextureToggleAvailable(bool available);
+#endif
 
   scoped_refptr<NESFrame> frame() { return frame_; }
   float frame_scale() { return frame_scale_; }
@@ -73,8 +80,10 @@ class Canvas : public Widget, public NESFrameObserver {
 
  private:
   void InvokeInGameMenu();
+#if KIWI_ENABLE_HD_TEXTURE
   void InvokeHDTextureToggle();
   void PaintHDTextureToggleHint();
+#endif
 
   struct ZapperDetails {
     int original_x;
@@ -94,8 +103,11 @@ class Canvas : public Widget, public NESFrameObserver {
   std::optional<std::pair<int, int>> touch_point_;
   scoped_refptr<NESFrame> frame_;
   kiwi::base::RepeatingClosure on_menu_trigger_;
+#if KIWI_ENABLE_HD_TEXTURE
   kiwi::base::RepeatingClosure on_hd_texture_toggle_;
+#endif
   std::set<CanvasObserver*> observers_;
+#if KIWI_ENABLE_HD_TEXTURE
   Timer hd_texture_hint_timer_;
   HDEditionBadge hd_texture_hint_badge_;
   bool hd_texture_toggle_available_ = false;
@@ -103,6 +115,7 @@ class Canvas : public Widget, public NESFrameObserver {
   bool last_hd_toggle_input_was_controller_ = false;
   bool right_shoulder_pending_ = false;
   bool shoulder_chord_used_ = false;
+#endif
 };
 
 #endif  // UI_WIDGETS_CANVAS_H_

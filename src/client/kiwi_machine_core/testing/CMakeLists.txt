@@ -32,6 +32,7 @@ add_executable(kiwi_machine_core_unittests ${Sources})
 # Link against required libraries
 target_link_libraries(kiwi_machine_core_unittests PRIVATE
     kiwi_machine_core
+    gflags_nothreads_static
     gtest_main
     glog::glog
     SDL2-static
@@ -45,7 +46,6 @@ target_include_directories(kiwi_machine_core_unittests PRIVATE
     ${kiwi_machine_core_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${SDL2_SOURCE_DIR}/include
-    ${gflags_BINARY_DIR}/include
     ../../../../src/third_party/imgui
     ${kiwi_SOURCE_DIR}
     ../../../../include

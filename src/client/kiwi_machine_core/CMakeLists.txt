@@ -59,7 +59,6 @@ set(Sources
         preset_roms/preset_roms.h
         preset_roms/preset_roms.cc
         resources/audio_resources.cc
-        resources/font_resources.cc
         resources/string_resources.cc
         resources/string_resources.h
         resources/image_resources.cc
@@ -81,8 +80,6 @@ set(Sources
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
         ui/widgets/flex_items_widget.h
-        ui/widgets/hd_edition_badge.cc
-        ui/widgets/hd_edition_badge.h
         ui/widgets/performance_widget.cc
         ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc
@@ -142,12 +139,6 @@ set(Sources
         utility/logging.h
         utility/math.cc
         utility/math.h
-        utility/texture_parser/mesen_texture_parser.cc
-        utility/texture_parser/mesen_texture_parser.h
-        utility/texture_parser/texture_parser.h
-        utility/texture_parser/texture_resource_provider.h
-        utility/texture_renderer.cc
-        utility/texture_renderer.h
         utility/timer.cc
         utility/timer.h
         utility/fps_counter.cc
@@ -155,6 +146,21 @@ set(Sources
         utility/zip_reader.cc
         utility/zip_reader.h
 )
+
+if (NOT KIWI_SWITCH)
+    list(APPEND Sources
+            resources/font_resources.cc
+            ui/widgets/hd_edition_badge.cc
+            ui/widgets/hd_edition_badge.h
+            utility/texture_parser/mesen_texture_parser.cc
+            utility/texture_parser/mesen_texture_parser.h
+            utility/texture_parser/texture_parser.h
+            utility/texture_parser/texture_resource_provider.h
+            utility/texture_renderer.cc
+            utility/texture_renderer.h
+    )
+    set(KIWI_HD_TEXTURE_LIBRARIES mesen_hd_pack)
+endif ()
 
 if (IOS OR ANDROID)
     set(KIWI_MOBILE TRUE)
@@ -244,21 +250,27 @@ add_custom_command(
         VERBATIM
 )
 
-add_custom_command(
-        OUTPUT resources/font_resources.cc
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        DEPENDS resources/fonts/files.json
-        VERBATIM
-)
+if (NOT KIWI_SWITCH)
+    add_custom_command(
+            OUTPUT resources/font_resources.cc
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_font_resources.py
+            ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${USE_WASM_IGNORE}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            DEPENDS resources/fonts/files.json
+            VERBATIM
+    )
+endif ()
+
+if (KIWI_SWITCH)
+    set(KIWI_STRING_RESOURCE_ARGS --disable-hd-texture)
+endif ()
 
 add_custom_command(
         OUTPUT
         resources/string_resources.cc
         resources/string_resources.h
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/gen_string_resources.py
-        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources
+        ARGS ${CMAKE_CURRENT_BINARY_DIR}/resources ${KIWI_STRING_RESOURCE_ARGS}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         DEPENDS resources/strings/files.json resources/strings/strings.json
         VERBATIM
@@ -269,7 +281,7 @@ KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         Kiwi::kiwi_static imgui
-        mesen_hd_pack
+        ${KIWI_HD_TEXTURE_LIBRARIES}
         gflags_nothreads_static
         ${KIWI_SDL2_IMAGE_TARGET}
         ${KIWI_SDL2_MIXER_TARGET}

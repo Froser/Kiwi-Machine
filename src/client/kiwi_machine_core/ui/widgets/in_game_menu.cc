@@ -926,8 +926,13 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
 }
 
 void InGameMenu::LayoutConfirmation(FrameLayout& layout) {
+#if KIWI_SWITCH
+  constexpr float kPreferredBodyWidth = 560.f;
+#else
+  constexpr float kPreferredBodyWidth = 440.f;
+#endif
   const float body_width =
-      std::min(440.f, layout.detail.w - layout.padding * 2.f);
+      std::min(kPreferredBodyWidth, layout.detail.w - layout.padding * 2.f);
   const float body_height = std::min(std::max(180.f, layout.font_height * 7.f),
                                      layout.detail.h - layout.padding * 2.f);
   layout.confirmation_body =

@@ -29,7 +29,19 @@
 #include <utility>
 
 #if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
+#if defined(min)
+#undef min
+#endif
+#if defined(max)
+#undef max
+#endif
+#if defined(CreateDirectory)
+#undef CreateDirectory
+#endif
 #endif
 
 #include "base/files/file_util.h"
@@ -39,9 +51,11 @@
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "ui/application.h"
 #include "utility/localization.h"
+#if KIWI_ENABLE_HD_TEXTURE
 #include "utility/texture_parser/mesen_texture_parser.h"
 #include "utility/texture_parser/texture_resource_provider.h"
 #include "utility/texture_renderer.h"
+#endif
 
 #if KIWI_WASM
 #include "utility/emscripten/bridge_api.h"
@@ -52,7 +66,9 @@ constexpr size_t kFileNameMaxLength = 256;
 constexpr int kPackageIndexVersion = 1;
 constexpr size_t kMaximumCachedStringLength = 16 * 1024;
 
+#if KIWI_ENABLE_HD_TEXTURE
 using TexturePackIndex = std::unordered_map<std::string, kiwi::base::FilePath>;
+#endif
 
 preset_roms::PresetROM* FindAlternateROMByName(
     std::vector<preset_roms::PresetROM>* alternates,
@@ -135,6 +151,7 @@ bool GetCurrentZipFileName(unzFile file, std::string* filename) {
   return true;
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 std::unordered_set<std::string> GetZipEntries(unzFile file) {
   std::unordered_set<std::string> entries;
   int located = unzGoToFirstFile(file);
@@ -268,6 +285,7 @@ std::unique_ptr<TextureParser> CreateTextureParser(
   }
   return std::make_unique<MesenTextureParserCollection>(std::move(parsers));
 }
+#endif
 
 unzFile OpenUnzFromRWops(SDL_RWops* ops) {
   if (!ops) {
@@ -665,6 +683,7 @@ kiwi::nes::Bytes LoadZipDataFromFilePos(scoped_refptr<Unz> f,
   return data;
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 std::optional<nlohmann::json> ReadTexturePackManifest(unzFile archive) {
   kiwi::nes::Bytes manifest;
   if (!ReadFileFromZip(archive, "manifest.json", manifest)) {
@@ -792,6 +811,7 @@ void ConfigureTexturePacksForPackage(preset_roms::Package* package,
     }
   }
 }
+#endif
 
 }  // namespace
 
@@ -959,8 +979,8 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
 
           // Leaky name
           new_alternative_rom.name = new char[alter_name.size() + 1];
-          strcpy(const_cast<char*>(new_alternative_rom.name),
-                 alter_name.c_str());
+          std::memcpy(const_cast<char*>(new_alternative_rom.name),
+                      alter_name.c_str(), alter_name.size() + 1);
           new_alternative_rom.i18n_names = names;
           new_alternative_rom.region = GuessROMRegion(alter_name);
           rom_data.alternates.push_back(std::move(new_alternative_rom));
@@ -992,8 +1012,10 @@ bool RestorePackageIndexFromCache(preset_roms::Package* package,
     return false;
   }
 
+  const char* cache_begin =
+      reinterpret_cast<const char*>(cache_data->data());
   nlohmann::json cache = nlohmann::json::parse(
-      cache_data->begin(), cache_data->end(), nullptr, false);
+      cache_begin, cache_begin + cache_data->size(), nullptr, false);
   if (cache.is_discarded() || !cache.is_object()) {
     return false;
   }
@@ -1126,6 +1148,7 @@ bool IsPackageIndexReady(const preset_roms::Package* package) {
   return static_cast<const PackageImpl*>(package)->index_ready();
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 void InitializeTexturePacks(
     const std::vector<kiwi::base::FilePath>& texture_pack_paths) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
@@ -1148,6 +1171,7 @@ void InitializeTexturePacksForPackage(
   ConfigureTexturePacksForPackage(package,
                                   BuildTexturePackIndex(texture_pack_paths));
 }
+#endif
 
 kiwi::nes::Bytes LoadPresetROMBoxArt(const preset_roms::PresetROM& rom_data) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
@@ -1188,6 +1212,7 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
     return result;
   }
 
+#if KIWI_ENABLE_HD_TEXTURE
   const bool should_load_texture = !rom_data.hd_texture_path.empty() &&
                                    (rom_data.hd_texture_toggle_available ||
                                     edition == preset_roms::ROMEdition::kHD);
@@ -1226,6 +1251,9 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
                  "Failed to load HD texture data for name %s", rom_data.name);
     result.rom_data.clear();
   }
+#else
+  static_cast<void>(edition);
+#endif
   return result;
 }
 

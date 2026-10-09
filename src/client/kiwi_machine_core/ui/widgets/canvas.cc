@@ -19,9 +19,11 @@
 #include <algorithm>
 #include <cfloat>
 
+#if KIWI_ENABLE_HD_TEXTURE
 #include "resources/string_resources.h"
 #include "utility/fonts.h"
 #include "utility/localization.h"
+#endif
 
 #if KIWI_ANDROID
 #include "third_party/SDL2/src/core/android/SDL_android.h"
@@ -29,6 +31,13 @@
 
 namespace {
 constexpr int kBrightThreshold = 220;
+
+bool IsColorBrightEnough(int r, int g, int b) {
+  float luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > kBrightThreshold;
+}
+
+#if KIWI_ENABLE_HD_TEXTURE
 constexpr int kHDTextureHintDurationMs = 3000;
 constexpr int kHDTextureHintFadeInMs = 220;
 constexpr int kHDTextureHintFadeOutMs = 360;
@@ -36,15 +45,11 @@ constexpr float kHDTextureHintMaximumWidthRatio = .92f;
 constexpr float kHDTextureHintBadgeWidth = 52.f;
 constexpr float kHDTextureHintBadgeHeight = 24.f;
 
-bool IsColorBrightEnough(int r, int g, int b) {
-  float luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > kBrightThreshold;
-}
-
 ImU32 WithAlpha(ImU32 color, float alpha) {
   return (color & 0x00ffffff) |
          (static_cast<ImU32>(std::clamp(alpha, 0.f, 1.f) * 255.f) << 24);
 }
+#endif
 
 }  // namespace
 
@@ -92,7 +97,9 @@ void Canvas::Paint() {
   SDL_Rect dest_rect = bounds();
   SDL_RenderCopy(window()->renderer(), frame_->texture(), &src_rect,
                  &dest_rect);
+#if KIWI_ENABLE_HD_TEXTURE
   PaintHDTextureToggleHint();
+#endif
 }
 
 bool Canvas::IsWindowless() {
@@ -100,12 +107,14 @@ bool Canvas::IsWindowless() {
 }
 
 bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
+#if KIWI_ENABLE_HD_TEXTURE
   last_hd_toggle_input_was_controller_ = false;
   if (hd_texture_toggle_available_ && event->keysym.sym == SDLK_TAB &&
       event->repeat == 0) {
     InvokeHDTextureToggle();
     return true;
   }
+#endif
 #if !KIWI_WASM
   if (event->keysym.sym == SDLK_ESCAPE) {
     InvokeInGameMenu();
@@ -119,26 +128,37 @@ bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
+#if KIWI_ENABLE_HD_TEXTURE
   last_hd_toggle_input_was_controller_ = true;
+#endif
   SDL_GameController* controller =
       SDL_GameControllerFromInstanceID(event->which);
   const bool left_shoulder = SDL_GameControllerGetButton(
       controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
   const bool right_shoulder = SDL_GameControllerGetButton(
       controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+#if KIWI_ENABLE_HD_TEXTURE
   if (event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
     right_shoulder_pending_ = true;
   }
+#endif
   if (left_shoulder && right_shoulder) {
+#if KIWI_ENABLE_HD_TEXTURE
     shoulder_chord_used_ = true;
+#endif
     InvokeInGameMenu();
     return true;
   }
+#if KIWI_ENABLE_HD_TEXTURE
   return hd_texture_toggle_available_ &&
          event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
+#else
+  return false;
+#endif
 }
 
 bool Canvas::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
+#if KIWI_ENABLE_HD_TEXTURE
   if (event->button != SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
     return false;
   }
@@ -152,10 +172,15 @@ bool Canvas::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
     InvokeHDTextureToggle();
   }
   return hd_texture_toggle_available_;
+#else
+  return false;
+#endif
 }
 
 bool Canvas::OnMousePressed(SDL_MouseButtonEvent* event) {
+#if KIWI_ENABLE_HD_TEXTURE
   last_hd_toggle_input_was_controller_ = false;
+#endif
   mouse_or_finger_down_ = true;
   return Widget::OnMousePressed(event);
 }
@@ -186,6 +211,7 @@ void Canvas::InvokeInGameMenu() {
     on_menu_trigger_.Run();
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 void Canvas::SetHDTextureToggleAvailable(bool available) {
   hd_texture_toggle_available_ = available;
   hd_texture_hint_visible_ = available;
@@ -294,6 +320,7 @@ void Canvas::PaintHDTextureToggleHint() {
       ImVec2(text_left, box_min.y + (panel_height - text_size.y) * .5f),
       WithAlpha(IM_COL32(255, 255, 255, 255), alpha), text.c_str());
 }
+#endif
 
 Canvas::ZapperDetails Canvas::CreateZapperDetailsByMouseOrFingerPosition(
     int x,

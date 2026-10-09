@@ -16,7 +16,15 @@
 #include <array>
 
 #include "build/kiwi_defines.h"
+#if KIWI_SWITCH
+#include <SDL_log.h>
+extern "C" {
+#include <switch/result.h>
+#include <switch/services/pl.h>
+}
+#else
 #include "resources/font_resources.h"
+#endif
 #include "utility/localization.h"
 
 namespace {
@@ -75,6 +83,51 @@ void RegisterSystemFont() {
       ImGui::GetIO().Fonts->AddFontDefaultVector(&font_config);
 }
 
+#if KIWI_SWITCH
+ImFont* RegisterSwitchSharedFont(PlSharedFontType font_type,
+                                 float font_size,
+                                 ImFont* merge_target = nullptr) {
+  PlFontData font_data = {};
+  const Result result = plGetSharedFontByType(&font_data, font_type);
+  if (R_FAILED(result) || !font_data.address || !font_data.size) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                 "Failed to load Switch shared font %d: 0x%08x",
+                 static_cast<int>(font_type), result);
+    return nullptr;
+  }
+
+  ImFontConfig font_config;
+  // pl:u owns the mapped font data and remains alive until ImGui is destroyed.
+  font_config.FontDataOwnedByAtlas = false;
+  font_config.MergeMode = merge_target != nullptr;
+  font_config.DstFont = merge_target;
+  return ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
+      font_data.address, static_cast<int>(font_data.size), font_size,
+      &font_config);
+}
+
+void RegisterSwitchFonts() {
+  ImFont* standard_font =
+      RegisterSwitchSharedFont(PlSharedFontType_Standard, kDefaultFontSize);
+  if (!standard_font) {
+    RegisterSystemFont();
+    standard_font = g_fonts[static_cast<int>(FontType::kSystemDefault)];
+  }
+
+  g_fonts[static_cast<int>(FontType::kSystemDefault)] = standard_font;
+  g_fonts[static_cast<int>(FontType::kDefault)] = standard_font;
+  g_fonts[static_cast<int>(FontType::kDefaultJapanese)] = standard_font;
+
+  ImFont* simplified_chinese_font = RegisterSwitchSharedFont(
+      PlSharedFontType_ChineseSimplified, kDefaultFontSize);
+  if (simplified_chinese_font) {
+    RegisterSwitchSharedFont(PlSharedFontType_ExtChineseSimplified,
+                             kDefaultFontSize, simplified_chinese_font);
+  }
+  g_fonts[static_cast<int>(FontType::kDefaultSimplifiedChinese)] =
+      simplified_chinese_font ? simplified_chinese_font : standard_font;
+}
+#else
 void RegisterFont(FontType type,
                   font_resources::FontID font_id,
                   float font_size) {
@@ -87,6 +140,7 @@ void RegisterFont(FontType type,
       ImGui::GetIO().Fonts->AddFontFromMemoryTTF(
           font_data, data_size, font_size, &font_config);
 }
+#endif
 
 }  // namespace
 
@@ -109,13 +163,18 @@ float ScopedFont::GetFontSize() const {
 }
 
 void InitializeSystemFonts() {
+#if KIWI_SWITCH
+  RegisterSwitchFonts();
+#else
   RegisterSystemFont();
+#endif
 }
 
 void InitializeStartupFonts() {
   ImGui::GetIO().Fonts->Clear();
   g_fonts.fill(nullptr);
   InitializeSystemFonts();
+#if !KIWI_SWITCH
   RegisterFont(FontType::kDefault, font_resources::FontID::kSupermario256,
                kDefaultFontSize);
 
@@ -135,6 +194,7 @@ void InitializeStartupFonts() {
     default:
       break;
   }
+#endif
 }
 
 void InitializeFonts() {
@@ -142,6 +202,7 @@ void InitializeFonts() {
   g_fonts.fill(nullptr);
   InitializeSystemFonts();
 
+#if !KIWI_SWITCH
 #if !DISABLE_CHINESE_FONT
   RegisterFont(FontType::kDefaultSimplifiedChinese,
                font_resources::FontID::kDengb, kDefaultFontSize);
@@ -152,6 +213,7 @@ void InitializeFonts() {
 #endif
   RegisterFont(FontType::kDefault, font_resources::FontID::kSupermario256,
                kDefaultFontSize);
+#endif
 }
 
 ScopedFont GetPreferredFont(PreferredFontSize size, FontType default_type) {

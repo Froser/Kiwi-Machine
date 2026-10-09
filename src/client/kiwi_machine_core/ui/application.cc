@@ -425,16 +425,24 @@ void Application::InitializePackageIndex(
       FROM_HERE,
       kiwi::base::BindOnce(
           [](preset_roms::Package* package, kiwi::base::FilePath profile_path,
+#if KIWI_ENABLE_HD_TEXTURE
              std::vector<kiwi::base::FilePath> texture_pack_paths,
+#endif
              PackageIndexProgressCallback progress_callback) {
             if (!BuildPackageIndex(package, profile_path, progress_callback)) {
               return false;
             }
+#if KIWI_ENABLE_HD_TEXTURE
             InitializeTexturePacksForPackage(package, texture_pack_paths);
+#endif
             return true;
           },
           kiwi::base::Unretained(package), runtime_data->profile_path,
+#if KIWI_ENABLE_HD_TEXTURE
           texture_pack_paths_, std::move(io_progress)),
+#else
+          std::move(io_progress)),
+#endif
       std::move(completion_callback));
 }
 
@@ -596,8 +604,10 @@ void Application::InitializeROMs() {
     RestorePackageIndexFromCache(package, runtime_data->profile_path);
   }
 
+#if KIWI_ENABLE_HD_TEXTURE
   texture_pack_paths_ = GetTexturePackPathList(file_paths);
   InitializeTexturePacks(texture_pack_paths_);
+#endif
 }
 
 std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
@@ -686,6 +696,7 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
 #endif
 }
 
+#if KIWI_ENABLE_HD_TEXTURE
 std::vector<kiwi::base::FilePath> Application::GetTexturePackPathList(
     const std::vector<kiwi::base::FilePath>& package_paths) {
   std::vector<kiwi::base::FilePath> paths;
@@ -715,6 +726,7 @@ std::vector<kiwi::base::FilePath> Application::GetTexturePackPathList(
   std::sort(paths.begin(), paths.end());
   return paths;
 }
+#endif
 
 void Application::AddWindowToEventHandler(WindowBase* window) {
   windows_.insert(std::make_pair(window->GetWindowID(), window));

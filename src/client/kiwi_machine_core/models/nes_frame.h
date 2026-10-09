@@ -20,11 +20,14 @@
 #include <memory>
 #include <set>
 
+#include "build/kiwi_defines.h"
 #include "models/nes_runtime.h"
 #include "utility/timer.h"
 
 class WindowBase;
+#if KIWI_ENABLE_HD_TEXTURE
 class TextureRenderer;
+#endif
 
 class NESFrameObserver {
  public:
@@ -48,10 +51,12 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   // RenderDevice:
   void Render(const kiwi::nes::PPUFrameData& frame) override;
   bool NeedRender() override;
+#if KIWI_ENABLE_HD_TEXTURE
   void SetTextureRenderer(std::unique_ptr<TextureRenderer> texture_renderer);
   void SetHDTextureRenderingEnabled(bool enabled);
   bool IsHDTextureRenderingEnabled() const;
   bool HasHDTextureRenderer() const;
+#endif
 
   int width() { return render_width_; }
   int height() { return render_height_; }
@@ -61,7 +66,9 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
 
  private:
   bool EnsureTexture(int width, int height);
+#if KIWI_ENABLE_HD_TEXTURE
   bool RenderTextureFrame(const kiwi::nes::PPUFrameData& frame);
+#endif
   void NotifyObservers();
   void UpdateTexture(int width, int height, const kiwi::nes::Colors& buffer);
 
@@ -69,11 +76,15 @@ class NESFrame : public kiwi::base::RefCounted<NESFrame>,
   NESRuntime::Data* runtime_data_ = nullptr;
 
   SDL_Texture* screen_texture_ = nullptr;
+#if KIWI_ENABLE_HD_TEXTURE
   std::unique_ptr<TextureRenderer> texture_renderer_;
   std::atomic_bool hd_texture_rendering_enabled_ = false;
+#endif
   int render_width_ = 0;   // UI thread access only
   int render_height_ = 0;  // UI thread access only
+#if KIWI_ENABLE_HD_TEXTURE
   Buffer last_rendered_frame_;
+#endif
   Timer frame_elapsed_counter_;
   std::set<NESFrameObserver*> observers_;
 };

@@ -17,7 +17,10 @@
 #include <atomic>
 #include <cstdint>
 
+#include "build/kiwi_defines.h"
+#if KIWI_ENABLE_HD_TEXTURE
 #include "ui/widgets/hd_edition_badge.h"
+#endif
 #include "ui/widgets/loading_widget.h"
 #include "ui/widgets/widget.h"
 #include "utility/localization.h"
@@ -102,7 +105,9 @@ class FlexItemWidget : public Widget {
   MainWindow* main_window_ = nullptr;
   FlexItemsWidget* parent_ = nullptr;
   Data* current_data_ = nullptr;
+#if KIWI_ENABLE_HD_TEXTURE
   HDEditionBadge hd_edition_badge_;
+#endif
   LoadingWidget loading_widget_;
   Timer version_switch_animation_timer_;
   Timer version_switch_idle_timer_;

@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "build/kiwi_defines.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "utility/localization.h"
 
@@ -34,7 +35,9 @@ enum class Region {
 
 enum class ROMEdition {
   kOriginal,
+#if KIWI_ENABLE_HD_TEXTURE
   kHD,
+#endif
 };
 
 struct PresetROM {
@@ -56,14 +59,17 @@ struct PresetROM {
   // ROM's region
   Region region = Region::kUnknown;
 
-  // SHA-1 and independently packaged HD texture metadata.
+  // SHA-1 metadata for package indexing and ROM identification.
   std::string sha1;
   std::unordered_map<std::string, std::string> sha1_by_name;
+#if KIWI_ENABLE_HD_TEXTURE
+  // Independently packaged HD texture metadata.
   kiwi::base::FilePath hd_texture_path;
   bool hd_texture_toggle_available = false;
 
   // Whether a ROM-patching texture pack needs a separate HD edition.
   bool hd_edition_available = false;
+#endif
 
   // Whether its data or cover is loaded
   bool title_loaded = false;

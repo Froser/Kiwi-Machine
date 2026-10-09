@@ -18,13 +18,18 @@
 
 namespace {
 Result g_romfs_result = MAKERESULT(Module_Libnx, LibnxError_InitFail_FS);
+Result g_shared_font_result =
+    MAKERESULT(Module_Libnx, LibnxError_NotInitialized);
 }  // namespace
 
 extern "C" void userAppInit() {
   g_romfs_result = romfsInit();
+  g_shared_font_result = plInitialize(PlServiceType_User);
 }
 
 extern "C" void userAppExit() {
+  if (R_SUCCEEDED(g_shared_font_result))
+    plExit();
   if (R_SUCCEEDED(g_romfs_result))
     romfsExit();
 }
@@ -41,6 +46,11 @@ int WINAPI wWinMain(HINSTANCE hInstance,
 int main(int argc, char** argv) {
   if (R_FAILED(g_romfs_result)) {
     fprintf(stderr, "Failed to mount embedded RomFS: 0x%08x\n", g_romfs_result);
+    return 1;
+  }
+  if (R_FAILED(g_shared_font_result)) {
+    fprintf(stderr, "Failed to initialize shared fonts: 0x%08x\n",
+            g_shared_font_result);
     return 1;
   }
   return KiwiMain(argc, argv);

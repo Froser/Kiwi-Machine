@@ -45,6 +45,12 @@
 #define KIWI_MOBILE 0
 #endif
 
+#if KIWI_SWITCH
+#define KIWI_ENABLE_HD_TEXTURE 0
+#else
+#define KIWI_ENABLE_HD_TEXTURE 1
+#endif
+
 #if KIWI_WASM
 #define ENABLE_DEBUG_ROMS 0
 #define DISABLE_CHINESE_FONT 1   // To save space, Wasm removes Chinese font

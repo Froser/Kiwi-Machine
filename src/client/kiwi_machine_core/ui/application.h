@@ -83,8 +83,10 @@ class Application {
   void InitializeRuntimeAndConfigs();
   void InitializeROMs();
   std::vector<kiwi::base::FilePath> GetPackagePathList();
+#if KIWI_ENABLE_HD_TEXTURE
   std::vector<kiwi::base::FilePath> GetTexturePackPathList(
       const std::vector<kiwi::base::FilePath>& package_paths);
+#endif
 
   // Window management:
   friend class WindowBase;
@@ -106,7 +108,9 @@ class Application {
   bool initialized_ = false;
   NESRuntimeID runtime_id_ = 0;
   scoped_refptr<NESConfig> config_;
+#if KIWI_ENABLE_HD_TEXTURE
   std::vector<kiwi::base::FilePath> texture_pack_paths_;
+#endif
 #if !KIWI_WASM
   std::unique_ptr<kiwi::base::Thread> io_thread_;
 #endif

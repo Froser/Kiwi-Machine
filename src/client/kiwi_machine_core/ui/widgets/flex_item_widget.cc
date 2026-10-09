@@ -497,8 +497,10 @@ void FlexItemWidget::Paint() {
   }
 
   const bool is_selected = !parent_->empty() && parent_->IsItemSelected(this);
+#if KIWI_ENABLE_HD_TEXTURE
   if (current_data()->is_hd_edition)
     hd_edition_badge_.Paint(draw_list, kBoundsToWindow, is_selected);
+#endif
 
   if (has_sub_items())
     PaintVersionSwitchIcon(draw_list, kBoundsToWindow, is_selected);

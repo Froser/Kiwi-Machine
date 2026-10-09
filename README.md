@@ -181,9 +181,10 @@ The output is staged under
 `cmake-build-switch/dist/switch/KiwiMachine/`. Keep `KiwiMachine.elf` on the
 development machine for crash symbolization; copy `KiwiMachine.nro` to the SD
 card. The build requires
-`src/third_party/Kiwi-Machine-Workspace/out/main.pak` and embeds all PAK files
-under that directory into the NRO's RomFS. An alternative resource directory
-can be selected with `KIWI_PACKAGE_DIR`.
+`src/third_party/Kiwi-Machine-Workspace/out/main.pak` and embeds only top-level
+ROM PAK files from that directory into the NRO's RomFS. HD Texture support is
+disabled on Nintendo Switch, so `textures/` packages are not embedded. An
+alternative resource directory can be selected with `KIWI_PACKAGE_DIR`.
 
 Place the self-contained NRO at
 `/switch/KiwiMachine/KiwiMachine.nro` on the SD card. For network deployment,
@@ -363,6 +364,8 @@ Kiwi-Machine supports standalone
 matched by ROM SHA-1 and display an `HD` badge in the game library. HD editions
 are prioritized while preserving the original ROM's localized title and search
 aliases.
+
+HD Texture support is not available in Nintendo Switch builds.
 
 ![Super Mario Bros. HD texture pack](docs/hd_texture.png)
 
