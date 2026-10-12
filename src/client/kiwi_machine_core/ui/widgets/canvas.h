@@ -24,7 +24,7 @@
 #include "ui/widgets/hd_edition_badge.h"
 #endif
 #include "ui/widgets/widget.h"
-#if KIWI_ENABLE_HD_TEXTURE
+#if KIWI_ENABLE_HD_TEXTURE || KIWI_SWITCH
 #include "utility/timer.h"
 #endif
 
@@ -49,6 +49,11 @@ class Canvas : public Widget, public NESFrameObserver {
   void set_in_menu_trigger_callback(kiwi::base::RepeatingClosure callback) {
     on_menu_trigger_ = callback;
   }
+#if KIWI_SWITCH
+  void set_quick_load_trigger_callback(kiwi::base::RepeatingClosure callback) {
+    on_quick_load_trigger_ = std::move(callback);
+  }
+#endif
 #if KIWI_ENABLE_HD_TEXTURE
   void set_hd_texture_toggle_callback(kiwi::base::RepeatingClosure callback) {
     on_hd_texture_toggle_ = std::move(callback);
@@ -80,6 +85,10 @@ class Canvas : public Widget, public NESFrameObserver {
 
  private:
   void InvokeInGameMenu();
+#if KIWI_SWITCH
+  void UpdateShoulderChord();
+  void InvokeQuickLoad();
+#endif
 #if KIWI_ENABLE_HD_TEXTURE
   void InvokeHDTextureToggle();
   void PaintHDTextureToggleHint();
@@ -103,10 +112,19 @@ class Canvas : public Widget, public NESFrameObserver {
   std::optional<std::pair<int, int>> touch_point_;
   scoped_refptr<NESFrame> frame_;
   kiwi::base::RepeatingClosure on_menu_trigger_;
+#if KIWI_SWITCH
+  kiwi::base::RepeatingClosure on_quick_load_trigger_;
+#endif
 #if KIWI_ENABLE_HD_TEXTURE
   kiwi::base::RepeatingClosure on_hd_texture_toggle_;
 #endif
   std::set<CanvasObserver*> observers_;
+#if KIWI_SWITCH
+  Timer shoulder_chord_timer_;
+  SDL_JoystickID shoulder_chord_controller_id_ = -1;
+  bool shoulder_chord_pending_ = false;
+  bool shoulder_chord_triggered_ = false;
+#endif
 #if KIWI_ENABLE_HD_TEXTURE
   Timer hd_texture_hint_timer_;
   HDEditionBadge hd_texture_hint_badge_;

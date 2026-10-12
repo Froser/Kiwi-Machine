@@ -724,6 +724,40 @@ kiwi::nes::ControllerButton MainWindow::MapPhysicalInputButton(
   return button;
 }
 
+bool MainWindow::IsControllerButtonPressedForGameplay(
+    SDL_GameController* controller,
+    SDL_GameControllerButton button) {
+  const bool pressed = SDL_GameControllerGetButton(controller, button);
+  const SDL_JoystickID instance_id =
+      SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller));
+  const auto key = std::make_pair(instance_id, button);
+  const auto ignored = ignored_controller_buttons_.find(key);
+  if (ignored == ignored_controller_buttons_.end())
+    return pressed;
+
+  if (!pressed)
+    ignored_controller_buttons_.erase(ignored);
+  return false;
+}
+
+void MainWindow::IgnoreHeldControllerButtonsUntilRelease() {
+  ignored_controller_buttons_.clear();
+  for (int player = 0; player < 2; ++player) {
+    auto* controller = reinterpret_cast<SDL_GameController*>(
+        runtime_data_->joystick_mappings[player].which);
+    if (!IsGameControllerInputSupported(controller))
+      continue;
+
+    const SDL_JoystickID instance_id =
+        SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller));
+    for (int value = 0; value < SDL_CONTROLLER_BUTTON_MAX; ++value) {
+      const auto button = static_cast<SDL_GameControllerButton>(value);
+      if (SDL_GameControllerGetButton(controller, button))
+        ignored_controller_buttons_.insert({instance_id, button});
+    }
+  }
+}
+
 bool MainWindow::IsKeyDown(int controller_id,
                            kiwi::nes::ControllerButton button) {
   // Matching virtual joysticks.
@@ -762,15 +796,16 @@ bool MainWindow::IsKeyDown(int controller_id,
         static_cast<SDL_GameControllerButton>(
             runtime_data_->joystick_mappings[controller_id]
                 .mapping.mapping[static_cast<int>(physical_button)]);
-    matched = SDL_GameControllerGetButton(game_controller, mapped_button);
+    matched =
+        IsControllerButtonPressedForGameplay(game_controller, mapped_button);
 
 #if KIWI_SWITCH
     if (!matched) {
       const SDL_GameControllerButton equivalent_button =
           GetEquivalentSwitchFaceButton(mapped_button);
       if (equivalent_button != SDL_CONTROLLER_BUTTON_INVALID) {
-        matched =
-            SDL_GameControllerGetButton(game_controller, equivalent_button);
+        matched = IsControllerButtonPressedForGameplay(game_controller,
+                                                       equivalent_button);
       }
     }
 #endif
@@ -844,6 +879,14 @@ void MainWindow::HandleKeyEvent(SDL_KeyboardEvent* event) {
   }
 
   WindowBase::HandleKeyEvent(event);
+}
+
+void MainWindow::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
+  if (event->type == SDL_CONTROLLERBUTTONUP) {
+    ignored_controller_buttons_.erase(
+        {event->which, static_cast<SDL_GameControllerButton>(event->button)});
+  }
+  WindowBase::HandleJoystickButtonEvent(event);
 }
 
 void MainWindow::HandleFocusChangedEvent(bool focused) {
@@ -1197,6 +1240,10 @@ void MainWindow::InitializeUI() {
   canvas_->set_frame_scale(2.f);
   canvas_->set_in_menu_trigger_callback(kiwi::base::BindRepeating(
       &MainWindow::OnInGameMenuTrigger, kiwi::base::Unretained(this)));
+#if KIWI_SWITCH
+  canvas_->set_quick_load_trigger_callback(kiwi::base::BindRepeating(
+      &MainWindow::OnQuickLoadTrigger, kiwi::base::Unretained(this)));
+#endif
 #if KIWI_ENABLE_HD_TEXTURE
   canvas_->set_hd_texture_toggle_callback(kiwi::base::BindRepeating(
       &MainWindow::OnToggleHDTextureRendering, kiwi::base::Unretained(this)));
@@ -1778,6 +1825,8 @@ void MainWindow::SetABSwapped(int player, bool swapped) {
 }
 
 void MainWindow::CloseInGameMenu() {
+  // A menu action must not remain pressed when gameplay resumes.
+  IgnoreHeldControllerButtonsUntilRelease();
   OnResume();
   in_game_menu_->Close();
 }
@@ -2503,6 +2552,13 @@ void MainWindow::OnInGameMenuTrigger() {
   in_game_menu_->Show();
   OnPause();
 }
+
+#if KIWI_SWITCH
+void MainWindow::OnQuickLoadTrigger() {
+  in_game_menu_->ShowQuickLoad();
+  OnPause();
+}
+#endif
 
 void MainWindow::OnInGameMenuItemTrigger(
     const InGameMenu::MenuCommand& command) {

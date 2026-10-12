@@ -30,7 +30,11 @@ class NESRuntime {
  public:
   struct Data {
     enum {
+#if KIWI_SWITCH
+      MaxSaveStates = 30,
+#else
       MaxSaveStates = 10,
+#endif
       MaxAutoSaveStates = 50,
     };
 

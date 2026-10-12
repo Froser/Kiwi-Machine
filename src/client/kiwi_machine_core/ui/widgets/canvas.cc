@@ -31,6 +31,9 @@
 
 namespace {
 constexpr int kBrightThreshold = 220;
+#if KIWI_SWITCH
+constexpr int kQuickLoadHoldDurationMs = 600;
+#endif
 
 bool IsColorBrightEnough(int r, int g, int b) {
   float luminance = 0.299 * r + 0.587 * g + 0.114 * b;
@@ -88,6 +91,10 @@ void Canvas::RemoveObserver(CanvasObserver* observer) {
 }
 
 void Canvas::Paint() {
+#if KIWI_SWITCH
+  UpdateShoulderChord();
+#endif
+
   // Notify all observers
   for (CanvasObserver* observer : observers_) {
     observer->OnAboutToRenderFrame(this, frame_.get());
@@ -146,7 +153,16 @@ bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 #if KIWI_ENABLE_HD_TEXTURE
     shoulder_chord_used_ = true;
 #endif
+#if KIWI_SWITCH
+    if (!shoulder_chord_pending_) {
+      shoulder_chord_controller_id_ = event->which;
+      shoulder_chord_pending_ = true;
+      shoulder_chord_triggered_ = false;
+      shoulder_chord_timer_.Reset();
+    }
+#else
     InvokeInGameMenu();
+#endif
     return true;
   }
 #if KIWI_ENABLE_HD_TEXTURE
@@ -158,6 +174,26 @@ bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 }
 
 bool Canvas::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
+#if KIWI_SWITCH
+  const bool is_shoulder =
+      event->button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER ||
+      event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
+  if (is_shoulder && shoulder_chord_pending_ &&
+      event->which == shoulder_chord_controller_id_) {
+    const bool open_regular_menu = !shoulder_chord_triggered_;
+    shoulder_chord_pending_ = false;
+    shoulder_chord_triggered_ = false;
+    shoulder_chord_controller_id_ = -1;
+#if KIWI_ENABLE_HD_TEXTURE
+    right_shoulder_pending_ = false;
+    shoulder_chord_used_ = false;
+#endif
+    if (open_regular_menu)
+      InvokeInGameMenu();
+    return true;
+  }
+#endif
+
 #if KIWI_ENABLE_HD_TEXTURE
   if (event->button != SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
     return false;
@@ -210,6 +246,39 @@ void Canvas::InvokeInGameMenu() {
   if (on_menu_trigger_)
     on_menu_trigger_.Run();
 }
+
+#if KIWI_SWITCH
+void Canvas::UpdateShoulderChord() {
+  if (!shoulder_chord_pending_ || shoulder_chord_triggered_)
+    return;
+
+  SDL_GameController* controller =
+      SDL_GameControllerFromInstanceID(shoulder_chord_controller_id_);
+  if (!controller) {
+    shoulder_chord_pending_ = false;
+    shoulder_chord_controller_id_ = -1;
+    return;
+  }
+
+  const bool left_shoulder = SDL_GameControllerGetButton(
+      controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+  const bool right_shoulder = SDL_GameControllerGetButton(
+      controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+  if (!left_shoulder || !right_shoulder)
+    return;
+
+  if (shoulder_chord_timer_.ElapsedInMilliseconds() >=
+      kQuickLoadHoldDurationMs) {
+    shoulder_chord_triggered_ = true;
+    InvokeQuickLoad();
+  }
+}
+
+void Canvas::InvokeQuickLoad() {
+  if (on_quick_load_trigger_)
+    on_quick_load_trigger_.Run();
+}
+#endif
 
 #if KIWI_ENABLE_HD_TEXTURE
 void Canvas::SetHDTextureToggleAvailable(bool available) {

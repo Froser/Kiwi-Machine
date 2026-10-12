@@ -84,6 +84,8 @@ set(Sources
         ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc
         ui/widgets/in_game_menu.h
+        ui/widgets/in_game_menu_internal.cc
+        ui/widgets/in_game_menu_internal.h
         ui/widgets/joystick_button.cc
         ui/widgets/joystick_button.h
         ui/widgets/kiwi_bg_widget.cc
@@ -212,6 +214,7 @@ endif ()
 if (KIWI_SWITCH)
     list(APPEND Sources
             ui/widgets/flex_item_widget_switch.cc
+            ui/widgets/in_game_menu_switch.cc
             utility/switch/controller_support.cc
             utility/switch/controller_support.h
             utility/switch/paths.cc

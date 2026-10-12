@@ -88,6 +88,9 @@ class InGameMenu : public Widget {
 
   void Close();
   void Show();
+#if KIWI_SWITCH
+  void ShowQuickLoad();
+#endif
   void RefreshStatePreview();
   void RefreshStateAvailability();
   void SetMenuItemVisible(MenuItem item, bool visible);
@@ -112,6 +115,17 @@ class InGameMenu : public Widget {
   static constexpr size_t kMenuItemCount = static_cast<size_t>(MenuItem::kMax);
   static constexpr size_t kSettingsItemCount =
       static_cast<size_t>(SettingsItem::kMax);
+#if KIWI_SWITCH
+  static constexpr size_t kQuickLoadVisibleSlotCount = 5;
+  static constexpr size_t kQuickLoadSelectedSlotIndex =
+      kQuickLoadVisibleSlotCount / 2;
+  static constexpr SettingsItem kFirstSettingsItem =
+      SettingsItem::kControllerSupport;
+#elif KIWI_MOBILE
+  static constexpr SettingsItem kFirstSettingsItem = SettingsItem::kWindowMode;
+#else
+  static constexpr SettingsItem kFirstSettingsItem = SettingsItem::kVolume;
+#endif
 
   enum class Page {
     kMainMenu,
@@ -123,6 +137,7 @@ class InGameMenu : public Widget {
   enum class LayoutMode {
     kTwoPane,
     kSinglePane,
+    kQuickLoad,
   };
 
   enum class NavigationAction {
@@ -155,7 +170,7 @@ class InGameMenu : public Widget {
 
   struct FocusState {
     MenuItem menu_item = MenuItem::kContinue;
-    SettingsItem settings_item = SettingsItem::kVolume;
+    SettingsItem settings_item = kFirstSettingsItem;
     FocusArea area = FocusArea::kMenu;
     bool confirm_action = false;
   };
@@ -168,9 +183,7 @@ class InGameMenu : public Widget {
     std::string subtitle;
     std::string state_title;
     std::string state_position;
-#if !KIWI_SWITCH
     std::string state_action;
-#endif
     std::string confirmation_title;
     std::string confirmation_message;
     std::string cancel;
@@ -206,13 +219,16 @@ class InGameMenu : public Widget {
 
     SDL_Rect state_preview = {};
     SDL_Rect state_title = {};
-    SDL_Rect state_selector = {};
     SDL_Rect state_previous = {};
     SDL_Rect state_position = {};
     SDL_Rect state_next = {};
-#if !KIWI_SWITCH
     SDL_Rect state_action = {};
 
+#if KIWI_SWITCH
+    std::array<SDL_Rect, kQuickLoadVisibleSlotCount> quick_load_previews = {};
+    SDL_Rect quick_load_title = {};
+#endif
+#if !KIWI_SWITCH
     SDL_Rect contextual_action = {};
 #endif
     SDL_Rect confirmation_body = {};
@@ -226,10 +242,12 @@ class InGameMenu : public Widget {
     kClose,
     kMenuItem,
     kStatePrevious,
-    kStatePosition,
     kStateNext,
-#if !KIWI_SWITCH
     kStateAction,
+#if KIWI_SWITCH
+    kQuickLoadSlot,
+#endif
+#if !KIWI_SWITCH
     kContextualAction,
 #endif
     kSettingItem,
@@ -261,10 +279,23 @@ class InGameMenu : public Widget {
     int timestamp = 0;
   };
 
+#if KIWI_SWITCH
+  struct QuickLoadPreview {
+    StatePreview::Status status = StatePreview::Status::kEmpty;
+    bool requested = false;
+    bool has_thumbnail = false;
+    int timestamp = 0;
+    SDL_Texture* texture = nullptr;
+  };
+#endif
+
   FrameText BuildFrameText() const;
   FrameLayout CalculateFrameLayout(const FrameText& text);
   void LayoutMenu(const FrameText& text, FrameLayout& layout);
   void LayoutStateBrowser(FrameLayout& layout);
+#if KIWI_SWITCH
+  void LayoutQuickLoad(FrameLayout& layout);
+#endif
   void LayoutSettings(const FrameText& text, FrameLayout& layout);
   void LayoutConfirmation(FrameLayout& layout);
 
@@ -273,6 +304,10 @@ class InGameMenu : public Widget {
   void DrawHeader(const FrameText& text, const FrameLayout& layout);
   void DrawMenu(const FrameText& text, const FrameLayout& layout);
   void DrawStateBrowser(const FrameText& text, const FrameLayout& layout);
+#if KIWI_SWITCH
+  bool DrawQuickLoadBackground(const FrameLayout& layout);
+  void DrawQuickLoad(const FrameText& text, const FrameLayout& layout);
+#endif
   void DrawSettings(const FrameText& text, const FrameLayout& layout);
   void DrawConfirmation(const FrameText& text, const FrameLayout& layout);
 #if !KIWI_SWITCH
@@ -324,12 +359,29 @@ class InGameMenu : public Widget {
   void OnGotState(uint64_t request_id,
                   const NESRuntime::Data::StateResult& result);
   void CancelStatePreviewRequest();
+#if KIWI_SWITCH
+  void ResetQuickLoadPreviews();
+  void RefreshQuickLoadPreviews();
+  static void DispatchQuickLoadPreviewResult(
+      std::weak_ptr<int> weak_lifetime,
+      InGameMenu* menu,
+      uint64_t request_id,
+      int slot,
+      const NESRuntime::Data::StateResult& result);
+  void OnGotQuickLoadPreview(uint64_t request_id,
+                             int slot,
+                             const NESRuntime::Data::StateResult& result);
+  int GetQuickLoadSlot(size_t visible_index) const;
+  int GetQuickLoadTimestamp() const;
+#endif
 
   bool IsMenuItemVisible(MenuItem item) const;
   bool IsMenuItemEnabled(MenuItem item) const;
   bool IsStateMenuItem(MenuItem item) const;
+  bool IsSettingItemVisible(SettingsItem item) const;
   bool IsStandaloneSettingsMenu() const;
   bool CanStepState(StepDirection direction) const;
+  bool CanExecuteStateAction() const;
   bool CanStepSetting(SettingsItem item, StepDirection direction) const;
   Page GetPreviewPage() const;
   std::string GetSettingValue(SettingsItem item) const;
@@ -341,6 +393,9 @@ class InGameMenu : public Widget {
 
   Page page_ = Page::kMainMenu;
   Page page_before_confirmation_ = Page::kMainMenu;
+#if KIWI_SWITCH
+  bool quick_load_mode_ = false;
+#endif
   FocusState focus_;
   InputModality input_modality_ = InputModality::kKeyboard;
   MenuItem confirmation_item_ = MenuItem::kResetGame;
@@ -376,6 +431,11 @@ class InGameMenu : public Widget {
   uint64_t auto_save_count_request_id_ = 0;
   StatePreview state_preview_;
   SDL_Texture* snapshot_ = nullptr;
+#if KIWI_SWITCH
+  uint64_t quick_load_preview_request_id_ = 0;
+  std::array<QuickLoadPreview, NESRuntime::Data::MaxAutoSaveStates>
+      quick_load_previews_;
+#endif
 };
 
 #endif  // UI_WIDGETS_IN_GAME_MENU_H_

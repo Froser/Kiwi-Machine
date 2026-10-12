@@ -21,6 +21,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "build/kiwi_defines.h"
@@ -143,6 +144,7 @@ class MainWindow : public WindowBase,
   // WindowBase:
   SDL_Rect GetClientBounds() override;
   void HandleKeyEvent(SDL_KeyboardEvent* event) override;
+  void HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) override;
   void OnControllerDeviceAdded(SDL_ControllerDeviceEvent* event) override;
   void OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) override;
   void HandleResizedEvent() override;
@@ -194,6 +196,9 @@ class MainWindow : public WindowBase,
   kiwi::nes::ControllerButton MapPhysicalInputButton(
       int controller_id,
       kiwi::nes::ControllerButton button) const;
+  bool IsControllerButtonPressedForGameplay(SDL_GameController* controller,
+                                            SDL_GameControllerButton button);
+  void IgnoreHeldControllerButtonsUntilRelease();
   void SetABSwapped(int player, bool swapped);
   void CloseInGameMenu();
   void FlexLayout(bool animate = true);
@@ -267,6 +272,9 @@ class MainWindow : public WindowBase,
   void OnDebugNametable();
   void OnShowUiDemoWidget();
   void OnInGameMenuTrigger();
+#if KIWI_SWITCH
+  void OnQuickLoadTrigger();
+#endif
   void OnInGameMenuItemTrigger(const InGameMenu::MenuCommand& command);
   void OnInGameSettingsItemTrigger(InGameMenu::SettingsItem item,
                                    InGameMenu::SettingsItemValue value);
@@ -366,6 +374,8 @@ class MainWindow : public WindowBase,
   bool is_focused_ = true;
   bool resume_after_focus_gained_ = false;
 
+  std::set<std::pair<SDL_JoystickID, SDL_GameControllerButton>>
+      ignored_controller_buttons_;
   bool virtual_controller_button_states_[2][static_cast<int>(
       kiwi::nes::ControllerButton::kMax)]{false};
 };
