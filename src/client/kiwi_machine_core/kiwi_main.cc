@@ -12,13 +12,15 @@
 
 #include "kiwi_main.h"
 
+#include "build/build_config.h"
+
 #include <SDL.h>
-#if defined(__SWITCH__)
+#if BUILDFLAG(IS_SWITCH)
 #include <glog/logging.h>
 #endif
 #include <kiwi_nes.h>
 
-#if defined(__SWITCH__)
+#if BUILDFLAG(IS_SWITCH)
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #endif
@@ -26,11 +28,11 @@
 #include "ui/application.h"
 #include "ui/main_window.h"
 
-#if defined(__IPHONEOS__)
+#if BUILDFLAG(IS_IOS)
 #include <SDL_main.h>
 #endif
 
-#if defined(__SWITCH__)
+#if BUILDFLAG(IS_SWITCH)
 namespace {
 
 void ConfigureSwitchLogDirectory(const char* executable_path) {
@@ -48,7 +50,7 @@ void ConfigureSwitchLogDirectory(const char* executable_path) {
 }  // namespace
 #endif
 
-#if defined(__IPHONEOS__)
+#if BUILDFLAG(IS_IOS)
 int KiwiMain(int argc, char** argv) {
   int KiwiMainReal(int argc, char** argv);
   return SDL_UIKitRunApp(argc, argv, KiwiMainReal);
@@ -56,7 +58,7 @@ int KiwiMain(int argc, char** argv) {
 #define KiwiMain KiwiMainReal
 #endif
 
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
 #include <windows.h>
 int WINAPI KiwiMain(HINSTANCE hInstance,
                     HINSTANCE hPrevInstance,
@@ -65,7 +67,7 @@ int WINAPI KiwiMain(HINSTANCE hInstance,
   Application application;
 #else
 int KiwiMain(int argc, char** argv) {
-#if defined(__SWITCH__)
+#if BUILDFLAG(IS_SWITCH)
   ConfigureSwitchLogDirectory(argv[0]);
 #endif
   Application application(argc, argv);

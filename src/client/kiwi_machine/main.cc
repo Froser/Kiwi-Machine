@@ -12,7 +12,9 @@
 
 #include <kiwi_main.h>
 
-#if defined(__SWITCH__)
+#include "build/build_config.h"
+
+#if BUILDFLAG(IS_SWITCH)
 #include <stdio.h>
 #include <switch.h>
 
@@ -35,14 +37,14 @@ extern "C" void userAppExit() {
 }
 #endif
 
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
 #include <windows.h>
 int WINAPI wWinMain(HINSTANCE hInstance,
                     HINSTANCE hPrevInstance,
                     PWSTR pCmdLine,
                     int nCmdShow) {
   return KiwiMain(hInstance, hPrevInstance, pCmdLine, nCmdShow);
-#elif defined(__SWITCH__)
+#elif BUILDFLAG(IS_SWITCH)
 int main(int argc, char** argv) {
   if (R_FAILED(g_romfs_result)) {
     fprintf(stderr, "Failed to mount embedded RomFS: 0x%08x\n", g_romfs_result);

@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/window_base.h"
+#include "build/build_config.h"
 
 #include <SDL.h>
 #include <backends/imgui_impl_sdl2.h>
@@ -24,16 +25,16 @@ DEFINE_string(renderer_backend, "", "Default backend for renderer");
 WindowBase::WindowBase(const std::string& title,
                        int window_width,
                        int window_height) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   window_ = SDL_CreateWindow(title.c_str(), 0, 0, 1280, 720,
                              SDL_WINDOW_FULLSCREEN_DESKTOP |
                                  SDL_WINDOW_SHOWN);
-#elif !KIWI_MOBILE
+#elif !BUILDFLAG(IS_MOBILE)
   window_ = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED,
                              SDL_WINDOWPOS_CENTERED, window_width,
                              window_height,
                              SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
-#elif KIWI_IOS
+#elif BUILDFLAG(IS_IOS)
   window_ = SDL_CreateWindow(
       nullptr, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width,
       window_height,
@@ -50,7 +51,7 @@ WindowBase::WindowBase(const std::string& title,
   if (!FLAGS_renderer_backend.empty())
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, FLAGS_renderer_backend.c_str());
   Uint32 renderer_flags = SDL_RENDERER_ACCELERATED;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   renderer_flags |= SDL_RENDERER_PRESENTVSYNC;
 #endif
   renderer_ = SDL_CreateRenderer(window_, -1, renderer_flags);
@@ -150,7 +151,7 @@ void WindowBase::Resize(int width, int height) {
   SDL_assert(window_);
   int current_width, current_height;
   SDL_GetWindowSize(window_, &current_width, &current_height);
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   // Mobile canvas sizing must not replace a portrait window with the
   // canvas-sized logical bounds when only its height differs.
   if (current_width != width && current_height != height) {
@@ -367,7 +368,7 @@ void WindowBase::RemovePendingWidgets() {
   widgets_to_be_removed_.clear();
 }
 
-#if !KIWI_IOS && !KIWI_ANDROID
+#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 SDL_Rect WindowBase::GetSafeAreaInsets() {
   return SDL_Rect{0};
 }

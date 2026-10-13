@@ -13,45 +13,15 @@
 #ifndef BUILD_KIWI_DEFINES_H_
 #define BUILD_KIWI_DEFINES_H_
 
-#include <SDL_platform.h>
+#include "build/build_config.h"
 
-#if (defined(__IPHONEOS__) && __IPHONEOS__)
-#define KIWI_IOS 1
-#else
-#define KIWI_IOS 0
-#endif
-
-#if defined(ANDROID)
-#define KIWI_ANDROID 1
-#else
-#define KIWI_ANDROID 0
-#endif
-
-#if defined(__EMSCRIPTEN__)
-#define KIWI_WASM 1
-#else
-#define KIWI_WASM 0
-#endif
-
-#if defined(__SWITCH__)
-#define KIWI_SWITCH 1
-#else
-#define KIWI_SWITCH 0
-#endif
-
-#if KIWI_IOS || KIWI_ANDROID
-#define KIWI_MOBILE 1
-#else
-#define KIWI_MOBILE 0
-#endif
-
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 #define KIWI_ENABLE_HD_TEXTURE 0
 #else
 #define KIWI_ENABLE_HD_TEXTURE 1
 #endif
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 #define ENABLE_DEBUG_ROMS 0
 #define DISABLE_CHINESE_FONT 1   // To save space, Wasm removes Chinese font
 #define DISABLE_JAPANESE_FONT 1  // To save space, Wasm removes Japanese font

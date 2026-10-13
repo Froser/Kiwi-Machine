@@ -11,11 +11,12 @@
 // GNU General Public License for more details.
 
 #include "models/nes_config.h"
+#include "build/build_config.h"
 
 #include "build/kiwi_defines.h"
 #include "ui/application.h"
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 #include "utility/emscripten/bridge_api.h"
 #endif
 
@@ -51,7 +52,7 @@ bool SaveConfigOnIOThread(const kiwi::base::FilePath& profile_path,
 
   file.WriteAtCurrentPos(content.data(), content.size());
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   SyncFilesystem();
 #endif
 
@@ -60,7 +61,7 @@ bool SaveConfigOnIOThread(const kiwi::base::FilePath& profile_path,
 
 }  // namespace
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(NESConfig::Data,
                                                 window_scale,
                                                 is_fullscreen,
@@ -113,11 +114,11 @@ void NESConfig::LoadFromUTF8Json(const std::string& utf8_json) {
     }
   }
 
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // On android, window scale factor always sets to 4.0, because it is the best
   // scaling.
   data_.window_scale = 4.f;
-#elif KIWI_IOS
+#elif BUILDFLAG(IS_IOS)
   // On iOS, SDL_WINDOW_ALLOW_HIGHDPI is set, the bounds will be in points
   // instead of pixels.
   data_.window_scale = 1.f;

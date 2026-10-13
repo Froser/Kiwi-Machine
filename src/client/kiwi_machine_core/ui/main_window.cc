@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/main_window.h"
+#include "build/build_config.h"
 
 #include <gflags/gflags.h>
 
@@ -51,7 +52,7 @@
 #if KIWI_ENABLE_HD_TEXTURE
 #include "utility/texture_renderer.h"
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 #include "utility/switch/controller_support.h"
 #endif
 #include "utility/zip_reader.h"
@@ -72,7 +73,7 @@ constexpr int kSplashTimeoutMs = 2000;
 constexpr float kMinUIScale = 1.f;
 constexpr float kMaxUIScale = 4.f;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 // devkitPro uses Xbox-style SDL labels: Switch A/Y map to SDL B/X, while
 // Switch B/X map to SDL A/Y.
 SDL_GameControllerButton GetEquivalentSwitchFaceButton(
@@ -454,11 +455,11 @@ MainWindow::MainWindow(const std::string& title,
       ui_scale_(config->data().window_scale) {
   is_focused_ =
       (SDL_GetWindowFlags(native_window()) & SDL_WINDOW_INPUT_FOCUS) != 0;
-#if !KIWI_MOBILE && !KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
   SDL_SetWindowMinimumSize(native_window(), kDefaultWindowWidth,
                            kDefaultWindowHeight);
 #endif
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   // Only one main window instance should exist in WASM.
   SDL_assert(!g_main_window_instance);
   g_main_window_instance = this;
@@ -499,12 +500,12 @@ MainWindow::~MainWindow() {
   }
   SaveConfig();
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   g_main_window_instance = nullptr;
 #endif
 }
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 
 // WASM environment uses this instance to load roms.
 MainWindow* MainWindow::GetInstance() {
@@ -603,15 +604,16 @@ void MainWindow::DeleteState_WASM(int slot) {
 
 #endif
 
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
 bool MainWindow::IsLandscape() {
   return true;
 }
 #endif
 
 void MainWindow::ShowSplash(kiwi::base::OnceClosure callback) {
-#if !KIWI_IOS && !KIWI_WASM  // iOS has launch storyboard, WASM will handle it
-                             // on frontend here.
+#if !BUILDFLAG(IS_IOS) && \
+    !BUILDFLAG(IS_WASM)  // iOS has launch storyboard, WASM will handle it
+                         // on frontend here.
   // If we have menu, we don't show splash screen, because we probably want to
   // do some debug works.
   SDL_assert(!splash_);
@@ -799,7 +801,7 @@ bool MainWindow::IsKeyDown(int controller_id,
     matched =
         IsControllerButtonPressedForGameplay(game_controller, mapped_button);
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (!matched) {
       const SDL_GameControllerButton equivalent_button =
           GetEquivalentSwitchFaceButton(mapped_button);
@@ -919,7 +921,7 @@ void MainWindow::OnControllerDeviceRemoved(SDL_ControllerDeviceEvent* event) {
 void MainWindow::HandleResizedEvent() {
   UpdateUIScale();
 
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
   const bool native_fullscreen =
       (SDL_GetWindowFlags(native_window()) & SDL_WINDOW_FULLSCREEN) != 0;
   if (config_->data().is_fullscreen != native_fullscreen) {
@@ -988,7 +990,7 @@ void MainWindow::Render() {
 
   // Handles animations here
   if (side_menu_) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     const SDL_Rect safe_bounds = GetSafeAreaClientBounds();
     const int collapsed_width = side_menu_->GetSuggestedCollapsedWidth();
     const SDL_Rect expected_contents_bounds = {
@@ -1005,7 +1007,7 @@ void MainWindow::Render() {
     }
 #endif
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     const SDL_Rect layout_bounds = GetSafeAreaClientBounds();
 #else
     const SDL_Rect client_bounds = GetClientBounds();
@@ -1039,7 +1041,7 @@ void MainWindow::Render() {
   render_done_ = true;
 }
 
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
 void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
                                       scoped_refptr<NESFrame> frame) {
   SDL_Rect render_bounds = GetClientBounds();
@@ -1189,7 +1191,7 @@ void MainWindow::InitializeUI() {
         image_resources::ImageID::kMenuAboutHighlight,
         CreateMenuAboutCallbacks());
 
-#if !KIWI_MOBILE && !KIWI_SWITCH
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_SWITCH)
     // Mobile and Switch apps needn't quit the application manually.
     SideMenu::MenuCallbacks quit_callbacks;
     quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
@@ -1202,7 +1204,7 @@ void MainWindow::InitializeUI() {
 #endif
 
     {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       constexpr int kSearchStringId =
           string_resources::IDR_SIDE_MENU_SEARCH_SWITCH;
       constexpr SDL_GameControllerButton kSearchControllerHotkey =
@@ -1240,7 +1242,7 @@ void MainWindow::InitializeUI() {
   canvas_->set_frame_scale(2.f);
   canvas_->set_in_menu_trigger_callback(kiwi::base::BindRepeating(
       &MainWindow::OnInGameMenuTrigger, kiwi::base::Unretained(this)));
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   canvas_->set_quick_load_trigger_callback(kiwi::base::BindRepeating(
       &MainWindow::OnQuickLoadTrigger, kiwi::base::Unretained(this)));
 #endif
@@ -1334,7 +1336,7 @@ void MainWindow::InitializeUI() {
     AddWidget(std::move(demo_widget));
   }
 
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
   if (is_fullscreen())
     OnSetFullscreen();
   HandleResizedEvent();
@@ -1402,7 +1404,7 @@ void MainWindow::StartAutoSave() {
       kiwi::base::Milliseconds(kBatterySaveTimeDelta));
 
   // Disable automatic save states in wasm because they are expensive.
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
   constexpr int kAutoSaveTimeDelta = 5000;
   runtime_data_->StartAutoSave(
       kiwi::base::Milliseconds(kAutoSaveTimeDelta),
@@ -1457,7 +1459,7 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
          kiwi::base::BindRepeating(&MainWindow::IsAudioEnabled,
                                    kiwi::base::Unretained(this))});
 
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     // Window mode
     {
       MenuBar::MenuItem window_mode;
@@ -1685,7 +1687,7 @@ void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
 }
 
 void MainWindow::UpdateUIScale() {
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
   SDL_Rect client_bounds = GetClientBounds();
   const float width_scale =
       static_cast<float>(client_bounds.w) / kDefaultWindowWidth;
@@ -1737,7 +1739,7 @@ void MainWindow::UpdateGameControllerMapping() {
   }
 }
 
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
 void MainWindow::CreateVirtualTouchButtons() {}
 
 void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
@@ -1832,7 +1834,7 @@ void MainWindow::CloseInGameMenu() {
 }
 
 void MainWindow::FlexLayout(bool animate) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   const SDL_Rect client_bounds = GetSafeAreaClientBounds();
 #else
   const SDL_Rect window_client_bounds = GetClientBounds();
@@ -2232,14 +2234,14 @@ void MainWindow::OnStateSaved(int slot, bool succeed) {
     SDL_assert(in_game_menu_);
     in_game_menu_->RefreshStateAvailability();
     in_game_menu_->RefreshStatePreview();
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
     Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_SUCCEEDED));
 #endif
     for (auto* observer : observers_) {
       observer->OnSaveStateSucceeded(slot);
     }
   } else {
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
     Toast::ShowToast(this, GetLocalizedString(IDR_MAIN_WINDOW_SAVE_FAILED));
 #endif
     for (auto* observer : observers_) {
@@ -2258,7 +2260,7 @@ void MainWindow::OnStateLoaded(
         state_result.state_data,
         kiwi::base::BindOnce(
             [](MainWindow* window, int slot_or_timestamp, bool success) {
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
               if (success)
                 Toast::ShowToast(
                     window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_SUCCEEDED));
@@ -2553,7 +2555,7 @@ void MainWindow::OnInGameMenuTrigger() {
   OnPause();
 }
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 void MainWindow::OnQuickLoadTrigger() {
   in_game_menu_->ShowQuickLoad();
   OnPause();
@@ -2615,13 +2617,13 @@ void MainWindow::OnInGameSettingsItemTrigger(
       else
         OnSetAudioVolume(*value_ptr);
       break;
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     case InGameMenu::SettingsItem::kWindowMode:
       SDL_assert(go_left_ptr);
       OnInGameSettingsHandleWindowMode(*go_left_ptr);
       break;
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     case InGameMenu::SettingsItem::kControllerSupport: {
       SDL_assert(go_left_ptr);
       if (!kiwi::switch_platform::ShowControllerSupport(1, 2))
@@ -2689,9 +2691,10 @@ void MainWindow::OnInGameSettingsItemTrigger(
   }
 }
 
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
 void MainWindow::OnInGameSettingsHandleWindowMode(bool is_left) {
-#if !KIWI_WASM  // Disable window settings. It should be handled by <canvas>.
+// Disable window settings. It should be handled by <canvas>.
+#if !BUILDFLAG(IS_WASM)
   if (is_left)
     OnUnsetFullscreen();
   else

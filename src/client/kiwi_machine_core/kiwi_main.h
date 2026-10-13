@@ -13,7 +13,9 @@
 #ifndef KIWI_MAIN_H_
 #define KIWI_MAIN_H_
 
-#if defined(_WIN32)
+#include "build/build_config.h"
+
+#if BUILDFLAG(IS_WIN)
 #include <windows.h>
 
 int WINAPI KiwiMain(HINSTANCE hInstance,
@@ -24,6 +26,6 @@ int WINAPI KiwiMain(HINSTANCE hInstance,
 
 int KiwiMain(int argc, char** argv);
 
-#endif  // _WIN32
+#endif  // BUILDFLAG(IS_WIN)
 
 #endif  // KIWI_MAIN_H_

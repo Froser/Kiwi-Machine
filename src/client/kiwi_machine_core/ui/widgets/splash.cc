@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/splash.h"
+#include "build/build_config.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -64,9 +65,9 @@ ImU32 ColorWithOpacity(int red,
 }
 
 PreferredFontSize GetTitleFontSize(float scale) {
-#if KIWI_ANDROID || KIWI_SWITCH
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k4x;
-#elif KIWI_IOS
+#elif BUILDFLAG(IS_IOS)
   return PreferredFontSize::k3x;
 #else
   return scale < .85f ? PreferredFontSize::k1x : PreferredFontSize::k2x;
@@ -74,7 +75,7 @@ PreferredFontSize GetTitleFontSize(float scale) {
 }
 
 PreferredFontSize GetStatusFontSize() {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k2x;
 #else
   return PreferredFontSize::k1x;

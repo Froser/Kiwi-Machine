@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "models/nes_frame.h"
+#include "build/build_config.h"
 
 #include <cstdint>
 #include <limits>
@@ -24,7 +25,7 @@
 #endif
 
 namespace {
-#if KIWI_ENABLE_HD_TEXTURE && KIWI_ANDROID
+#if KIWI_ENABLE_HD_TEXTURE && BUILDFLAG(IS_ANDROID)
 constexpr uint32_t kMaximumHDTextureOutputScale = 2;
 #endif
 }  // namespace
@@ -43,7 +44,7 @@ NESFrame::~NESFrame() {
 #if KIWI_ENABLE_HD_TEXTURE
 void NESFrame::SetTextureRenderer(
     std::unique_ptr<TextureRenderer> texture_renderer) {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   if (texture_renderer) {
     texture_renderer->SetMaximumOutputScale(kMaximumHDTextureOutputScale);
   }

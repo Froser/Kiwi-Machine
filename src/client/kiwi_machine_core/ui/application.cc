@@ -15,6 +15,7 @@
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <imgui.h>
+#include "build/build_config.h"
 
 #include <algorithm>
 
@@ -74,7 +75,7 @@ void ApplicationObserver::OnPreRender(int since_last_frame_ms) {}
 
 void ApplicationObserver::OnPostRender(int render_elapsed_ms) {}
 
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
 char** g_argv = nullptr;
 
 void Cleanup() {
@@ -109,7 +110,7 @@ Application::Application(int& argc, char** argv) {
 
 Application::~Application() {
   SDL_assert(g_app_instance);
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
   // Initialization can still be running when the splash window is closed.
   // Join the IO thread while the application services it uses are still alive.
   io_thread_->Stop();
@@ -251,9 +252,9 @@ void Application::HandleEvent(SDL_Event* event) {
         target->HandleDropFileEvent(&event->drop);
       break;
     }
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
     case SDL_MOUSEMOTION: {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (event->motion.which == SDL_TOUCH_MOUSEID)
         break;
 #endif
@@ -262,7 +263,7 @@ void Application::HandleEvent(SDL_Event* event) {
         target->HandleMouseMoveEvent(&event->motion);
     } break;
     case SDL_MOUSEWHEEL: {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (event->wheel.which == SDL_TOUCH_MOUSEID)
         break;
 #endif
@@ -271,7 +272,7 @@ void Application::HandleEvent(SDL_Event* event) {
         target->HandleMouseWheelEvent(&event->wheel);
     } break;
     case SDL_MOUSEBUTTONDOWN: {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (event->button.which == SDL_TOUCH_MOUSEID)
         break;
 #endif
@@ -280,7 +281,7 @@ void Application::HandleEvent(SDL_Event* event) {
         target->HandleMousePressedEvent(&event->button);
     } break;
     case SDL_MOUSEBUTTONUP: {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (event->button.which == SDL_TOUCH_MOUSEID)
         break;
 #endif
@@ -371,7 +372,7 @@ Application* Application::Get() {
 }
 
 scoped_refptr<kiwi::base::SequencedTaskRunner> Application::GetIOTaskRunner() {
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   return kiwi::base::SingleThreadTaskRunner::GetCurrentDefault();
 #else
   SDL_assert(io_thread_);
@@ -465,7 +466,7 @@ void Application::SetLanguage(SupportedLanguage language) {
   config_->SaveConfig();
 }
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 bool Application::ReloadGameControllers() {
   UninitializeGameControllers();
 
@@ -491,7 +492,7 @@ void Application::InitializeApplication(int& argc, char** argv) {
   SDL_assert(!g_app_instance);
   g_app_instance = this;
 
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
   // Creates an IO thread to manipulate file (if any) operations.
   io_thread_ = std::make_unique<kiwi::base::Thread>("Kiwi Machine IO Thread");
   kiwi::base::Thread::Options options;

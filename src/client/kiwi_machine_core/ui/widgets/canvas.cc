@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/canvas.h"
+#include "build/build_config.h"
 #include "ui/widgets/canvas_observer.h"
 #include "ui/window_base.h"
 
@@ -25,13 +26,13 @@
 #include "utility/localization.h"
 #endif
 
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
 #include "third_party/SDL2/src/core/android/SDL_android.h"
 #endif
 
 namespace {
 constexpr int kBrightThreshold = 220;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 constexpr int kQuickLoadHoldDurationMs = 600;
 #endif
 
@@ -91,7 +92,7 @@ void Canvas::RemoveObserver(CanvasObserver* observer) {
 }
 
 void Canvas::Paint() {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   UpdateShoulderChord();
 #endif
 
@@ -122,7 +123,7 @@ bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
     return true;
   }
 #endif
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
   if (event->keysym.sym == SDLK_ESCAPE) {
     InvokeInGameMenu();
     return true;
@@ -153,7 +154,7 @@ bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 #if KIWI_ENABLE_HD_TEXTURE
     shoulder_chord_used_ = true;
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (!shoulder_chord_pending_) {
       shoulder_chord_controller_id_ = event->which;
       shoulder_chord_pending_ = true;
@@ -174,7 +175,7 @@ bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 }
 
 bool Canvas::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   const bool is_shoulder =
       event->button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER ||
       event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
@@ -247,7 +248,7 @@ void Canvas::InvokeInGameMenu() {
     on_menu_trigger_.Run();
 }
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 void Canvas::UpdateShoulderChord() {
   if (!shoulder_chord_pending_ || shoulder_chord_triggered_)
     return;
@@ -318,17 +319,17 @@ void Canvas::PaintHDTextureToggleHint() {
   }
 
   int string_id = string_resources::IDR_HD_TEXTURE_TOGGLE_TOUCH_HINT;
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   if (SDL_IsAndroidTV()) {
     string_id = string_resources::IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT;
   }
-#elif !KIWI_MOBILE
+#elif !BUILDFLAG(IS_MOBILE)
   string_id = last_hd_toggle_input_was_controller_
                   ? string_resources::IDR_HD_TEXTURE_TOGGLE_GAMEPAD_HINT
                   : string_resources::IDR_HD_TEXTURE_TOGGLE_KEYBOARD_HINT;
 #endif
   const std::string& text = GetLocalizedString(string_id);
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k2x;
 #else
   constexpr PreferredFontSize kHintFontSize = PreferredFontSize::k1x;

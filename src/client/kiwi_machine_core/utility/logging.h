@@ -13,13 +13,14 @@
 #ifndef UTILITY_LOGGING_H_
 #define UTILITY_LOGGING_H_
 
+#include "build/build_config.h"
 #include "build/kiwi_defines.h"
 
 // WASM_TRACE_LOG is a conditional compilation logging macro for WebAssembly
 // platform debugging. It provides different implementations based on whether
-// KIWI_WASM is defined.
+// BUILDFLAG(IS_WASM) is defined.
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 
 // Logging implementation enabled on WebAssembly platform
 #include <iostream>

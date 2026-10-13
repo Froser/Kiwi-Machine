@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "utility/zip_reader.h"
+#include "build/build_config.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -28,7 +29,7 @@
 #include <unordered_set>
 #include <utility>
 
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -57,7 +58,7 @@
 #include "utility/texture_renderer.h"
 #endif
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 #include "utility/emscripten/bridge_api.h"
 #endif
 
@@ -331,7 +332,7 @@ struct Unz : kiwi::base::RefCounted<Unz> {
 };
 
 scoped_refptr<Unz> OpenUnz(const kiwi::base::FilePath& file) {
-#if KIWI_ANDROID || KIWI_SWITCH
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_SWITCH)
   // PAK assets support random access through the platform SDL filesystem.
   // Let minizip read them through SDL instead of copying the entire asset.
   return kiwi::base::MakeRefCounted<Unz>(
@@ -503,7 +504,7 @@ kiwi::base::FilePath GetPackageIndexPath(
 
 bool ReplaceFileAtomically(const kiwi::base::FilePath& temporary_path,
                            const kiwi::base::FilePath& target_path) {
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
   return ::MoveFileExW(temporary_path.value().c_str(),
                        target_path.value().c_str(),
                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
@@ -1134,7 +1135,7 @@ bool BuildPackageIndex(preset_roms::Package* package,
                 "Failed to write package index cache: %s",
                 cache_path.AsUTF8Unsafe().c_str());
   }
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   if (cache_written) {
     SyncFilesystem();
   }

@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include "build/build_config.h"
 
 #include "base/task/sequenced_task_runner.h"
 #include "build/kiwi_defines.h"
@@ -30,7 +31,7 @@ class NESRuntime {
  public:
   struct Data {
     enum {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       MaxSaveStates = 30,
 #else
       MaxSaveStates = 10,
@@ -117,7 +118,7 @@ class NESRuntime {
         int slot,
         kiwi::base::OnceCallback<void(const StateResult&)> load_callback);
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
     // Checks if a save state exists for the given CRC and slot.
     bool SaveStateExists(int crc32, int slot);
 

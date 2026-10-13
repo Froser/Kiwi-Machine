@@ -15,6 +15,7 @@
 
 #include <array>
 #include <string>
+#include "build/build_config.h"
 
 #include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
@@ -44,7 +45,7 @@ class AboutWidget : public Widget {
   bool OnMouseMove(SDL_MouseMotionEvent* event) override;
   bool OnMousePressed(SDL_MouseButtonEvent* event) override;
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
@@ -56,7 +57,7 @@ class AboutWidget : public Widget {
     kGamepad,
   };
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   enum class MobileSection {
     kControls,
     kGameSelection,
@@ -75,7 +76,7 @@ class AboutWidget : public Widget {
     kGamepadTab,
     kRepository,
     kBack,
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     kControlsSection,
     kGameSelectionSection,
     kAboutSection,
@@ -126,7 +127,7 @@ class AboutWidget : public Widget {
     SDL_Rect version = {};
     SDL_Rect back_button = {};
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     SDL_Rect mobile_section_bar = {};
     std::array<SDL_Rect, 3> mobile_section_tabs = {};
 #endif
@@ -153,7 +154,7 @@ class AboutWidget : public Widget {
   void DrawFrame(const FrameText& text, const FrameLayout& layout);
   void DrawBackground(const FrameLayout& layout);
   void DrawHeader(const FrameText& text, const FrameLayout& layout);
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   void DrawMobileSectionTabs(const FrameText& text, const FrameLayout& layout);
   void SelectMobileSection(MobileSection section);
   void MoveMobilePage(int delta);
@@ -175,12 +176,12 @@ class AboutWidget : public Widget {
   NESRuntime::Data* runtime_data_ = nullptr;
   StackWidget* parent_ = nullptr;
   MainWindow* main_window_ = nullptr;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   InputPage input_page_ = InputPage::kGamepad;
 #else
   InputPage input_page_ = InputPage::kKeyboard;
 #endif
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   MobileSection mobile_section_ = MobileSection::kControls;
 #endif
   FrameLayout last_layout_;
@@ -188,7 +189,7 @@ class AboutWidget : public Widget {
   HitTarget hovered_target_ = HitTarget::kNone;
   HitTarget pressed_target_ = HitTarget::kNone;
   bool mouse_pressed_ = false;
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   bool touch_active_ = false;
   SDL_FingerID active_touch_id_ = 0;
   ImVec2 touch_down_position_;

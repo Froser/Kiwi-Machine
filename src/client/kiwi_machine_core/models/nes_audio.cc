@@ -11,8 +11,9 @@
 // GNU General Public License for more details.
 
 #include "models/nes_audio.h"
+#include "build/build_config.h"
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 #include <SDL_mixer.h>
 #endif
 #include <kiwi_nes.h>
@@ -23,7 +24,7 @@
 NESAudio::NESAudio(NESRuntimeID runtime_id) : runtime_id_(runtime_id) {}
 
 NESAudio::~NESAudio() {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (post_mix_registered_)
     Mix_SetPostMix(nullptr, nullptr);
 #else
@@ -49,7 +50,7 @@ void NESAudio::Initialize() {
     return;
   }
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   int frequency = 0;
   Uint16 format = 0;
   int channels = 0;
@@ -93,14 +94,14 @@ void NESAudio::Initialize() {
 }
 
 void NESAudio::Start() {
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
   if (audio_device_id_)
     SDL_PauseAudioDevice(audio_device_id_, false);
 #endif
 }
 
 void NESAudio::ResetBuffer() {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   const bool restore_post_mix = post_mix_registered_;
   if (restore_post_mix)
     Mix_SetPostMix(nullptr, nullptr);
@@ -122,7 +123,7 @@ void NESAudio::ResetBuffer() {
   read_buf_.store(0, std::memory_order_relaxed);
   filled_count_.store(0, std::memory_order_relaxed);
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (restore_post_mix)
     Mix_SetPostMix(&NESAudio::MixAudioBuffer, this);
 #else
@@ -154,7 +155,7 @@ void NESAudio::ReadAudioBuffer(Uint8* stream, int count) {
   std::fill(output + samples_read, output + sample_count, 0);
 }
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 void NESAudio::MixAudioBuffer(void* userdata, Uint8* stream, int len) {
   SDL_assert(userdata);
   NESAudio* audio = reinterpret_cast<NESAudio*>(userdata);
@@ -213,7 +214,7 @@ size_t NESAudio::ReadSamples(kiwi::nes::Sample* output, size_t count) {
 }
 
 void NESAudio::Write(kiwi::nes::Sample* samples, size_t count) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (!post_mix_registered_)
     return;
 #else

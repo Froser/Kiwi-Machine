@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/in_game_menu.h"
+#include "build/build_config.h"
 
 #include <imgui.h>
 
@@ -60,18 +61,18 @@ constexpr std::array<int, 7> kMenuStringIds = {
 constexpr std::array<int, static_cast<size_t>(InGameMenu::SettingsItem::kMax)>
     kSettingsStringIds = {
         string_resources::IDR_IN_GAME_MENU_VOLUME,
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
         string_resources::IDR_IN_GAME_MENU_SCALING_MODE,
-#elif !KIWI_SWITCH
+#elif !BUILDFLAG(IS_SWITCH)
         string_resources::IDR_IN_GAME_MENU_WINDOW_MODE,
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
         string_resources::IDR_IN_GAME_MENU_CONTROLLER_ORDER,
 #else
         string_resources::IDR_IN_GAME_MENU_P1,
 #endif
         string_resources::IDR_IN_GAME_MENU_SWAP_AB_P1,
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
         string_resources::IDR_IN_GAME_MENU_P2,
 #endif
         string_resources::IDR_IN_GAME_MENU_SWAP_AB_P2,
@@ -104,7 +105,7 @@ float GetMenuFontScale(PreferredFontSize size) {
 }
 
 float GetMenuHorizontalPadding(float layout_padding) {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return std::max(12.f, layout_padding * .5f);
 #else
   return layout_padding;
@@ -191,7 +192,7 @@ InGameMenu::~InGameMenu() {
   lifetime_token_.reset();
   if (snapshot_)
     SDL_DestroyTexture(snapshot_);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   for (QuickLoadPreview& preview : quick_load_previews_) {
     if (preview.texture)
       SDL_DestroyTexture(preview.texture);
@@ -201,7 +202,7 @@ InGameMenu::~InGameMenu() {
 
 void InGameMenu::Close() {
   CancelStatePreviewRequest();
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   ++quick_load_preview_request_id_;
 #endif
   ++saved_state_count_request_id_;
@@ -213,7 +214,7 @@ void InGameMenu::Close() {
 }
 
 void InGameMenu::Show() {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   quick_load_mode_ = false;
   ++quick_load_preview_request_id_;
 #endif
@@ -498,7 +499,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
   layout.row_height =
       std::max(44.f, layout.font_height + layout.padding * 1.5f);
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (quick_load_mode_) {
     layout.mode = LayoutMode::kQuickLoad;
     layout.panel = MakeRect(layout.safe_area.x,
@@ -515,7 +516,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
 #endif
 
   SDL_Rect candidate_panel;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   candidate_panel =
       MakeRect(layout.safe_area.x + 60.f, layout.safe_area.y + 32.f,
                layout.safe_area.w - 120.f, layout.safe_area.h - 64.f);
@@ -523,24 +524,24 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
   const float candidate_margin = std::min(32.f, std::max(16.f, 24.f * scale));
   candidate_panel = InsetRect(layout.safe_area, candidate_margin);
 #endif
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   const float menu_horizontal_padding =
       GetMenuHorizontalPadding(layout.padding);
   const float chevron_width = std::max(36.f, layout.font_height);
   const float navigation_width =
       std::max(190.f * scale, widest_menu_item + chevron_width +
                                   menu_horizontal_padding * 4.f);
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   const float navigation_width =
       std::max(420.f, widest_menu_item + layout.padding * 3.f);
 #else
   const float navigation_width =
       std::max(190.f * scale, widest_menu_item + layout.padding * 3.f);
 #endif
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   const float detail_min_width =
       std::max(240.f * scale, layout.font_height * 10.f);
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   constexpr float detail_min_width = 600.f;
 #else
   const float detail_min_width =
@@ -593,7 +594,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
                                     layout.header_title.w, subtitle_height);
 
   if (layout.mode == LayoutMode::kTwoPane) {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
     const float resolved_navigation_width = navigation_width;
 #else
     const float resolved_navigation_width =
@@ -626,9 +627,9 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
       LayoutConfirmation(layout);
       break;
     case Page::kMainMenu: {
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
       if (layout.mode == LayoutMode::kTwoPane) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
         const std::string& action_text =
             text.menu_items[ToIndex(focus_.menu_item)];
         const float text_width =
@@ -656,7 +657,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
 void InGameMenu::LayoutMenu(const FrameText& text, FrameLayout& layout) {
   std::array<float, kMenuItemCount> row_heights = {};
   const float horizontal_padding = GetMenuHorizontalPadding(layout.padding);
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   const float text_width = 0.f;
 #else
   const float text_width =
@@ -813,7 +814,7 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
     const float row_height = row_heights[i];
     layout.setting_items[i] = MakeRect(inner.x, y, inner.w, row_height);
     const float button_width = std::min(layout.row_height, control_width / 3.f);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (static_cast<SettingsItem>(i) == SettingsItem::kControllerSupport) {
       layout.setting_previous[i] = {};
       layout.setting_values[i] = {};
@@ -836,7 +837,7 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
 }
 
 void InGameMenu::LayoutConfirmation(FrameLayout& layout) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   constexpr float kPreferredBodyWidth = 560.f;
 #else
   constexpr float kPreferredBodyWidth = 440.f;
@@ -870,7 +871,7 @@ void InGameMenu::DrawFrame(const FrameText& text, const FrameLayout& layout) {
 
   switch (layout.visible_page) {
     case Page::kStateBrowser:
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (quick_load_mode_)
         DrawQuickLoad(text, layout);
       else
@@ -886,7 +887,7 @@ void InGameMenu::DrawFrame(const FrameText& text, const FrameLayout& layout) {
       DrawConfirmation(text, layout);
       break;
     case Page::kMainMenu:
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
       DrawContextualAction(text, layout);
 #endif
       break;
@@ -900,7 +901,7 @@ void InGameMenu::DrawBackground(const FrameLayout& layout) {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   ImVec2 window_pos = ImGui::GetWindowPos();
   ImVec2 window_size = ImGui::GetWindowSize();
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (DrawQuickLoadBackground(layout))
     return;
 #endif
@@ -968,7 +969,7 @@ void InGameMenu::DrawMenu(const FrameText& text, const FrameLayout& layout) {
       text_color = kBrandOnColor;
     else if (danger && enabled)
       text_color = kDangerColor;
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
     const float chevron_width = std::max(36.f, layout.font_height);
 #else
     const float chevron_width = layout.row_height;
@@ -979,7 +980,7 @@ void InGameMenu::DrawMenu(const FrameText& text, const FrameLayout& layout) {
         layout.menu_items[i].w - chevron_width, layout.menu_items[i].h);
     DrawTextInRect(text.menu_items[i], text_rect, layout.font_size, text_color,
                    horizontal_padding, false,
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
                    false,
 #else
                    true,
@@ -1095,7 +1096,7 @@ void InGameMenu::DrawSettings(const FrameText& text,
                           focus_.settings_item == item;
     bool row_hovered = hovered_target_ == HitTarget{HitTargetType::kSettingItem,
                                                     static_cast<int>(i)};
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (item == SettingsItem::kControllerSupport &&
         hovered_target_ ==
             HitTarget{HitTargetType::kSettingNext, static_cast<int>(i)}) {
@@ -1105,7 +1106,7 @@ void InGameMenu::DrawSettings(const FrameText& text,
     DrawButtonBackground(layout.setting_items[i], selected, row_hovered, false,
                          false);
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (item == SettingsItem::kControllerSupport) {
       SDL_Rect label_rect = MakeRect(
           layout.setting_items[i].x, layout.setting_items[i].y,
@@ -1228,7 +1229,7 @@ void InGameMenu::DrawConfirmation(const FrameText& text,
                  true, true);
 }
 
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
 void InGameMenu::DrawContextualAction(const FrameText& text,
                                       const FrameLayout& layout) {
   if (!IsValidRect(layout.contextual_action))
@@ -1241,7 +1242,7 @@ void InGameMenu::DrawContextualAction(const FrameText& text,
   const bool hovered = hovered_target_.type == HitTargetType::kContextualAction;
   DrawButtonBackground(layout.contextual_action, false, hovered, primary,
                        danger, enabled);
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   constexpr bool kWrapText = false;
 #else
   constexpr bool kWrapText = true;
@@ -1301,7 +1302,7 @@ bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
       return HandleNavigationAction(NavigationAction::kRight,
                                     InputModality::kController);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     // devkitPro SDL reports the physical Switch A/B buttons as SDL B/A.
     // Menu actions follow the physical labels, not the gameplay A/B setting.
     case SDL_CONTROLLER_BUTTON_B:
@@ -1387,7 +1388,7 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
   }
 
   if (page_ == Page::kStateBrowser) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (action == NavigationAction::kLeft) {
       StepState(StepDirection::kPrevious);
     } else if (action == NavigationAction::kRight) {
@@ -1415,7 +1416,7 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
 #endif
     } else if (action == NavigationAction::kBack) {
       PlayEffect(audio_resources::AudioID::kBack);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (quick_load_mode_) {
         menu_callback_.Run(MenuCommand{MenuItem::kContinue, std::monostate{}});
       } else {
@@ -1502,7 +1503,7 @@ void InGameMenu::ExecuteStateAction() {
   PlayEffect(audio_resources::AudioID::kStart);
   if (focus_.menu_item == MenuItem::kLoadAutoSave) {
     int timestamp = state_preview_.timestamp;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (quick_load_mode_)
       timestamp = GetQuickLoadTimestamp();
 #endif
@@ -1615,7 +1616,7 @@ void InGameMenu::StepState(StepDirection direction) {
   }
 
   PlayEffect(audio_resources::AudioID::kSelect);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (quick_load_mode_) {
     RefreshQuickLoadPreviews();
     return;
@@ -1669,7 +1670,7 @@ InGameMenu::HitTarget InGameMenu::HitTest(const FrameLayout& layout,
   }
 
   if (layout.visible_page == Page::kStateBrowser) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (quick_load_mode_) {
       for (size_t i = 0; i < kQuickLoadVisibleSlotCount; ++i) {
         const int slot = GetQuickLoadSlot(i);
@@ -1709,7 +1710,7 @@ InGameMenu::HitTarget InGameMenu::HitTest(const FrameLayout& layout,
       if (PointInClippedRect(layout.setting_items[i], layout.detail, x, y))
         return {HitTargetType::kSettingItem, static_cast<int>(i)};
     }
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
   } else if (IsMenuItemEnabled(focus_.menu_item) &&
              PointInRect(layout.contextual_action, x, y)) {
     return {HitTargetType::kContextualAction};
@@ -1776,7 +1777,7 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
         OpenPage(Page::kStateBrowser);
       ExecuteStateAction();
       break;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     case HitTargetType::kQuickLoadSlot:
       if (which_autosave_state_slot_ != target.index) {
         which_autosave_state_slot_ = target.index;
@@ -1785,7 +1786,7 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
       }
       break;
 #endif
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     case HitTargetType::kContextualAction:
       ActivateMenuItem(focus_.menu_item);
       break;
@@ -1793,7 +1794,7 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
     case HitTargetType::kSettingItem:
       OpenPage(Page::kSettings);
       focus_.settings_item = static_cast<SettingsItem>(target.index);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (focus_.settings_item == SettingsItem::kControllerSupport)
         StepSetting(focus_.settings_item, StepDirection::kNext);
 #endif
@@ -1991,7 +1992,7 @@ void InGameMenu::OnGotAutoSavedStateCount(uint64_t request_id, int count) {
   if (which_autosave_state_slot_ > last_slot) {
     which_autosave_state_slot_ = last_slot;
   }
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (quick_load_mode_) {
     RefreshQuickLoadPreviews();
     return;
@@ -2070,7 +2071,7 @@ bool InGameMenu::IsStateMenuItem(MenuItem item) const {
 }
 
 bool InGameMenu::IsSettingItemVisible(SettingsItem item) const {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return item != SettingsItem::kVolume;
 #else
   return true;
@@ -2103,7 +2104,7 @@ bool InGameMenu::CanStepState(StepDirection direction) const {
 bool InGameMenu::CanExecuteStateAction() const {
   if (focus_.menu_item == MenuItem::kSaveState)
     return true;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (quick_load_mode_) {
     return quick_load_previews_[which_autosave_state_slot_].status ==
            StatePreview::Status::kReady;
@@ -2123,10 +2124,10 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
       return direction == StepDirection::kPrevious ? volume > 0.f
                                                    : volume < 1.f;
     }
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     case SettingsItem::kWindowMode:
-#if !KIWI_MOBILE
-#if KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE)
+#if BUILDFLAG(IS_WASM)
       return false;
 #else
       return direction == StepDirection::kPrevious
@@ -2137,7 +2138,7 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
       return true;
 #endif
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     case SettingsItem::kControllerSupport:
       return direction == StepDirection::kNext;
 #else
@@ -2189,9 +2190,9 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
               100.f)));
       return buffer;
     }
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     case SettingsItem::kWindowMode:
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
       if (main_window_->is_fullscreen()) {
         return GetLocalizedString(
             string_resources::IDR_IN_GAME_MENU_FULLSCREEN);
@@ -2204,7 +2205,7 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
               : string_resources::IDR_IN_GAME_MENU_ORIGINAL);
 #endif
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     case SettingsItem::kControllerSupport:
       return std::string();
 #else

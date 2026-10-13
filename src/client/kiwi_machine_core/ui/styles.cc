@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/styles.h"
+#include "build/build_config.h"
 
 #include "build/kiwi_defines.h"
 #include "utility/fonts.h"
@@ -20,9 +21,9 @@ namespace styles {
 namespace flex_items_widget {
 
 int GetItemHeightHint() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   return 480;
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   return 360;
 #else
   return 160;
@@ -30,7 +31,7 @@ int GetItemHeightHint() {
 }
 
 int GetItemHighlightedSize() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   return 50;
 #else
   return 20;
@@ -38,7 +39,7 @@ int GetItemHighlightedSize() {
 }
 
 PreferredFontSize GetDetailFontSize() {
-#if KIWI_ANDROID || KIWI_SWITCH
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k1x;
@@ -46,7 +47,7 @@ PreferredFontSize GetDetailFontSize() {
 }
 
 PreferredFontSize GetDetailMetaFontSize() {
-#if KIWI_ANDROID || KIWI_SWITCH
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k2x;
 #else
   return PreferredFontSize::k1x;
@@ -62,7 +63,7 @@ PreferredFontSize GetFilterFontSize() {
 namespace flex_item_widget {
 
 int GetBadgeSize() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   return 96;
 #else
   return 32;
@@ -74,11 +75,11 @@ int GetBadgeSize() {
 namespace in_game_menu {
 
 PreferredFontSize GetPreferredFontSize(float window_scale) {
-#if KIWI_IOS
+#if BUILDFLAG(IS_IOS)
   return PreferredFontSize::k1x;
-#elif KIWI_ANDROID
+#elif BUILDFLAG(IS_ANDROID)
   return PreferredFontSize::k3x;
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k3x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
@@ -90,7 +91,7 @@ PreferredFontSize GetPreferredFontSize(float window_scale) {
 namespace main_window {
 
 int GetJoystickSize(float window_scale) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   return 150 * window_scale;
 #else
   return 135 * window_scale;
@@ -107,7 +108,7 @@ int GetJoystickMarginX(float window_scale,
 int GetJoystickMarginY(float window_scale,
                        bool is_landscape,
                        const SDL_Rect& safe_area_insets) {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   int result = is_landscape ? 20 * window_scale : 40 * window_scale;
 #else
   int result = is_landscape ? 26 * window_scale : 10 * window_scale;
@@ -151,9 +152,9 @@ int GetJoystickPauseButtonMarginY(float window_scale,
 namespace side_menu {
 
 int GetItemHeight() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   return 80;
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   return 52;
 #else
   return 20;
@@ -165,11 +166,11 @@ int GetButtonHeight() {
 }
 
 int GetMarginBottom() {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   // Many mobile screen has a rounded corner, we set margin as a larger value
   // here.
   return 80;
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   return 24;
 #else
   return 15;
@@ -177,7 +178,7 @@ int GetMarginBottom() {
 }
 
 PreferredFontSize GetPreferredFontSize() {
-#if KIWI_ANDROID || KIWI_SWITCH
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k2x;
 #else
   return PreferredFontSize::k1x;
@@ -189,7 +190,7 @@ PreferredFontSize GetPreferredFontSize() {
 namespace about_widget {
 
 int GetMarginX(float window_scale) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   return 120;
 #else
   if (window_scale > 2.f)
@@ -199,7 +200,7 @@ int GetMarginX(float window_scale) {
 }
 
 PreferredFontSize PreferredTitleFontSize(float window_scale) {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k4x;
 #else
   return window_scale > 2.f ? PreferredFontSize::k2x : PreferredFontSize::k1x;
@@ -207,7 +208,7 @@ PreferredFontSize PreferredTitleFontSize(float window_scale) {
 }
 
 PreferredFontSize PreferredContentFontSize() {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k1x;
@@ -219,7 +220,7 @@ PreferredFontSize PreferredContentFontSize() {
 namespace toast {
 
 SDL_Point GetTopLeft() {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   static SDL_Point kPoint = {30, 60};
 #else
   static SDL_Point kPoint = {10, 20};
@@ -228,7 +229,7 @@ SDL_Point GetTopLeft() {
 }
 
 PreferredFontSize GetFontSize() {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return PreferredFontSize::k3x;
 #else
   return PreferredFontSize::k2x;
@@ -240,7 +241,7 @@ PreferredFontSize GetFontSize() {
 namespace filter_widget {
 
 int GetTitleTop(const SDL_Rect& global_bounds, const ImVec2& combined_rect) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   return 20;
 #else
   return (global_bounds.h - combined_rect.y) / 2;

@@ -14,6 +14,7 @@
 #define UI_WIDGETS_IN_GAME_MENU_H_
 
 #include <kiwi_nes.h>
+#include "build/build_config.h"
 
 #include <array>
 #include <cstdint>
@@ -43,14 +44,14 @@ class InGameMenu : public Widget {
 
   enum class SettingsItem {
     kVolume,
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     kWindowMode,
     kJoyP1,
 #else
     kControllerSupport,
 #endif
     kSwapABP1,
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     kJoyP2,
 #endif
     kSwapABP2,
@@ -88,7 +89,7 @@ class InGameMenu : public Widget {
 
   void Close();
   void Show();
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   void ShowQuickLoad();
 #endif
   void RefreshStatePreview();
@@ -115,13 +116,13 @@ class InGameMenu : public Widget {
   static constexpr size_t kMenuItemCount = static_cast<size_t>(MenuItem::kMax);
   static constexpr size_t kSettingsItemCount =
       static_cast<size_t>(SettingsItem::kMax);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   static constexpr size_t kQuickLoadVisibleSlotCount = 5;
   static constexpr size_t kQuickLoadSelectedSlotIndex =
       kQuickLoadVisibleSlotCount / 2;
   static constexpr SettingsItem kFirstSettingsItem =
       SettingsItem::kControllerSupport;
-#elif KIWI_MOBILE
+#elif BUILDFLAG(IS_MOBILE)
   static constexpr SettingsItem kFirstSettingsItem = SettingsItem::kWindowMode;
 #else
   static constexpr SettingsItem kFirstSettingsItem = SettingsItem::kVolume;
@@ -224,11 +225,11 @@ class InGameMenu : public Widget {
     SDL_Rect state_next = {};
     SDL_Rect state_action = {};
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     std::array<SDL_Rect, kQuickLoadVisibleSlotCount> quick_load_previews = {};
     SDL_Rect quick_load_title = {};
 #endif
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     SDL_Rect contextual_action = {};
 #endif
     SDL_Rect confirmation_body = {};
@@ -244,10 +245,10 @@ class InGameMenu : public Widget {
     kStatePrevious,
     kStateNext,
     kStateAction,
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     kQuickLoadSlot,
 #endif
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     kContextualAction,
 #endif
     kSettingItem,
@@ -279,7 +280,7 @@ class InGameMenu : public Widget {
     int timestamp = 0;
   };
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   struct QuickLoadPreview {
     StatePreview::Status status = StatePreview::Status::kEmpty;
     bool requested = false;
@@ -293,7 +294,7 @@ class InGameMenu : public Widget {
   FrameLayout CalculateFrameLayout(const FrameText& text);
   void LayoutMenu(const FrameText& text, FrameLayout& layout);
   void LayoutStateBrowser(FrameLayout& layout);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   void LayoutQuickLoad(FrameLayout& layout);
 #endif
   void LayoutSettings(const FrameText& text, FrameLayout& layout);
@@ -304,13 +305,13 @@ class InGameMenu : public Widget {
   void DrawHeader(const FrameText& text, const FrameLayout& layout);
   void DrawMenu(const FrameText& text, const FrameLayout& layout);
   void DrawStateBrowser(const FrameText& text, const FrameLayout& layout);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   bool DrawQuickLoadBackground(const FrameLayout& layout);
   void DrawQuickLoad(const FrameText& text, const FrameLayout& layout);
 #endif
   void DrawSettings(const FrameText& text, const FrameLayout& layout);
   void DrawConfirmation(const FrameText& text, const FrameLayout& layout);
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
   void DrawContextualAction(const FrameText& text, const FrameLayout& layout);
 #endif
 
@@ -359,7 +360,7 @@ class InGameMenu : public Widget {
   void OnGotState(uint64_t request_id,
                   const NESRuntime::Data::StateResult& result);
   void CancelStatePreviewRequest();
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   void ResetQuickLoadPreviews();
   void RefreshQuickLoadPreviews();
   static void DispatchQuickLoadPreviewResult(
@@ -393,7 +394,7 @@ class InGameMenu : public Widget {
 
   Page page_ = Page::kMainMenu;
   Page page_before_confirmation_ = Page::kMainMenu;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   bool quick_load_mode_ = false;
 #endif
   FocusState focus_;
@@ -431,7 +432,7 @@ class InGameMenu : public Widget {
   uint64_t auto_save_count_request_id_ = 0;
   StatePreview state_preview_;
   SDL_Texture* snapshot_ = nullptr;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   uint64_t quick_load_preview_request_id_ = 0;
   std::array<QuickLoadPreview, NESRuntime::Data::MaxAutoSaveStates>
       quick_load_previews_;

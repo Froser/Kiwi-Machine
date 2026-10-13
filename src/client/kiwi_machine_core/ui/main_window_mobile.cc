@@ -10,6 +10,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+#include "build/build_config.h"
 #include "ui/main_window.h"
 
 #include <SDL.h>
@@ -29,7 +30,7 @@
 #include "utility/localization.h"
 #include "utility/math.h"
 
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
 #include "third_party/SDL2/src/core/android/SDL_android.h"
 #endif
 
@@ -246,7 +247,7 @@ bool MainWindow::IsLandscape() {
 }
 
 void MainWindow::CreateVirtualTouchButtons() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // TV applications uses joysticks or remote controller.
   if (SDL_IsAndroidTV())
     return;
@@ -388,7 +389,7 @@ void MainWindow::CreateVirtualTouchButtons() {
 
 void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
                                               bool visible) {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // TV applications uses joysticks or remote controller.
   if (SDL_IsAndroidTV())
     return;
@@ -438,7 +439,7 @@ void MainWindow::SetHDTextureToggleState(bool visible, bool hd_enabled) {
 }
 
 void MainWindow::LayoutVirtualTouchButtons() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // TV applications uses joysticks or remote controller.
   if (SDL_IsAndroidTV())
     return;
@@ -552,7 +553,7 @@ void MainWindow::LayoutVirtualTouchButtons() {
 }
 
 void MainWindow::OnVirtualJoystickChanged(int state) {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // TV applications uses joysticks or remote controller.
   if (SDL_IsAndroidTV())
     return;
@@ -600,7 +601,7 @@ void MainWindow::OnScaleModeChanged() {
       canvas_->set_bounds(canvas_bounds);
     }
 
-#if KIWI_IOS
+#if BUILDFLAG(IS_IOS)
     // In iOS, canvas's dimension is represented as point, not pixel, so it has
     // a smaller scale.
     float canvas_scale = 1.f;
@@ -689,7 +690,7 @@ void MainWindow::OnJoystickButtonsMatched() {
 // The window is touched and canvas is appeared, restore all virtual joystick
 // buttons.
 bool MainWindow::HandleWindowFingerDown() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // TV applications uses joysticks or remote controller.
   if (SDL_IsAndroidTV())
     return false;
@@ -706,7 +707,7 @@ bool MainWindow::HandleWindowFingerDown() {
 }
 
 void MainWindow::StashVirtualButtonsVisible() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // TV applications uses joysticks or remote controller.
   if (SDL_IsAndroidTV())
     return;
@@ -717,7 +718,7 @@ void MainWindow::StashVirtualButtonsVisible() {
 }
 
 void MainWindow::PopVirtualButtonsVisible() {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   // TV applications uses joysticks or remote controller.
   if (SDL_IsAndroidTV())
     return;

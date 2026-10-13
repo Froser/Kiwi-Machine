@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "models/nes_runtime.h"
+#include "build/build_config.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -26,9 +27,9 @@
 #include "ui/application.h"
 #include "ui/widgets/canvas.h"
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 #include "utility/emscripten/bridge_api.h"
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
 #include "utility/switch/paths.h"
 #endif
 
@@ -49,11 +50,11 @@ struct FilePathSorter {
 };
 
 kiwi::base::FilePath GetProfilePath(const std::string& name) {
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   // In WASM, use /persistent directory for IDBFS
   return kiwi::base::FilePath::FromUTF8Unsafe("/persistent")
       .Append(kiwi::base::FilePath::FromUTF8Unsafe(name));
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   return kiwi::switch_platform::GetUserDataDirectory().Append(
       kiwi::base::FilePath::FromUTF8Unsafe(name));
 #else
@@ -155,7 +156,7 @@ bool SaveStateByPathOnIOThread(
         Canvas::kNESFrameDefaultWidth * sizeof(thumbnail_data[0]));
   }
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   SyncFilesystem();
 #endif
 
@@ -950,7 +951,7 @@ void NESRuntime::Data::OnPeriodicBatterySaveFlushed(kiwi::base::TimeDelta delta,
   TriggerDelayedBatterySave(delta, timer_generation);
 }
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 
 bool NESRuntime::Data::SaveStateExists(int crc32, int slot) {
   kiwi::base::FilePath path_to_data =

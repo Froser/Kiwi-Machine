@@ -284,8 +284,10 @@ add_custom_command(
 KIWI_ADD_LIBRARY(${PROJECT_NAME} ${Sources})
 
 target_link_libraries(${PROJECT_NAME}
+        PUBLIC
+        Kiwi::kiwi_static
         PRIVATE
-        Kiwi::kiwi_static imgui
+        imgui
         ${KIWI_HD_TEXTURE_LIBRARIES}
         gflags_nothreads_static
         ${KIWI_SDL2_IMAGE_TARGET}

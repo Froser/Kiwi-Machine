@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/side_menu.h"
+#include "build/build_config.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -32,7 +33,7 @@ constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
 constexpr int kHoverAnimationMs = 180;
 constexpr int kPointerCollapseDelayMs = 120;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 constexpr int kIconInset = 24;
 constexpr int kTextSpacing = 16;
 constexpr float kIconSizeScale = .78f;
@@ -141,7 +142,7 @@ void SideMenu::Paint() {
         MapLocalBoundsToWindow(buttons_bounds_map_[i]);
     const int kIconSize = kIconSizeScale * button_bounds.h;
     const int kIconTop = button_bounds.y + (button_bounds.h - kIconSize) / 2;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     const int kIconLeft =
         expanded() ? button_bounds.x + kIconInset
                    : button_bounds.x + (button_bounds.w - kIconSize) / 2;
@@ -196,7 +197,7 @@ void SideMenu::Paint() {
     const SDL_Rect global_item_rect =
         MapLocalBoundsToWindow(items_bounds_map_[i]);
     const int kIconSize = kIconSizeScale * global_item_rect.h;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     const int kIconLeft =
         expanded() ? global_item_rect.x + kIconInset
                    : global_item_rect.x +
@@ -333,7 +334,7 @@ void SideMenu::AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
 }
 
 int SideMenu::GetSuggestedCollapsedWidth() {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   return 96;
 #else
   const int item_x = SCALED(kItemSpacing.x);
@@ -343,15 +344,15 @@ int SideMenu::GetSuggestedCollapsedWidth() {
 }
 
 int SideMenu::GetSuggestedExtendedWidth(int available_width) {
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
   constexpr float kWidthRatio = .13f;
   constexpr int kMinWidth = 260;
   constexpr int kMaxWidth = 340;
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   constexpr float kWidthRatio = .225f;
   constexpr int kMinWidth = 288;
   constexpr int kMaxWidth = 288;
-#elif KIWI_IOS
+#elif BUILDFLAG(IS_IOS)
   constexpr float kWidthRatio = .14f;
   constexpr int kMinWidth = 108;
   constexpr int kMaxWidth = 136;
@@ -365,7 +366,7 @@ int SideMenu::GetSuggestedExtendedWidth(int available_width) {
 }
 
 void SideMenu::UpdateHoverState() {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return;
 #else
   int hovered_menu_index = -1;
@@ -500,7 +501,7 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
 
 bool SideMenu::HandleMouseOrFingerDown() {
   if (!activate_) {
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
     if (pointer_expanded_) {
       mouse_locked_ = true;
       return true;

@@ -14,6 +14,7 @@
 #define UI_WIDGETS_SIDE_MENU_H_
 
 #include <kiwi_nes.h>
+#include "build/build_config.h"
 
 #include "models/nes_runtime.h"
 #include "ui/widgets/widget.h"
@@ -80,7 +81,7 @@ class SideMenu : public Widget {
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
 #endif

@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "utility/key_mapping_util.h"
+#include "build/build_config.h"
 
 #include <algorithm>
 
@@ -32,7 +33,7 @@ bool IsGameControllerInputSupported(SDL_GameController* controller) {
   if (!controller)
     return false;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   // devkitPro's generic "Switch Controller" can have an unknown SDL type even
   // though its fixed mapping provides valid buttons and leftx/lefty axes.
   return true;
@@ -140,7 +141,7 @@ bool IsGameSelectionConfirmButton(const SDL_ControllerButtonEvent* event) {
   if (!event)
     return false;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   // Switch SDL exposes the physical A and plus buttons as SDL B and START.
   return event->button == SDL_CONTROLLER_BUTTON_B ||
          event->button == SDL_CONTROLLER_BUTTON_START;
@@ -154,7 +155,7 @@ bool IsGameSelectionBackButton(const SDL_ControllerButtonEvent* event) {
   if (!event)
     return false;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   // The Switch SDL2 mapping exposes the physical B button as SDL A.
   return event->button == SDL_CONTROLLER_BUTTON_A;
 #else
@@ -166,7 +167,7 @@ bool IsGameSelectionSearchButton(const SDL_ControllerButtonEvent* event) {
   if (!event)
     return false;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   // Switch SDL uses Xbox-style positions, so physical Y is exposed as SDL X.
   return event->button == SDL_CONTROLLER_BUTTON_X;
 #else
@@ -179,7 +180,7 @@ bool IsGameSelectionPreviousVersionButton(
   if (!event)
     return false;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   return event->button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
 #else
   return false;
@@ -190,7 +191,7 @@ bool IsGameSelectionNextVersionButton(const SDL_ControllerButtonEvent* event) {
   if (!event)
     return false;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   return event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
 #else
   return event->button == SDL_CONTROLLER_BUTTON_Y;
@@ -202,7 +203,7 @@ void SetControllerMapping(NESRuntime::Data* runtime_data,
                           SDL_GameController* controller,
                           bool ab_reverse) {
   SDL_assert(player == 0 || player == 1);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   // devkitPro's SDL mapping uses Xbox-style button positions: Nintendo A/B
   // arrive as SDL B/A. BACK and START are the physical minus and plus buttons.
   // Keep this gameplay mapping separate from the fixed game-selection UI.

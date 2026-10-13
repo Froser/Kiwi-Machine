@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/filter_widget.h"
+#include "build/build_config.h"
 
 #include <imgui.h>
 
@@ -23,7 +24,7 @@
 #include "utility/fonts.h"
 #include "utility/localization.h"
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 #include "utility/switch/system_keyboard.h"
 #endif
 
@@ -49,7 +50,7 @@ constexpr ImU32 kButtonBrandColor = IM_COL32(148, 216, 45, 255);
 constexpr ImU32 kButtonBrandOnColor = IM_COL32(43, 63, 14, 255);
 constexpr float kButtonCornerRadius = 8.f;
 
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
 constexpr PreferredFontSize kSearchPrimaryFontSize = PreferredFontSize::k3x;
 constexpr PreferredFontSize kSearchActionFontSize = PreferredFontSize::k3x;
 #else
@@ -131,7 +132,7 @@ FilterWidget::~FilterWidget() {
 }
 
 void FilterWidget::BeginFilter() {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   const size_t kMaxSystemKeyboardCharacters = (filter_buffer_.size() - 1) / 4;
   std::string result;
   if (kiwi::switch_platform::ShowSystemKeyboard(
@@ -365,7 +366,7 @@ bool FilterWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
     case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
       MoveControllerSelection(0, 1);
       break;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     // Keep the search overlay consistent with the game list: physical A
     // confirms and physical B closes it. Switch SDL reports those as B/A.
     case SDL_CONTROLLER_BUTTON_B:

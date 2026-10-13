@@ -15,6 +15,7 @@
 
 #include <SDL.h>
 #include <gflags/gflags.h>
+#include "build/build_config.h"
 
 #include <cstddef>
 #include <map>
@@ -100,7 +101,7 @@ class MainWindow : public WindowBase,
   // InitializeAsync() must be called before rendering.
   void InitializeAsync(kiwi::base::OnceClosure callback);
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   // WASM environment uses this instance to load roms.
   static MainWindow* GetInstance();
   void LoadROM_WASM(kiwi::base::FilePath rom_path);
@@ -123,7 +124,7 @@ class MainWindow : public WindowBase,
   bool is_fullscreen() { return config_->data().is_fullscreen; }
   bool IsABSwapped(int player) const;
   bool IsLandscape();
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   bool is_stretch_mode() { return config_->data().is_stretch_mode; }
 #endif
   SDL_Rect Scaled(const SDL_Rect& rect);
@@ -272,7 +273,7 @@ class MainWindow : public WindowBase,
   void OnDebugNametable();
   void OnShowUiDemoWidget();
   void OnInGameMenuTrigger();
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   void OnQuickLoadTrigger();
 #endif
   void OnInGameMenuItemTrigger(const InGameMenu::MenuCommand& command);
@@ -295,7 +296,7 @@ class MainWindow : public WindowBase,
   // Give a chance to pause the game, to view disassembly widget.
   void PauseGameIfDisassemblyVisible();
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   void OnScaleModeChanged();
 #endif
 
@@ -342,11 +343,11 @@ class MainWindow : public WindowBase,
   MenuBar::MenuItem debug_roms_;
 #endif
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   std::unique_ptr<FpsCounter> fps_counter_;
 #endif
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   // Main menu buttons
   Widget* vtb_joystick_ = nullptr;
   Widget* vtb_a_ = nullptr;
