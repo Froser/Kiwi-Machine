@@ -2207,23 +2207,26 @@ void MainWindow::OnLoadState(int which_state) {
     runtime_data_->GetState(runtime_data_->emulator->GetRomData()->crc,
                             which_state,
                             kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
-                                                 kiwi::base::Unretained(this)));
+                                                 kiwi::base::Unretained(this),
+                                                 false));
   } else {
     NESRuntime::Data::StateResult failed_result{false};
-    OnStateLoaded(failed_result);
+    OnStateLoaded(false, failed_result);
   }
 }
 
-void MainWindow::OnLoadAutoSavedState(int timestamp) {
+void MainWindow::OnLoadAutoSavedState(int timestamp,
+                                      bool discard_newer_states) {
   auto* rom_data = runtime_data_->emulator->GetRomData();
   if (rom_data) {
     runtime_data_->GetAutoSavedStateByTimestamp(
         runtime_data_->emulator->GetRomData()->crc, timestamp,
         kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
-                             kiwi::base::Unretained(this)));
+                             kiwi::base::Unretained(this),
+                             discard_newer_states));
   } else {
     NESRuntime::Data::StateResult failed_result{false};
-    OnStateLoaded(failed_result);
+    OnStateLoaded(discard_newer_states, failed_result);
   }
 }
 
@@ -2251,6 +2254,7 @@ void MainWindow::OnStateSaved(int slot, bool succeed) {
 }
 
 void MainWindow::OnStateLoaded(
+    bool discard_newer_states,
     const NESRuntime::Data::StateResult& state_result) {
   using namespace string_resources;
 
@@ -2259,7 +2263,8 @@ void MainWindow::OnStateLoaded(
     runtime_data_->emulator->LoadState(
         state_result.state_data,
         kiwi::base::BindOnce(
-            [](MainWindow* window, int slot_or_timestamp, bool success) {
+            [](MainWindow* window, int slot_or_timestamp,
+               bool discard_newer_states, bool success) {
 #if !BUILDFLAG(IS_WASM)
               if (success)
                 Toast::ShowToast(
@@ -2269,6 +2274,21 @@ void MainWindow::OnStateLoaded(
                     window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_FAILED));
 #endif
               if (success) {
+                if (discard_newer_states) {
+                  const kiwi::nes::RomData* rom_data =
+                      window->runtime_data_->emulator->GetRomData();
+                  if (rom_data) {
+                    window->runtime_data_->DeleteAutoSavedStatesNewerThan(
+                        rom_data->crc, slot_or_timestamp,
+                        kiwi::base::BindOnce([](bool deleted) {
+                          if (!deleted) {
+                            SDL_LogWarn(
+                                SDL_LOG_CATEGORY_APPLICATION,
+                                "Failed to delete newer auto saved states.");
+                          }
+                        }));
+                  }
+                }
                 for (auto* observer : window->observers_) {
                   observer->OnLoadStateSucceeded(slot_or_timestamp);
                 }
@@ -2279,7 +2299,7 @@ void MainWindow::OnStateLoaded(
               }
               window->PauseForFocusLossIfNeeded();
             },
-            this, state_result.slot_or_timestamp));
+            this, state_result.slot_or_timestamp, discard_newer_states));
     audio_->Start();
   }
 }
@@ -2573,7 +2593,8 @@ void MainWindow::OnInGameMenuItemTrigger(
           std::get_if<InGameMenu::AutoSaveTimestamp>(&command.payload);
       if (!timestamp)
         break;
-      OnLoadAutoSavedState(timestamp->value);
+      OnLoadAutoSavedState(timestamp->value,
+                           timestamp->discard_newer_states);
       CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kLoadState: {

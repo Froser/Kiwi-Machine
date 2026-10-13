@@ -66,6 +66,7 @@ class InGameMenu : public Widget {
 
   struct AutoSaveTimestamp {
     int value = 0;
+    bool discard_newer_states = false;
   };
 
   using MenuItemPayload =

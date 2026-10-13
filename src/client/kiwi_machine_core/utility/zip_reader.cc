@@ -508,6 +508,14 @@ bool ReplaceFileAtomically(const kiwi::base::FilePath& temporary_path,
   return ::MoveFileExW(temporary_path.value().c_str(),
                        target_path.value().c_str(),
                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+#elif BUILDFLAG(IS_SWITCH)
+  // Nintendo FS rejects rename when the destination already exists. The
+  // package index is disposable, so remove the stale cache after its
+  // replacement has been fully written to the temporary file.
+  if (!kiwi::base::DeletePathRecursively(target_path))
+    return false;
+  return std::rename(temporary_path.value().c_str(),
+                     target_path.value().c_str()) == 0;
 #else
   return std::rename(temporary_path.value().c_str(),
                      target_path.value().c_str()) == 0;

@@ -113,6 +113,11 @@ class NESRuntime {
         uint64_t timestamp,
         kiwi::base::OnceCallback<void(const StateResult&)> load_callback);
 
+    void DeleteAutoSavedStatesNewerThan(
+        int crc32,
+        uint64_t timestamp,
+        kiwi::base::OnceCallback<void(bool)> callback);
+
     void GetState(
         int crc32,
         int slot,

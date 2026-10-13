@@ -217,6 +217,43 @@ TEST_F(NESRuntimeBatterySaveTest, CountsOnlyCompleteManualSaveStates) {
 }
 
 TEST_F(NESRuntimeBatterySaveTest,
+       DeletesOnlyAutoSavedStatesNewerThanTimestamp) {
+  constexpr int kCrc32 = 1234;
+  const kiwi::base::FilePath auto_saved_path =
+      runtime_->profile_path.Append(FILE_PATH_LITERAL("States"))
+          .Append(FILE_PATH_LITERAL("1234"))
+          .Append(FILE_PATH_LITERAL("AutoSaved"));
+  for (const char* name : {"100", "200", "300", "invalid"}) {
+    ASSERT_TRUE(kiwi::base::CreateDirectory(
+        auto_saved_path.Append(kiwi::base::FilePath::FromUTF8Unsafe(name))));
+  }
+
+  bool callback_called = false;
+  bool success = false;
+  runtime_->DeleteAutoSavedStatesNewerThan(
+      kCrc32, 200,
+      kiwi::base::BindOnce(
+          [](bool* callback_called, bool* success, bool result) {
+            *callback_called = true;
+            *success = result;
+          },
+          &callback_called, &success));
+  EXPECT_FALSE(callback_called);
+  io_task_runner_->RunNextTask();
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_TRUE(success);
+  EXPECT_TRUE(kiwi::base::PathExists(
+      auto_saved_path.Append(FILE_PATH_LITERAL("100"))));
+  EXPECT_TRUE(kiwi::base::PathExists(
+      auto_saved_path.Append(FILE_PATH_LITERAL("200"))));
+  EXPECT_FALSE(kiwi::base::PathExists(
+      auto_saved_path.Append(FILE_PATH_LITERAL("300"))));
+  EXPECT_TRUE(kiwi::base::PathExists(
+      auto_saved_path.Append(FILE_PATH_LITERAL("invalid"))));
+}
+
+TEST_F(NESRuntimeBatterySaveTest,
        PreservesDirtyGenerationAcrossAsynchronousExplicitPathWrite) {
   kiwi::nes::Bytes rom = MakeWritingBatteryROM(0x10);
   const kiwi::base::FilePath rom_path = WriteROM(rom, "first.nes");

@@ -193,6 +193,27 @@ TEST_F(PackageIndexTest, RejectsCacheWhenPackageContentChanges) {
   EXPECT_FALSE(IsPackageIndexReady(package));
 }
 
+TEST_F(PackageIndexTest, ReplacesStaleCacheAfterPackageContentChanges) {
+  CreatePackage();
+  preset_roms::Package* package = OpenPackage();
+  ASSERT_NE(package, nullptr);
+  ASSERT_TRUE(BuildPackageIndex(package, profile_path_, {}));
+  ClosePackages();
+
+  CreatePackage("changed-rom-data");
+  package = OpenPackage();
+  ASSERT_NE(package, nullptr);
+  EXPECT_FALSE(RestorePackageIndexFromCache(package, profile_path_));
+  ASSERT_TRUE(BuildPackageIndex(package, profile_path_, {}));
+  ClosePackages();
+
+  package = OpenPackage();
+  ASSERT_NE(package, nullptr);
+  ASSERT_TRUE(RestorePackageIndexFromCache(package, profile_path_));
+  EXPECT_TRUE(IsPackageIndexReady(package));
+  EXPECT_EQ(package->GetRomsByIndex(0).sha1, Sha1("changed-rom-data"));
+}
+
 TEST_F(PackageIndexTest, RejectsCachedFilePositionThatDoesNotMatchArchive) {
   CreatePackage();
   preset_roms::Package* package = OpenPackage();

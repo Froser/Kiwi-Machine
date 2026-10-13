@@ -1503,12 +1503,15 @@ void InGameMenu::ExecuteStateAction() {
   PlayEffect(audio_resources::AudioID::kStart);
   if (focus_.menu_item == MenuItem::kLoadAutoSave) {
     int timestamp = state_preview_.timestamp;
+    bool discard_newer_states = false;
 #if BUILDFLAG(IS_SWITCH)
-    if (quick_load_mode_)
+    if (quick_load_mode_) {
       timestamp = GetQuickLoadTimestamp();
+      discard_newer_states = true;
+    }
 #endif
-    menu_callback_.Run(
-        MenuCommand{focus_.menu_item, AutoSaveTimestamp{timestamp}});
+    menu_callback_.Run(MenuCommand{
+        focus_.menu_item, AutoSaveTimestamp{timestamp, discard_newer_states}});
   } else {
     menu_callback_.Run(MenuCommand{focus_.menu_item, StateSlot{which_state_}});
   }

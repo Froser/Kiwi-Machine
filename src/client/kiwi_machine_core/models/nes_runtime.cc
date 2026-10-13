@@ -339,6 +339,35 @@ NESRuntime::Data::StateResult GetAutoSavedStateByTimestampOnIOThread(
   return sr;
 }
 
+bool DeleteAutoSavedStatesNewerThanOnIOThread(
+    const kiwi::base::FilePath& profile_path,
+    int crc32,
+    uint64_t timestamp) {
+  const kiwi::base::FilePath auto_saved_snapshot_path =
+      GetAutoSavedStatePath(profile_path, crc32);
+  if (!kiwi::base::PathExists(auto_saved_snapshot_path))
+    return true;
+
+  std::vector<kiwi::base::FilePath> paths_to_delete;
+  kiwi::base::FileEnumerator enumerator(
+      auto_saved_snapshot_path, false,
+      kiwi::base::FileEnumerator::DIRECTORIES);
+  for (kiwi::base::FilePath path = enumerator.Next(); !path.empty();
+       path = enumerator.Next()) {
+    uint64_t saved_timestamp = 0;
+    if (kiwi::base::StringToUint64(path.BaseName().AsUTF8Unsafe(),
+                                   &saved_timestamp) &&
+        saved_timestamp > timestamp) {
+      paths_to_delete.push_back(path);
+    }
+  }
+
+  bool success = true;
+  for (const kiwi::base::FilePath& path : paths_to_delete)
+    success = kiwi::base::DeletePathRecursively(path) && success;
+  return success;
+}
+
 NESRuntime::Data::StateResult GetAutoSavedStateOnIOThread(
     const kiwi::base::FilePath& profile_path,
     int crc32,
@@ -811,6 +840,17 @@ void NESRuntime::Data::GetAutoSavedStateByTimestamp(
       kiwi::base::BindOnce(&GetAutoSavedStateByTimestampOnIOThread,
                            profile_path, crc32, timestamp),
       std::move(load_callback));
+}
+
+void NESRuntime::Data::DeleteAutoSavedStatesNewerThan(
+    int crc32,
+    uint64_t timestamp,
+    kiwi::base::OnceCallback<void(bool)> callback) {
+  GetIOTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      kiwi::base::BindOnce(&DeleteAutoSavedStatesNewerThanOnIOThread,
+                           profile_path, crc32, timestamp),
+      std::move(callback));
 }
 
 void NESRuntime::Data::GetState(
