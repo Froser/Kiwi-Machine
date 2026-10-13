@@ -236,9 +236,10 @@ class MainWindow : public WindowBase,
   void OnRomUnloaded(bool success);
   void OnSaveState(int which_state);
   void OnLoadState(int which_state);
-  void OnLoadAutoSavedState(int timestamp);
+  void OnLoadAutoSavedState(int timestamp, bool discard_newer_states);
   void OnStateSaved(int slot, bool succeed);
-  void OnStateLoaded(const NESRuntime::Data::StateResult& state_result);
+  void OnStateLoaded(bool discard_newer_states,
+                     const NESRuntime::Data::StateResult& state_result);
   bool CanSaveOrLoadState();
   void OnTogglePause();
   void OnPause();
