@@ -11,12 +11,13 @@
 // GNU General Public License for more details.
 
 #include "utility/fonts.h"
+#include "build/build_config.h"
 
 #include <imgui.h>
 #include <array>
 
 #include "build/kiwi_defines.h"
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 #include <SDL_log.h>
 extern "C" {
 #include <switch/result.h>
@@ -83,7 +84,7 @@ void RegisterSystemFont() {
       ImGui::GetIO().Fonts->AddFontDefaultVector(&font_config);
 }
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 ImFont* RegisterSwitchSharedFont(PlSharedFontType font_type,
                                  float font_size,
                                  ImFont* merge_target = nullptr) {
@@ -163,7 +164,7 @@ float ScopedFont::GetFontSize() const {
 }
 
 void InitializeSystemFonts() {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   RegisterSwitchFonts();
 #else
   RegisterSystemFont();
@@ -174,7 +175,7 @@ void InitializeStartupFonts() {
   ImGui::GetIO().Fonts->Clear();
   g_fonts.fill(nullptr);
   InitializeSystemFonts();
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
   RegisterFont(FontType::kDefault, font_resources::FontID::kSupermario256,
                kDefaultFontSize);
 
@@ -202,7 +203,7 @@ void InitializeFonts() {
   g_fonts.fill(nullptr);
   InitializeSystemFonts();
 
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
 #if !DISABLE_CHINESE_FONT
   RegisterFont(FontType::kDefaultSimplifiedChinese,
                font_resources::FontID::kDengb, kDefaultFontSize);

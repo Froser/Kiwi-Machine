@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/about_widget.h"
+#include "build/build_config.h"
 
 #include <imgui.h>
 
@@ -48,7 +49,7 @@ constexpr ImU32 kKeyColor = IM_COL32(47, 54, 47, 255);
 constexpr ImU32 kBadgeColor = IM_COL32(240, 82, 82, 255);
 constexpr float kCornerRadius = 8.f;
 constexpr char kRepositoryUrl[] = "https://github.com/Froser/Kiwi-Machine";
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
 constexpr float kTouchMoveThreshold = 12.f;
 #endif
 
@@ -364,7 +365,7 @@ AboutWidget::~AboutWidget() = default;
 void AboutWidget::Close() {
   SDL_assert(parent_);
   mouse_pressed_ = false;
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   touch_active_ = false;
 #endif
   parent_->PopWidget();
@@ -438,7 +439,7 @@ bool AboutWidget::OnMouseReleased(SDL_MouseButtonEvent* event) {
   return true;
 }
 
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
 bool AboutWidget::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
   if (!has_layout_)
     return true;
@@ -507,7 +508,7 @@ AboutWidget::FrameText AboutWidget::BuildFrameText() const {
   text.menu = GetLocalizedString(IDR_ABOUT_CONTROLLER_INVOKE_MENU);
   text.player_one = GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD_1);
   text.player_two = GetLocalizedString(IDR_ABOUT_CONTROLLER_KEYBOARD_2);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   text.gamepad_name = GetLocalizedString(IDR_ABOUT_CONTROLLER_SWITCH);
   text.gamepad_start = "+";
 #else
@@ -520,7 +521,7 @@ AboutWidget::FrameText AboutWidget::BuildFrameText() const {
   text.game_selection_description = {
       GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_0),
       GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_1),
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_SWITCH),
 #else
       GetLocalizedString(IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_2),
@@ -567,9 +568,9 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
   }
   const bool compact_header = layout.page.w < 540.f * layout.scale;
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   layout.mode = LayoutMode::kSingleColumn;
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   layout.mode = LayoutMode::kTwoColumn;
 #else
   layout.mode = layout.page.w >= 620.f * layout.scale &&
@@ -634,7 +635,7 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
   SDL_Rect body =
       MakeRect(layout.page.x, RectBottom(layout.header) + gap, layout.page.w,
                RectBottom(layout.page) - RectBottom(layout.header) - gap);
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   const float section_tab_gap = 8.f * layout.scale;
   const float section_bar_height = std::min(44.f * layout.scale, body.h * .2f);
   layout.mobile_section_bar =
@@ -705,12 +706,12 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
       RectRight(layout.controls_panel) - layout.padding - tab_width,
       layout.controls_panel.y + (panel_header_height - tab_height) / 2.f,
       tab_width, tab_height);
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
   layout.keyboard_tab = MakeRect(layout.gamepad_tab.x - tab_width,
                                  layout.gamepad_tab.y, tab_width, tab_height);
 #endif
   const float controls_title_right =
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       layout.gamepad_tab.x;
 #else
       layout.keyboard_tab.x;
@@ -769,7 +770,7 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
 void AboutWidget::DrawFrame(const FrameText& text, const FrameLayout& layout) {
   DrawBackground(layout);
   DrawHeader(text, layout);
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   DrawMobileSectionTabs(text, layout);
   switch (mobile_section_) {
     case MobileSection::kControls:
@@ -792,7 +793,7 @@ void AboutWidget::DrawFrame(const FrameText& text, const FrameLayout& layout) {
   ImGui::Dummy(ImVec2(0.f, 0.f));
 }
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
 void AboutWidget::DrawMobileSectionTabs(const FrameText& text,
                                         const FrameLayout& layout) {
   const std::array<std::string, 3> labels = {
@@ -901,7 +902,7 @@ void AboutWidget::DrawControls(const FrameText& text,
     DrawTextInRect(label, rect, GetSecondaryFontSize(layout.body_font),
                    selected ? kBrandTextColor : kMutedTextColor, 2.f, true);
   };
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
   draw_tab(text.keyboard, layout.keyboard_tab, InputPage::kKeyboard,
            HitTarget::kKeyboardTab);
 #endif
@@ -1103,7 +1104,7 @@ void AboutWidget::DrawGamepad(const FrameText& text,
       text.direction, text.button_a, text.button_b,
       text.select,    text.start,    text.menu,
   };
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   const std::array<std::string, 6> values = {
       text.gamepad_direction, "A / Y", "B / X", "-",
       text.gamepad_start,     "L + R",
@@ -1255,7 +1256,7 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
       return keyboard->keysym.sym == key ||
              IsJoystickButtonMatch(runtime_data_, button, keyboard->keysym);
     };
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {
       MoveMobilePage(-1);
       return true;
@@ -1264,7 +1265,7 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
       MoveMobilePage(1);
       return true;
     }
-#elif !KIWI_SWITCH
+#elif !BUILDFLAG(IS_SWITCH)
     if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {
       SelectInputPage(InputPage::kKeyboard);
       return true;
@@ -1285,10 +1286,10 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
   if (controller) {
     switch (controller->button) {
       case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
         return true;
 #else
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
         MoveMobilePage(-1);
 #else
         SelectInputPage(InputPage::kKeyboard);
@@ -1296,17 +1297,17 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
         return true;
 #endif
       case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
         return true;
 #else
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
         MoveMobilePage(1);
 #else
         SelectInputPage(InputPage::kGamepad);
 #endif
         return true;
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       // devkitPro SDL reports the physical Switch B button as SDL A.
       case SDL_CONTROLLER_BUTTON_A:
 #else
@@ -1322,10 +1323,10 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
   }
 
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kLeft)) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     return true;
 #else
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     MoveMobilePage(-1);
 #else
     SelectInputPage(InputPage::kKeyboard);
@@ -1334,10 +1335,10 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
 #endif
   }
   if (IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton::kRight)) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     return true;
 #else
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     MoveMobilePage(1);
 #else
     SelectInputPage(InputPage::kGamepad);
@@ -1353,7 +1354,7 @@ AboutWidget::HitTarget AboutWidget::HitTest(const FrameLayout& layout,
                                             float y) const {
   if (PointInRect(layout.back_button, x, y))
     return HitTarget::kBack;
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   if (PointInRect(layout.mobile_section_tabs[0], x, y))
     return HitTarget::kControlsSection;
   if (PointInRect(layout.mobile_section_tabs[1], x, y))
@@ -1385,7 +1386,7 @@ void AboutWidget::ActivateHitTarget(HitTarget target) {
       PlayEffect(audio_resources::AudioID::kBack);
       Close();
       break;
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     case HitTarget::kControlsSection:
       SelectMobileSection(MobileSection::kControls);
       break;
@@ -1408,7 +1409,7 @@ void AboutWidget::SelectInputPage(InputPage page) {
   PlayEffect(audio_resources::AudioID::kSelect);
 }
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
 void AboutWidget::SelectMobileSection(MobileSection section) {
   if (mobile_section_ == section)
     return;

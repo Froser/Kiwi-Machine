@@ -14,12 +14,13 @@
 
 #include <stack>
 
-#include "base/check.h"
-#include "base/platform/sdl2/sdl2_single_thread_task_executor_interface.h"
 #include <SDL_events.h>
 #include <SDL_timer.h>
+#include "base/check.h"
+#include "base/platform/sdl2/sdl2_single_thread_task_executor_interface.h"
+#include "build/build_config.h"
 
-#ifdef __EMSCRIPTEN__
+#if BUILDFLAG(IS_WASM)
 #include <emscripten.h>
 #endif
 
@@ -37,7 +38,7 @@ namespace {
 constexpr int kFPS = 60;
 THREAD_LOCAL std::stack<SDL2RunLoopInterface*> g_thread_run_loops;
 
-#if __EMSCRIPTEN__
+#if BUILDFLAG(IS_WASM)
 void EmscriptenMainLoop() {
   CHECK(g_thread_run_loops.top());
   g_thread_run_loops.top()->HandleEvents();
@@ -81,7 +82,7 @@ SDL_Event SDL2RunLoopInterface::CreatePostTaskEvent() {
 
 void SDL2RunLoopInterface::Run() {
   is_running_ = true;
-#if __EMSCRIPTEN__
+#if BUILDFLAG(IS_WASM)
   emscripten_set_main_loop(EmscriptenMainLoop, kFPS, true);
 #else
   while (is_running_) {
@@ -125,7 +126,7 @@ void SDL2RunLoopInterface::Quit() {
 }
 
 void SDL2RunLoopInterface::TryRender() {
-#if __EMSCRIPTEN__
+#if BUILDFLAG(IS_WASM)
   if (GetRenderHandlerForSDL2()) {
     GetRenderHandlerForSDL2().Run();
   }

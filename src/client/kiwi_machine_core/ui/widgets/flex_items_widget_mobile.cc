@@ -10,6 +10,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+#include "build/build_config.h"
 #include "ui/widgets/flex_items_widget.h"
 
 #include <SDL.h>
@@ -22,7 +23,7 @@ namespace {
 
 constexpr float kVelocitySmoothing = 0.35f;
 constexpr float kMaximumFlingVelocity = 6000.f;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 constexpr float kTouchDragThreshold = 12.f;
 #else
 // One pixel preserves the original mobile y_distance != 0 behavior.

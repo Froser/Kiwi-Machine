@@ -14,6 +14,7 @@
 #define NES_CONFIG_H_
 
 #include <kiwi_nes.h>
+#include "build/build_config.h"
 
 #include <array>
 #include <string>
@@ -32,7 +33,7 @@ class NESConfig : public kiwi::base::RefCounted<NESConfig> {
     int last_index = 0;
     int language = -1;  // -1 means automatic (follows system's locale)
     std::array<bool, 2> swap_ab = {};
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     bool is_stretch_mode = true;
 #endif
   };

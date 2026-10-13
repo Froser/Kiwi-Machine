@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "utility/localization.h"
+#include "build/build_config.h"
 
 #include <SDL.h>
 #include <kiwi_nes.h>
@@ -79,7 +80,7 @@ const char* ToLanguageCode(SupportedLanguage language) {
   switch (language) {
     case SupportedLanguage::kEnglish:
       return "en";
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
     case SupportedLanguage::kSimplifiedChinese:
       return "zh";
     case SupportedLanguage::kJapanese:

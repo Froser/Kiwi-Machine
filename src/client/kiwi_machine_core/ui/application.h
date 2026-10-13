@@ -19,6 +19,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include "build/build_config.h"
 
 #include "build/kiwi_defines.h"
 #include "models/nes_runtime.h"
@@ -43,7 +44,7 @@ class ApplicationObserver {
 
 class Application {
  public:
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
   Application();
 #endif
   Application(int& argc, char** argv);
@@ -65,7 +66,7 @@ class Application {
   void RemoveObserver(ApplicationObserver* observer);
   void SetLanguage(SupportedLanguage language);
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   bool ReloadGameControllers();
 #endif
 
@@ -115,7 +116,7 @@ class Application {
 #if KIWI_ENABLE_HD_TEXTURE
   std::vector<kiwi::base::FilePath> texture_pack_paths_;
 #endif
-#if !KIWI_WASM
+#if !BUILDFLAG(IS_WASM)
   std::unique_ptr<kiwi::base::Thread> io_thread_;
 #endif
   Timer frame_elapsed_counter_;

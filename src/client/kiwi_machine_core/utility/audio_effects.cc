@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "utility/audio_effects.h"
+#include "build/build_config.h"
 
 #include <SDL.h>
 #include <SDL_mixer.h>
@@ -20,7 +21,7 @@
 
 namespace {
 
-#if !KIWI_MOBILE && !KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
 Mix_Music* g_all_effects[static_cast<int>(audio_resources::AudioID::kLast)];
 bool g_effect_disabled = false;
 bool g_audio_failed = false;
@@ -44,17 +45,17 @@ void LoadAudioEffectFromMemory(audio_resources::AudioID type,
 }  // namespace
 
 void InitializeAudioEffects() {
-#if !KIWI_MOBILE && !KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
   int flags = MIX_INIT_MP3;
   if (Mix_Init(flags) == flags) {
     // Is all effects loaded?
     if (g_all_effects[0])
       return;
 
-    int audio_rate = KIWI_SWITCH ? 44100 : MIX_DEFAULT_FREQUENCY;
+    int audio_rate = BUILDFLAG(IS_SWITCH) ? 44100 : MIX_DEFAULT_FREQUENCY;
     Uint16 audio_format = MIX_DEFAULT_FORMAT;
     int audio_channels = MIX_DEFAULT_CHANNELS;
-    int audio_buffers = KIWI_SWITCH ? 1024 : 4096;
+    int audio_buffers = BUILDFLAG(IS_SWITCH) ? 1024 : 4096;
     if (Mix_OpenAudio(audio_rate, audio_format, audio_channels, audio_buffers) <
         0) {
       SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't open audio: %s\n",
@@ -77,7 +78,7 @@ void InitializeAudioEffects() {
 }
 
 void UninitializeAudioEffects() {
-#if !KIWI_MOBILE && !KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
   for (Mix_Music* m : g_all_effects) {
     Mix_FreeMusic(m);
   }
@@ -88,7 +89,7 @@ void UninitializeAudioEffects() {
 }
 
 void SetEffectVolume(float volume) {
-#if !KIWI_MOBILE && !KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
   Mix_VolumeMusic(MIX_MAX_VOLUME * volume);
 #endif
 }
@@ -103,7 +104,7 @@ ScopedDisableEffect::~ScopedDisableEffect() {
 
 #if !DISABLE_SOUND_EFFECTS
 void PlayEffect(audio_resources::AudioID aid) {
-#if !KIWI_MOBILE && !KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
   if (!g_effect_disabled && !g_audio_failed) {
     int index = static_cast<int>(aid);
     if (g_all_effects[index]) {
@@ -118,7 +119,7 @@ void PlayEffect(audio_resources::AudioID aid) {
 }
 
 void SetEffectEnabled(bool enabled) {
-#if !KIWI_MOBILE && !KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
   g_effect_disabled = !enabled;
 #endif
 }

@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/in_game_menu.h"
+#include "build/build_config.h"
 
 #include <imgui.h>
 
@@ -26,30 +27,26 @@
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "ui/widgets/canvas.h"
+#include "ui/widgets/in_game_menu_internal.h"
 #include "utility/audio_effects.h"
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 
 namespace {
 
+using namespace in_game_menu_internal;
+
 constexpr ImU32 kBackdropColor = IM_COL32(3, 7, 3, 184);
 constexpr ImU32 kPanelColor = IM_COL32(22, 25, 22, 247);
 constexpr ImU32 kPanelMutedColor = IM_COL32(34, 39, 34, 255);
-constexpr ImU32 kTextColor = IM_COL32(245, 247, 245, 255);
-constexpr ImU32 kMutedTextColor = IM_COL32(169, 176, 169, 255);
 constexpr ImU32 kBorderColor = IM_COL32(245, 247, 245, 36);
-constexpr ImU32 kStrongBorderColor = IM_COL32(245, 247, 245, 58);
-constexpr ImU32 kBrandColor = IM_COL32(101, 216, 75, 255);
 constexpr ImU32 kBrandSoftColor = IM_COL32(23, 61, 19, 255);
-constexpr ImU32 kBrandOnColor = IM_COL32(16, 40, 12, 255);
 constexpr ImU32 kDangerColor = IM_COL32(255, 119, 110, 255);
-constexpr float kCornerRadius = 8.f;
 constexpr float kPanelCornerRadius = 8.f;
 constexpr float kTouchMoveThreshold = 12.f;
 constexpr float kLargeMenuFontScale = .8f;
 constexpr Sint16 kControllerDeadZone = SDL_JOYSTICK_AXIS_MAX / 3;
 constexpr int kControllerRepeatDelayMs = 180;
-constexpr float kPi = 3.14159265358979323846f;
 
 constexpr std::array<int, 7> kMenuStringIds = {
     string_resources::IDR_IN_GAME_MENU_CONTINUE,
@@ -64,18 +61,18 @@ constexpr std::array<int, 7> kMenuStringIds = {
 constexpr std::array<int, static_cast<size_t>(InGameMenu::SettingsItem::kMax)>
     kSettingsStringIds = {
         string_resources::IDR_IN_GAME_MENU_VOLUME,
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
         string_resources::IDR_IN_GAME_MENU_SCALING_MODE,
-#elif !KIWI_SWITCH
+#elif !BUILDFLAG(IS_SWITCH)
         string_resources::IDR_IN_GAME_MENU_WINDOW_MODE,
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
         string_resources::IDR_IN_GAME_MENU_CONTROLLER_ORDER,
 #else
         string_resources::IDR_IN_GAME_MENU_P1,
 #endif
         string_resources::IDR_IN_GAME_MENU_SWAP_AB_P1,
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
         string_resources::IDR_IN_GAME_MENU_P2,
 #endif
         string_resources::IDR_IN_GAME_MENU_SWAP_AB_P2,
@@ -85,26 +82,6 @@ constexpr std::array<int, static_cast<size_t>(InGameMenu::SettingsItem::kMax)>
 template <typename T>
 constexpr size_t ToIndex(T value) {
   return static_cast<size_t>(value);
-}
-
-SDL_Rect MakeRect(float x, float y, float width, float height) {
-  return SDL_Rect{static_cast<int>(std::round(x)),
-                  static_cast<int>(std::round(y)),
-                  std::max(0, static_cast<int>(std::round(width))),
-                  std::max(0, static_cast<int>(std::round(height)))};
-}
-
-SDL_Rect InsetRect(const SDL_Rect& rect, float amount) {
-  return MakeRect(rect.x + amount, rect.y + amount, rect.w - amount * 2.f,
-                  rect.h - amount * 2.f);
-}
-
-float RectRight(const SDL_Rect& rect) {
-  return rect.x + rect.w;
-}
-
-float RectBottom(const SDL_Rect& rect) {
-  return rect.y + rect.h;
 }
 
 bool IsValidRect(const SDL_Rect& rect) {
@@ -123,37 +100,12 @@ bool PointInClippedRect(const SDL_Rect& rect,
   return PointInRect(rect, x, y) && PointInRect(clip, x, y);
 }
 
-ImVec2 RectMin(const SDL_Rect& rect) {
-  return ImVec2(rect.x, rect.y);
-}
-
-ImVec2 RectMax(const SDL_Rect& rect) {
-  return ImVec2(RectRight(rect), RectBottom(rect));
-}
-
-PreferredFontSize GetSecondaryFontSize(PreferredFontSize size) {
-  switch (size) {
-    case PreferredFontSize::k6x:
-      return PreferredFontSize::k5x;
-    case PreferredFontSize::k5x:
-      return PreferredFontSize::k4x;
-    case PreferredFontSize::k4x:
-      return PreferredFontSize::k3x;
-    case PreferredFontSize::k3x:
-      return PreferredFontSize::k2x;
-    case PreferredFontSize::k2x:
-    case PreferredFontSize::k1x:
-      return PreferredFontSize::k1x;
-  }
-  return PreferredFontSize::k1x;
-}
-
 float GetMenuFontScale(PreferredFontSize size) {
   return size == PreferredFontSize::k1x ? 1.f : kLargeMenuFontScale;
 }
 
 float GetMenuHorizontalPadding(float layout_padding) {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return std::max(12.f, layout_padding * .5f);
 #else
   return layout_padding;
@@ -176,50 +128,6 @@ float MeasureTextHeight(const std::string& text,
                         FontType default_font = FontType::kDefault,
                         float font_scale = 1.f) {
   return MeasureText(text, font_size, wrap_width, default_font, font_scale).y;
-}
-
-void DrawTextInRect(const std::string& text,
-                    const SDL_Rect& rect,
-                    PreferredFontSize font_size,
-                    ImU32 color,
-                    float horizontal_padding,
-                    bool center,
-                    bool wrap,
-                    FontType default_font = FontType::kDefault,
-                    float font_scale = 1.f) {
-  if (!IsValidRect(rect) || text.empty())
-    return;
-
-  ScopedFont font = GetPreferredFont(font_size, text.c_str(), default_font);
-  const float resolved_font_size = font.GetFontSize() * font_scale;
-  const float wrap_width =
-      wrap ? std::max(1.f, rect.w - horizontal_padding * 2.f) : 0.f;
-  ImVec2 text_size = font.GetFont()->CalcTextSizeA(resolved_font_size, FLT_MAX,
-                                                   wrap_width, text.c_str());
-  float x = rect.x + horizontal_padding;
-  if (center)
-    x = rect.x + std::max(0.f, (rect.w - text_size.x) / 2.f);
-  float y = rect.y + std::max(0.f, (rect.h - text_size.y) / 2.f);
-  ImVec4 clip_rect(rect.x, rect.y, RectRight(rect), RectBottom(rect));
-  ImGui::GetWindowDrawList()->AddText(font.GetFont(), resolved_font_size,
-                                      ImVec2(x, y), color, text.c_str(),
-                                      nullptr, wrap_width, &clip_rect);
-}
-
-void DrawChevron(const SDL_Rect& rect, bool points_left, ImU32 color) {
-  const float radius = std::min(rect.w, rect.h) * .18f;
-  const ImVec2 center(rect.x + rect.w / 2.f, rect.y + rect.h / 2.f);
-  if (points_left) {
-    ImGui::GetWindowDrawList()->AddTriangleFilled(
-        ImVec2(center.x - radius, center.y),
-        ImVec2(center.x + radius, center.y - radius),
-        ImVec2(center.x + radius, center.y + radius), color);
-  } else {
-    ImGui::GetWindowDrawList()->AddTriangleFilled(
-        ImVec2(center.x + radius, center.y),
-        ImVec2(center.x - radius, center.y - radius),
-        ImVec2(center.x - radius, center.y + radius), color);
-  }
 }
 
 void DrawCloseIcon(const SDL_Rect& rect, ImU32 color) {
@@ -260,21 +168,6 @@ void DrawButtonBackground(const SDL_Rect& rect,
                      selected ? 2.f : 1.f);
 }
 
-void DrawSpinner(const SDL_Rect& rect) {
-  ImDrawList* draw_list = ImGui::GetWindowDrawList();
-  const ImVec2 center(rect.x + rect.w / 2.f, rect.y + rect.h / 2.f);
-  const float orbit = std::min(rect.w, rect.h) * .18f;
-  const float dot_radius = std::max(2.f, orbit * .16f);
-  const float phase = static_cast<float>(ImGui::GetTime()) * 4.f;
-  for (int i = 0; i < 8; ++i) {
-    const float angle = phase + 2.f * kPi * i / 8.f;
-    const int alpha = 64 + i * 23;
-    draw_list->AddCircleFilled(ImVec2(center.x + std::cos(angle) * orbit,
-                                      center.y + std::sin(angle) * orbit),
-                               dot_radius, IM_COL32(101, 216, 75, alpha));
-  }
-}
-
 }  // namespace
 
 InGameMenu::InGameMenu(MainWindow* main_window,
@@ -299,10 +192,19 @@ InGameMenu::~InGameMenu() {
   lifetime_token_.reset();
   if (snapshot_)
     SDL_DestroyTexture(snapshot_);
+#if BUILDFLAG(IS_SWITCH)
+  for (QuickLoadPreview& preview : quick_load_previews_) {
+    if (preview.texture)
+      SDL_DestroyTexture(preview.texture);
+  }
+#endif
 }
 
 void InGameMenu::Close() {
   CancelStatePreviewRequest();
+#if BUILDFLAG(IS_SWITCH)
+  ++quick_load_preview_request_id_;
+#endif
   ++saved_state_count_request_id_;
   ++auto_save_count_request_id_;
   touch_active_ = false;
@@ -312,9 +214,13 @@ void InGameMenu::Close() {
 }
 
 void InGameMenu::Show() {
+#if BUILDFLAG(IS_SWITCH)
+  quick_load_mode_ = false;
+  ++quick_load_preview_request_id_;
+#endif
   page_ = Page::kMainMenu;
   focus_.area = FocusArea::kMenu;
-  focus_.settings_item = SettingsItem::kVolume;
+  focus_.settings_item = kFirstSettingsItem;
   focus_.confirm_action = false;
   menu_scroll_offset_ = 0.f;
   settings_scroll_offset_ = 0.f;
@@ -509,6 +415,8 @@ InGameMenu::FrameText InGameMenu::BuildFrameText() const {
   for (size_t i = 0; i < text.menu_items.size(); ++i)
     text.menu_items[i] = GetLocalizedString(kMenuStringIds[i]);
   for (size_t i = 0; i < text.setting_labels.size(); ++i) {
+    if (!IsSettingItemVisible(static_cast<SettingsItem>(i)))
+      continue;
     text.setting_labels[i] = GetLocalizedString(kSettingsStringIds[i]);
     text.setting_values[i] = GetSettingValue(static_cast<SettingsItem>(i));
   }
@@ -541,12 +449,10 @@ InGameMenu::FrameText InGameMenu::BuildFrameText() const {
         std::to_string(NESRuntime::Data::MaxSaveStates);
   }
 
-#if !KIWI_SWITCH
   text.state_action = GetLocalizedString(
       focus_.menu_item == MenuItem::kSaveState
           ? string_resources::IDR_IN_GAME_MENU_SAVE_TO_SLOT
           : string_resources::IDR_IN_GAME_MENU_LOAD_THIS_STATE);
-#endif
   text.confirmation_title =
       GetLocalizedString(string_resources::IDR_IN_GAME_MENU_CONFIRM_ACTION);
   text.confirmation_message = GetLocalizedString(
@@ -593,8 +499,24 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
   layout.row_height =
       std::max(44.f, layout.font_height + layout.padding * 1.5f);
 
+#if BUILDFLAG(IS_SWITCH)
+  if (quick_load_mode_) {
+    layout.mode = LayoutMode::kQuickLoad;
+    layout.panel = MakeRect(layout.safe_area.x,
+                            RectBottom(layout.safe_area) -
+                                std::min(420.f, layout.safe_area.h * .58f),
+                            layout.safe_area.w,
+                            std::min(420.f, layout.safe_area.h * .58f));
+    layout.content = layout.panel;
+    layout.detail = layout.content;
+    layout.visible_page = Page::kStateBrowser;
+    LayoutQuickLoad(layout);
+    return layout;
+  }
+#endif
+
   SDL_Rect candidate_panel;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   candidate_panel =
       MakeRect(layout.safe_area.x + 60.f, layout.safe_area.y + 32.f,
                layout.safe_area.w - 120.f, layout.safe_area.h - 64.f);
@@ -602,24 +524,24 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
   const float candidate_margin = std::min(32.f, std::max(16.f, 24.f * scale));
   candidate_panel = InsetRect(layout.safe_area, candidate_margin);
 #endif
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   const float menu_horizontal_padding =
       GetMenuHorizontalPadding(layout.padding);
   const float chevron_width = std::max(36.f, layout.font_height);
   const float navigation_width =
       std::max(190.f * scale, widest_menu_item + chevron_width +
                                   menu_horizontal_padding * 4.f);
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   const float navigation_width =
       std::max(420.f, widest_menu_item + layout.padding * 3.f);
 #else
   const float navigation_width =
       std::max(190.f * scale, widest_menu_item + layout.padding * 3.f);
 #endif
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   const float detail_min_width =
       std::max(240.f * scale, layout.font_height * 10.f);
-#elif KIWI_SWITCH
+#elif BUILDFLAG(IS_SWITCH)
   constexpr float detail_min_width = 600.f;
 #else
   const float detail_min_width =
@@ -672,7 +594,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
                                     layout.header_title.w, subtitle_height);
 
   if (layout.mode == LayoutMode::kTwoPane) {
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
     const float resolved_navigation_width = navigation_width;
 #else
     const float resolved_navigation_width =
@@ -705,9 +627,9 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
       LayoutConfirmation(layout);
       break;
     case Page::kMainMenu: {
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
       if (layout.mode == LayoutMode::kTwoPane) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
         const std::string& action_text =
             text.menu_items[ToIndex(focus_.menu_item)];
         const float text_width =
@@ -735,7 +657,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
 void InGameMenu::LayoutMenu(const FrameText& text, FrameLayout& layout) {
   std::array<float, kMenuItemCount> row_heights = {};
   const float horizontal_padding = GetMenuHorizontalPadding(layout.padding);
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   const float text_width = 0.f;
 #else
   const float text_width =
@@ -807,85 +729,50 @@ void InGameMenu::LayoutMenu(const FrameText& text, FrameLayout& layout) {
 
 void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
   SDL_Rect inner = InsetRect(layout.detail, layout.padding);
-  const float gap = layout.padding;
-  const float selector_height = layout.row_height;
-  const float text_height = layout.font_height * 1.5f;
-  const bool horizontal = inner.w >= 520.f && inner.w > inner.h * 1.15f;
+  const float gap = std::max(8.f, layout.padding * .75f);
+  const float arrow_size = layout.row_height;
+  const float title_height =
+      layout.mode == LayoutMode::kSinglePane ? layout.font_height * 1.5f : 0.f;
+  const float metadata_height = std::max(32.f, layout.font_height * 1.5f);
+  const float vertical_gap_count = title_height > 0.f ? 3.f : 2.f;
+  const float controls_height = title_height + metadata_height +
+                                layout.row_height + gap * vertical_gap_count;
+  const float preview_aspect =
+      static_cast<float>(Canvas::kNESFrameDefaultWidth) /
+      static_cast<float>(Canvas::kNESFrameDefaultHeight);
+  const float available_preview_width =
+      std::max(0.f, inner.w - (arrow_size + gap) * 2.f);
+  const float available_preview_height =
+      std::max(0.f, inner.h - controls_height);
+  const float preview_width = std::min(
+      available_preview_width, available_preview_height * preview_aspect);
+  const float preview_height = preview_width / std::max(1.f, preview_aspect);
+  const float content_height = controls_height + preview_height;
 
-  if (horizontal) {
-    const float preview_width =
-        std::min((inner.w - gap) * .56f,
-                 inner.h * Canvas::kNESFrameDefaultWidth /
-                     static_cast<float>(Canvas::kNESFrameDefaultHeight));
-    const float preview_height =
-        preview_width * Canvas::kNESFrameDefaultHeight /
-        static_cast<float>(Canvas::kNESFrameDefaultWidth);
-    layout.state_preview =
-        MakeRect(inner.x, inner.y + (inner.h - preview_height) / 2.f,
-                 preview_width, preview_height);
-
-    SDL_Rect controls =
-        MakeRect(RectRight(layout.state_preview) + gap, inner.y,
-                 inner.w - layout.state_preview.w - gap, inner.h);
-#if KIWI_SWITCH
-    const float controls_height = text_height + gap + selector_height;
-#else
-    const float controls_height =
-        text_height + gap * 2.f + selector_height * 2.f;
-#endif
-    float y = controls.y + std::max(0.f, (controls.h - controls_height) / 2.f);
-    layout.state_title = MakeRect(controls.x, y, controls.w, text_height);
-    y += text_height + gap;
-    const float button_width = selector_height;
-    layout.state_selector =
-        MakeRect(controls.x, y, controls.w, selector_height);
-    layout.state_previous =
-        MakeRect(controls.x, y, button_width, selector_height);
-    layout.state_next = MakeRect(RectRight(controls) - button_width, y,
-                                 button_width, selector_height);
-    layout.state_position =
-        MakeRect(RectRight(layout.state_previous), y,
-                 controls.w - button_width * 2.f, selector_height);
-#if !KIWI_SWITCH
-    y += selector_height + gap;
-    layout.state_action = MakeRect(controls.x, y, controls.w, selector_height);
-#endif
-  } else {
-    const float preview_width = inner.w;
-    const float natural_preview_height =
-        preview_width * Canvas::kNESFrameDefaultHeight /
-        static_cast<float>(Canvas::kNESFrameDefaultWidth);
-#if KIWI_SWITCH
-    const float controls_height = text_height + gap + selector_height;
-#else
-    const float controls_height =
-        text_height + gap * 2.f + selector_height * 2.f;
-#endif
-    const float preview_height = std::min(
-        natural_preview_height, std::max(0.f, inner.h - controls_height));
-    const float fitted_preview_width =
-        preview_height * Canvas::kNESFrameDefaultWidth /
-        static_cast<float>(Canvas::kNESFrameDefaultHeight);
-    layout.state_preview =
-        MakeRect(inner.x + (inner.w - fitted_preview_width) / 2.f, inner.y,
-                 fitted_preview_width, preview_height);
-
-    float y = RectBottom(layout.state_preview) + gap;
-    layout.state_title = MakeRect(inner.x, y, inner.w, text_height);
-    y += text_height + gap;
-    const float button_width = selector_height;
-    layout.state_selector = MakeRect(inner.x, y, inner.w, selector_height);
-    layout.state_previous = MakeRect(inner.x, y, button_width, selector_height);
-    layout.state_next = MakeRect(RectRight(inner) - button_width, y,
-                                 button_width, selector_height);
-    layout.state_position =
-        MakeRect(RectRight(layout.state_previous), y,
-                 inner.w - button_width * 2.f, selector_height);
-#if !KIWI_SWITCH
-    y += selector_height + gap;
-    layout.state_action = MakeRect(inner.x, y, inner.w, selector_height);
-#endif
+  float y = inner.y + std::max(0.f, (inner.h - content_height) / 2.f);
+  if (title_height > 0.f) {
+    layout.state_title = MakeRect(inner.x, y, inner.w, title_height);
+    y += title_height + gap;
   }
+
+  layout.state_preview = MakeRect(inner.x + (inner.w - preview_width) / 2.f, y,
+                                  preview_width, preview_height);
+  layout.state_previous = MakeRect(
+      layout.state_preview.x - gap - arrow_size,
+      layout.state_preview.y + (layout.state_preview.h - arrow_size) / 2.f,
+      arrow_size, arrow_size);
+  layout.state_next = MakeRect(RectRight(layout.state_preview) + gap,
+                               layout.state_previous.y, arrow_size, arrow_size);
+
+  y = RectBottom(layout.state_preview) + gap;
+  const float metadata_width = std::min(400.f, static_cast<float>(inner.w));
+  layout.state_position = MakeRect(inner.x + (inner.w - metadata_width) / 2.f,
+                                   y, metadata_width, metadata_height);
+  y += metadata_height + gap;
+  const float action_width = std::min(std::max(240.f, layout.row_height * 5.f),
+                                      static_cast<float>(inner.w));
+  layout.state_action = MakeRect(inner.x + (inner.w - action_width) / 2.f, y,
+                                 action_width, layout.row_height);
 }
 
 void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
@@ -898,8 +785,13 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
   const float value_width =
       std::max(1.f, control_width - layout.row_height * 2.f - layout.padding);
   std::array<float, kSettingsItemCount> row_heights = {};
-  float required_height = kRowGap * (kSettingsItemCount - 1);
+  float required_height = 0.f;
+  size_t visible_item_count = 0;
   for (size_t i = 0; i < kSettingsItemCount; ++i) {
+    if (!IsSettingItemVisible(static_cast<SettingsItem>(i)))
+      continue;
+    if (visible_item_count > 0)
+      required_height += kRowGap;
     const float label_height = MeasureTextHeight(text.setting_labels[i],
                                                  layout.font_size, label_width);
     const float value_height = MeasureTextHeight(
@@ -909,6 +801,7 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
         std::max(layout.row_height,
                  std::max(label_height, value_height) + layout.padding);
     required_height += row_heights[i];
+    ++visible_item_count;
   }
 
   layout.settings_content_height = required_height + layout.padding * 2.f;
@@ -916,10 +809,12 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
   float y = inner.y + std::max(0.f, (inner.h - required_height) / 2.f) -
             settings_scroll_offset_;
   for (size_t i = 0; i < kSettingsItemCount; ++i) {
+    if (!IsSettingItemVisible(static_cast<SettingsItem>(i)))
+      continue;
     const float row_height = row_heights[i];
     layout.setting_items[i] = MakeRect(inner.x, y, inner.w, row_height);
     const float button_width = std::min(layout.row_height, control_width / 3.f);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (static_cast<SettingsItem>(i) == SettingsItem::kControllerSupport) {
       layout.setting_previous[i] = {};
       layout.setting_values[i] = {};
@@ -942,7 +837,7 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
 }
 
 void InGameMenu::LayoutConfirmation(FrameLayout& layout) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   constexpr float kPreferredBodyWidth = 560.f;
 #else
   constexpr float kPreferredBodyWidth = 440.f;
@@ -969,13 +864,21 @@ void InGameMenu::LayoutConfirmation(FrameLayout& layout) {
 
 void InGameMenu::DrawFrame(const FrameText& text, const FrameLayout& layout) {
   DrawBackground(layout);
-  DrawHeader(text, layout);
+  if (IsValidRect(layout.header))
+    DrawHeader(text, layout);
   if (IsValidRect(layout.navigation))
     DrawMenu(text, layout);
 
   switch (layout.visible_page) {
     case Page::kStateBrowser:
+#if BUILDFLAG(IS_SWITCH)
+      if (quick_load_mode_)
+        DrawQuickLoad(text, layout);
+      else
+        DrawStateBrowser(text, layout);
+#else
       DrawStateBrowser(text, layout);
+#endif
       break;
     case Page::kSettings:
       DrawSettings(text, layout);
@@ -984,7 +887,7 @@ void InGameMenu::DrawFrame(const FrameText& text, const FrameLayout& layout) {
       DrawConfirmation(text, layout);
       break;
     case Page::kMainMenu:
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
       DrawContextualAction(text, layout);
 #endif
       break;
@@ -998,16 +901,20 @@ void InGameMenu::DrawBackground(const FrameLayout& layout) {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   ImVec2 window_pos = ImGui::GetWindowPos();
   ImVec2 window_size = ImGui::GetWindowSize();
+#if BUILDFLAG(IS_SWITCH)
+  if (DrawQuickLoadBackground(layout))
+    return;
+#endif
   draw_list->AddRectFilled(
       window_pos,
       ImVec2(window_pos.x + window_size.x, window_pos.y + window_size.y),
       kBackdropColor);
   draw_list->AddRectFilled(
       RectMin(layout.panel), RectMax(layout.panel), kPanelColor,
-      layout.mode == LayoutMode::kTwoPane ? kPanelCornerRadius : 0.f);
+      layout.mode == LayoutMode::kSinglePane ? 0.f : kPanelCornerRadius);
   draw_list->AddRect(
       RectMin(layout.panel), RectMax(layout.panel), kBorderColor,
-      layout.mode == LayoutMode::kTwoPane ? kPanelCornerRadius : 0.f);
+      layout.mode == LayoutMode::kSinglePane ? 0.f : kPanelCornerRadius);
   if (layout.mode == LayoutMode::kTwoPane) {
     draw_list->AddLine(
         ImVec2(RectRight(layout.navigation), layout.navigation.y),
@@ -1062,7 +969,7 @@ void InGameMenu::DrawMenu(const FrameText& text, const FrameLayout& layout) {
       text_color = kBrandOnColor;
     else if (danger && enabled)
       text_color = kDangerColor;
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
     const float chevron_width = std::max(36.f, layout.font_height);
 #else
     const float chevron_width = layout.row_height;
@@ -1073,7 +980,7 @@ void InGameMenu::DrawMenu(const FrameText& text, const FrameLayout& layout) {
         layout.menu_items[i].w - chevron_width, layout.menu_items[i].h);
     DrawTextInRect(text.menu_items[i], text_rect, layout.font_size, text_color,
                    horizontal_padding, false,
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
                    false,
 #else
                    true,
@@ -1121,29 +1028,20 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
     DrawSpinner(layout.state_preview);
   } else if (state_preview_.status == StatePreview::Status::kReady &&
              state_preview_.has_thumbnail && snapshot_) {
-    draw_list->AddImage(reinterpret_cast<ImTextureID>(snapshot_),
-                        RectMin(layout.state_preview),
-                        RectMax(layout.state_preview));
+    draw_list->AddImageRounded(reinterpret_cast<ImTextureID>(snapshot_),
+                               RectMin(layout.state_preview),
+                               RectMax(layout.state_preview), ImVec2(0.f, 0.f),
+                               ImVec2(1.f, 1.f), IM_COL32_WHITE, kCornerRadius);
   } else {
     DrawTextInRect(
         GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NO_STATE),
         layout.state_preview, GetSecondaryFontSize(layout.font_size),
         kMutedTextColor, layout.padding, true, true, FontType::kSystemDefault);
   }
-  draw_list->AddRect(RectMin(layout.state_preview),
-                     RectMax(layout.state_preview), kStrongBorderColor,
-                     kCornerRadius);
-
-  DrawTextInRect(text.state_title, layout.state_title, layout.font_size,
-                 kTextColor, 0.f, false, true);
 
   const bool previous_hovered =
       hovered_target_.type == HitTargetType::kStatePrevious;
   const bool next_hovered = hovered_target_.type == HitTargetType::kStateNext;
-#if KIWI_SWITCH
-  const bool position_hovered =
-      hovered_target_.type == HitTargetType::kStatePosition;
-#endif
   const bool selector_selected =
       page_ == Page::kStateBrowser && focus_.area == FocusArea::kStateSelector;
   const bool can_execute =
@@ -1151,20 +1049,18 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
       state_preview_.status == StatePreview::Status::kReady;
   const bool can_step_previous = CanStepState(StepDirection::kPrevious);
   const bool can_step_next = CanStepState(StepDirection::kNext);
-#if KIWI_SWITCH
-  DrawButtonBackground(layout.state_selector, false, false, false, false);
-#else
-  DrawButtonBackground(layout.state_selector, selector_selected, false, false,
-                       false);
-#endif
+
+  draw_list->AddRect(RectMin(layout.state_preview),
+                     RectMax(layout.state_preview),
+                     selector_selected ? kBrandColor : kStrongBorderColor,
+                     kCornerRadius, 0, selector_selected ? 2.f : 1.f);
+  DrawTextInRect(text.state_title, layout.state_title,
+                 GetSecondaryFontSize(layout.font_size), kTextColor, 0.f, true,
+                 true);
   DrawButtonBackground(layout.state_previous, false, previous_hovered, false,
                        false, can_step_previous);
   DrawButtonBackground(layout.state_next, false, next_hovered, false, false,
                        can_step_next);
-#if KIWI_SWITCH
-  DrawButtonBackground(layout.state_position, selector_selected,
-                       position_hovered, true, false, can_execute);
-#endif
   DrawChevron(layout.state_previous, true,
               !can_step_previous
                   ? kMutedTextColor
@@ -1172,24 +1068,9 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
   DrawChevron(layout.state_next, false,
               !can_step_next ? kMutedTextColor
                              : (next_hovered ? kBrandColor : kTextColor));
-#if !KIWI_SWITCH
-  draw_list->AddRectFilled(RectMin(layout.state_position),
-                           RectMax(layout.state_position), kPanelMutedColor);
-  if (selector_selected) {
-    draw_list->AddRectFilled(RectMin(layout.state_position),
-                             RectMax(layout.state_position),
-                             IM_COL32(101, 216, 75, 76));
-  }
-  draw_list->AddRect(RectMin(layout.state_position),
-                     RectMax(layout.state_position), kBorderColor);
-#endif
   DrawTextInRect(text.state_position, layout.state_position,
-                 GetSecondaryFontSize(layout.font_size),
-#if KIWI_SWITCH
-                 can_execute ? kBrandOnColor : kMutedTextColor, layout.padding,
-                 true, true);
-#else
-                 kTextColor, layout.padding / 2.f, true, true);
+                 GetSecondaryFontSize(layout.font_size), kMutedTextColor,
+                 layout.padding / 2.f, true, true, FontType::kSystemDefault);
 
   const bool action_selected =
       page_ == Page::kStateBrowser && focus_.area == FocusArea::kDetail;
@@ -1200,7 +1081,6 @@ void InGameMenu::DrawStateBrowser(const FrameText& text,
   DrawTextInRect(text.state_action, layout.state_action, layout.font_size,
                  can_execute ? kBrandOnColor : kMutedTextColor, layout.padding,
                  true, true);
-#endif
 }
 
 void InGameMenu::DrawSettings(const FrameText& text,
@@ -1209,12 +1089,14 @@ void InGameMenu::DrawSettings(const FrameText& text,
   draw_list->PushClipRect(RectMin(layout.detail), RectMax(layout.detail), true);
   for (size_t i = 0; i < kSettingsItemCount; ++i) {
     SettingsItem item = static_cast<SettingsItem>(i);
+    if (!IsSettingItemVisible(item))
+      continue;
     const bool selected = page_ == Page::kSettings &&
                           focus_.area == FocusArea::kDetail &&
                           focus_.settings_item == item;
     bool row_hovered = hovered_target_ == HitTarget{HitTargetType::kSettingItem,
                                                     static_cast<int>(i)};
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (item == SettingsItem::kControllerSupport &&
         hovered_target_ ==
             HitTarget{HitTargetType::kSettingNext, static_cast<int>(i)}) {
@@ -1224,7 +1106,7 @@ void InGameMenu::DrawSettings(const FrameText& text,
     DrawButtonBackground(layout.setting_items[i], selected, row_hovered, false,
                          false);
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (item == SettingsItem::kControllerSupport) {
       SDL_Rect label_rect = MakeRect(
           layout.setting_items[i].x, layout.setting_items[i].y,
@@ -1347,7 +1229,7 @@ void InGameMenu::DrawConfirmation(const FrameText& text,
                  true, true);
 }
 
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
 void InGameMenu::DrawContextualAction(const FrameText& text,
                                       const FrameLayout& layout) {
   if (!IsValidRect(layout.contextual_action))
@@ -1360,7 +1242,7 @@ void InGameMenu::DrawContextualAction(const FrameText& text,
   const bool hovered = hovered_target_.type == HitTargetType::kContextualAction;
   DrawButtonBackground(layout.contextual_action, false, hovered, primary,
                        danger, enabled);
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
   constexpr bool kWrapText = false;
 #else
   constexpr bool kWrapText = true;
@@ -1420,7 +1302,7 @@ bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
       return HandleNavigationAction(NavigationAction::kRight,
                                     InputModality::kController);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     // devkitPro SDL reports the physical Switch A/B buttons as SDL B/A.
     // Menu actions follow the physical labels, not the gameplay A/B setting.
     case SDL_CONTROLLER_BUTTON_B:
@@ -1506,7 +1388,7 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
   }
 
   if (page_ == Page::kStateBrowser) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (action == NavigationAction::kLeft) {
       StepState(StepDirection::kPrevious);
     } else if (action == NavigationAction::kRight) {
@@ -1534,7 +1416,15 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
 #endif
     } else if (action == NavigationAction::kBack) {
       PlayEffect(audio_resources::AudioID::kBack);
+#if BUILDFLAG(IS_SWITCH)
+      if (quick_load_mode_) {
+        menu_callback_.Run(MenuCommand{MenuItem::kContinue, std::monostate{}});
+      } else {
+        ReturnToMenu();
+      }
+#else
       ReturnToMenu();
+#endif
     }
     return true;
   }
@@ -1560,8 +1450,10 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
     MoveMenuSelection(-1);
   } else if (action == NavigationAction::kDown) {
     MoveMenuSelection(1);
-  } else if (action == NavigationAction::kRight ||
-             action == NavigationAction::kActivate) {
+  } else if (action == NavigationAction::kActivate ||
+             (action == NavigationAction::kRight &&
+              !IsStateMenuItem(focus_.menu_item) &&
+              focus_.menu_item != MenuItem::kOptions)) {
     ActivateMenuItem(focus_.menu_item);
   } else if (action == NavigationAction::kBack) {
     PlayEffect(audio_resources::AudioID::kBack);
@@ -1604,15 +1496,19 @@ void InGameMenu::ExecuteMenuItem(MenuItem item) {
 }
 
 void InGameMenu::ExecuteStateAction() {
-  if (focus_.menu_item != MenuItem::kSaveState &&
-      state_preview_.status != StatePreview::Status::kReady) {
+  if (!CanExecuteStateAction()) {
     return;
   }
 
   PlayEffect(audio_resources::AudioID::kStart);
   if (focus_.menu_item == MenuItem::kLoadAutoSave) {
-    menu_callback_.Run(MenuCommand{
-        focus_.menu_item, AutoSaveTimestamp{state_preview_.timestamp}});
+    int timestamp = state_preview_.timestamp;
+#if BUILDFLAG(IS_SWITCH)
+    if (quick_load_mode_)
+      timestamp = GetQuickLoadTimestamp();
+#endif
+    menu_callback_.Run(
+        MenuCommand{focus_.menu_item, AutoSaveTimestamp{timestamp}});
   } else {
     menu_callback_.Run(MenuCommand{focus_.menu_item, StateSlot{which_state_}});
   }
@@ -1669,11 +1565,17 @@ void InGameMenu::MoveMenuSelection(int delta) {
 
 void InGameMenu::MoveSettingsSelection(int delta) {
   int selection = static_cast<int>(focus_.settings_item);
-  selection = (selection + delta + static_cast<int>(kSettingsItemCount)) %
-              static_cast<int>(kSettingsItemCount);
-  focus_.settings_item = static_cast<SettingsItem>(selection);
-  PlayEffect(audio_resources::AudioID::kSelect);
-  ScrollSettingsSelectionIntoView();
+  for (size_t i = 0; i < kSettingsItemCount; ++i) {
+    selection = (selection + delta + static_cast<int>(kSettingsItemCount)) %
+                static_cast<int>(kSettingsItemCount);
+    SettingsItem item = static_cast<SettingsItem>(selection);
+    if (IsSettingItemVisible(item)) {
+      focus_.settings_item = item;
+      PlayEffect(audio_resources::AudioID::kSelect);
+      ScrollSettingsSelectionIntoView();
+      return;
+    }
+  }
 }
 
 void InGameMenu::MoveMenuItemTo(MenuItem item) {
@@ -1714,11 +1616,17 @@ void InGameMenu::StepState(StepDirection direction) {
   }
 
   PlayEffect(audio_resources::AudioID::kSelect);
+#if BUILDFLAG(IS_SWITCH)
+  if (quick_load_mode_) {
+    RefreshQuickLoadPreviews();
+    return;
+  }
+#endif
   RefreshStatePreview();
 }
 
 void InGameMenu::StepSetting(SettingsItem item, StepDirection direction) {
-  if (!CanStepSetting(item, direction))
+  if (!IsSettingItemVisible(item) || !CanStepSetting(item, direction))
     return;
 
   focus_.settings_item = item;
@@ -1762,34 +1670,31 @@ InGameMenu::HitTarget InGameMenu::HitTest(const FrameLayout& layout,
   }
 
   if (layout.visible_page == Page::kStateBrowser) {
+#if BUILDFLAG(IS_SWITCH)
+    if (quick_load_mode_) {
+      for (size_t i = 0; i < kQuickLoadVisibleSlotCount; ++i) {
+        const int slot = GetQuickLoadSlot(i);
+        if (slot >= 0 && PointInRect(layout.quick_load_previews[i], x, y))
+          return {HitTargetType::kQuickLoadSlot, slot};
+      }
+    }
+#endif
     if (CanStepState(StepDirection::kPrevious) &&
         PointInRect(layout.state_previous, x, y)) {
       return {HitTargetType::kStatePrevious};
-    }
-#if KIWI_SWITCH
-    const bool can_execute =
-        focus_.menu_item == MenuItem::kSaveState ||
-        state_preview_.status == StatePreview::Status::kReady;
-    if (can_execute && PointInRect(layout.state_position, x, y)) {
-#else
-    if (PointInRect(layout.state_position, x, y)) {
-#endif
-      return {HitTargetType::kStatePosition};
     }
     if (CanStepState(StepDirection::kNext) &&
         PointInRect(layout.state_next, x, y)) {
       return {HitTargetType::kStateNext};
     }
-#if !KIWI_SWITCH
-    const bool can_execute =
-        focus_.menu_item == MenuItem::kSaveState ||
-        state_preview_.status == StatePreview::Status::kReady;
+    const bool can_execute = CanExecuteStateAction();
     if (can_execute && PointInRect(layout.state_action, x, y))
       return {HitTargetType::kStateAction};
-#endif
   } else if (layout.visible_page == Page::kSettings) {
     for (size_t i = 0; i < kSettingsItemCount; ++i) {
       SettingsItem item = static_cast<SettingsItem>(i);
+      if (!IsSettingItemVisible(item))
+        continue;
       if (CanStepSetting(item, StepDirection::kPrevious) &&
           PointInClippedRect(layout.setting_previous[i], layout.detail, x, y)) {
         return {HitTargetType::kSettingPrevious, static_cast<int>(i)};
@@ -1805,7 +1710,7 @@ InGameMenu::HitTarget InGameMenu::HitTest(const FrameLayout& layout,
       if (PointInClippedRect(layout.setting_items[i], layout.detail, x, y))
         return {HitTargetType::kSettingItem, static_cast<int>(i)};
     }
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
   } else if (IsMenuItemEnabled(focus_.menu_item) &&
              PointInRect(layout.contextual_action, x, y)) {
     return {HitTargetType::kContextualAction};
@@ -1828,13 +1733,10 @@ void InGameMenu::UpdatePointerFocus(const HitTarget& target,
              target.type == HitTargetType::kSettingNext) {
     focus_.settings_item = static_cast<SettingsItem>(target.index);
   } else if (target.type == HitTargetType::kStatePrevious ||
-             target.type == HitTargetType::kStatePosition ||
              target.type == HitTargetType::kStateNext) {
     focus_.area = FocusArea::kStateSelector;
-#if !KIWI_SWITCH
   } else if (target.type == HitTargetType::kStateAction) {
     focus_.area = FocusArea::kDetail;
-#endif
   } else if (target.type == HitTargetType::kConfirmationCancel) {
     focus_.confirm_action = false;
   } else if (target.type == HitTargetType::kConfirmationAccept) {
@@ -1865,27 +1767,26 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
         OpenPage(Page::kStateBrowser);
       StepState(StepDirection::kPrevious);
       break;
-    case HitTargetType::kStatePosition:
-#if KIWI_SWITCH
-      if (page_ == Page::kMainMenu)
-        OpenPage(Page::kStateBrowser);
-#endif
-      focus_.area = FocusArea::kStateSelector;
-#if KIWI_SWITCH
-      ExecuteStateAction();
-#endif
-      break;
     case HitTargetType::kStateNext:
       if (page_ == Page::kMainMenu)
         OpenPage(Page::kStateBrowser);
       StepState(StepDirection::kNext);
       break;
-#if !KIWI_SWITCH
     case HitTargetType::kStateAction:
       if (page_ == Page::kMainMenu)
         OpenPage(Page::kStateBrowser);
       ExecuteStateAction();
       break;
+#if BUILDFLAG(IS_SWITCH)
+    case HitTargetType::kQuickLoadSlot:
+      if (which_autosave_state_slot_ != target.index) {
+        which_autosave_state_slot_ = target.index;
+        PlayEffect(audio_resources::AudioID::kSelect);
+        RefreshQuickLoadPreviews();
+      }
+      break;
+#endif
+#if !BUILDFLAG(IS_SWITCH)
     case HitTargetType::kContextualAction:
       ActivateMenuItem(focus_.menu_item);
       break;
@@ -1893,7 +1794,7 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
     case HitTargetType::kSettingItem:
       OpenPage(Page::kSettings);
       focus_.settings_item = static_cast<SettingsItem>(target.index);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
       if (focus_.settings_item == SettingsItem::kControllerSupport)
         StepSetting(focus_.settings_item, StepDirection::kNext);
 #endif
@@ -2090,9 +1991,15 @@ void InGameMenu::OnGotAutoSavedStateCount(uint64_t request_id, int count) {
   const int last_slot = std::max(0, current_auto_states_count_ - 1);
   if (which_autosave_state_slot_ > last_slot) {
     which_autosave_state_slot_ = last_slot;
-    if (focus_.menu_item == MenuItem::kLoadAutoSave)
-      RefreshStatePreview();
   }
+#if BUILDFLAG(IS_SWITCH)
+  if (quick_load_mode_) {
+    RefreshQuickLoadPreviews();
+    return;
+  }
+#endif
+  if (focus_.menu_item == MenuItem::kLoadAutoSave)
+    RefreshStatePreview();
 }
 
 void InGameMenu::OnGotState(uint64_t request_id,
@@ -2163,6 +2070,14 @@ bool InGameMenu::IsStateMenuItem(MenuItem item) const {
          item == MenuItem::kSaveState;
 }
 
+bool InGameMenu::IsSettingItemVisible(SettingsItem item) const {
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
+  return item != SettingsItem::kVolume;
+#else
+  return true;
+#endif
+}
+
 bool InGameMenu::IsStandaloneSettingsMenu() const {
   return !IsMenuItemVisible(MenuItem::kContinue) &&
          !IsMenuItemVisible(MenuItem::kLoadAutoSave) &&
@@ -2186,18 +2101,33 @@ bool InGameMenu::CanStepState(StepDirection direction) const {
              : which_autosave_state_slot_ > 0;
 }
 
+bool InGameMenu::CanExecuteStateAction() const {
+  if (focus_.menu_item == MenuItem::kSaveState)
+    return true;
+#if BUILDFLAG(IS_SWITCH)
+  if (quick_load_mode_) {
+    return quick_load_previews_[which_autosave_state_slot_].status ==
+           StatePreview::Status::kReady;
+  }
+#endif
+  return state_preview_.status == StatePreview::Status::kReady;
+}
+
 bool InGameMenu::CanStepSetting(SettingsItem item,
                                 StepDirection direction) const {
+  if (!IsSettingItemVisible(item))
+    return false;
+
   switch (item) {
     case SettingsItem::kVolume: {
       const float volume = runtime_data_->emulator->GetVolume();
       return direction == StepDirection::kPrevious ? volume > 0.f
                                                    : volume < 1.f;
     }
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     case SettingsItem::kWindowMode:
-#if !KIWI_MOBILE
-#if KIWI_WASM
+#if !BUILDFLAG(IS_MOBILE)
+#if BUILDFLAG(IS_WASM)
       return false;
 #else
       return direction == StepDirection::kPrevious
@@ -2208,7 +2138,7 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
       return true;
 #endif
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     case SettingsItem::kControllerSupport:
       return direction == StepDirection::kNext;
 #else
@@ -2260,9 +2190,9 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
               100.f)));
       return buffer;
     }
-#if !KIWI_SWITCH
+#if !BUILDFLAG(IS_SWITCH)
     case SettingsItem::kWindowMode:
-#if !KIWI_MOBILE
+#if !BUILDFLAG(IS_MOBILE)
       if (main_window_->is_fullscreen()) {
         return GetLocalizedString(
             string_resources::IDR_IN_GAME_MENU_FULLSCREEN);
@@ -2275,7 +2205,7 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
               : string_resources::IDR_IN_GAME_MENU_ORIGINAL);
 #endif
 #endif
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     case SettingsItem::kControllerSupport:
       return std::string();
 #else

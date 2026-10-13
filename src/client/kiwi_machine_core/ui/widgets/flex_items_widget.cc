@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/flex_items_widget.h"
+#include "build/build_config.h"
 
 #include <imgui.h>
 
@@ -33,21 +34,21 @@ namespace {
 const int kItemHeightHint = styles::flex_items_widget::GetItemHeightHint();
 const int kItemSelectedHighlightedSize =
     styles::flex_items_widget::GetItemHighlightedSize();
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 constexpr int kItemGap = 10;
 #else
 constexpr int kItemGap = 0;
 #endif
 constexpr int kItemAnimationMs = 50;
 constexpr int kScrollingAnimationMs = 20;
-#if KIWI_ANDROID
+#if BUILDFLAG(IS_ANDROID)
 constexpr int kDetailWidgetMargin = 48;
 constexpr int kDetailWidgetPadding = 16;
 constexpr int kDetailWidgetLineSpacing = 8;
 constexpr int kDetailWidgetAccentWidth = 8;
 constexpr float kDetailWidgetCornerRadius = 10.f;
 constexpr float kDetailWidgetMaxWidthRatio = .8f;
-#elif KIWI_IOS
+#elif BUILDFLAG(IS_IOS)
 constexpr int kDetailWidgetMargin = 20;
 constexpr int kDetailWidgetPadding = 8;
 constexpr int kDetailWidgetLineSpacing = 4;
@@ -115,7 +116,7 @@ constexpr BackgroundParticle kBackgroundParticles[] = {
     {BackgroundShape::kPixels, .99f, .15f, 17.f, .010f, kBackgroundCoralColor},
 };
 
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
 constexpr size_t kBackgroundParticleCount = 8;
 constexpr float kBackgroundMaximumShapeRadius = 18.f;
 constexpr float kBackgroundMaximumDrift = 6.f;
@@ -389,10 +390,10 @@ void FlexItemsWidget::SetActivate(bool activate) {
     last_wheel_motion_timestamp_ = 0;
     has_wheel_velocity_sample_ = false;
     wheel_gesture_active_ = false;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     ResetSwitchNavigation();
 #endif
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
     touch_active_ = false;
     scrolling_by_finger_ = false;
     gesture_locked_ = false;
@@ -709,7 +710,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
   auto keyboard_or_axis_matches = [this,
                                    k](kiwi::nes::ControllerButton button) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     return k && IsJoystickButtonMatch(runtime_data_, button, k->keysym);
 #else
     return IsKeyboardOrControllerAxisMotionMatch(runtime_data_, button, k);
@@ -718,7 +719,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
   if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kLeft) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_LEFT) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (c)
       return true;
 #endif
@@ -733,7 +734,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
   if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kRight) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (c)
       return true;
 #endif
@@ -743,7 +744,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
   if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kUp) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (c)
       return true;
 #endif
@@ -753,7 +754,7 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
 
   if (keyboard_or_axis_matches(kiwi::nes::ControllerButton::kDown) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
     if (c)
       return true;
 #endif
@@ -1097,7 +1098,7 @@ void FlexItemsWidget::PaintDetails() {
 
 void FlexItemsWidget::PaintFilter() {
   if (!filter_contents_.empty()) {
-#if KIWI_MOBILE
+#if BUILDFLAG(IS_MOBILE)
     std::string template_string =
         GetLocalizedString(string_resources::IDR_ITEMS_WIDGET_FILTERING_MOBILE);
 #else
@@ -1343,7 +1344,7 @@ void FlexItemsWidget::Paint() {
     first_paint_ = false;
   }
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   UpdateSwitchNavigation();
 #endif
   UpdateInertialScrolling();
@@ -1699,7 +1700,7 @@ bool FlexItemsWidget::OnControllerButtonPressed(
 
 bool FlexItemsWidget::OnControllerAxisMotionEvent(
     SDL_ControllerAxisEvent* event) {
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   if (filter_widget_->has_begun())
     return false;
   return activate_ && (event->axis == SDL_CONTROLLER_AXIS_LEFTX ||

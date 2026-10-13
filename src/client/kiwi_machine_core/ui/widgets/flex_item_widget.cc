@@ -11,6 +11,7 @@
 // GNU General Public License for more details.
 
 #include "ui/widgets/flex_item_widget.h"
+#include "build/build_config.h"
 
 #include <SDL_image.h>
 #include <imgui.h>
@@ -34,7 +35,7 @@ constexpr float kVersionSwitchDesignSize = 48.f;
 constexpr float kVersionSwitchAnimationSplit = .34f;
 constexpr int kVersionSwitchAnimationMs = 520;
 constexpr int kVersionSwitchIdleMs = 3200;
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
 const int kVersionSwitchIconSize =
     styles::flex_item_widget::GetBadgeSize() * 5 / 2;
 #else

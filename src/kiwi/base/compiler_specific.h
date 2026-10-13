@@ -241,7 +241,7 @@
 #if !defined(CPU_ARM_NEON)
 #if defined(__arm__)
 #if !defined(__ARMEB__) && !defined(__ARM_EABI__) && !defined(__EABI__) && \
-    !defined(__VFP_FP__) && !defined(_WIN32_WCE) && !defined(ANDROID)
+    !defined(__VFP_FP__) && !defined(_WIN32_WCE) && !BUILDFLAG(IS_ANDROID)
 #error Chromium does not support middle endian architecture
 #endif
 #if defined(__ARM_NEON__)
@@ -415,7 +415,7 @@ inline constexpr bool AnalyzerAssumeTrue(bool arg) {
 #define LOGICALLY_CONST
 #endif
 
-#if __EMSCRIPTEN__
+#if BUILDFLAG(IS_WASM)
 #define THREAD_LOCAL
 #else
 #define THREAD_LOCAL thread_local

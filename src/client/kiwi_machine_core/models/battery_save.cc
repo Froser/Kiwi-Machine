@@ -11,11 +11,12 @@
 // GNU General Public License for more details.
 
 #include "models/battery_save.h"
+#include "build/build_config.h"
 
 #include <optional>
 #include <span>
 
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
 #include <windows.h>
 #else
 #include <cstdio>
@@ -25,7 +26,7 @@
 #include "build/kiwi_defines.h"
 #include "nes/rom_hash.h"
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
 #include "utility/emscripten/bridge_api.h"
 #endif
 
@@ -34,7 +35,7 @@ namespace {
 
 bool ReplaceSaveFile(const kiwi::base::FilePath& temporary_path,
                      const kiwi::base::FilePath& save_path) {
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
   return ::MoveFileExW(temporary_path.value().c_str(),
                        save_path.value().c_str(),
                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
@@ -115,7 +116,7 @@ bool WriteToPath(const kiwi::base::FilePath& save_path,
     return false;
   }
 
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
   SyncFilesystem();
 #endif
   return true;
@@ -139,7 +140,7 @@ std::optional<kiwi::base::FilePath> BackupInvalid(
       continue;
     }
     if (kiwi::base::CopyFile(save_path, backup_path)) {
-#if KIWI_WASM
+#if BUILDFLAG(IS_WASM)
       SyncFilesystem();
 #endif
       return backup_path;

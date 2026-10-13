@@ -21,6 +21,7 @@
 //  Operating System family:
 //    IS_APPLE: IOS or MAC or IOS_MACCATALYST
 //    IS_BSD: FREEBSD or NETBSD or OPENBSD
+//    IS_MOBILE: ANDROID or IOS
 //    IS_POSIX: AIX or ANDROID or ASMJS or CHROMEOS or FREEBSD or IOS or LINUX
 //              or MAC or NACL or NETBSD or OPENBSD or QNX or SOLARIS
 
@@ -116,6 +117,10 @@
 #define OS_APPLE 1
 #endif
 
+#if defined(OS_ANDROID) || defined(OS_IOS)
+#define OS_MOBILE 1
+#endif
+
 // For access to standard BSD features, use OS_BSD instead of a
 // more specific macro.
 #if defined(OS_FREEBSD) || defined(OS_NETBSD) || defined(OS_OPENBSD)
@@ -203,6 +208,12 @@
 #define BUILDFLAG_INTERNAL_IS_MAC() (1)
 #else
 #define BUILDFLAG_INTERNAL_IS_MAC() (0)
+#endif
+
+#if defined(OS_MOBILE)
+#define BUILDFLAG_INTERNAL_IS_MOBILE() (1)
+#else
+#define BUILDFLAG_INTERNAL_IS_MOBILE() (0)
 #endif
 
 #if defined(OS_NACL)

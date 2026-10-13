@@ -15,6 +15,7 @@
 
 #include <SDL.h>
 #include <kiwi_nes.h>
+#include "build/build_config.h"
 
 #include <array>
 #include <atomic>
@@ -34,14 +35,14 @@ class NESAudio : public kiwi::nes::IODevices::AudioDevice {
 
  private:
   static void ReadAudioBuffer(void* userdata, Uint8* stream, int len);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   static void MixAudioBuffer(void* userdata, Uint8* stream, int len);
 #endif
 
  private:
   void ResetBuffer();
   void ReadAudioBuffer(Uint8* stream, int count);
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   void MixAudioBuffer(Uint8* stream, int count);
 #endif
   size_t ReadSamples(kiwi::nes::Sample* output, size_t count);
@@ -76,7 +77,7 @@ class NESAudio : public kiwi::nes::IODevices::AudioDevice {
   std::atomic<size_t> read_buf_{0};
   // Number of filled buffers
   std::atomic<size_t> filled_count_{0};
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   bool post_mix_registered_ = false;
   std::array<kiwi::nes::Sample, kBufferSize> mixer_mono_buffer_;
   std::array<kiwi::nes::Sample, kBufferSize * 2> mixer_stereo_buffer_;

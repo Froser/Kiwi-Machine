@@ -14,6 +14,7 @@
 #define UI_WIDGETS_FLEX_ITEMS_WIDGET_H_
 
 #include <kiwi_nes.h>
+#include "build/build_config.h"
 
 #include <array>
 #include <atomic>
@@ -94,7 +95,7 @@ class FlexItemsWidget : public Widget {
                                     int y_in_window,
                                     size_t& index_out);
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   Direction GetSwitchNavigationDirection();
   void UpdateSwitchNavigation();
   void ResetSwitchNavigation();
@@ -157,7 +158,7 @@ class FlexItemsWidget : public Widget {
   void OnWindowPostRender() override;
   int GetHitTestPolicy() override;
 
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerMove(SDL_TouchFingerEvent* event) override;
   bool OnTouchFingerUp(SDL_TouchFingerEvent* event) override;
@@ -198,7 +199,7 @@ class FlexItemsWidget : public Widget {
   Timer selection_item_timer_;
   Timer scrolling_timer_;
 
-#if KIWI_SWITCH
+#if BUILDFLAG(IS_SWITCH)
   Direction switch_navigation_direction_ = kNone;
   std::array<int, 2> switch_axis_direction_ = {};
   bool switch_navigation_repeating_ = false;
@@ -236,7 +237,7 @@ class FlexItemsWidget : public Widget {
   bool wheel_gesture_active_ = false;
   FlexItemWidget* pressed_version_switch_item_ = nullptr;
 
-#if KIWI_MOBILE || KIWI_SWITCH
+#if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   bool touch_active_ = false;
   SDL_FingerID active_touch_id_ = 0;
   SDL_TouchFingerEvent last_finger_event_{};

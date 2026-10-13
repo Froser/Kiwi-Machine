@@ -23,6 +23,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
+#include "build/build_config.h"
 #include "rom_window.h"
 #include "texture_packager.h"
 #include "util.h"
@@ -34,7 +35,7 @@ DEFINE_string(output_path, "", "Output path for packaged files.");
 DEFINE_string(mesen_hd_texture_path, "",
               "Input directory containing Mesen HD Texture Pack folders.");
 
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
 #include <windows.h>
 #endif
 
@@ -147,17 +148,17 @@ bool InitSDL() {
 
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-#if __APPLE__
+#if BUILDFLAG(IS_APPLE)
     io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/STHeiti Light.ttc", 16);
 #endif
-#if _WIN32
+#if BUILDFLAG(IS_WIN)
     io.Fonts->AddFontFromFileTTF(GetFontsPath()
                                  .Append(FILE_PATH_LITERAL("msyh.ttc"))
                                  .AsUTF8Unsafe()
                                  .c_str(),
                                  16);
 #endif
-#if __linux__
+#if BUILDFLAG(IS_LINUX)
     io.Fonts->AddFontFromFileTTF("/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
                                  16);
 #endif
@@ -701,7 +702,7 @@ void Cleanup() {
     SDL_Quit();
 }
 
-#if defined(_WIN32)
+#if BUILDFLAG(IS_WIN)
 #include <windows.h>
 char **g_argv = nullptr;
 
