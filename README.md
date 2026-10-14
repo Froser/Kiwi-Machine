@@ -59,6 +59,7 @@ In addition, some games use relatively niche Mappers, such as the Japanese versi
 Although the core is implemented by myself, I still used some third-party libraries:
 
 - APU: [Nes\_Snd\_Emu](https://github.com/blarggs-audio-libraries/Nes_Snd_Emu/)
+- Game Boy Advance and Game Boy cores: [mGBA 0.10.5](https://github.com/mgba-emu/mgba/tree/0.10.5)
 - Interface library: ImGui
 - Framework foundation: SDL2
   In addition, there are some common libraries like `zlib`, which I won't list repeatedly here.

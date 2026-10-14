@@ -113,6 +113,19 @@ set(base_sources
         base/threading/thread.h
 )
 
+set(gba_sources
+        gba/emulator.cc
+        gba/emulator.h
+        gba/emulator_impl.cc
+        gba/emulator_impl.h
+        gba/gba_export.h
+        gba/io_devices.cc
+        gba/io_devices.h
+        gba/rom_data.cc
+        gba/rom_data.h
+        gba/types.h
+)
+
 if (APPLE)
     list(APPEND base_sources
             base/files/file_util_apple.mm
@@ -394,6 +407,7 @@ set(nes_sources
 
 set(sources
         ${base_sources}
+        ${gba_sources}
         ${nes_sources}
 )
 # Setup for static kiwi library
@@ -408,6 +422,7 @@ if (USE_SDL2)
     target_compile_definitions(${STATIC_PROJECT_NAME} PRIVATE USE_SDL2)
 endif ()
 target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE
+        mGBA::core
         nes_apu
         glog::glog
         ${KIWI_SDL2_TARGET}
@@ -436,7 +451,13 @@ if (NOT EMSCRIPTEN AND NOT KIWI_SWITCH)
     if (USE_SDL2)
         target_compile_definitions(${PROJECT_NAME} PRIVATE USE_SDL2)
     endif ()
-    target_link_libraries(${PROJECT_NAME} PRIVATE nes_apu glog::glog SDL2-static zlibstatic)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+            mGBA::core
+            nes_apu
+            glog::glog
+            SDL2-static
+            zlibstatic
+    )
 
     if (WIN32)
         target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi)

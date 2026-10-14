@@ -287,6 +287,7 @@ target_link_libraries(${PROJECT_NAME}
         PUBLIC
         Kiwi::kiwi_static
         PRIVATE
+        mGBA::core
         imgui
         ${KIWI_HD_TEXTURE_LIBRARIES}
         gflags_nothreads_static

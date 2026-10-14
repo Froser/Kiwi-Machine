@@ -18,6 +18,7 @@ set(Sources
     test_main.cc
     rom_test.cc
 
+    ../gba/emulator_unittest.cc
     ../nes/cpu_unittest.cc
     ../nes/emulator_nvram_unittest.cc
     ../nes/mappers/mapper_test_support.cc
