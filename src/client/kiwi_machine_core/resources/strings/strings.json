@@ -344,6 +344,26 @@
     "zh": "搜索 (Y)",
     "ja": "検索 (Y)"
   },
+  "IDR_SIDE_MENU_SYSTEM_NES": {
+    "default": "FC/NES",
+    "zh": "FC/NES",
+    "ja": "FC/NES"
+  },
+  "IDR_SIDE_MENU_SYSTEM_GBA": {
+    "default": "GBA",
+    "zh": "GBA",
+    "ja": "GBA"
+  },
+  "IDR_GBA_EMPTY_LIBRARY": {
+    "default": "Drop a .gba ROM here to play",
+    "zh": "将 .gba ROM 拖入此处即可游玩",
+    "ja": ".gba ROMをここにドロップしてプレイ"
+  },
+  "IDR_GBA_EMPTY_SPECIALS": {
+    "default": "No Game Boy Advance special collection",
+    "zh": "暂无 Game Boy Advance 特别收藏",
+    "ja": "Game Boy Advanceの特別コレクションはありません"
+  },
   "IDR_SIDE_MENU_SETTINGS": {
     "default": "Settings",
     "zh": "设置",

@@ -23,12 +23,6 @@
 #if BUILDFLAG(IS_WIN)
 #include <io.h>
 #include <windows.h>
-#ifdef min
-#undef min
-#endif
-#ifdef max
-#undef max
-#endif
 #if defined(CreateDirectory)
 #undef CreateDirectory
 #endif

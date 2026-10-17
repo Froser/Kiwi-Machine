@@ -16,9 +16,9 @@
 #include <SDL.h>
 #include <kiwi_nes.h>
 
-#include "models/nes_runtime.h"
+#include "models/runtime.h"
 
-bool IsJoystickButtonMatch(NESRuntime::Data* runtime_data,
+bool IsJoystickButtonMatch(Runtime* runtime,
                            kiwi::nes::ControllerButton button,
                            SDL_Keysym key);
 
@@ -26,7 +26,7 @@ bool IsGameControllerInputSupported(SDL_GameController* controller);
 
 bool IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton button);
 
-bool IsKeyboardOrControllerAxisMotionMatch(NESRuntime::Data* runtime_data,
+bool IsKeyboardOrControllerAxisMotionMatch(Runtime* runtime,
                                            kiwi::nes::ControllerButton button,
                                            SDL_KeyboardEvent* k);
 
@@ -43,7 +43,7 @@ bool IsGameSelectionPreviousVersionButton(
 
 bool IsGameSelectionNextVersionButton(const SDL_ControllerButtonEvent* event);
 
-void SetControllerMapping(NESRuntime::Data* runtime_data,
+void SetControllerMapping(Runtime* runtime,
                           int player,
                           SDL_GameController* controller,
                           bool ab_reverse);

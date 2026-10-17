@@ -22,7 +22,10 @@ struct SDL_Renderer;
 struct ROM;
 class ROMWindow {
  public:
-  ROMWindow(SDL_Renderer* renderer, ROMS roms, kiwi::base::FilePath file);
+  ROMWindow(SDL_Renderer* renderer,
+            ROMSystem system,
+            ROMS roms,
+            kiwi::base::FilePath file);
   ~ROMWindow();
 
   ROMWindow(const ROMWindow&) = delete;
@@ -50,6 +53,7 @@ class ROMWindow {
 
  private:
   int window_id_ = 0;
+  ROMSystem system_ = ROMSystem::kNES;
   kiwi::base::FilePath file_;
   int to_be_deleted_ = -1;
   ROMS roms_;

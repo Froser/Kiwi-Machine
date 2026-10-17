@@ -14,6 +14,8 @@
 
 #include <kiwi_nes.h>
 
+#include "ui/main_window.h"
+
 namespace {
 
 constexpr ImVec2 kDisassemblyAreaSize(500, 550);
@@ -30,35 +32,35 @@ std::string NumberToHexString(int width, kiwi::nes::Address n) {
 }  // namespace
 
 DisassemblyWidget::DisassemblyWidget(
-    WindowBase* window_base,
-    NESRuntimeID runtime_id,
+    MainWindow* main_window,
     kiwi::base::RepeatingClosure on_toggle_pause,
     kiwi::base::RepeatingCallback<bool()> is_pause)
-    : Widget(window_base),
+    : Widget(main_window),
+      main_window_(main_window),
       on_toggle_pause_(on_toggle_pause),
       is_pause_(is_pause) {
   set_flags(ImGuiWindowFlags_AlwaysAutoResize);
   set_title("Disassembly");
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
-  SDL_assert(runtime_data_);
 }
 
 DisassemblyWidget::~DisassemblyWidget() = default;
 
 void DisassemblyWidget::UpdateDisassembly() {
-  if (visible()) {
-    disassembly_string_ = runtime_data_->debug_port->GetPrettyPrintDisassembly(
-        runtime_data_->debug_port->GetCPUContext().registers.PC,
+  if (visible() && main_window_->debug_port()) {
+    disassembly_string_ = main_window_->debug_port()->GetPrettyPrintDisassembly(
+        main_window_->debug_port()->GetCPUContext().registers.PC,
         kDisassemblyInstructionCount);
   }
 }
 
 void DisassemblyWidget::Paint() {
-  auto cpu = runtime_data_->debug_port->GetCPUContext().registers;
-  auto ppu = runtime_data_->debug_port->GetPPUContext().registers;
+  if (!main_window_->debug_port())
+    return;
+  auto cpu = main_window_->debug_port()->GetCPUContext().registers;
+  auto ppu = main_window_->debug_port()->GetPPUContext().registers;
 
   ImGui::BeginGroup();
-  // runtime_data_->debug_port
+  // main_window_->debug_port()
   bool is_pausing = is_pause_.Run();
   const std::string& target_text =
       is_pausing ? disassembly_string_ : kShouldPauseStr;
@@ -112,9 +114,9 @@ void DisassemblyWidget::Paint() {
   // PPU Context
   ImGui::BeginGroup();
   ImGui::Text("Scanline: %d",
-              runtime_data_->debug_port->GetPPUContext().scanline);
+              main_window_->debug_port()->GetPPUContext().scanline);
   ImGui::Text("Pixel (dot): %d",
-              runtime_data_->debug_port->GetPPUContext().pixel);
+              main_window_->debug_port()->GetPPUContext().pixel);
   ImGui::EndGroup();
 
   // Breakpoints
@@ -127,7 +129,7 @@ void DisassemblyWidget::Paint() {
     bool converted =
         kiwi::base::HexStringToUInt64(breakpoint_address_input, &address);
     if (converted) {
-      runtime_data_->debug_port->AddBreakpoint(
+      main_window_->debug_port()->AddBreakpoint(
           static_cast<kiwi::nes::Address>(address));
     }
   }
@@ -135,22 +137,22 @@ void DisassemblyWidget::Paint() {
   auto item_getter = [](void* data, int index) {
     DisassemblyWidget* d = reinterpret_cast<DisassemblyWidget*>(data);
     d->item_getter_buffer_ = NumberToHexString(
-        4, d->runtime_data_->debug_port->breakpoints()[index]);
+        4, d->main_window_->debug_port()->breakpoints()[index]);
     return d->item_getter_buffer_.c_str();
   };
   ImGui::ListBox("##Breakpoints", &current_selected_breakpoint_, item_getter,
-                 this, runtime_data_->debug_port->breakpoints().size());
+                 this, main_window_->debug_port()->breakpoints().size());
   if (ImGui::Button("Remove Breakpoint")) {
     if (current_selected_breakpoint_ >= 0 &&
         current_selected_breakpoint_ <=
-            runtime_data_->debug_port->breakpoints().size()) {
-      runtime_data_->debug_port->RemoveBreakpoint(
-          runtime_data_->debug_port
+            main_window_->debug_port()->breakpoints().size()) {
+      main_window_->debug_port()->RemoveBreakpoint(
+          main_window_->debug_port()
               ->breakpoints()[current_selected_breakpoint_]);
     }
   }
   if (ImGui::Button("Clear Breakpoints")) {
-    runtime_data_->debug_port->ClearBreakpoints();
+    main_window_->debug_port()->ClearBreakpoints();
   }
   ImGui::EndGroup();
 
@@ -169,15 +171,15 @@ void DisassemblyWidget::Paint() {
 
   ImGui::BeginDisabled(!is_pausing);
   if (ImGui::Button("Step Instruction")) {
-    runtime_data_->debug_port->StepToNextCPUInstruction();
+    main_window_->debug_port()->StepToNextCPUInstruction();
     UpdateDisassembly();
   }
   if (ImGui::Button("Step Scanline")) {
-    runtime_data_->debug_port->StepToNextScanline(1);
+    main_window_->debug_port()->StepToNextScanline(1);
     UpdateDisassembly();
   }
   if (ImGui::Button("Step Frame")) {
-    runtime_data_->debug_port->StepToNextFrame(1);
+    main_window_->debug_port()->StepToNextFrame(1);
     UpdateDisassembly();
   }
   ImGui::EndDisabled();
@@ -194,7 +196,7 @@ void DisassemblyWidget::Paint() {
     bool converted = kiwi::base::StringToUint64(
         kiwi::base::StringPiece(ppu_scanline_irq_dot_), &delay);
     if (converted)
-      runtime_data_->debug_port->SetScanlineIRQCycle(delay);
+      main_window_->debug_port()->SetScanlineIRQCycle(delay);
   }
 
   ImGui::TextUnformatted("If this widget is visible");

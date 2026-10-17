@@ -19,9 +19,10 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <map>
 #include <memory>
 
-#include "models/nes_runtime.h"
+#include "emulator/emulator.h"
 #include "ui/widgets/flex_item_widget.h"
 #include "ui/widgets/widget.h"
 #include "utility/localization.h"
@@ -35,7 +36,7 @@ class FlexItemsWidget : public Widget {
     kDoNotAdjustScrolling,
   };
 
-  explicit FlexItemsWidget(MainWindow* main_window, NESRuntimeID runtime_id);
+  explicit FlexItemsWidget(MainWindow* main_window);
   ~FlexItemsWidget() override;
 
   size_t AddItem(std::unique_ptr<LocalizedStringUpdater> title_updater,
@@ -59,6 +60,10 @@ class FlexItemsWidget : public Widget {
   void ShowFilterWidget();
   void SetIndexingProgress(size_t completed, size_t total);
   void FinishIndexing(bool success);
+  void SetEmulationSystem(kiwi::emu::Emulator::Type system) {
+    emulation_system_ = system;
+  }
+  void SetEmptyMessage(int string_id) { empty_message_string_id_ = string_id; }
 
   bool empty() { return items_.empty(); }
   size_t size() { return items_.size(); }
@@ -107,6 +112,7 @@ class FlexItemsWidget : public Widget {
   void RefreshCurrentItemBounds();
 
   void PaintIndexingStatus();
+  void PaintEmptyMessage();
   void PaintDetails();
   void PaintFilter();
 
@@ -170,7 +176,6 @@ class FlexItemsWidget : public Widget {
   void UpdateInertialScrolling();
 
   MainWindow* main_window_ = nullptr;
-  NESRuntime::Data* runtime_data_ = nullptr;
   kiwi::base::RepeatingClosure back_callback_ = kiwi::base::DoNothing();
   // items_ are the items which should be paint, excluding filtered items. While
   // all_items_ are all items called by AddItem().
@@ -180,6 +185,8 @@ class FlexItemsWidget : public Widget {
   bool indexing_ = false;
   bool indexing_failed_ = false;
   float indexing_progress_ = 0.f;
+  kiwi::emu::Emulator::Type emulation_system_ = kiwi::emu::Emulator::Type::kNES;
+  int empty_message_string_id_ = 0;
   size_t current_index_ = 0;
   FlexItemWidget* current_item_widget_ = nullptr;
   SDL_Rect current_item_original_bounds_;

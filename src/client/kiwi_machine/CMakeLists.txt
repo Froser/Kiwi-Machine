@@ -113,6 +113,14 @@ if (DEFINED KIWI_PACKAGE_DIR)
                     VERBATIM
             )
         endif ()
+    else ()
+        add_custom_command(
+                TARGET ${PROJECT_NAME}
+                POST_BUILD
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/build/copy_packages.py
+                ARGS "${KIWI_PACKAGE_DIR}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+                VERBATIM
+        )
     endif ()
 endif ()
 
@@ -187,9 +195,9 @@ if(KIWI_SWITCH)
             "$ENV{DEVKITPRO}/libnx/include")
 
     if(NOT DEFINED KIWI_PACKAGE_DIR OR
-            NOT EXISTS "${KIWI_PACKAGE_DIR}/main.pak")
+            NOT EXISTS "${KIWI_PACKAGE_DIR}/nes_main.pak")
         KIWI_SWITCH_ENVIRONMENT_ERROR(
-                "KIWI_PACKAGE_DIR must contain main.pak for Switch builds.")
+                "KIWI_PACKAGE_DIR must contain nes_main.pak for Switch builds.")
     endif()
     file(GLOB KIWI_SWITCH_PAK_FILES CONFIGURE_DEPENDS
             "${KIWI_PACKAGE_DIR}/*.pak")
@@ -249,6 +257,8 @@ if(KIWI_SWITCH)
             COMMAND ${CMAKE_COMMAND} -E remove
                     "${KIWI_SWITCH_DIST_DIR}/main.pak"
                     "${KIWI_SWITCH_DIST_DIR}/specials.pak"
+                    "${KIWI_SWITCH_DIST_DIR}/nes_main.pak"
+                    "${KIWI_SWITCH_DIST_DIR}/nes_specials.pak"
             COMMAND ${CMAKE_COMMAND} -E remove_directory
                     "${KIWI_SWITCH_DIST_DIR}/textures"
             COMMAND ${NX_NACPTOOL_EXE} --create

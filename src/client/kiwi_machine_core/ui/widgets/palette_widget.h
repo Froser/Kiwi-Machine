@@ -17,10 +17,10 @@
 
 #include <kiwi_nes.h>
 
+class MainWindow;
 class PaletteWidget : public Widget {
  public:
-  explicit PaletteWidget(WindowBase* window_base,
-                         kiwi::nes::DebugPort* debug_port);
+  explicit PaletteWidget(MainWindow* main_window);
   ~PaletteWidget() override;
 
  protected:
@@ -28,7 +28,7 @@ class PaletteWidget : public Widget {
   void Paint() override;
 
  private:
-  kiwi::nes::DebugPort* debug_port_ = nullptr;
+  MainWindow* main_window_ = nullptr;
 };
 
 #endif  // UI_WIDGETS_PALETTE_WIDGET_H_

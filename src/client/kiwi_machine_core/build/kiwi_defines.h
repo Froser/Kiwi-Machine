@@ -16,13 +16,13 @@
 #include "build/build_config.h"
 
 #if BUILDFLAG(IS_SWITCH)
-#define KIWI_ENABLE_HD_TEXTURE 0
+#define BUILDFLAG_INTERNAL_ENABLE_HD_TEXTURE() (0)
 #else
-#define KIWI_ENABLE_HD_TEXTURE 1
+#define BUILDFLAG_INTERNAL_ENABLE_HD_TEXTURE() (1)
 #endif
 
 #if BUILDFLAG(IS_WASM)
-#define ENABLE_DEBUG_ROMS 0
+#define BUILDFLAG_INTERNAL_ENABLE_DEBUG_ROMS() (0)
 #define DISABLE_CHINESE_FONT 1   // To save space, Wasm removes Chinese font
 #define DISABLE_JAPANESE_FONT 1  // To save space, Wasm removes Japanese font
 // To save space, Wasm removes all basic sound effects, see
@@ -30,7 +30,7 @@
 #define DISABLE_SOUND_EFFECTS 1
 
 #else
-#define ENABLE_DEBUG_ROMS 1
+#define BUILDFLAG_INTERNAL_ENABLE_DEBUG_ROMS() (1)
 #define DISABLE_CHINESE_FONT 0
 #define DISABLE_JAPANESE_FONT 0
 #define DISABLE_SOUND_EFFECTS 0

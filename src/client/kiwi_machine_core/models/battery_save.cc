@@ -24,7 +24,7 @@
 
 #include "base/files/file_util.h"
 #include "build/kiwi_defines.h"
-#include "nes/rom_hash.h"
+#include "emulator/nes/rom_hash.h"
 
 #if BUILDFLAG(IS_WASM)
 #include "utility/emscripten/bridge_api.h"
@@ -55,7 +55,8 @@ std::optional<kiwi::base::FilePath> GetPath(
     return std::nullopt;
   }
 
-  return profile_path.Append(FILE_PATH_LITERAL("Saves"))
+  return profile_path.Append(FILE_PATH_LITERAL("nes"))
+      .Append(FILE_PATH_LITERAL("saves"))
       .Append(kiwi::base::FilePath::FromUTF8Unsafe(*normalized + ".sav"));
 }
 
@@ -75,7 +76,7 @@ ReadResult ReadFromPath(const kiwi::base::FilePath& save_path) {
   if (file_size <= 0 || file_size > kMaximumSaveSize) {
     return ReadResult{false, true, {}};
   }
-  kiwi::nes::Bytes data(static_cast<size_t>(file_size));
+  Bytes data(static_cast<size_t>(file_size));
   if (file.Read(0, reinterpret_cast<char*>(data.data()),
                 static_cast<int>(data.size())) != file_size) {
     return ReadResult{false, true, {}};
@@ -92,14 +93,13 @@ ReadResult Read(const kiwi::base::FilePath& profile_path,
 
 bool Write(const kiwi::base::FilePath& profile_path,
            const std::string& rom_sha1,
-           const kiwi::nes::Bytes& data) {
+           const Bytes& data) {
   std::optional<kiwi::base::FilePath> save_path =
       GetPath(profile_path, rom_sha1);
   return save_path && WriteToPath(*save_path, data);
 }
 
-bool WriteToPath(const kiwi::base::FilePath& save_path,
-                 const kiwi::nes::Bytes& data) {
+bool WriteToPath(const kiwi::base::FilePath& save_path, const Bytes& data) {
   if (save_path.empty() || data.empty() ||
       !kiwi::base::CreateDirectory(save_path.DirName())) {
     return false;

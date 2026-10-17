@@ -14,6 +14,7 @@
 
 #include <imgui.h>
 
+#include "ui/main_window.h"
 #include "ui/window_base.h"
 
 namespace {
@@ -69,11 +70,9 @@ constexpr int kWidth = kMargin * 2 + kPatternTableWidth +
                        kPaletteTileSize * 4;
 }  // namespace
 
-PatternWidget::PatternWidget(WindowBase* window_base,
-                             kiwi::nes::DebugPort* debug_port)
-    : Widget(window_base), debug_port_(debug_port) {
+PatternWidget::PatternWidget(MainWindow* main_window)
+    : Widget(main_window), main_window_(main_window) {
   set_flags(ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
-  SDL_assert(debug_port);
   set_title("Pattern");
   set_bounds(SDL_Rect{0, 0, kWidth, kHeight + kTopMargin});
 }
@@ -87,6 +86,9 @@ PatternWidget::~PatternWidget() {
 }
 
 void PatternWidget::Paint() {
+  DebugPort* debug_port = main_window_->debug_port();
+  if (!debug_port)
+    return;
   if (first_paint_) {
     for (auto& pattern_table : pattern_tables_) {
       SDL_assert(!pattern_table);
@@ -100,7 +102,7 @@ void PatternWidget::Paint() {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
   int offset_y = kMargin + kTopMargin;
-  kiwi::nes::Palette* palette = debug_port_->GetPPUContext().palette;
+  kiwi::nes::Palette* palette = debug_port->GetPPUContext().palette;
   assert(palette);
 
   // This is not a good way to get window's position. Consider move it to
@@ -109,8 +111,8 @@ void PatternWidget::Paint() {
 
   for (int i = 0; i < 8; ++i) {
     // Draw each pattern table.
-    kiwi::nes::Colors bgra = debug_port_->GetPatternTableBGRA(
-        static_cast<kiwi::nes::PaletteName>(i));
+    kiwi::nes::Colors bgra =
+        debug_port->GetPatternTableBGRA(static_cast<kiwi::nes::PaletteName>(i));
 
     // If ROMs is not loaded, color buffer will be empty.
     if (bgra.empty())
@@ -134,8 +136,8 @@ void PatternWidget::Paint() {
         kMargin + kPatternTableWidth + kPaletteSpacingBetweenPatternTable;
     int palette_y = offset_y + (kPatternTableHeight - kPaletteTileSize) / 2;
     kiwi::nes::Byte indices[4];
-    debug_port_->GetPaletteIndices(static_cast<kiwi::nes::PaletteName>(i),
-                                   indices);
+    debug_port->GetPaletteIndices(static_cast<kiwi::nes::PaletteName>(i),
+                                  indices);
     for (unsigned char index : indices) {
       {
         kiwi::nes::Color palette_bgra = palette->GetColorBGRA(index);

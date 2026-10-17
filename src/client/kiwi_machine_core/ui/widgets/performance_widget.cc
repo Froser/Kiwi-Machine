@@ -17,12 +17,10 @@
 constexpr ImVec2 kGraphSize(300, 150);
 
 PerformanceWidget::PerformanceWidget(WindowBase* window_base,
-                                     scoped_refptr<NESFrame> frame,
-                                     DebugPort* debug_port)
-    : Widget(window_base), frame_(frame), debug_port_(debug_port) {
+                                     scoped_refptr<NESFrame> frame)
+    : Widget(window_base), frame_(frame) {
   SDL_assert(frame_);
   frame_->AddObserver(this);
-  debug_port_->AddObserver(this);
   Application::Get()->AddObserver(this);
   set_flags(ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize |
             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
@@ -32,8 +30,18 @@ PerformanceWidget::PerformanceWidget(WindowBase* window_base,
 PerformanceWidget::~PerformanceWidget() {
   SDL_assert(frame_);
   frame_->RemoveObserver(this);
-  debug_port_->RemoveObserver(this);
+  SetDebugPort(nullptr);
   Application::Get()->RemoveObserver(this);
+}
+
+void PerformanceWidget::SetDebugPort(DebugPort* debug_port) {
+  if (debug_port_) {
+    debug_port_->RemoveObserver(this);
+  }
+  debug_port_ = debug_port;
+  if (debug_port_) {
+    debug_port_->AddObserver(this);
+  }
 }
 
 void PerformanceWidget::Paint() {

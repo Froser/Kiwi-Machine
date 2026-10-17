@@ -17,6 +17,13 @@ function(KIWI_ADD_MGBA)
     set(SKIP_GIT ON)
     set(M_CORE_GBA ON)
     set(M_CORE_GB ON)
+
+    # ios-cmake uses static-library try_compile checks, which incorrectly
+    # report popcount32 as available without linking. Keep mGBA's inline
+    # fallback enabled on iOS.
+    if(IOS)
+        set(HAVE_POPCOUNT32 OFF)
+    endif()
     add_subdirectory(mgba-0.10.5)
 endfunction()
 
@@ -30,6 +37,13 @@ target_link_libraries(mgba zlibstatic)
 
 if(EMSCRIPTEN OR KIWI_SWITCH)
     target_compile_definitions(mgba PUBLIC _GNU_SOURCE)
+endif()
+
+if(KIWI_SWITCH)
+    target_sources(mgba PRIVATE
+            mgba-0.10.5/src/util/vfs/vfs-fd.c
+            mgba-0.10.5/src/util/vfs/vfs-dirent.c
+    )
 endif()
 
 # The vendored source has no .git directory. Prevent its version generator

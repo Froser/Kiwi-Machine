@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <csetjmp>
+#include <map>
 #include <optional>
 #include <regex>
 #include <set>
@@ -28,7 +29,7 @@
 #include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "kiwi_nes.h"
-#include "nes/rom_hash.h"
+#include "emulator/nes/rom_hash.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/zip.h"
 #include "workspace.h"
@@ -37,8 +38,6 @@ DECLARE_string(km_path);
 
 #if BUILDFLAG(IS_WIN)
 #include <Windows.h>
-#undef min
-#undef max
 #endif
 
 constexpr int kMaxLevenshteinDistance = 10;
@@ -118,7 +117,8 @@ bool ReadCurrentFileFromZip(unzFile file, std::vector<uint8_t>& data) {
 }
 
 std::optional<nlohmann::json> CollectRomSha1s(
-    const kiwi::base::FilePath& zip_path) {
+    const kiwi::base::FilePath& zip_path,
+    ROMSystem system) {
   unzFile file = unzOpen(zip_path.AsUTF8Unsafe().c_str());
   if (!file) {
     return std::nullopt;
@@ -135,8 +135,8 @@ std::optional<nlohmann::json> CollectRomSha1s(
     }
     std::vector<char> filename(file_info.size_filename + 1, 0);
     if (unzGetCurrentFileInfo(file, &file_info, filename.data(),
-                              filename.size(), nullptr, 0, nullptr, 0) !=
-        UNZ_OK) {
+                              filename.size(), nullptr, 0, nullptr,
+                              0) != UNZ_OK) {
       unzClose(file);
       return std::nullopt;
     }
@@ -145,8 +145,8 @@ std::optional<nlohmann::json> CollectRomSha1s(
         kiwi::base::FilePath::FromUTF8Unsafe(filename.data());
     const std::string extension =
         kiwi::base::FilePath(rom_path.Extension()).AsUTF8Unsafe();
-    if (kiwi::base::CompareCaseInsensitiveASCII(
-            extension, ".nes") == 0) {
+    if (kiwi::base::CompareCaseInsensitiveASCII(extension,
+                                                GetROMExtension(system)) == 0) {
       std::vector<uint8_t> rom_data;
       if (!ReadCurrentFileFromZip(file, rom_data)) {
         unzClose(file);
@@ -355,7 +355,7 @@ struct ExplorerFileAndZipFileComparer {
   bool operator()(const Explorer::File& rhs) {
     std::vector<std::string> normalized_titles = NormalizeROMTitle(rhs.title);
     for (const auto& title : normalized_titles) {
-      if (kiwi::base::CompareCaseInsensitiveASCII(rom.nes_file_name, title) ==
+      if (kiwi::base::CompareCaseInsensitiveASCII(rom.rom_file_name, title) ==
           0)
         return true;
     }
@@ -364,13 +364,14 @@ struct ExplorerFileAndZipFileComparer {
 };
 
 void FetchFileNames(const kiwi::base::FilePath& dir,
+                    ROMSystem system,
                     std::vector<Explorer::File>& out) {
   out.clear();
   kiwi::base::FileEnumerator d(dir, false, kiwi::base::FileEnumerator::FILES);
   for (kiwi::base::FilePath current = d.Next(); !current.empty();
        current = d.Next()) {
-    if (current.Extension() == FILE_PATH_LITERAL(".nes") ||
-        current.Extension() == FILE_PATH_LITERAL(".zip")) {
+    if (IsROMExtension(current.AsUTF8Unsafe(), system) ||
+        IsZipExtension(current.AsUTF8Unsafe())) {
       out.push_back({current.BaseName().AsUTF8Unsafe(), false, dir});
     }
   }
@@ -409,25 +410,32 @@ void FetchFileNames(const kiwi::base::FilePath& dir,
   }
 }
 
-void FetchFileMapperSupported(std::vector<Explorer::File>& nes_files) {
-  for (auto& nes : nes_files) {
-    nes.supported = IsMapperSupported(
-        nes.dir.Append(kiwi::base::FilePath::FromUTF8Unsafe(nes.title)),
-        nes.mapper);
+void FetchFileSupported(ROMSystem system,
+                        std::vector<Explorer::File>& rom_files) {
+  for (auto& rom : rom_files) {
+    const kiwi::base::FilePath path =
+        rom.dir.Append(kiwi::base::FilePath::FromUTF8Unsafe(rom.title));
+    if (system == ROMSystem::kGBA) {
+      rom.supported = IsROMExtension(path.AsUTF8Unsafe(), system);
+      rom.mapper.clear();
+    } else {
+      rom.supported = IsMapperSupported(path, rom.mapper);
+    }
   }
 }
 
 void GenerateCompare(const kiwi::base::FilePath& cmp_dir,
+                     ROMSystem system,
                      std::vector<Explorer::File>& input_files) {
   std::vector<Explorer::File> compared_files;
-  FetchFileNames(cmp_dir, compared_files);
+  FetchFileNames(cmp_dir, system, compared_files);
 
   for (auto& item : compared_files) {
     if (kiwi::base::FilePath::FromUTF8Unsafe(item.title).Extension() ==
         FILE_PATH_LITERAL(".zip")) {
       kiwi::base::FilePath fullpath =
           item.dir.Append(kiwi::base::FilePath::FromUTF8Unsafe(item.title));
-      std::vector<ROM> roms = ReadZipFromFile(fullpath);
+      std::vector<ROM> roms = ReadZipFromFile(fullpath, system);
 
       for (const auto& rom : roms) {
         auto input_file_iter =
@@ -457,10 +465,43 @@ bool IsJPEGExtension(const std::string& filename) {
          file_path.Extension() == FILE_PATH_LITERAL(".jpeg");
 }
 
-bool IsNESExtension(const std::string& filename) {
+bool IsROMExtension(const std::string& filename, ROMSystem system) {
   kiwi::base::FilePath file_path =
       kiwi::base::FilePath::FromUTF8Unsafe(filename);
-  return file_path.Extension() == FILE_PATH_LITERAL(".nes");
+  const std::string extension =
+      kiwi::base::FilePath(file_path.Extension()).AsUTF8Unsafe();
+  return kiwi::base::CompareCaseInsensitiveASCII(extension,
+                                                 GetROMExtension(system)) == 0;
+}
+
+std::optional<ROMSystem> GetROMSystemForExtension(const std::string& filename) {
+  if (IsROMExtension(filename, ROMSystem::kNES))
+    return ROMSystem::kNES;
+  if (IsROMExtension(filename, ROMSystem::kGBA))
+    return ROMSystem::kGBA;
+  return std::nullopt;
+}
+
+const char* GetROMSystemName(ROMSystem system) {
+  switch (system) {
+    case ROMSystem::kNES:
+      return "NES/FC";
+    case ROMSystem::kGBA:
+      return "GBA";
+  }
+  SDL_assert(false);
+  return "";
+}
+
+const char* GetROMExtension(ROMSystem system) {
+  switch (system) {
+    case ROMSystem::kNES:
+      return ".nes";
+    case ROMSystem::kGBA:
+      return ".gba";
+  }
+  SDL_assert(false);
+  return "";
 }
 
 void ReplaceAndAppendUnsafe(char* original_string,
@@ -478,11 +519,45 @@ void ReplaceAndAppendUnsafe(char* original_string,
   strcat(original_string, append_string);
 }
 
-ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
+ROMS ReadZipFromFile(const kiwi::base::FilePath& path,
+                     std::optional<ROMSystem> expected_system) {
   static const std::vector<ROM> g_no_result;
   std::vector<ROM> result;
   unzFile file = unzOpen(path.AsUTF8Unsafe().c_str());
   if (file) {
+    ROMSystem system = ROMSystem::kNES;
+    if (expected_system) {
+      system = *expected_system;
+    } else {
+      bool found = false;
+      int located = unzGoToFirstFile(file);
+      while (located == UNZ_OK) {
+        unz_file_info file_info{};
+        if (unzGetCurrentFileInfo(file, &file_info, nullptr, 0, nullptr, 0,
+                                  nullptr, 0) != UNZ_OK) {
+          break;
+        }
+        std::vector<char> filename(file_info.size_filename + 1, 0);
+        if (unzGetCurrentFileInfo(file, &file_info, filename.data(),
+                                  filename.size(), nullptr, 0, nullptr,
+                                  0) != UNZ_OK) {
+          break;
+        }
+        std::optional<ROMSystem> detected =
+            GetROMSystemForExtension(filename.data());
+        if (detected) {
+          system = *detected;
+          found = true;
+          break;
+        }
+        located = unzGoToNextFile(file);
+      }
+      if (!found) {
+        unzClose(file);
+        return g_no_result;
+      }
+    }
+
     int err = unzLocateFile(file, "manifest.json", false);
     if (err != UNZ_OK) {
       unzClose(file);
@@ -503,6 +578,7 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
       const auto& titles = manifest_json.at("titles");
       for (const auto& rom_item : titles.items()) {
         ROM rom;
+        rom.system = system;
         if (manifest_json.contains("boxarts")) {
           const auto& boxarts = manifest_json.at("boxarts");
           rom.has_boxarts_size_hint = boxarts.contains(rom_item.key());
@@ -547,20 +623,21 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
         }
 
         // Gets ROM data.
-        std::string nes_name;
+        std::string rom_name;
         if (kiwi::base::EqualsCaseInsensitiveASCII(rom.key, "default") == 0)
-          nes_name = path.RemoveExtension().BaseName().AsUTF8Unsafe() + ".nes";
+          rom_name = path.RemoveExtension().BaseName().AsUTF8Unsafe() +
+                     GetROMExtension(system);
         else
-          nes_name = rom.key + ".nes";
+          rom_name = rom.key + GetROMExtension(system);
 
-        err = unzLocateFile(file, nes_name.c_str(), false);
+        err = unzLocateFile(file, rom_name.c_str(), false);
         if (err != UNZ_OK)
           continue;
 
-        if (!ReadCurrentFileFromZip(file, rom.nes_data))
+        if (!ReadCurrentFileFromZip(file, rom.rom_data))
           continue;
 
-        strcpy(rom.nes_file_name, nes_name.c_str());
+        strcpy(rom.rom_file_name, rom_name.c_str());
 
         result.push_back(rom);
       }
@@ -584,11 +661,18 @@ ROMS ReadZipFromFile(const kiwi::base::FilePath& path) {
 
 kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
                               const ROMS& roms) {
+  if (roms.empty())
+    return kiwi::base::FilePath();
+
+  const ROMSystem system = roms.front().system;
   kiwi::base::FilePath package_name;
 
   // Generate manifest.json
   nlohmann::json json;
   for (const auto& rom : roms) {
+    if (rom.system != system)
+      return kiwi::base::FilePath();
+
     nlohmann::json titles;
     if (strlen(rom.zh) > 0)
       titles["zh"] = rom.zh;
@@ -600,22 +684,20 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
       titles["ja-hint"] = rom.ja_hint;
     json["titles"][NormalizeROMTitle(rom.key)[0]] = titles;
 
-    std::vector<std::string> normalized_nes_filenames =
-        NormalizeROMTitle(rom.nes_file_name);
-    std::string normalized_nes_filename = normalized_nes_filenames[0];
+    std::vector<std::string> normalized_rom_filenames =
+        NormalizeROMTitle(rom.rom_file_name);
+    std::string normalized_rom_filename = normalized_rom_filenames[0];
     if (kiwi::base::CompareCaseInsensitiveASCII("default", rom.key) == 0) {
       package_name = kiwi::base::FilePath::FromUTF8Unsafe(
           kiwi::base::FilePath::FromUTF8Unsafe(
-              std::string(normalized_nes_filename))
+              std::string(normalized_rom_filename))
               .RemoveExtension()
               .AsUTF8Unsafe() +
           ".zip");
     }
-    if (package_name.empty()) {
-      // No default rom. Abort.
-      return kiwi::base::FilePath();
-    }
   }
+  if (package_name.empty())
+    return kiwi::base::FilePath();
 
   std::string output = save_dir.Append(package_name).AsUTF8Unsafe();
   zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
@@ -626,13 +708,13 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
   // Writes images, and roms.
   for (const auto& rom : roms) {
     std::string base_name = kiwi::base::FilePath::FromUTF8Unsafe(
-                                NormalizeROMTitle(rom.nes_file_name)[0])
+                                NormalizeROMTitle(rom.rom_file_name)[0])
                                 .RemoveExtension()
                                 .AsUTF8Unsafe();
 
-    if (!WriteToZip(zf, (base_name + ".nes").c_str(),
-                    reinterpret_cast<const char*>(rom.nes_data.data()),
-                    rom.nes_data.size())) {
+    if (!WriteToZip(zf, (base_name + GetROMExtension(system)).c_str(),
+                    reinterpret_cast<const char*>(rom.rom_data.data()),
+                    rom.rom_data.size())) {
       zipClose(zf, nullptr);
       return kiwi::base::FilePath();
     }
@@ -679,9 +761,10 @@ kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
 kiwi::base::FilePath PackZip(
     const kiwi::base::FilePath& rom_zip,
     const kiwi::base::FilePath::StringType& package_name,
-    const kiwi::base::FilePath& save_dir) {
-  std::vector<kiwi::base::FilePath> result =
-      PackZip(std::vector{std::make_pair(rom_zip, package_name)}, save_dir);
+    const kiwi::base::FilePath& save_dir,
+    ROMSystem system) {
+  std::vector<kiwi::base::FilePath> result = PackZip(
+      std::vector{std::make_pair(rom_zip, package_name)}, save_dir, system);
   if (result.empty())
     return kiwi::base::FilePath();
 
@@ -691,7 +774,8 @@ kiwi::base::FilePath PackZip(
 std::vector<kiwi::base::FilePath> PackZip(
     const std::vector<std::pair<kiwi::base::FilePath,
                                 kiwi::base::FilePath::StringType>>& rom_zips,
-    const kiwi::base::FilePath& save_dir) {
+    const kiwi::base::FilePath& save_dir,
+    ROMSystem system) {
   std::vector<kiwi::base::FilePath> result;
   for (const auto& [rom_zip, package_name] : rom_zips) {
     std::vector<kiwi::base::FilePath> package_files;
@@ -700,9 +784,9 @@ std::vector<kiwi::base::FilePath> PackZip(
       continue;
     }
     if (file_info.is_directory) {
-      kiwi::base::FileEnumerator files(
-          rom_zip, false, kiwi::base::FileEnumerator::FILES,
-          FILE_PATH_LITERAL("*.zip"));
+      kiwi::base::FileEnumerator files(rom_zip, false,
+                                       kiwi::base::FileEnumerator::FILES,
+                                       FILE_PATH_LITERAL("*.zip"));
       for (kiwi::base::FilePath current = files.Next(); !current.empty();
            current = files.Next()) {
         package_files.push_back(std::move(current));
@@ -717,9 +801,9 @@ std::vector<kiwi::base::FilePath> PackZip(
     auto maybe_manifest_content = kiwi::base::ReadFileToBytes(manifest_path);
     nlohmann::json manifest;
     if (maybe_manifest_content) {
-      manifest = nlohmann::json::parse(maybe_manifest_content->begin(),
-                                       maybe_manifest_content->end(), nullptr,
-                                       false);
+      manifest =
+          nlohmann::json::parse(maybe_manifest_content->begin(),
+                                maybe_manifest_content->end(), nullptr, false);
     }
     if (manifest.is_discarded() || !manifest.is_object()) {
       manifest = nlohmann::json::parse(g_package_manifest_template);
@@ -728,7 +812,7 @@ std::vector<kiwi::base::FilePath> PackZip(
     nlohmann::json rom_sha1s = nlohmann::json::object();
     bool hashes_collected = true;
     for (const kiwi::base::FilePath& current : package_files) {
-      std::optional<nlohmann::json> hashes = CollectRomSha1s(current);
+      std::optional<nlohmann::json> hashes = CollectRomSha1s(current, system);
       if (!hashes) {
         hashes_collected = false;
         break;
@@ -740,6 +824,7 @@ std::vector<kiwi::base::FilePath> PackZip(
       continue;
     }
     manifest["rom_sha1s"] = std::move(rom_sha1s);
+    manifest["type"] = system == ROMSystem::kNES ? "nes" : "gba";
 
     std::string output = save_dir.Append(package_name).AsUTF8Unsafe();
     zipFile zf = zipOpen(output.c_str(), APPEND_STATUS_CREATE);
@@ -774,20 +859,24 @@ std::vector<kiwi::base::FilePath> PackZip(
 
 std::vector<kiwi::base::FilePath> PackEntireDirectory(
     const kiwi::base::FilePath& dir,
-    const kiwi::base::FilePath& save_dir) {
+    const kiwi::base::FilePath& save_dir,
+    ROMSystem system) {
   std::vector<std::pair<kiwi::base::FilePath, kiwi::base::FilePath::StringType>>
       rom_zips;
-  rom_zips.push_back({dir, FILE_PATH_LITERAL("main.pak")});
+  const kiwi::base::FilePath::StringType prefix =
+      system == ROMSystem::kGBA ? FILE_PATH_LITERAL("gba_")
+                                : FILE_PATH_LITERAL("nes_");
+  rom_zips.push_back({dir, prefix + FILE_PATH_LITERAL("main.pak")});
 
   kiwi::base::FileEnumerator d(dir, false,
                                kiwi::base::FileEnumerator::DIRECTORIES);
   for (kiwi::base::FilePath current = d.Next(); !current.empty();
        current = d.Next()) {
-    rom_zips.push_back(
-        {current, current.BaseName().value() + FILE_PATH_LITERAL(".pak")});
+    rom_zips.push_back({current, prefix + current.BaseName().value() +
+                                     FILE_PATH_LITERAL(".pak")});
   }
 
-  return PackZip(rom_zips, save_dir);
+  return PackZip(rom_zips, save_dir, system);
 }
 
 kiwi::base::FilePath WriteROM(const char* filename,
@@ -840,22 +929,26 @@ bool IsMapperSupported(const kiwi::base::FilePath& nes_files,
 }
 
 std::vector<uint8_t> TryFetchBoxArtImage(const std::string& name,
+                                         ROMSystem system,
                                          kiwi::base::FilePath* suggested_url) {
-  static std::set<std::pair<kiwi::base::FilePath, kiwi::base::FilePath>>
-      g_boxarts;
-  if (g_boxarts.empty()) {
-    kiwi::base::FileEnumerator d(GetWorkspace().GetNESBoxartsPath(), false,
+  static std::map<
+      ROMSystem,
+      std::set<std::pair<kiwi::base::FilePath, kiwi::base::FilePath>>>
+      g_boxarts_by_system;
+  auto& boxarts = g_boxarts_by_system[system];
+  if (boxarts.empty()) {
+    kiwi::base::FileEnumerator d(GetWorkspace().GetBoxartsPath(system), false,
                                  kiwi::base::FileEnumerator::FILES);
     for (kiwi::base::FilePath current = d.Next(); !current.empty();
          current = d.Next()) {
       if (current.Extension() == FILE_PATH_LITERAL(".jpg")) {
-        g_boxarts.insert({current, current.BaseName().RemoveExtension()});
+        boxarts.insert({current, current.BaseName().RemoveExtension()});
       }
     }
   }
 
   std::multimap<int, kiwi::base::FilePath> r;
-  for (const auto& boxart : g_boxarts) {
+  for (const auto& boxart : boxarts) {
     int dis = LevenshteinDistance(kiwi::base::FilePath::FromUTF8Unsafe(name)
                                       .RemoveExtension()
                                       .AsUTF8Unsafe(),
@@ -930,7 +1023,7 @@ std::string TryGetJaTitle(const std::string& en_name) {
 }
 
 std::string RemoveROMRegion(const std::string& str) {
-  std::regex pattern(R"( \((.*)\)\.nes)");
+  std::regex pattern(R"( \((.*)\)\.[^.]+$)");
   std::string replacement = "";
   return std::regex_replace(str, pattern, replacement);
 }
@@ -1016,7 +1109,9 @@ bool FillRomDetailsAutomatically(ROM& rom,
     strcpy(rom.zh_hint, maybe_pinyin.c_str());
   std::string rom_name_without_region =
       RemoveROMRegion(basename.AsUTF8Unsafe());
-  std::string maybe_ja_name = TryGetJaTitle(rom_name_without_region);
+  std::string maybe_ja_name = rom.system == ROMSystem::kNES
+                                  ? TryGetJaTitle(rom_name_without_region)
+                                  : std::string();
   if (!maybe_ja_name.empty()) {
     strcpy(rom.ja, maybe_ja_name.c_str());
     found = true;
@@ -1070,12 +1165,13 @@ std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
 }
 
 void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
-                         const kiwi::base::FilePath& save_dir) {
+                         const kiwi::base::FilePath& save_dir,
+                         ROMSystem system) {
   if (zip.empty())
     return;
 
   kiwi::base::FilePath package_path =
-      PackZip(zip, FILE_PATH_LITERAL("test.pak"), save_dir);
+      PackZip(zip, FILE_PATH_LITERAL("test.pak"), save_dir, system);
   if (!package_path.empty()) {
     kiwi::base::FilePath kiwi_machine_path_from_cmdline;
     if (!FLAGS_km_path.empty()) {
@@ -1084,8 +1180,7 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
     }
 
 #if BUILDFLAG(IS_MAC)
-    kiwi::base::FilePath kiwi_machine(
-        FILE_PATH_LITERAL("Kiwi Machine.app"));
+    kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("Kiwi Machine.app"));
     if (!kiwi_machine_path_from_cmdline.empty())
       kiwi_machine = kiwi_machine_path_from_cmdline;
     RunExecutable(kiwi_machine, {"--test-pak=" + package_path.AsUTF8Unsafe(),
@@ -1109,15 +1204,17 @@ void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
 
 void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
                              const kiwi::base::FilePath& cmp_dir,
+                             ROMSystem system,
                              std::vector<Explorer::File>& out) {
-  FetchFileNames(input_dir, out);
-  FetchFileMapperSupported(out);
-  GenerateCompare(cmp_dir, out);
+  FetchFileNames(input_dir, system, out);
+  FetchFileSupported(system, out);
+  GenerateCompare(cmp_dir, system, out);
 }
 
 void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
+                         ROMSystem system,
                          std::vector<Explorer::File>& files) {
-  std::vector<ROM> roms = ReadZipFromFile(updated_zip_file);
+  std::vector<ROM> roms = ReadZipFromFile(updated_zip_file, system);
   for (const auto& rom : roms) {
     auto input_file_iter = std::find_if(files.begin(), files.end(),
                                         ExplorerFileAndZipFileComparer(rom));

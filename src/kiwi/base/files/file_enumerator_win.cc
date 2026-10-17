@@ -12,10 +12,6 @@
 #include "base/win/shlwapi.h"
 #include "base/win/windows_types.h"
 
-#if defined(max)
-#undef max
-#endif
-
 namespace kiwi::base {
 
 namespace {

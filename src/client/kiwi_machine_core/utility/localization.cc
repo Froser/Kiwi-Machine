@@ -154,6 +154,16 @@ const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom) {
   return GetROMLocalizedTitle(GetCurrentSupportedLanguage(), rom);
 }
 
+std::string GetROMLocalizedTitle(const preset_roms::PresetROM& rom,
+                                 preset_roms::ROMEdition edition) {
+  std::string title = GetROMLocalizedTitle(rom);
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+  if (edition == preset_roms::ROMEdition::kHD)
+    title.append(" [HD]");
+#endif
+  return title;
+}
+
 const char* GetROMLocalizedCollateStringHint(
     const preset_roms::PresetROM& rom) {
   return GetROMLocalizedCollateStringHint(GetCurrentSupportedLanguage(), rom);

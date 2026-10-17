@@ -35,13 +35,19 @@ enum class Region {
 
 enum class ROMEdition {
   kOriginal,
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   kHD,
 #endif
 };
 
+enum class PackageType {
+  kNES,
+  kGBA,
+};
+
 struct PresetROM {
   const char* name;
+  PackageType type = PackageType::kNES;
 
   unz_file_pos file_pos;
   kiwi::base::RepeatingCallback<kiwi::nes::Bytes(unz_file_pos)> zip_data_loader;
@@ -62,7 +68,7 @@ struct PresetROM {
   // SHA-1 metadata for package indexing and ROM identification.
   std::string sha1;
   std::unordered_map<std::string, std::string> sha1_by_name;
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   // Independently packaged HD texture metadata.
   kiwi::base::FilePath hd_texture_path;
   bool hd_texture_toggle_available = false;
@@ -92,6 +98,8 @@ struct Package {
   virtual kiwi::nes::Bytes GetSideMenuImage() = 0;
   virtual kiwi::nes::Bytes GetSideMenuHighlightImage() = 0;
   virtual std::string GetTitleForLanguage(SupportedLanguage language) = 0;
+  virtual PackageType GetType() const = 0;
+  virtual bool IsMainPackage() const = 0;
 };
 
 std::vector<Package*> GetPresetOrTestRomsPackages();

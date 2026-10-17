@@ -14,34 +14,40 @@
 
 #include <SDL.h>
 
-#include "nes/ppu_observer.h"
+#include "debug/debug_port.h"
+#include "emulator/nes/ppu_observer.h"
+#include "ui/main_window.h"
 #include "ui/window_base.h"
 
 constexpr int kNametableWidth = 256 * 2;
 constexpr int kNametableHeight = 240 * 2;
 
-NametableWidget::NametableWidget(WindowBase* window_base,
-                                 NESRuntimeID runtime_id)
-    : Widget(window_base) {
+NametableWidget::NametableWidget(MainWindow* main_window)
+    : Widget(main_window) {
   ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoSavedSettings;
   set_flags(window_flags);
   set_title("Nametable");
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
-  runtime_data_->debug_port->SetNametableRenderer(this);
   set_bounds(SDL_Rect{0, 0, kNametableWidth, kNametableHeight});
 }
 
 NametableWidget::~NametableWidget() {
-  SDL_assert(runtime_data_);
-  runtime_data_->debug_port->SetNametableRenderer(nullptr);
+  SetDebugPort(nullptr);
 
   if (screen_texture_)
     SDL_DestroyTexture(screen_texture_);
 }
 
-void NametableWidget::Paint() {
-  kiwi::nes::DebugPort* debug_port = runtime_data_->debug_port.get();
+void NametableWidget::SetDebugPort(DebugPort* debug_port) {
+  if (debug_port_) {
+    debug_port_->SetNametableRenderer(nullptr);
+  }
+  debug_port_ = debug_port;
+  if (debug_port_) {
+    debug_port_->SetNametableRenderer(this);
+  }
+}
 
+void NametableWidget::Paint() {
   // Write buffer to the texture, and render.
   if (!screen_buffer_.empty()) {
     int result =
@@ -69,10 +75,9 @@ void NametableWidget::Render(const kiwi::nes::PPUFrameData& frame) {
   // Create texture to show nametable
   if (!screen_texture_) {
     // SDL_assert(frame_->width() > 0 && frame_->height() > 0);
-    screen_texture_ =
-        SDL_CreateTexture(window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
-                          SDL_TEXTUREACCESS_STREAMING, frame.width,
-                          frame.height);
+    screen_texture_ = SDL_CreateTexture(
+        window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
+        SDL_TEXTUREACCESS_STREAMING, frame.width, frame.height);
   }
 
   screen_buffer_ = *frame.native_pixels;

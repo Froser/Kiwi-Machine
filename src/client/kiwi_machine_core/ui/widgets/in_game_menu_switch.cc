@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "ui/main_window.h"
 #include "ui/widgets/canvas.h"
 #include "ui/widgets/in_game_menu_internal.h"
 #include "ui/window_base.h"
@@ -158,7 +159,11 @@ void InGameMenu::RefreshQuickLoadPreviews() {
   if (!auto_save_count_ready_)
     return;
 
-  const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
+  NESRuntime* runtime = main_window_->nes_runtime();
+  if (!runtime)
+    return;
+  const kiwi::nes::RomData* rom_data =
+      runtime->emulator()->AsNESEmulator()->GetRomData();
   if (!rom_data)
     return;
 
@@ -175,7 +180,7 @@ void InGameMenu::RefreshQuickLoadPreviews() {
     preview.requested = true;
     preview.status = StatePreview::Status::kLoading;
     std::weak_ptr<int> weak_lifetime = lifetime_token_;
-    runtime_data_->GetAutoSavedState(
+    runtime->GetAutoSavedState(
         rom_data->crc, slot,
         kiwi::base::BindOnce(&InGameMenu::DispatchQuickLoadPreviewResult,
                              std::move(weak_lifetime), this, request_id, slot));
@@ -187,7 +192,7 @@ void InGameMenu::DispatchQuickLoadPreviewResult(
     InGameMenu* menu,
     uint64_t request_id,
     int slot,
-    const NESRuntime::Data::StateResult& result) {
+    const NESRuntime::StateResult& result) {
   if (!weak_lifetime.expired())
     menu->OnGotQuickLoadPreview(request_id, slot, result);
 }
@@ -195,9 +200,9 @@ void InGameMenu::DispatchQuickLoadPreviewResult(
 void InGameMenu::OnGotQuickLoadPreview(
     uint64_t request_id,
     int slot,
-    const NESRuntime::Data::StateResult& state_result) {
+    const NESRuntime::StateResult& state_result) {
   if (request_id != quick_load_preview_request_id_ || slot < 0 ||
-      slot >= NESRuntime::Data::MaxAutoSaveStates) {
+      slot >= NESRuntime::MaxAutoSaveStates) {
     return;
   }
 
@@ -240,7 +245,7 @@ int InGameMenu::GetQuickLoadSlot(size_t visible_index) const {
 
 int InGameMenu::GetQuickLoadTimestamp() const {
   if (which_autosave_state_slot_ < 0 ||
-      which_autosave_state_slot_ >= NESRuntime::Data::MaxAutoSaveStates) {
+      which_autosave_state_slot_ >= NESRuntime::MaxAutoSaveStates) {
     return 0;
   }
   return quick_load_previews_[which_autosave_state_slot_].timestamp;

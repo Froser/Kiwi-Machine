@@ -46,16 +46,28 @@ set(Sources
         kiwi_flags.h
         kiwi_main.h
         kiwi_main.cc
+        models/audio_base.cc
+        models/audio_base.h
         models/battery_save.cc
         models/battery_save.h
-        models/nes_audio.cc
-        models/nes_audio.h
-        models/nes_config.cc
-        models/nes_config.h
-        models/nes_frame.cc
-        models/nes_frame.h
-        models/nes_runtime.cc
-        models/nes_runtime.h
+        models/config.cc
+        models/config.h
+        models/frame_base.cc
+        models/frame_base.h
+        models/runtime.cc
+        models/runtime.h
+        models/gba/audio.cc
+        models/gba/audio.h
+        models/gba/frame.cc
+        models/gba/frame.h
+        models/gba/runtime.cc
+        models/gba/runtime.h
+        models/nes/audio.cc
+        models/nes/audio.h
+        models/nes/frame.cc
+        models/nes/frame.h
+        models/nes/runtime.cc
+        models/nes/runtime.h
         preset_roms/preset_roms.h
         preset_roms/preset_roms.cc
         resources/audio_resources.cc
@@ -80,6 +92,8 @@ set(Sources
         ui/widgets/flex_item_widget.h
         ui/widgets/flex_items_widget.cc
         ui/widgets/flex_items_widget.h
+        ui/widgets/game_library_view.cc
+        ui/widgets/game_library_view.h
         ui/widgets/performance_widget.cc
         ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc
@@ -141,6 +155,10 @@ set(Sources
         utility/logging.h
         utility/math.cc
         utility/math.h
+        utility/runtime_util.cc
+        utility/runtime_util.h
+        utility/save_state_util.cc
+        utility/save_state_util.h
         utility/timer.cc
         utility/timer.h
         utility/fps_counter.cc

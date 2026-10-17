@@ -1,10 +1,10 @@
 # Copyright (C) 2023 Yisi Yu
-# 
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -34,7 +34,7 @@ include_directories(${zlib_BINARY_DIR})
 include_directories(${glog_SOURCE_DIR}/src)
 include_directories(${glog_BINARY_DIR}/..)
 
-add_subdirectory(nes)
+add_subdirectory(emulator/nes)
 
 # Sources for base
 set(base_sources
@@ -113,17 +113,42 @@ set(base_sources
         base/threading/thread.h
 )
 
+set(emulator_sources
+        emulator/audio_device.cc
+        emulator/audio_device.h
+        emulator/emulator.cc
+        emulator/emulator.h
+        emulator/emulator_export.h
+        emulator/input_device.cc
+        emulator/input_device.h
+        emulator/io_devices.h
+        emulator/render_device.cc
+        emulator/render_device.h
+        emulator/types.h
+)
+
 set(gba_sources
-        gba/emulator.cc
-        gba/emulator.h
-        gba/emulator_impl.cc
-        gba/emulator_impl.h
-        gba/gba_export.h
-        gba/io_devices.cc
-        gba/io_devices.h
-        gba/rom_data.cc
-        gba/rom_data.h
-        gba/types.h
+        emulator/gba/audio_device.cc
+        emulator/gba/audio_device.h
+        emulator/gba/emulator.cc
+        emulator/gba/emulator.h
+        emulator/gba/emulator_impl.cc
+        emulator/gba/emulator_impl.h
+        emulator/gba/gba_export.h
+        emulator/gba/io_devices.h
+        emulator/gba/luminance_device.cc
+        emulator/gba/luminance_device.h
+        emulator/gba/motion_device.cc
+        emulator/gba/motion_device.h
+        emulator/gba/render_device.cc
+        emulator/gba/render_device.h
+        emulator/gba/rom_data.cc
+        emulator/gba/rom_data.h
+        emulator/gba/rtc_device.cc
+        emulator/gba/rtc_device.h
+        emulator/gba/rumble_device.cc
+        emulator/gba/rumble_device.h
+        emulator/gba/types.h
 )
 
 if (APPLE)
@@ -171,248 +196,256 @@ endif ()
 
 # sources for nes
 set(nes_sources
-        nes/apu.cc
-        nes/apu.h
-        nes/cartridge.cc
-        nes/cartridge.h
-        nes/controller.cc
-        nes/controller.h
-        nes/nes_export.h
-        nes/cpu_bus.cc
-        nes/cpu_bus.h
-        nes/cpu.cc
-        nes/cpu.h
-        nes/cpu_observer.cc
-        nes/cpu_observer.h
-        nes/debug/debug_port.cc
-        nes/debug/debug_port.h
-        nes/debug/disassembly.cc
-        nes/debug/disassembly.h
-        nes/emulator.cc
-        nes/emulator.h
-        nes/emulator_impl.cc
-        nes/emulator_impl.h
-        nes/emulator_states.cc
-        nes/emulator_states.h
-        nes/io_devices.cc
-        nes/io_devices.h
-        nes/mapper.cc
-        nes/mapper.h
-        nes/nes_buildflags.h
-        nes/mappers/mapper000.cc
-        nes/mappers/mapper000.h
-        nes/mappers/mapper001.cc
-        nes/mappers/mapper001.h
-        nes/mappers/mapper002.cc
-        nes/mappers/mapper002.h
-        nes/mappers/mapper003.cc
-        nes/mappers/mapper003.h
-        nes/mappers/mapper004.cc
-        nes/mappers/mapper004.h
-        nes/mappers/mapper005.cc
-        nes/mappers/mapper005.h
-        nes/mappers/mapper007.cc
-        nes/mappers/mapper007.h
-        nes/mappers/mapper009.cc
-        nes/mappers/mapper009.h
-        nes/mappers/mapper010.cc
-        nes/mappers/mapper010.h
-        nes/mappers/mapper011.cc
-        nes/mappers/mapper011.h
-        nes/mappers/mapper033.cc
-        nes/mappers/mapper033.h
-        nes/mappers/mapper040.cc
-        nes/mappers/mapper040.h
-        nes/mappers/mapper048.cc
-        nes/mappers/mapper048.h
-        nes/mappers/mapper066.cc
-        nes/mappers/mapper066.h
-        nes/mappers/mapper074.cc
-        nes/mappers/mapper074.h
-        nes/mappers/mapper075.cc
-        nes/mappers/mapper075.h
-        nes/mappers/mapper087.cc
-        nes/mappers/mapper087.h
-        nes/mappers/mapper185.cc
-        nes/mappers/mapper185.h
-        nes/mappers/mapper013.cc
-        nes/mappers/mapper013.h
-        nes/mappers/mapper016.cc
-        nes/mappers/mapper016.h
-        nes/mappers/mapper018.cc
-        nes/mappers/mapper018.h
-        nes/mappers/mapper019.cc
-        nes/mappers/mapper019.h
-        nes/mappers/mapper023.cc
-        nes/mappers/mapper023.h
-        nes/mappers/mapper024.cc
-        nes/mappers/mapper024.h
-        nes/mappers/mapper032.cc
-        nes/mappers/mapper032.h
-        nes/mappers/mapper034.cc
-        nes/mappers/mapper034.h
-        nes/mappers/mapper037.cc
-        nes/mappers/mapper037.h
-        nes/mappers/mapper038.cc
-        nes/mappers/mapper038.h
-        nes/mappers/mapper041.cc
-        nes/mappers/mapper041.h
-        nes/mappers/mapper046.cc
-        nes/mappers/mapper046.h
-        nes/mappers/mapper047.cc
-        nes/mappers/mapper047.h
-        nes/mappers/mapper064.cc
-        nes/mappers/mapper064.h
-        nes/mappers/mapper065.cc
-        nes/mappers/mapper065.h
-        nes/mappers/mapper067.cc
-        nes/mappers/mapper067.h
-        nes/mappers/mapper068.cc
-        nes/mappers/mapper068.h
-        nes/mappers/mapper069.cc
-        nes/mappers/mapper069.h
-        nes/mappers/mapper070.cc
-        nes/mappers/mapper070.h
-        nes/mappers/mapper071.cc
-        nes/mappers/mapper071.h
-        nes/mappers/mapper072.cc
-        nes/mappers/mapper072.h
-        nes/mappers/mapper073.cc
-        nes/mappers/mapper073.h
-        nes/mappers/mapper077.cc
-        nes/mappers/mapper077.h
-        nes/mappers/mapper078.cc
-        nes/mappers/mapper078.h
-        nes/mappers/mapper079.cc
-        nes/mappers/mapper079.h
-        nes/mappers/mapper080.cc
-        nes/mappers/mapper080.h
-        nes/mappers/mapper085.cc
-        nes/mappers/mapper085.h
-        nes/mappers/mapper086.cc
-        nes/mappers/mapper086.h
-        nes/mappers/mapper089.cc
-        nes/mappers/mapper089.h
-        nes/mappers/mapper092.cc
-        nes/mappers/mapper092.h
-        nes/mappers/mapper093.cc
-        nes/mappers/mapper093.h
-        nes/mappers/mapper094.cc
-        nes/mappers/mapper094.h
-        nes/mappers/mapper096.cc
-        nes/mappers/mapper096.h
-        nes/mappers/mapper097.cc
-        nes/mappers/mapper097.h
-        nes/mappers/mapper104.cc
-        nes/mappers/mapper104.h
-        nes/mappers/mapper105.cc
-        nes/mappers/mapper105.h
-        nes/mappers/mapper112.cc
-        nes/mappers/mapper112.h
-        nes/mappers/mapper113.cc
-        nes/mappers/mapper113.h
-        nes/mappers/mapper115.cc
-        nes/mappers/mapper115.h
-        nes/mappers/mapper118.cc
-        nes/mappers/mapper118.h
-        nes/mappers/mapper119.cc
-        nes/mappers/mapper119.h
-        nes/mappers/mapper132.cc
-        nes/mappers/mapper132.h
-        nes/mappers/mapper133.cc
-        nes/mappers/mapper133.h
-        nes/mappers/mapper137.cc
-        nes/mappers/mapper137.h
-        nes/mappers/mapper139.cc
-        nes/mappers/mapper139.h
-        nes/mappers/mapper140.cc
-        nes/mappers/mapper140.h
-        nes/mappers/mapper141.cc
-        nes/mappers/mapper141.h
-        nes/mappers/mapper143.cc
-        nes/mappers/mapper143.h
-        nes/mappers/mapper147.cc
-        nes/mappers/mapper147.h
-        nes/mappers/mapper148.cc
-        nes/mappers/mapper148.h
-        nes/mappers/mapper150.cc
-        nes/mappers/mapper150.h
-        nes/mappers/mapper156.cc
-        nes/mappers/mapper156.h
-        nes/mappers/mapper168.cc
-        nes/mappers/mapper168.h
-        nes/mappers/mapper176.cc
-        nes/mappers/mapper176.h
-        nes/mappers/mapper177.cc
-        nes/mappers/mapper177.h
-        nes/mappers/mapper178.cc
-        nes/mappers/mapper178.h
-        nes/mappers/mapper180.cc
-        nes/mappers/mapper180.h
-        nes/mappers/mapper184.cc
-        nes/mappers/mapper184.h
-        nes/mappers/mapper186.cc
-        nes/mappers/mapper186.h
-        nes/mappers/mapper188.cc
-        nes/mappers/mapper188.h
-        nes/mappers/mapper189.cc
-        nes/mappers/mapper189.h
-        nes/mappers/mapper193.cc
-        nes/mappers/mapper193.h
-        nes/mappers/mapper206.cc
-        nes/mappers/mapper206.h
-        nes/mappers/mapper216.cc
-        nes/mappers/mapper216.h
-        nes/mappers/mapper228.cc
-        nes/mappers/mapper228.h
-        nes/mappers/mapper232.cc
-        nes/mappers/mapper232.h
-        nes/mappers/mapper234.cc
-        nes/mappers/mapper234.h
-        nes/mappers/mapper240.cc
-        nes/mappers/mapper240.h
-        nes/mappers/mapper241.cc
-        nes/mappers/mapper241.h
-        nes/mappers/mapper244.cc
-        nes/mappers/mapper244.h
-        nes/mappers/mapper245.cc
-        nes/mappers/mapper245.h
-        nes/mappers/mapper246.cc
-        nes/mappers/mapper246.h
-        nes/mappers/mapper355.cc
-        nes/mappers/mapper355.h
-        nes/mappers/mapper512.cc
-        nes/mappers/mapper512.h
-        nes/opcodes.cc
-        nes/opcodes.h
-        nes/palette.cc
-        nes/palette.h
-        nes/ppu_observer.cc
-        nes/ppu_observer.h
-        nes/ppu_bus.cc
-        nes/ppu_bus.h
-        nes/ppu_patch.cc
-        nes/ppu_patch.h
-        nes/ppu_texture_capture.cc
-        nes/ppu_texture_capture.h
-        nes/ppu.cc
-        nes/ppu.h
-        nes/registers.h
-        nes/rom_data.cc
-        nes/rom_data.h
-        nes/rom_hash.cc
-        nes/rom_hash.h
-        nes/types.h
+        emulator/nes/apu.cc
+        emulator/nes/apu.h
+        emulator/nes/audio_device.cc
+        emulator/nes/audio_device.h
+        emulator/nes/cartridge.cc
+        emulator/nes/cartridge.h
+        emulator/nes/controller.cc
+        emulator/nes/controller.h
+        emulator/nes/nes_export.h
+        emulator/nes/cpu_bus.cc
+        emulator/nes/cpu_bus.h
+        emulator/nes/cpu.cc
+        emulator/nes/cpu.h
+        emulator/nes/cpu_observer.cc
+        emulator/nes/cpu_observer.h
+        emulator/nes/debug/debug_port.cc
+        emulator/nes/debug/debug_port.h
+        emulator/nes/debug/disassembly.cc
+        emulator/nes/debug/disassembly.h
+        emulator/nes/emulator.cc
+        emulator/nes/emulator.h
+        emulator/nes/emulator_impl.cc
+        emulator/nes/emulator_impl.h
+        emulator/nes/emulator_states.cc
+        emulator/nes/emulator_states.h
+        emulator/nes/io_devices.cc
+        emulator/nes/io_devices.h
+        emulator/nes/mapper.cc
+        emulator/nes/mapper.h
+        emulator/nes/nes_buildflags.h
+        emulator/nes/mappers/mapper000.cc
+        emulator/nes/mappers/mapper000.h
+        emulator/nes/mappers/mapper001.cc
+        emulator/nes/mappers/mapper001.h
+        emulator/nes/mappers/mapper002.cc
+        emulator/nes/mappers/mapper002.h
+        emulator/nes/mappers/mapper003.cc
+        emulator/nes/mappers/mapper003.h
+        emulator/nes/mappers/mapper004.cc
+        emulator/nes/mappers/mapper004.h
+        emulator/nes/mappers/mapper005.cc
+        emulator/nes/mappers/mapper005.h
+        emulator/nes/mappers/mapper007.cc
+        emulator/nes/mappers/mapper007.h
+        emulator/nes/mappers/mapper009.cc
+        emulator/nes/mappers/mapper009.h
+        emulator/nes/mappers/mapper010.cc
+        emulator/nes/mappers/mapper010.h
+        emulator/nes/mappers/mapper011.cc
+        emulator/nes/mappers/mapper011.h
+        emulator/nes/mappers/mapper033.cc
+        emulator/nes/mappers/mapper033.h
+        emulator/nes/mappers/mapper040.cc
+        emulator/nes/mappers/mapper040.h
+        emulator/nes/mappers/mapper048.cc
+        emulator/nes/mappers/mapper048.h
+        emulator/nes/mappers/mapper066.cc
+        emulator/nes/mappers/mapper066.h
+        emulator/nes/mappers/mapper074.cc
+        emulator/nes/mappers/mapper074.h
+        emulator/nes/mappers/mapper075.cc
+        emulator/nes/mappers/mapper075.h
+        emulator/nes/mappers/mapper087.cc
+        emulator/nes/mappers/mapper087.h
+        emulator/nes/mappers/mapper185.cc
+        emulator/nes/mappers/mapper185.h
+        emulator/nes/mappers/mapper013.cc
+        emulator/nes/mappers/mapper013.h
+        emulator/nes/mappers/mapper016.cc
+        emulator/nes/mappers/mapper016.h
+        emulator/nes/mappers/mapper018.cc
+        emulator/nes/mappers/mapper018.h
+        emulator/nes/mappers/mapper019.cc
+        emulator/nes/mappers/mapper019.h
+        emulator/nes/mappers/mapper023.cc
+        emulator/nes/mappers/mapper023.h
+        emulator/nes/mappers/mapper024.cc
+        emulator/nes/mappers/mapper024.h
+        emulator/nes/mappers/mapper032.cc
+        emulator/nes/mappers/mapper032.h
+        emulator/nes/mappers/mapper034.cc
+        emulator/nes/mappers/mapper034.h
+        emulator/nes/mappers/mapper037.cc
+        emulator/nes/mappers/mapper037.h
+        emulator/nes/mappers/mapper038.cc
+        emulator/nes/mappers/mapper038.h
+        emulator/nes/mappers/mapper041.cc
+        emulator/nes/mappers/mapper041.h
+        emulator/nes/mappers/mapper046.cc
+        emulator/nes/mappers/mapper046.h
+        emulator/nes/mappers/mapper047.cc
+        emulator/nes/mappers/mapper047.h
+        emulator/nes/mappers/mapper064.cc
+        emulator/nes/mappers/mapper064.h
+        emulator/nes/mappers/mapper065.cc
+        emulator/nes/mappers/mapper065.h
+        emulator/nes/mappers/mapper067.cc
+        emulator/nes/mappers/mapper067.h
+        emulator/nes/mappers/mapper068.cc
+        emulator/nes/mappers/mapper068.h
+        emulator/nes/mappers/mapper069.cc
+        emulator/nes/mappers/mapper069.h
+        emulator/nes/mappers/mapper070.cc
+        emulator/nes/mappers/mapper070.h
+        emulator/nes/mappers/mapper071.cc
+        emulator/nes/mappers/mapper071.h
+        emulator/nes/mappers/mapper072.cc
+        emulator/nes/mappers/mapper072.h
+        emulator/nes/mappers/mapper073.cc
+        emulator/nes/mappers/mapper073.h
+        emulator/nes/mappers/mapper077.cc
+        emulator/nes/mappers/mapper077.h
+        emulator/nes/mappers/mapper078.cc
+        emulator/nes/mappers/mapper078.h
+        emulator/nes/mappers/mapper079.cc
+        emulator/nes/mappers/mapper079.h
+        emulator/nes/mappers/mapper080.cc
+        emulator/nes/mappers/mapper080.h
+        emulator/nes/mappers/mapper085.cc
+        emulator/nes/mappers/mapper085.h
+        emulator/nes/mappers/mapper086.cc
+        emulator/nes/mappers/mapper086.h
+        emulator/nes/mappers/mapper089.cc
+        emulator/nes/mappers/mapper089.h
+        emulator/nes/mappers/mapper092.cc
+        emulator/nes/mappers/mapper092.h
+        emulator/nes/mappers/mapper093.cc
+        emulator/nes/mappers/mapper093.h
+        emulator/nes/mappers/mapper094.cc
+        emulator/nes/mappers/mapper094.h
+        emulator/nes/mappers/mapper096.cc
+        emulator/nes/mappers/mapper096.h
+        emulator/nes/mappers/mapper097.cc
+        emulator/nes/mappers/mapper097.h
+        emulator/nes/mappers/mapper104.cc
+        emulator/nes/mappers/mapper104.h
+        emulator/nes/mappers/mapper105.cc
+        emulator/nes/mappers/mapper105.h
+        emulator/nes/mappers/mapper112.cc
+        emulator/nes/mappers/mapper112.h
+        emulator/nes/mappers/mapper113.cc
+        emulator/nes/mappers/mapper113.h
+        emulator/nes/mappers/mapper115.cc
+        emulator/nes/mappers/mapper115.h
+        emulator/nes/mappers/mapper118.cc
+        emulator/nes/mappers/mapper118.h
+        emulator/nes/mappers/mapper119.cc
+        emulator/nes/mappers/mapper119.h
+        emulator/nes/mappers/mapper132.cc
+        emulator/nes/mappers/mapper132.h
+        emulator/nes/mappers/mapper133.cc
+        emulator/nes/mappers/mapper133.h
+        emulator/nes/mappers/mapper137.cc
+        emulator/nes/mappers/mapper137.h
+        emulator/nes/mappers/mapper139.cc
+        emulator/nes/mappers/mapper139.h
+        emulator/nes/mappers/mapper140.cc
+        emulator/nes/mappers/mapper140.h
+        emulator/nes/mappers/mapper141.cc
+        emulator/nes/mappers/mapper141.h
+        emulator/nes/mappers/mapper143.cc
+        emulator/nes/mappers/mapper143.h
+        emulator/nes/mappers/mapper147.cc
+        emulator/nes/mappers/mapper147.h
+        emulator/nes/mappers/mapper148.cc
+        emulator/nes/mappers/mapper148.h
+        emulator/nes/mappers/mapper150.cc
+        emulator/nes/mappers/mapper150.h
+        emulator/nes/mappers/mapper156.cc
+        emulator/nes/mappers/mapper156.h
+        emulator/nes/mappers/mapper168.cc
+        emulator/nes/mappers/mapper168.h
+        emulator/nes/mappers/mapper176.cc
+        emulator/nes/mappers/mapper176.h
+        emulator/nes/mappers/mapper177.cc
+        emulator/nes/mappers/mapper177.h
+        emulator/nes/mappers/mapper178.cc
+        emulator/nes/mappers/mapper178.h
+        emulator/nes/mappers/mapper180.cc
+        emulator/nes/mappers/mapper180.h
+        emulator/nes/mappers/mapper184.cc
+        emulator/nes/mappers/mapper184.h
+        emulator/nes/mappers/mapper186.cc
+        emulator/nes/mappers/mapper186.h
+        emulator/nes/mappers/mapper188.cc
+        emulator/nes/mappers/mapper188.h
+        emulator/nes/mappers/mapper189.cc
+        emulator/nes/mappers/mapper189.h
+        emulator/nes/mappers/mapper193.cc
+        emulator/nes/mappers/mapper193.h
+        emulator/nes/mappers/mapper206.cc
+        emulator/nes/mappers/mapper206.h
+        emulator/nes/mappers/mapper216.cc
+        emulator/nes/mappers/mapper216.h
+        emulator/nes/mappers/mapper228.cc
+        emulator/nes/mappers/mapper228.h
+        emulator/nes/mappers/mapper232.cc
+        emulator/nes/mappers/mapper232.h
+        emulator/nes/mappers/mapper234.cc
+        emulator/nes/mappers/mapper234.h
+        emulator/nes/mappers/mapper240.cc
+        emulator/nes/mappers/mapper240.h
+        emulator/nes/mappers/mapper241.cc
+        emulator/nes/mappers/mapper241.h
+        emulator/nes/mappers/mapper244.cc
+        emulator/nes/mappers/mapper244.h
+        emulator/nes/mappers/mapper245.cc
+        emulator/nes/mappers/mapper245.h
+        emulator/nes/mappers/mapper246.cc
+        emulator/nes/mappers/mapper246.h
+        emulator/nes/mappers/mapper355.cc
+        emulator/nes/mappers/mapper355.h
+        emulator/nes/mappers/mapper512.cc
+        emulator/nes/mappers/mapper512.h
+        emulator/nes/opcodes.cc
+        emulator/nes/opcodes.h
+        emulator/nes/palette.cc
+        emulator/nes/palette.h
+        emulator/nes/ppu_observer.cc
+        emulator/nes/ppu_observer.h
+        emulator/nes/ppu_bus.cc
+        emulator/nes/ppu_bus.h
+        emulator/nes/ppu_patch.cc
+        emulator/nes/ppu_patch.h
+        emulator/nes/ppu_texture_capture.cc
+        emulator/nes/ppu_texture_capture.h
+        emulator/nes/ppu.cc
+        emulator/nes/ppu.h
+        emulator/nes/render_device.cc
+        emulator/nes/render_device.h
+        emulator/nes/registers.h
+        emulator/nes/rom_data.cc
+        emulator/nes/rom_data.h
+        emulator/nes/rom_hash.cc
+        emulator/nes/rom_hash.h
+        emulator/nes/types.h
 )
 
 set(sources
         ${base_sources}
+        ${emulator_sources}
         ${gba_sources}
         ${nes_sources}
 )
 # Setup for static kiwi library
 set(STATIC_PROJECT_NAME ${PROJECT_NAME}_static)
 KIWI_ADD_LIBRARY(${STATIC_PROJECT_NAME} STATIC ${sources})
+target_include_directories(${STATIC_PROJECT_NAME} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
 target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC
         KIWI_STATIC_LIBRARY
         KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX=$<BOOL:${KIWI_ENABLE_APU_FRAME_BOUNDARY_CLOCK_FIX}>
@@ -431,7 +464,11 @@ target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE
 
 if (WIN32)
     target_link_libraries(${STATIC_PROJECT_NAME} PRIVATE Shlwapi)
-    target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC UNICODE _UNICODE)
+    target_compile_definitions(${STATIC_PROJECT_NAME} PUBLIC
+            NOMINMAX
+            UNICODE
+            _UNICODE
+    )
 endif ()
 
 # Disable warnings in MSVC
@@ -442,6 +479,9 @@ endif ()
 if (NOT EMSCRIPTEN AND NOT KIWI_SWITCH)
     # Setup for dynamic library
     KIWI_ADD_LIBRARY(${PROJECT_NAME} SHARED ${sources})
+    target_include_directories(${PROJECT_NAME} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/..
+    )
 
     target_compile_definitions(${PROJECT_NAME} PRIVATE
             KIWI_IMPL
@@ -461,7 +501,11 @@ if (NOT EMSCRIPTEN AND NOT KIWI_SWITCH)
 
     if (WIN32)
         target_link_libraries(${PROJECT_NAME} PRIVATE Shlwapi)
-        target_compile_definitions(${PROJECT_NAME} PUBLIC UNICODE _UNICODE)
+        target_compile_definitions(${PROJECT_NAME} PUBLIC
+                NOMINMAX
+                UNICODE
+                _UNICODE
+        )
     endif ()
 
     # Disable warnings in MSVC
