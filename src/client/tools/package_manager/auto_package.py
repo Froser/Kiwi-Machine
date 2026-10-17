@@ -44,10 +44,11 @@ def main():
         print("Workspace not found. Please use build.py to fetch the workspace.")
         return 1
     
-    # Check if zipped folder exists
-    zipped_path = workspace_path / "zipped" / "nes"
+    # Check if the NES zipped folder exists. GBA resources are optional.
+    nes_zipped_path = workspace_path / "zipped" / "nes"
+    gba_zipped_path = workspace_path / "zipped" / "gba"
     
-    if not zipped_path.exists():
+    if not nes_zipped_path.exists():
         print("Workspace is incomplete. zipped folder not found.")
         return 1
 
@@ -64,14 +65,24 @@ def main():
     
     # Run package_manager with the command line arguments
     print(f"Running package_manager...")
-    print(f"  Zipped path: {zipped_path}")
+    print(f"  NES zipped path: {nes_zipped_path}")
+    if gba_zipped_path.exists():
+        print(f"  GBA zipped path: {gba_zipped_path}")
     print(f"  Output path: {output_path}")
     
-    package_roms_cmd = [
+    package_roms_commands = [[
         str(package_manager_exe),
-        f"--zipped_path={zipped_path}",
-        f"--output_path={output_path}"
-    ]
+        "--rom_system=nes",
+        f"--zipped_path={nes_zipped_path}",
+        f"--output_path={output_path}",
+    ]]
+    if gba_zipped_path.exists():
+        package_roms_commands.append([
+            str(package_manager_exe),
+            "--rom_system=gba",
+            f"--zipped_path={gba_zipped_path}",
+            f"--output_path={output_path}",
+        ])
     textures_output_path = output_path / "textures"
     package_textures_cmd = [
         str(package_manager_exe),
@@ -80,15 +91,22 @@ def main():
     ]
     
     try:
-        result = subprocess.run(
-            package_roms_cmd, check=True, capture_output=True, text=True
-        )
+        for package_roms_cmd in package_roms_commands:
+            subprocess.run(
+                package_roms_cmd, check=True, capture_output=True, text=True
+            )
         subprocess.run(
             package_textures_cmd, check=True, capture_output=True, text=True
         )
         
         # Copy generated files to kiwi_machine output directory
         print(f"\nCopying files to kiwi_machine output directory: {kiwi_machine_output_dir}")
+
+        for legacy_name in ("main.pak", "specials.pak"):
+            legacy_path = kiwi_machine_output_dir / legacy_name
+            if legacy_path.is_file():
+                legacy_path.unlink()
+                print(f"  Removed legacy package: {legacy_name}")
         
         # Find all .pak files in output directory
         pak_files = list(output_path.glob("*.pak"))
@@ -108,7 +126,7 @@ def main():
         texture_files = list(destination_textures_path.glob("*.pak"))
         print(f"Copied {len(texture_files)} texture package(s) to textures/.")
         
-        return result.returncode
+        return 0
     except subprocess.CalledProcessError as e:
         print(f"Error: package_manager failed with exit code {e.returncode}")
         return e.returncode

@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-#include "nes/ppu_observer.h"
+#include "emulator/nes/ppu_observer.h"
 #include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
 #include "utility/texture_parser/texture_resource_provider.h"
 #include "utility/texture_renderer.h"

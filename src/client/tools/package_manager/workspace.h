@@ -17,11 +17,16 @@
 
 #include "base/files/file_path.h"
 
+enum class ROMSystem;
+
 struct Workspace {
   struct Manifest {
     std::string nes_roms_dir;
     std::string zipped_nes_dir;
     std::string nes_boxarts_dir;
+    std::string gba_roms_dir;
+    std::string zipped_gba_dir;
+    std::string gba_boxarts_dir;
   };
   char workspace_dir[1024] = {};
 
@@ -30,10 +35,10 @@ struct Workspace {
 
   kiwi::base::FilePath GetOutPath();
   kiwi::base::FilePath GetTestPath();
-  kiwi::base::FilePath GetNESRomsPath();
-  kiwi::base::FilePath GetZippedPath();
+  kiwi::base::FilePath GetRomsPath(ROMSystem system);
+  kiwi::base::FilePath GetZippedPath(ROMSystem system);
   kiwi::base::FilePath GetPackageOutputPath();
-  kiwi::base::FilePath GetNESBoxartsPath();
+  kiwi::base::FilePath GetBoxartsPath(ROMSystem system);
 
  private:
   kiwi::base::FilePath workspace_path_;

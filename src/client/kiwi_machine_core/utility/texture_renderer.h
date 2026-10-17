@@ -16,7 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "nes/types.h"
+#include "emulator/nes/types.h"
 
 namespace kiwi {
 namespace nes {

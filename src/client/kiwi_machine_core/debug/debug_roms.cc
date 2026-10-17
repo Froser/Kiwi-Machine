@@ -12,7 +12,7 @@
 
 #include "debug/debug_roms.h"
 
-#if ENABLE_DEBUG_ROMS
+#if BUILDFLAG(ENABLE_DEBUG_ROMS)
 
 #include <gflags/gflags.h>
 #include <kiwi_nes.h>

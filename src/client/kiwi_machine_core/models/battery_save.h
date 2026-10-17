@@ -17,14 +17,16 @@
 #include <string>
 
 #include "base/files/file_path.h"
-#include "nes/types.h"
+#include "emulator/types.h"
 
 namespace battery_save {
+
+using Bytes = kiwi::emu::Bytes;
 
 struct ReadResult {
   bool success = false;
   bool exists = false;
-  kiwi::nes::Bytes data;
+  Bytes data;
 };
 
 std::optional<kiwi::base::FilePath> GetPath(
@@ -35,9 +37,8 @@ ReadResult Read(const kiwi::base::FilePath& profile_path,
 ReadResult ReadFromPath(const kiwi::base::FilePath& save_path);
 bool Write(const kiwi::base::FilePath& profile_path,
            const std::string& rom_sha1,
-           const kiwi::nes::Bytes& data);
-bool WriteToPath(const kiwi::base::FilePath& save_path,
-                 const kiwi::nes::Bytes& data);
+           const Bytes& data);
+bool WriteToPath(const kiwi::base::FilePath& save_path, const Bytes& data);
 std::optional<kiwi::base::FilePath> BackupInvalid(
     const kiwi::base::FilePath& save_path);
 

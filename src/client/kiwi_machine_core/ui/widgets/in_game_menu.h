@@ -22,7 +22,7 @@
 #include <string>
 #include <variant>
 
-#include "models/nes_runtime.h"
+#include "models/nes/runtime.h"
 #include "ui/widgets/widget.h"
 #include "utility/fonts.h"
 #include "utility/timer.h"
@@ -83,7 +83,6 @@ class InGameMenu : public Widget {
       kiwi::base::RepeatingCallback<void(SettingsItem, SettingsItemValue)>;
 
   explicit InGameMenu(MainWindow* main_window,
-                      NESRuntimeID runtime_id,
                       MenuItemCallback menu_callback,
                       SettingsItemCallback settings_callback);
   ~InGameMenu() override;
@@ -355,11 +354,10 @@ class InGameMenu : public Widget {
   static void DispatchStateResult(std::weak_ptr<int> weak_lifetime,
                                   InGameMenu* menu,
                                   uint64_t request_id,
-                                  const NESRuntime::Data::StateResult& result);
+                                  const NESRuntime::StateResult& result);
   void OnGotSavedStateCount(uint64_t request_id, int count);
   void OnGotAutoSavedStateCount(uint64_t request_id, int count);
-  void OnGotState(uint64_t request_id,
-                  const NESRuntime::Data::StateResult& result);
+  void OnGotState(uint64_t request_id, const NESRuntime::StateResult& result);
   void CancelStatePreviewRequest();
 #if BUILDFLAG(IS_SWITCH)
   void ResetQuickLoadPreviews();
@@ -369,10 +367,10 @@ class InGameMenu : public Widget {
       InGameMenu* menu,
       uint64_t request_id,
       int slot,
-      const NESRuntime::Data::StateResult& result);
+      const NESRuntime::StateResult& result);
   void OnGotQuickLoadPreview(uint64_t request_id,
                              int slot,
-                             const NESRuntime::Data::StateResult& result);
+                             const NESRuntime::StateResult& result);
   int GetQuickLoadSlot(size_t visible_index) const;
   int GetQuickLoadTimestamp() const;
 #endif
@@ -389,7 +387,6 @@ class InGameMenu : public Widget {
   std::string GetSettingValue(SettingsItem item) const;
 
   MainWindow* main_window_ = nullptr;
-  NESRuntime::Data* runtime_data_ = nullptr;
   MenuItemCallback menu_callback_;
   SettingsItemCallback settings_callback_;
 
@@ -435,7 +432,7 @@ class InGameMenu : public Widget {
   SDL_Texture* snapshot_ = nullptr;
 #if BUILDFLAG(IS_SWITCH)
   uint64_t quick_load_preview_request_id_ = 0;
-  std::array<QuickLoadPreview, NESRuntime::Data::MaxAutoSaveStates>
+  std::array<QuickLoadPreview, NESRuntime::MaxAutoSaveStates>
       quick_load_previews_;
 #endif
 };

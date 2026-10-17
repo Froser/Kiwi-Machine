@@ -413,7 +413,7 @@ def get_switch_package_dir():
     package_dir = os.path.realpath(package_dir)
     if not os.path.isdir(package_dir):
         return None
-    if not os.path.isfile(os.path.join(package_dir, "main.pak")):
+    if not os.path.isfile(os.path.join(package_dir, "nes_main.pak")):
         return None
     return package_dir
 
@@ -427,7 +427,7 @@ def report_missing_switch_packages():
             "Kiwi-Machine-Workspace", "out"))
     return report_switch_environment_error(
         "Switch PAK resources were not found. Expected "
-        f"{os.path.join(configured_dir, 'main.pak')}. Run the desktop "
+        f"{os.path.join(configured_dir, 'nes_main.pak')}. Run the desktop "
         "auto_package target first or set KIWI_PACKAGE_DIR.")
 
 

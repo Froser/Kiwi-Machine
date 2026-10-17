@@ -16,7 +16,7 @@
 #include <kiwi_nes.h>
 
 #include "debug/debug_port.h"
-#include "models/nes_frame.h"
+#include "models/nes/frame.h"
 #include "ui/application.h"
 #include "ui/widgets/widget.h"
 
@@ -32,9 +32,9 @@ class PerformanceWidget : public Widget,
   };
 
   explicit PerformanceWidget(WindowBase* window_base,
-                             scoped_refptr<NESFrame> frame,
-                             DebugPort* debug_port);
+                             scoped_refptr<NESFrame> frame);
   ~PerformanceWidget() override;
+  void SetDebugPort(DebugPort* debug_port);
 
  protected:
   // Widget:

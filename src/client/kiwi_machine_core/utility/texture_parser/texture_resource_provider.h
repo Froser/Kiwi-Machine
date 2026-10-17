@@ -18,7 +18,7 @@
 #include <string_view>
 #include <unordered_set>
 
-#include "nes/types.h"
+#include "emulator/nes/types.h"
 
 // Provides format-neutral access to texture pack resources.
 class TextureResourceProvider {

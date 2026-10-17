@@ -71,13 +71,19 @@ constexpr float kMinimumFlingVelocity = 120.f;
 constexpr float kInertialDeceleration = 4.5f;
 constexpr int kMaximumInertialFrameMs = 50;
 constexpr ImU32 kLibraryBackgroundColor = IM_COL32(244, 252, 227, 255);
+constexpr ImU32 kGBALibraryBackgroundColor = IM_COL32(242, 241, 248, 255);
 constexpr ImU32 kBackgroundLimeColor = IM_COL32(116, 184, 22, 34);
 constexpr ImU32 kBackgroundSkyColor = IM_COL32(56, 174, 201, 28);
 constexpr ImU32 kBackgroundCoralColor = IM_COL32(230, 125, 100, 24);
+constexpr ImU32 kGBABackgroundIndigoColor = IM_COL32(75, 64, 148, 32);
+constexpr ImU32 kGBABackgroundMagentaColor = IM_COL32(153, 83, 139, 23);
+constexpr ImU32 kGBABackgroundTealColor = IM_COL32(55, 139, 143, 21);
 constexpr ImU32 kDetailBackgroundColor = IM_COL32(33, 42, 47, 238);
 constexpr ImU32 kDetailBorderColor = IM_COL32(72, 85, 79, 255);
 constexpr ImU32 kDetailAccentColor = IM_COL32(130, 201, 30, 255);
 constexpr ImU32 kDetailMetaColor = IM_COL32(192, 235, 117, 255);
+constexpr ImU32 kGBADetailAccentColor = IM_COL32(81, 70, 155, 255);
+constexpr ImU32 kGBADetailMetaColor = IM_COL32(205, 198, 238, 255);
 constexpr ImU32 kDetailTextColor = IM_COL32(248, 249, 250, 255);
 constexpr float kTwoPi = 6.28318530718f;
 
@@ -114,6 +120,12 @@ constexpr BackgroundParticle kBackgroundParticles[] = {
     {BackgroundShape::kDiamond, .79f, .41f, 19.f, .013f, kBackgroundSkyColor},
     {BackgroundShape::kPlus, .91f, .73f, 22.f, .018f, kBackgroundLimeColor},
     {BackgroundShape::kPixels, .99f, .15f, 17.f, .010f, kBackgroundCoralColor},
+};
+
+constexpr ImU32 kGBABackgroundParticleColors[] = {
+    kGBABackgroundIndigoColor,
+    kGBABackgroundMagentaColor,
+    kGBABackgroundTealColor,
 };
 
 #if BUILDFLAG(IS_MOBILE)
@@ -203,10 +215,14 @@ void DrawBackgroundShape(ImDrawList* draw_list,
 
 void DrawLibraryBackground(ImDrawList* draw_list,
                            const SDL_Rect& bounds,
-                           float elapsed_seconds) {
+                           float elapsed_seconds,
+                           kiwi::emu::Emulator::Type system) {
   const ImVec2 bounds_min(bounds.x, bounds.y);
   const ImVec2 bounds_max(bounds.x + bounds.w, bounds.y + bounds.h);
-  draw_list->AddRectFilled(bounds_min, bounds_max, kLibraryBackgroundColor);
+  draw_list->AddRectFilled(bounds_min, bounds_max,
+                           system == kiwi::emu::Emulator::Type::kGBA
+                               ? kGBALibraryBackgroundColor
+                               : kLibraryBackgroundColor);
 
   if (bounds.w <= 0 || bounds.h <= 0)
     return;
@@ -232,8 +248,11 @@ void DrawLibraryBackground(ImDrawList* draw_list,
                  particle.phase * kTwoPi) *
             drift;
     const float y = bounds.y - radius + progress * (bounds.h + radius * 2.f);
+    const ImU32 particle_color = system == kiwi::emu::Emulator::Type::kGBA
+                                     ? kGBABackgroundParticleColors[i % 3]
+                                     : particle.color;
     DrawBackgroundShape(draw_list, particle.shape, ImVec2(x, y), radius, angle,
-                        particle.color, line_thickness);
+                        particle_color, line_thickness);
   }
   draw_list->PopClipRect();
 }
@@ -271,11 +290,8 @@ std::vector<size_t> CalculateFilteredResultOnIOThread(
 
 }  // namespace
 
-FlexItemsWidget::FlexItemsWidget(MainWindow* main_window,
-                                 NESRuntimeID runtime_id)
+FlexItemsWidget::FlexItemsWidget(MainWindow* main_window)
     : Widget(main_window), main_window_(main_window) {
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
-  SDL_assert(runtime_data_);
   set_flags(ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs);
   set_title("KiwiItemsWidget");
@@ -711,9 +727,11 @@ bool FlexItemsWidget::HandleInputEvent(SDL_KeyboardEvent* k,
   auto keyboard_or_axis_matches = [this,
                                    k](kiwi::nes::ControllerButton button) {
 #if BUILDFLAG(IS_SWITCH)
-    return k && IsJoystickButtonMatch(runtime_data_, button, k->keysym);
+    return k &&
+           IsJoystickButtonMatch(main_window_->runtime(), button, k->keysym);
 #else
-    return IsKeyboardOrControllerAxisMotionMatch(runtime_data_, button, k);
+    return IsKeyboardOrControllerAxisMotionMatch(main_window_->runtime(),
+                                                 button, k);
 #endif
   };
 
@@ -1076,16 +1094,23 @@ void FlexItemsWidget::PaintDetails() {
                            kDetailWidgetCornerRadius);
   draw_list->AddRect(panel_min, panel_max, kDetailBorderColor,
                      kDetailWidgetCornerRadius);
+  const ImU32 detail_accent_color =
+      emulation_system_ == kiwi::emu::Emulator::Type::kGBA
+          ? kGBADetailAccentColor
+          : kDetailAccentColor;
+  const ImU32 detail_meta_color =
+      emulation_system_ == kiwi::emu::Emulator::Type::kGBA ? kGBADetailMetaColor
+                                                           : kDetailMetaColor;
   draw_list->AddRectFilled(
       panel_min, ImVec2(panel_min.x + kDetailWidgetAccentWidth, panel_max.y),
-      kDetailAccentColor, kDetailWidgetCornerRadius,
+      detail_accent_color, kDetailWidgetCornerRadius,
       ImDrawFlags_RoundCornersLeft);
 
   const float text_left =
       panel_min.x + kDetailWidgetAccentWidth + kDetailWidgetPadding;
   float text_top = panel_min.y + kDetailWidgetPadding;
   draw_list->AddText(meta_im_font, meta_font_size, ImVec2(text_left, text_top),
-                     kDetailMetaColor, selection_label.c_str());
+                     detail_meta_color, selection_label.c_str());
   text_top += selection_label_size.y + kDetailWidgetLineSpacing;
 
   const ImVec4 title_clip(text_left, text_top,
@@ -1382,7 +1407,8 @@ void FlexItemsWidget::Paint() {
   SDL_Rect rect_in_window = MapToWindow(GetLocalBounds());
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   DrawLibraryBackground(draw_list, rect_in_window,
-                        static_cast<float>(ImGui::GetTime()));
+                        static_cast<float>(ImGui::GetTime()),
+                        emulation_system_);
 }
 
 void FlexItemsWidget::PaintIndexingStatus() {
@@ -1425,6 +1451,28 @@ void FlexItemsWidget::PaintIndexingStatus() {
       }
     }
   }
+}
+
+void FlexItemsWidget::PaintEmptyMessage() {
+  if (!items_.empty() || indexing_ || indexing_failed_ ||
+      empty_message_string_id_ == 0) {
+    return;
+  }
+
+  const std::string& message = GetLocalizedString(empty_message_string_id_);
+  ScopedFont font = GetPreferredFont(
+      styles::flex_items_widget::GetDetailFontSize(), message.c_str());
+  ImFont* im_font = font.GetFont();
+  const float font_size = font.GetFontSize();
+  const ImVec2 text_size =
+      im_font->CalcTextSizeA(font_size, FLT_MAX, 0.f, message.c_str());
+  const SDL_Rect bounds_in_window = MapToWindow(GetLocalBounds());
+  ImGui::GetWindowDrawList()->AddText(
+      im_font, font_size,
+      ImVec2(bounds_in_window.x + (bounds_in_window.w - text_size.x) * .5f,
+             bounds_in_window.y + (bounds_in_window.h - text_size.y) * .5f),
+      activate_ ? IM_COL32(43, 55, 48, 255) : IM_COL32(248, 249, 250, 255),
+      message.c_str());
 }
 
 void FlexItemsWidget::EnsureUniqueFilterSearchIndex() {
@@ -1520,6 +1568,8 @@ void FlexItemsWidget::PostPaint() {
 
   if (filter_widget_->visible())
     filter_widget_->Render();
+
+  PaintEmptyMessage();
 
   if (!activate_) {
     SDL_Rect bounds_to_window = MapToWindow(bounds());

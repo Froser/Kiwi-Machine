@@ -19,6 +19,7 @@
 
 #include "../third_party/nlohmann_json/json.hpp"
 #include "base/files/file_util.h"
+#include "util.h"
 
 DEFINE_string(workspace, "", "Default workspace.");
 
@@ -28,13 +29,21 @@ void from_json(const nlohmann::json& object, Workspace::Manifest& manifest) {
       object.value("zipped_nes_dir", std::string("zipped/nes"));
   manifest.nes_boxarts_dir =
       object.value("nes_boxarts_dir", std::string("boxarts/nes"));
+  manifest.gba_roms_dir = object.value("gba_roms_dir", std::string("roms/gba"));
+  manifest.zipped_gba_dir =
+      object.value("zipped_gba_dir", std::string("zipped/gba"));
+  manifest.gba_boxarts_dir =
+      object.value("gba_boxarts_dir", std::string("boxarts/gba"));
 }
 
 // A simple workspace json config:
 // {
 //   "nes_roms_dir": "roms/nes",
 //   "zipped_nes_dir": "zipped/nes",
-//   "nes_boxarts_dir": "boxarts/nes"
+//   "nes_boxarts_dir": "boxarts/nes",
+//   "gba_roms_dir": "roms/gba",
+//   "zipped_gba_dir": "zipped/gba",
+//   "gba_boxarts_dir": "boxarts/gba"
 // }
 
 Workspace::Workspace() {
@@ -53,6 +62,9 @@ Workspace::Workspace() {
     manifest_.nes_roms_dir = "roms/nes";
     manifest_.zipped_nes_dir = "zipped/nes";
     manifest_.nes_boxarts_dir = "boxarts/nes";
+    manifest_.gba_roms_dir = "roms/gba";
+    manifest_.zipped_gba_dir = "zipped/gba";
+    manifest_.gba_boxarts_dir = "boxarts/gba";
   }
 }
 
@@ -85,9 +97,12 @@ kiwi::base::FilePath Workspace::GetOutPath() {
   return out_path;
 }
 
-kiwi::base::FilePath Workspace::GetZippedPath() {
+kiwi::base::FilePath Workspace::GetZippedPath(ROMSystem system) {
+  const std::string& relative_path = system == ROMSystem::kGBA
+                                         ? manifest_.zipped_gba_dir
+                                         : manifest_.zipped_nes_dir;
   kiwi::base::FilePath zip_output_path = workspace_path_.Append(
-      kiwi::base::FilePath::FromUTF8Unsafe(manifest_.zipped_nes_dir));
+      kiwi::base::FilePath::FromUTF8Unsafe(relative_path));
   if (!kiwi::base::DirectoryExists(zip_output_path)) {
     bool created = kiwi::base::CreateDirectory(zip_output_path);
     if (!created)
@@ -118,26 +133,32 @@ kiwi::base::FilePath Workspace::GetPackageOutputPath() {
   return output_path;
 }
 
-kiwi::base::FilePath Workspace::GetNESRomsPath() {
-  kiwi::base::FilePath nes_roms_path = workspace_path_.Append(
-      kiwi::base::FilePath::FromUTF8Unsafe(manifest_.nes_roms_dir));
-  if (!kiwi::base::DirectoryExists(nes_roms_path)) {
-    bool created = kiwi::base::CreateDirectory(nes_roms_path);
+kiwi::base::FilePath Workspace::GetRomsPath(ROMSystem system) {
+  const std::string& relative_path = system == ROMSystem::kGBA
+                                         ? manifest_.gba_roms_dir
+                                         : manifest_.nes_roms_dir;
+  kiwi::base::FilePath roms_path = workspace_path_.Append(
+      kiwi::base::FilePath::FromUTF8Unsafe(relative_path));
+  if (!kiwi::base::DirectoryExists(roms_path)) {
+    bool created = kiwi::base::CreateDirectory(roms_path);
     if (!created)
       return kiwi::base::FilePath();
   }
-  return nes_roms_path;
+  return roms_path;
 }
 
-kiwi::base::FilePath Workspace::GetNESBoxartsPath() {
-  kiwi::base::FilePath nes_boxarts_path = workspace_path_.Append(
-      kiwi::base::FilePath::FromUTF8Unsafe(manifest_.nes_boxarts_dir));
-  if (!kiwi::base::DirectoryExists(nes_boxarts_path)) {
-    bool created = kiwi::base::CreateDirectory(nes_boxarts_path);
+kiwi::base::FilePath Workspace::GetBoxartsPath(ROMSystem system) {
+  const std::string& relative_path = system == ROMSystem::kGBA
+                                         ? manifest_.gba_boxarts_dir
+                                         : manifest_.nes_boxarts_dir;
+  kiwi::base::FilePath boxarts_path = workspace_path_.Append(
+      kiwi::base::FilePath::FromUTF8Unsafe(relative_path));
+  if (!kiwi::base::DirectoryExists(boxarts_path)) {
+    bool created = kiwi::base::CreateDirectory(boxarts_path);
     if (!created)
       return kiwi::base::FilePath();
   }
-  return nes_boxarts_path;
+  return boxarts_path;
 }
 
 Workspace& GetWorkspace() {

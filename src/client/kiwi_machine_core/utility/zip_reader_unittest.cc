@@ -20,7 +20,7 @@
 
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
-#include "nes/rom_hash.h"
+#include "emulator/nes/rom_hash.h"
 #include "preset_roms/preset_roms.h"
 #include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
 #include "third_party/nlohmann_json/json.hpp"
@@ -79,7 +79,7 @@ class PackageIndexTest : public ::testing::Test {
     root_path_ = kiwi::base::FilePath::FromUTF8Unsafe(
         (std::filesystem::temp_directory_path() / directory_name).string());
     profile_path_ = root_path_.Append(FILE_PATH_LITERAL("Default"));
-    package_path_ = root_path_.Append(FILE_PATH_LITERAL("main.pak"));
+    package_path_ = root_path_.Append(FILE_PATH_LITERAL("nes_main.pak"));
     nested_path_ = root_path_.Append(FILE_PATH_LITERAL("Game.zip"));
     ASSERT_TRUE(kiwi::base::CreateDirectory(profile_path_));
   }
@@ -89,7 +89,13 @@ class PackageIndexTest : public ::testing::Test {
     EXPECT_TRUE(kiwi::base::DeletePathRecursively(root_path_));
   }
 
-  void CreatePackage(std::string rom_contents = "rom-data") {
+  void CreatePackage(
+      std::string rom_contents = "rom-data",
+      preset_roms::PackageType type = preset_roms::PackageType::kNES) {
+    const std::string extension =
+        type == preset_roms::PackageType::kGBA ? ".gba" : ".nes";
+    const std::string type_name =
+        type == preset_roms::PackageType::kGBA ? "gba" : "nes";
     const std::string inner_manifest =
         nlohmann::json(
             {{"titles",
@@ -101,14 +107,15 @@ class PackageIndexTest : public ::testing::Test {
             .dump();
     ASSERT_TRUE(
         WriteZip(nested_path_, {{"manifest.json", inner_manifest},
-                                {"Game.nes", rom_contents},
+                                {"Game" + extension, rom_contents},
                                 {"Game.jpg", "cover"},
-                                {"Game (Japan).nes", "alternate-rom"},
+                                {"Game (Japan)" + extension, "alternate-rom"},
                                 {"Game (Japan).jpg", "alternate-cover"}}));
 
     const std::string outer_manifest =
         nlohmann::json(
-            {{"titles", {{"en", "Test Package"}}},
+            {{"type", type_name},
+             {"titles", {{"en", "Test Package"}}},
              {"icons", {{"normal", "normal"}, {"highlight", "highlight"}}},
              {"rom_sha1s",
               {{"Game",
@@ -148,6 +155,7 @@ TEST_F(PackageIndexTest, BuildsAndRestoresPackageMetadata) {
   CreatePackage();
   preset_roms::Package* package = OpenPackage();
   ASSERT_NE(package, nullptr);
+  EXPECT_EQ(package->GetType(), preset_roms::PackageType::kNES);
 
   std::vector<std::pair<size_t, size_t>> progress;
   ASSERT_TRUE(BuildPackageIndex(
@@ -177,6 +185,21 @@ TEST_F(PackageIndexTest, BuildsAndRestoresPackageMetadata) {
   ASSERT_EQ(rom.alternates.size(), 1u);
   EXPECT_STREQ(rom.alternates[0].name, "Game (Japan)");
   EXPECT_EQ(rom.alternates[0].i18n_names.at("en"), "Game Japan");
+}
+
+TEST_F(PackageIndexTest, BuildsGBAIndexFromPackageType) {
+  CreatePackage("gba-rom-data", preset_roms::PackageType::kGBA);
+  preset_roms::Package* package = OpenPackage();
+  ASSERT_NE(package, nullptr);
+  EXPECT_EQ(package->GetType(), preset_roms::PackageType::kGBA);
+
+  ASSERT_TRUE(BuildPackageIndex(package, profile_path_, {}));
+  ASSERT_EQ(package->GetRomsCount(), 1u);
+  const preset_roms::PresetROM& rom = package->GetRomsByIndex(0);
+  EXPECT_EQ(rom.type, preset_roms::PackageType::kGBA);
+  EXPECT_EQ(rom.sha1, Sha1("gba-rom-data"));
+  ASSERT_EQ(rom.alternates.size(), 1u);
+  EXPECT_EQ(rom.alternates[0].type, preset_roms::PackageType::kGBA);
 }
 
 TEST_F(PackageIndexTest, RejectsCacheWhenPackageContentChanges) {
