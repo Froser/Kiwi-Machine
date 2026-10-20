@@ -443,7 +443,7 @@ InGameMenu::FrameText InGameMenu::BuildFrameText() const {
     text.state_position =
         GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SLOT) +
         std::to_string(which_state_ + 1) + " / " +
-        std::to_string(NESRuntime::MaxSaveStates);
+        std::to_string(Runtime::MaxSaveStates);
   }
 
   text.state_action = GetLocalizedString(
@@ -735,8 +735,11 @@ void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
   const float controls_height = title_height + metadata_height +
                                 layout.row_height + gap * vertical_gap_count;
   const float preview_aspect =
-      static_cast<float>(Canvas::kNESFrameDefaultWidth) /
-      static_cast<float>(Canvas::kNESFrameDefaultHeight);
+      main_window_->emulation_system() == kiwi::emu::Emulator::Type::kGBA
+          ? static_cast<float>(kiwi::gba::kFrameWidth) /
+                static_cast<float>(kiwi::gba::kFrameHeight)
+          : static_cast<float>(Canvas::kNESFrameDefaultWidth) /
+                static_cast<float>(Canvas::kNESFrameDefaultHeight);
   const float available_preview_width =
       std::max(0.f, inner.w - (arrow_size + gap) * 2.f);
   const float available_preview_height =
@@ -1612,8 +1615,8 @@ void InGameMenu::StepState(StepDirection direction) {
     which_autosave_state_slot_ = next_slot;
   } else {
     const int delta = direction == StepDirection::kPrevious ? -1 : 1;
-    which_state_ = (which_state_ + delta + NESRuntime::MaxSaveStates) %
-                   NESRuntime::MaxSaveStates;
+    which_state_ = (which_state_ + delta + Runtime::MaxSaveStates) %
+                   Runtime::MaxSaveStates;
   }
 
   PlayEffect(audio_resources::AudioID::kSelect);
@@ -1880,12 +1883,8 @@ void InGameMenu::RefreshStatePreview() {
   if (!IsStateMenuItem(focus_.menu_item))
     return;
 
-  NESRuntime* runtime = main_window_->nes_runtime();
-  if (!runtime)
-    return;
-  const kiwi::nes::RomData* rom_data =
-      runtime->emulator()->AsNESEmulator()->GetRomData();
-  if (!rom_data)
+  Runtime* runtime = main_window_->runtime();
+  if (!runtime || !runtime->emulator()->HasROM())
     return;
 
   state_preview_.status = StatePreview::Status::kLoading;
@@ -1895,10 +1894,9 @@ void InGameMenu::RefreshStatePreview() {
       kiwi::base::BindOnce(&InGameMenu::DispatchStateResult,
                            std::move(weak_lifetime), this, request_id);
   if (focus_.menu_item == MenuItem::kLoadAutoSave) {
-    runtime->GetAutoSavedState(rom_data->crc, which_autosave_state_slot_,
-                               std::move(callback));
+    runtime->GetAutoSavedState(which_autosave_state_slot_, std::move(callback));
   } else {
-    runtime->GetState(rom_data->crc, which_state_, std::move(callback));
+    runtime->GetState(which_state_, std::move(callback));
   }
 }
 
@@ -1924,10 +1922,8 @@ void InGameMenu::RequestSavedStateCount() {
   ++saved_state_count_request_id_;
   current_saved_states_count_ = 0;
   saved_state_count_ready_ = false;
-  NESRuntime* runtime = main_window_->nes_runtime();
-  const kiwi::nes::RomData* rom_data =
-      runtime ? runtime->emulator()->AsNESEmulator()->GetRomData() : nullptr;
-  if (!runtime || !rom_data) {
+  Runtime* runtime = main_window_->runtime();
+  if (!runtime || !runtime->emulator()->HasROM()) {
     saved_state_count_ready_ = true;
     return;
   }
@@ -1935,7 +1931,6 @@ void InGameMenu::RequestSavedStateCount() {
   const uint64_t request_id = saved_state_count_request_id_;
   std::weak_ptr<int> weak_lifetime = lifetime_token_;
   runtime->GetSavedStatesCount(
-      rom_data->crc,
       kiwi::base::BindOnce(&InGameMenu::DispatchSavedStateCount,
                            std::move(weak_lifetime), this, request_id));
 }
@@ -1944,10 +1939,8 @@ void InGameMenu::RequestAutoSavedStateCount() {
   ++auto_save_count_request_id_;
   current_auto_states_count_ = 0;
   auto_save_count_ready_ = false;
-  NESRuntime* runtime = main_window_->nes_runtime();
-  const kiwi::nes::RomData* rom_data =
-      runtime ? runtime->emulator()->AsNESEmulator()->GetRomData() : nullptr;
-  if (!runtime || !rom_data) {
+  Runtime* runtime = main_window_->runtime();
+  if (!runtime || !runtime->emulator()->HasROM()) {
     auto_save_count_ready_ = true;
     return;
   }
@@ -1955,7 +1948,6 @@ void InGameMenu::RequestAutoSavedStateCount() {
   const uint64_t request_id = auto_save_count_request_id_;
   std::weak_ptr<int> weak_lifetime = lifetime_token_;
   runtime->GetAutoSavedStatesCount(
-      rom_data->crc,
       kiwi::base::BindOnce(&InGameMenu::DispatchAutoSavedStateCount,
                            std::move(weak_lifetime), this, request_id));
 }
@@ -1979,7 +1971,7 @@ void InGameMenu::DispatchAutoSavedStateCount(std::weak_ptr<int> weak_lifetime,
 void InGameMenu::DispatchStateResult(std::weak_ptr<int> weak_lifetime,
                                      InGameMenu* menu,
                                      uint64_t request_id,
-                                     const NESRuntime::StateResult& result) {
+                                     const Runtime::StateResult& result) {
   if (!weak_lifetime.expired())
     menu->OnGotState(request_id, result);
 }
@@ -2011,7 +2003,7 @@ void InGameMenu::OnGotAutoSavedStateCount(uint64_t request_id, int count) {
 }
 
 void InGameMenu::OnGotState(uint64_t request_id,
-                            const NESRuntime::StateResult& state_result) {
+                            const Runtime::StateResult& state_result) {
   if (request_id != state_preview_request_id_)
     return;
 
@@ -2023,21 +2015,32 @@ void InGameMenu::OnGotState(uint64_t request_id,
 
   state_preview_.status = StatePreview::Status::kReady;
   state_preview_.timestamp = state_result.slot_or_timestamp;
-  if (state_result.thumbnail_data.empty())
+  if (state_result.thumbnail_data.empty() ||
+      state_result.thumbnail_width <= 0 || state_result.thumbnail_height <= 0) {
     return;
+  }
 
+  int texture_width = 0;
+  int texture_height = 0;
+  if (snapshot_ && (SDL_QueryTexture(snapshot_, nullptr, nullptr,
+                                     &texture_width, &texture_height) != 0 ||
+                    texture_width != state_result.thumbnail_width ||
+                    texture_height != state_result.thumbnail_height)) {
+    SDL_DestroyTexture(snapshot_);
+    snapshot_ = nullptr;
+  }
   if (!snapshot_) {
     snapshot_ = SDL_CreateTexture(
         window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
-        SDL_TEXTUREACCESS_STREAMING, Canvas::kNESFrameDefaultWidth,
-        Canvas::kNESFrameDefaultHeight);
+        SDL_TEXTUREACCESS_STREAMING, state_result.thumbnail_width,
+        state_result.thumbnail_height);
   }
   if (!snapshot_)
     return;
 
   constexpr int kColorComponents = 4;
   if (SDL_UpdateTexture(snapshot_, nullptr, state_result.thumbnail_data.data(),
-                        Canvas::kNESFrameDefaultWidth * kColorComponents *
+                        state_result.thumbnail_width * kColorComponents *
                             sizeof(state_result.thumbnail_data.data()[0])) ==
       0) {
     state_preview_.has_thumbnail = true;

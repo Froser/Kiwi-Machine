@@ -79,7 +79,7 @@ class GameLibraryView : public Widget {
   void LoadROM(preset_roms::PresetROM& rom,
                preset_roms::ROMEdition edition,
                bool load_from_finger_gesture);
-  void ToggleEmulationSystem();
+  void CycleEmulationSystem(int direction);
   void SwitchEmulationSystem(kiwi::emu::Emulator::Type system);
   bool IsEmulationSystem(kiwi::emu::Emulator::Type system) const;
   void PopulatePackageItems(preset_roms::Package* package,

@@ -10,47 +10,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-function(KIWI_ADD_MGBA)
-    # mGBA 0.10.5 uses CMake's pre-3.5 policy baseline.
-    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-    set(LIBMGBA_ONLY ON)
-    set(SKIP_GIT ON)
-    set(M_CORE_GBA ON)
-    set(M_CORE_GB ON)
-
-    # ios-cmake uses static-library try_compile checks, which incorrectly
-    # report popcount32 as available without linking. Keep mGBA's inline
-    # fallback enabled on iOS.
-    if(IOS)
-        set(HAVE_POPCOUNT32 OFF)
-    endif()
-    add_subdirectory(mgba-0.10.5)
-endfunction()
-
-KIWI_ADD_MGBA()
-add_library(mGBA::core ALIAS mgba)
-
-# Reuse Kiwi's zlib implementation instead of exporting mGBA's fallback
-# crc32 symbol into the same final binary.
-target_compile_definitions(mgba PRIVATE HAVE_CRC32)
-target_link_libraries(mgba zlibstatic)
-
-if(EMSCRIPTEN OR KIWI_SWITCH)
-    target_compile_definitions(mgba PUBLIC _GNU_SOURCE)
-endif()
-
-if(KIWI_SWITCH)
-    target_sources(mgba PRIVATE
-            mgba-0.10.5/src/util/vfs/vfs-fd.c
-            mgba-0.10.5/src/util/vfs/vfs-dirent.c
-    )
-endif()
-
-# The vendored source has no .git directory. Prevent its version generator
-# from finding Kiwi's repository metadata in a parent directory.
-set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mgba-0.10.5"
-        PROPERTY RULE_LAUNCH_CUSTOM
-        "${CMAKE_COMMAND} -E env GIT_CEILING_DIRECTORIES=${CMAKE_CURRENT_SOURCE_DIR}")
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/mgba.cmake")
+KIWI_ADD_MGBA("${CMAKE_CURRENT_LIST_DIR}/mgba-0.10.5")
 
 add_subdirectory(gflags)
 if(KIWI_SWITCH)

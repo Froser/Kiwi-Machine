@@ -46,7 +46,7 @@ std::unique_ptr<Runtime> CreateRuntime(kiwi::emu::Emulator::Type system,
 void ShutdownRuntime(Runtime* runtime);
 
 void StartPeriodicSaves(Runtime* runtime,
-                        NESRuntime::GetThumbnailCallback thumbnail_callback);
+                        Runtime::GetThumbnailCallback thumbnail_callback);
 void StopPeriodicSaves(Runtime* runtime);
 
 }  // namespace runtime_util

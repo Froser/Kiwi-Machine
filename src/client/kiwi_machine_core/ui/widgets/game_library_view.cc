@@ -14,6 +14,7 @@
 #include "build/build_config.h"
 
 #include <algorithm>
+#include <iterator>
 #include <string>
 #include <utility>
 
@@ -36,6 +37,10 @@
 namespace {
 
 constexpr int kSideMenuAnimationMs = 180;
+constexpr std::array<kiwi::emu::Emulator::Type, 2> kEmulationSystems = {
+    kiwi::emu::Emulator::Type::kNES,
+    kiwi::emu::Emulator::Type::kGBA,
+};
 
 float EaseOutQuadratic(float progress) {
   progress = std::clamp(progress, 0.f, 1.f);
@@ -367,8 +372,8 @@ void GameLibraryView::Initialize() {
 #endif
 
   SideMenu::SystemToggleCallbacks system_toggle_callbacks;
-  system_toggle_callbacks.trigger_callback = kiwi::base::BindRepeating(
-      &GameLibraryView::ToggleEmulationSystem, kiwi::base::Unretained(this));
+  system_toggle_callbacks.cycle_callback = kiwi::base::BindRepeating(
+      &GameLibraryView::CycleEmulationSystem, kiwi::base::Unretained(this));
   system_toggle_callbacks.is_gba_selected = kiwi::base::BindRepeating(
       &GameLibraryView::IsEmulationSystem, kiwi::base::Unretained(this),
       kiwi::emu::Emulator::Type::kGBA);
@@ -575,10 +580,18 @@ void GameLibraryView::LoadROM(preset_roms::PresetROM& rom,
   callbacks_.load_rom.Run(rom, edition, load_from_finger_gesture);
 }
 
-void GameLibraryView::ToggleEmulationSystem() {
-  SwitchEmulationSystem(emulation_system_ == kiwi::emu::Emulator::Type::kGBA
-                            ? kiwi::emu::Emulator::Type::kNES
-                            : kiwi::emu::Emulator::Type::kGBA);
+void GameLibraryView::CycleEmulationSystem(int direction) {
+  const auto current = std::find(kEmulationSystems.begin(),
+                                 kEmulationSystems.end(), emulation_system_);
+  if (current == kEmulationSystems.end() || direction == 0)
+    return;
+
+  const int system_count = static_cast<int>(kEmulationSystems.size());
+  const int current_index =
+      static_cast<int>(std::distance(kEmulationSystems.begin(), current));
+  const int next_index =
+      (current_index + direction % system_count + system_count) % system_count;
+  SwitchEmulationSystem(kEmulationSystems[next_index]);
 }
 
 void GameLibraryView::SwitchEmulationSystem(kiwi::emu::Emulator::Type system) {

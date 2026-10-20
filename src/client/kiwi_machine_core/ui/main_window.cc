@@ -101,14 +101,8 @@ void FillLayout(WindowBase* window, Widget* widget) {
   widget->set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
 }
 
-void StartPeriodicSaves(Runtime* runtime, scoped_refptr<NESFrame> frame) {
-  runtime_util::StartPeriodicSaves(
-      runtime,
-      kiwi::base::BindRepeating(&NESFrame::GetLastFrame, std::move(frame)));
-}
-
 bool CanSaveOrLoadState(MainWindow* window) {
-  return save_state_util::CanSaveOrLoadState(window->nes_runtime());
+  return save_state_util::CanSaveOrLoadState(window->runtime());
 }
 
 void ToastGameControllersAddedOrRemoved(WindowBase* window,
@@ -1632,7 +1626,7 @@ void MainWindow::OnRomLoaded(std::unique_ptr<PendingROM> pending_rom,
   if (!success) {
     SetLoading(false);
     if (runtime_->emulator()->AsNESEmulator()->GetRomData()) {
-      StartPeriodicSaves(runtime_.get(), canvas_->frame());
+      StartPeriodicSaves();
     }
     Toast::ShowToast(this,
                      GetLocalizedString(
@@ -1655,7 +1649,7 @@ void MainWindow::OnRomLoaded(std::unique_ptr<PendingROM> pending_rom,
 #endif
     ShowMainMenu(false, pending_rom->load_from_finger_gesture);
     SetTitle(pending_rom->window_title);
-    StartPeriodicSaves(runtime_.get(), canvas_->frame());
+    StartPeriodicSaves();
     PauseGameIfDisassemblyVisible();
     PauseForFocusLossIfNeeded();
   }
@@ -1665,7 +1659,7 @@ void MainWindow::OnGBARomLoaded(std::string fallback_title, bool success) {
   if (!success) {
     SetLoading(false);
     if (runtime_->emulator()->HasROM()) {
-      StartPeriodicSaves(runtime_.get(), canvas_->frame());
+      StartPeriodicSaves();
     }
     Toast::ShowToast(this,
                      GetLocalizedString(
@@ -1676,9 +1670,9 @@ void MainWindow::OnGBARomLoaded(std::string fallback_title, bool success) {
     config_->SaveConfig();
     canvas_->SetEmulationSystem(emulation_system_);
     in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadAutoSave,
-                                      false);
-    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState, false);
-    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState, false);
+                                      true);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState, true);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState, true);
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
     hd_texture_available_ = false;
     hd_texture_enabled_ = false;
@@ -1691,7 +1685,7 @@ void MainWindow::OnGBARomLoaded(std::string fallback_title, bool success) {
         rom_data && !rom_data->title.empty() ? rom_data->title : fallback_title;
     ShowMainMenu(false, false);
     SetTitle(current_game_title_ + " [GBA]");
-    StartPeriodicSaves(runtime_.get(), canvas_->frame());
+    StartPeriodicSaves();
     PauseForFocusLossIfNeeded();
   }
 }
@@ -1729,7 +1723,7 @@ void MainWindow::OnRomUnloaded(bool success) {
     SetLoading(false);
     SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                 "Could not save battery-backed data before unloading ROM.");
-    StartPeriodicSaves(runtime_.get(), canvas_->frame());
+    StartPeriodicSaves();
   } else {
     current_game_title_.clear();
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
@@ -1746,25 +1740,41 @@ void MainWindow::OnRomUnloaded(bool success) {
 
 void MainWindow::OnSaveState(int which_state) {
   save_state_util::SaveState(
-      nes_runtime(), which_state,
-      kiwi::base::BindRepeating(&NESFrame::GetLastFrame, canvas_->frame()),
+      runtime_.get(), which_state,
+      kiwi::base::BindRepeating(&MainWindow::GetLastFrameForState,
+                                kiwi::base::Unretained(this)),
       kiwi::base::BindOnce(&MainWindow::OnStateSaved,
                            kiwi::base::Unretained(this)));
 }
 
 void MainWindow::OnLoadState(int which_state) {
   save_state_util::LoadState(
-      nes_runtime(), which_state,
+      runtime_.get(), which_state,
       kiwi::base::BindOnce(&MainWindow::PrepareToLoadState,
                            kiwi::base::Unretained(this)),
       kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
                            kiwi::base::Unretained(this)));
 }
 
+void MainWindow::StartPeriodicSaves() {
+  runtime_util::StartPeriodicSaves(
+      runtime_.get(),
+      kiwi::base::BindRepeating(&MainWindow::GetLastFrameForState,
+                                kiwi::base::Unretained(this)));
+}
+
+const kiwi::emu::Colors& MainWindow::GetLastFrameForState() {
+  SDL_assert(runtime_);
+  if (runtime_->emulator()->GetType() == kiwi::emu::Emulator::Type::kGBA) {
+    return runtime_->emulator()->AsGBAEmulator()->GetLastFrame();
+  }
+  return canvas_->frame()->GetLastFrame();
+}
+
 void MainWindow::OnLoadAutoSavedState(int timestamp,
                                       bool discard_newer_states) {
   save_state_util::LoadAutoSavedState(
-      nes_runtime(), timestamp, discard_newer_states,
+      runtime_.get(), timestamp, discard_newer_states,
       kiwi::base::BindOnce(&MainWindow::PrepareToLoadState,
                            kiwi::base::Unretained(this)),
       kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
@@ -1857,7 +1867,7 @@ void MainWindow::OnResume() {
     SetHDTextureToggleState(hd_texture_available_ && canvas_->visible(),
                             hd_texture_enabled_);
 #endif
-    StartPeriodicSaves(runtime_.get(), canvas_->frame());
+    StartPeriodicSaves();
   }
 }
 
@@ -2126,7 +2136,7 @@ void MainWindow::OnInGameMenuItemTrigger(
       const auto* slot = std::get_if<InGameMenu::StateSlot>(&command.payload);
       if (!slot)
         break;
-      SDL_assert(slot->value < NESRuntime::MaxSaveStates);
+      SDL_assert(slot->value < Runtime::MaxSaveStates);
       OnLoadState(slot->value);
       CloseInGameMenu();
     } break;
@@ -2134,7 +2144,7 @@ void MainWindow::OnInGameMenuItemTrigger(
       const auto* slot = std::get_if<InGameMenu::StateSlot>(&command.payload);
       if (!slot)
         break;
-      SDL_assert(slot->value < NESRuntime::MaxSaveStates);
+      SDL_assert(slot->value < Runtime::MaxSaveStates);
       OnSaveState(slot->value);
     } break;
     case InGameMenu::MenuItem::kResetGame: {

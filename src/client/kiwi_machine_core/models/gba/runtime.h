@@ -25,6 +25,12 @@
 
 class GBARuntime : public Runtime {
  public:
+  enum {
+    MaxSaveStates = Runtime::MaxSaveStates,
+    MaxAutoSaveStates = Runtime::MaxAutoSaveStates,
+  };
+  using StateResult = Runtime::StateResult;
+
   explicit GBARuntime(
       const kiwi::base::FilePath& profile_path,
       scoped_refptr<kiwi::gba::Emulator> emulator = nullptr,
@@ -40,10 +46,29 @@ class GBARuntime : public Runtime {
   void UnloadROM(kiwi::emu::Emulator::LoadCallback callback) override;
   void FlushBatterySave(kiwi::emu::Emulator::LoadCallback callback) override;
   scoped_refptr<kiwi::emu::Emulator> emulator() override;
+  void PersistState(int slot,
+                    const kiwi::emu::Bytes& state_data,
+                    const kiwi::emu::Colors& thumbnail,
+                    kiwi::base::OnceCallback<void(bool)> callback) override;
+  void GetSavedStatesCount(
+      kiwi::base::OnceCallback<void(int)> callback) override;
+  void GetState(int slot, StateResultCallback callback) override;
+  void GetAutoSavedStatesCount(
+      kiwi::base::OnceCallback<void(int)> callback) override;
+  void GetAutoSavedState(int slot, StateResultCallback callback) override;
+  void GetAutoSavedStateByTimestamp(uint64_t timestamp,
+                                    StateResultCallback callback) override;
+  void DeleteAutoSavedStatesNewerThan(
+      uint64_t timestamp,
+      kiwi::base::OnceCallback<void(bool)> callback) override;
+  void StartAutoStateSave(kiwi::base::TimeDelta delta,
+                          GetThumbnailCallback thumbnail) override;
+  void StopAutoStateSave() override;
 
   scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
 
  private:
+  void OnStopPeriodicSaves() override;
   struct PreparedROM;
   using PreparedROMPtr = std::shared_ptr<PreparedROM>;
 
@@ -96,12 +121,29 @@ class GBARuntime : public Runtime {
   void OnSaveDataWritten(kiwi::gba::Emulator::SaveDataSnapshot snapshot,
                          bool success);
   void OnBatterySaveFlushed(bool success);
+  void TriggerDelayedAutoSave(kiwi::base::TimeDelta delta,
+                              GetThumbnailCallback thumbnail,
+                              uint64_t timer_generation);
+  void RunAutoStateSave(kiwi::base::TimeDelta delta,
+                        GetThumbnailCallback thumbnail,
+                        uint64_t timer_generation);
+  void OnAutoStateCaptured(kiwi::base::TimeDelta delta,
+                           GetThumbnailCallback thumbnail,
+                           uint64_t timer_generation,
+                           uint32_t crc32,
+                           kiwi::gba::Bytes data);
+  void OnAutoStateWritten(kiwi::base::TimeDelta delta,
+                          GetThumbnailCallback thumbnail,
+                          uint64_t timer_generation,
+                          bool success);
 
   scoped_refptr<kiwi::gba::Emulator> emulator_;
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner_;
   PreparedROMPtr current_rom_;
   bool battery_save_flush_in_progress_ = false;
   bool battery_save_flush_requested_ = false;
+  bool auto_save_started_ = false;
+  uint64_t auto_save_timer_generation_ = 0;
   std::vector<kiwi::emu::Emulator::LoadCallback> battery_save_flush_callbacks_;
 };
 

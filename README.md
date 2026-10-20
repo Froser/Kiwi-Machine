@@ -356,10 +356,11 @@ For example, I've organized many games' Japanese, English, and even Chinese
 versions. A game with multiple versions displays a stacked-card icon in the
 top-right corner. Click or tap the icon to advance without launching the game.
 Use the toggle at the top-left of the library to switch between FC/NES and Game
-Boy Advance. On Nintendo Switch, `ZL` toggles the current system from anywhere
-in the library. `L` and `R` remain dedicated to cycling ROM regions
-counterclockwise and clockwise; other controllers use the configured `SELECT`
-button. The icon animates on the selected game to make the action discoverable:
+Boy Advance. On Nintendo Switch, `ZL` and `ZR` cycle systems left and right from
+anywhere in the library. With two systems, either trigger switches to the other
+one. `L` and `R` remain dedicated to cycling ROM regions counterclockwise and
+clockwise; other controllers use the configured `SELECT` button. The icon
+animates on the selected game to make the action discoverable:
 
 > ![Multiple ROM versions](docs/multi_version.png)
 

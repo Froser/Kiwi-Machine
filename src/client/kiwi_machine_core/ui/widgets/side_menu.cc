@@ -877,11 +877,11 @@ void SideMenu::TriggerCurrentItem() {
   menu_items_[current_index_].callbacks.enter_callback.Run();
 }
 
-void SideMenu::TriggerSystemToggle() {
-  if (!system_toggle_ || !system_toggle_->callbacks.trigger_callback)
+void SideMenu::TriggerSystemToggle(int direction) {
+  if (!system_toggle_ || !system_toggle_->callbacks.cycle_callback)
     return;
   PlayEffect(audio_resources::AudioID::kSelect);
-  system_toggle_->callbacks.trigger_callback.Run();
+  system_toggle_->callbacks.cycle_callback.Run(direction);
 }
 
 bool SideMenu::IsGBASystemSelected() const {
@@ -958,14 +958,19 @@ bool SideMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 
 bool SideMenu::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
 #if BUILDFLAG(IS_SWITCH)
-  if (system_toggle_ && event->axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT) {
+  const bool is_left_trigger = event->axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
+  const bool is_right_trigger = event->axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT;
+  if (system_toggle_ && (is_left_trigger || is_right_trigger)) {
+    bool& trigger_pressed = is_left_trigger
+                                ? system_toggle_left_trigger_pressed_
+                                : system_toggle_right_trigger_pressed_;
     if (event->value >= kSystemToggleTriggerThreshold) {
-      if (!system_toggle_trigger_pressed_) {
-        system_toggle_trigger_pressed_ = true;
-        TriggerSystemToggle();
+      if (!trigger_pressed) {
+        trigger_pressed = true;
+        TriggerSystemToggle(is_left_trigger ? -1 : 1);
       }
     } else if (event->value <= kSystemToggleTriggerReleaseThreshold) {
-      system_toggle_trigger_pressed_ = false;
+      trigger_pressed = false;
     }
     return true;
   }

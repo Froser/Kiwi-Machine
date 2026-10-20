@@ -100,7 +100,7 @@ void ShutdownRuntime(Runtime* runtime) {
 }
 
 void StartPeriodicSaves(Runtime* runtime,
-                        NESRuntime::GetThumbnailCallback thumbnail_callback) {
+                        Runtime::GetThumbnailCallback thumbnail_callback) {
   if (!runtime) {
     return;
   }
@@ -109,11 +109,9 @@ void StartPeriodicSaves(Runtime* runtime,
       kiwi::base::Milliseconds(kBatterySaveIntervalMilliseconds));
 
 #if !BUILDFLAG(IS_WASM)
-  if (runtime->emulator()->GetType() == kiwi::emu::Emulator::Type::kNES) {
-    static_cast<NESRuntime*>(runtime)->StartAutoStateSave(
-        kiwi::base::Milliseconds(kAutoStateSaveIntervalMilliseconds),
-        std::move(thumbnail_callback));
-  }
+  runtime->StartAutoStateSave(
+      kiwi::base::Milliseconds(kAutoStateSaveIntervalMilliseconds),
+      std::move(thumbnail_callback));
 #else
   static_cast<void>(thumbnail_callback);
 #endif

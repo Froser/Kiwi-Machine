@@ -17,24 +17,25 @@
 
 #include "base/functional/callback.h"
 #include "models/nes/runtime.h"
+#include "models/runtime.h"
 
 namespace save_state_util {
 
 using StateOperationCallback = kiwi::base::OnceCallback<void(int, bool)>;
 
-bool CanSaveOrLoadState(NESRuntime* runtime);
+bool CanSaveOrLoadState(Runtime* runtime);
 
-void SaveState(NESRuntime* runtime,
+void SaveState(Runtime* runtime,
                int slot,
-               NESRuntime::GetThumbnailCallback thumbnail_callback,
+               Runtime::GetThumbnailCallback thumbnail_callback,
                StateOperationCallback callback);
 
-void LoadState(NESRuntime* runtime,
+void LoadState(Runtime* runtime,
                int slot,
                kiwi::base::OnceClosure prepare_to_load,
                StateOperationCallback callback);
 
-void LoadAutoSavedState(NESRuntime* runtime,
+void LoadAutoSavedState(Runtime* runtime,
                         uint64_t timestamp,
                         bool discard_newer_states,
                         kiwi::base::OnceClosure prepare_to_load,

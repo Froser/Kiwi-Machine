@@ -1101,8 +1101,8 @@ void AboutWidget::DrawGamepad(const FrameText& text,
   };
 #if BUILDFLAG(IS_SWITCH)
   const std::array<std::string, 6> values = {
-      text.gamepad_direction, "A / Y", "B / X", "-",
-      text.gamepad_start,     "L + R",
+      text.gamepad_direction, "A / Y",   "B / X", "-",
+      text.gamepad_start,     "ZL + ZR",
   };
 #else
   const std::array<std::string, 6> values = {

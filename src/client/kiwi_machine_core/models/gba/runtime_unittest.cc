@@ -23,8 +23,10 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_executor.h"
 #include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
+#include "utility/save_state_util.h"
 
 namespace {
 
@@ -115,7 +117,7 @@ class GBARuntimeTest : public ::testing::Test {
   }
 
   void TearDown() override {
-    runtime_->StopBatterySave();
+    runtime_->StopPeriodicSaves();
     timer_task_runner_->RunUntilIdle();
     io_task_runner_->RunUntilIdle();
     runtime_->emulator()->PowerOff();
@@ -206,6 +208,189 @@ TEST_F(GBARuntimeTest, PeriodicallyFlushesBatterySave) {
   ASSERT_FALSE(save_path.empty());
   EXPECT_FALSE(kiwi::base::ReadFileToBytes(save_path)->empty());
   EXPECT_TRUE(saves.Next().empty());
+}
+
+TEST_F(GBARuntimeTest, SavesAndLoadsManualStateWithThumbnail) {
+  ASSERT_TRUE(LoadROM(MakeTestROM()));
+  runtime_->emulator()->RunOneFrame();
+
+  kiwi::emu::Colors thumbnail(kiwi::gba::kFrameWidth * kiwi::gba::kFrameHeight,
+                              0xff336699);
+  bool save_callback_called = false;
+  bool saved = false;
+  save_state_util::SaveState(
+      runtime_.get(), 2,
+      kiwi::base::BindRepeating(
+          [](const kiwi::emu::Colors* pixels) -> const kiwi::emu::Colors& {
+            return *pixels;
+          },
+          &thumbnail),
+      kiwi::base::BindOnce(
+          [](bool* callback_called, bool* saved, int slot, bool success) {
+            *callback_called = true;
+            *saved = success;
+            EXPECT_EQ(slot, 2);
+          },
+          &save_callback_called, &saved));
+  EXPECT_FALSE(save_callback_called);
+  io_task_runner_->RunNextTask();
+  EXPECT_TRUE(save_callback_called);
+  EXPECT_TRUE(saved);
+
+  int count = -1;
+  runtime_->GetSavedStatesCount(kiwi::base::BindOnce(
+      [](int* output, int value) { *output = value; }, &count));
+  io_task_runner_->RunNextTask();
+  EXPECT_EQ(count, 1);
+
+  Runtime::StateResult state;
+  runtime_->GetState(
+      2, kiwi::base::BindOnce(
+             [](Runtime::StateResult* output,
+                const Runtime::StateResult& value) { *output = value; },
+             &state));
+  io_task_runner_->RunNextTask();
+  EXPECT_TRUE(state.success);
+  EXPECT_FALSE(state.state_data.empty());
+  EXPECT_EQ(state.slot_or_timestamp, 2);
+  EXPECT_EQ(state.thumbnail_width, kiwi::gba::kFrameWidth);
+  EXPECT_EQ(state.thumbnail_height, kiwi::gba::kFrameHeight);
+  EXPECT_EQ(state.thumbnail_data.size(),
+            static_cast<size_t>(kiwi::gba::kFrameWidth *
+                                kiwi::gba::kFrameHeight * 4));
+
+  bool prepared = false;
+  bool load_callback_called = false;
+  bool loaded = false;
+  save_state_util::LoadState(
+      runtime_.get(), 2,
+      kiwi::base::BindOnce([](bool* value) { *value = true; }, &prepared),
+      kiwi::base::BindOnce(
+          [](bool* callback_called, bool* loaded, int slot, bool success) {
+            *callback_called = true;
+            *loaded = success;
+            EXPECT_EQ(slot, 2);
+          },
+          &load_callback_called, &loaded));
+  EXPECT_FALSE(load_callback_called);
+  io_task_runner_->RunNextTask();
+  EXPECT_TRUE(prepared);
+  EXPECT_TRUE(load_callback_called);
+  EXPECT_TRUE(loaded);
+}
+
+TEST_F(GBARuntimeTest, AutoSnapshotsAreTimestampedLimitedAndCleanable) {
+  ASSERT_TRUE(LoadROM(MakeTestROM()));
+  runtime_->emulator()->RunOneFrame();
+
+  const kiwi::gba::RomData* rom_data =
+      runtime_->emulator()->AsGBAEmulator()->GetRomData();
+  ASSERT_NE(rom_data, nullptr);
+  const kiwi::base::FilePath states_path =
+      profile_path_.Append(FILE_PATH_LITERAL("gba"))
+          .Append(FILE_PATH_LITERAL("States"))
+          .Append(kiwi::base::FilePath::FromUTF8Unsafe(
+              kiwi::base::StringPrintf("%08x", rom_data->crc32)));
+
+  const kiwi::emu::Bytes seed_state = {1, 2, 3, 4};
+  kiwi::emu::Colors thumbnail(kiwi::gba::kFrameWidth * kiwi::gba::kFrameHeight,
+                              0xff224466);
+  bool persisted = false;
+  runtime_->PersistState(
+      2, seed_state, thumbnail,
+      kiwi::base::BindOnce(
+          [](bool* output, bool success) { *output = success; }, &persisted));
+  io_task_runner_->RunNextTask();
+  ASSERT_TRUE(persisted);
+
+  const kiwi::base::FilePath manual_path =
+      states_path.Append(FILE_PATH_LITERAL("2"));
+  std::optional<kiwi::emu::Bytes> encoded_thumbnail =
+      kiwi::base::ReadFileToBytes(
+          manual_path.Append(FILE_PATH_LITERAL("thumbnail")));
+  ASSERT_TRUE(encoded_thumbnail);
+  ASSERT_FALSE(encoded_thumbnail->empty());
+
+  const kiwi::base::FilePath auto_saved_path =
+      states_path.Append(FILE_PATH_LITERAL("AutoSaved"));
+  for (int timestamp = 100; timestamp <= 150; ++timestamp) {
+    const kiwi::base::FilePath snapshot_path = auto_saved_path.Append(
+        kiwi::base::FilePath::FromUTF8Unsafe(std::to_string(timestamp)));
+    ASSERT_TRUE(kiwi::base::CreateDirectory(snapshot_path));
+    ASSERT_TRUE(kiwi::base::WriteFile(
+        snapshot_path.Append(FILE_PATH_LITERAL("data")), seed_state));
+    ASSERT_TRUE(kiwi::base::WriteFile(
+        snapshot_path.Append(FILE_PATH_LITERAL("thumbnail")),
+        *encoded_thumbnail));
+  }
+
+  runtime_->StartAutoStateSave(
+      kiwi::base::Milliseconds(5000),
+      kiwi::base::BindRepeating(
+          [](const kiwi::emu::Colors* pixels) -> const kiwi::emu::Colors& {
+            return *pixels;
+          },
+          &thumbnail));
+  ASSERT_EQ(timer_task_runner_->pending_task_count(), 1u);
+  timer_task_runner_->RunNextTask();
+  ASSERT_EQ(io_task_runner_->pending_task_count(), 1u);
+  io_task_runner_->RunNextTask();
+  EXPECT_EQ(timer_task_runner_->pending_task_count(), 1u);
+
+  int count = -1;
+  runtime_->GetAutoSavedStatesCount(kiwi::base::BindOnce(
+      [](int* output, int value) { *output = value; }, &count));
+  io_task_runner_->RunNextTask();
+  EXPECT_EQ(count, Runtime::MaxAutoSaveStates);
+
+  Runtime::StateResult latest;
+  runtime_->GetAutoSavedState(
+      0, kiwi::base::BindOnce(
+             [](Runtime::StateResult* output,
+                const Runtime::StateResult& value) { *output = value; },
+             &latest));
+  io_task_runner_->RunNextTask();
+  ASSERT_TRUE(latest.success);
+  EXPECT_GT(latest.slot_or_timestamp, 150);
+
+  Runtime::StateResult selected;
+  runtime_->GetAutoSavedState(
+      10, kiwi::base::BindOnce(
+              [](Runtime::StateResult* output,
+                 const Runtime::StateResult& value) { *output = value; },
+              &selected));
+  io_task_runner_->RunNextTask();
+  ASSERT_TRUE(selected.success);
+  EXPECT_EQ(selected.slot_or_timestamp, 141);
+
+  Runtime::StateResult by_timestamp;
+  runtime_->GetAutoSavedStateByTimestamp(
+      selected.slot_or_timestamp,
+      kiwi::base::BindOnce(
+          [](Runtime::StateResult* output, const Runtime::StateResult& value) {
+            *output = value;
+          },
+          &by_timestamp));
+  io_task_runner_->RunNextTask();
+  EXPECT_TRUE(by_timestamp.success);
+  EXPECT_EQ(by_timestamp.slot_or_timestamp, selected.slot_or_timestamp);
+
+  bool deleted = false;
+  runtime_->DeleteAutoSavedStatesNewerThan(
+      selected.slot_or_timestamp,
+      kiwi::base::BindOnce(
+          [](bool* output, bool success) { *output = success; }, &deleted));
+  io_task_runner_->RunNextTask();
+  EXPECT_TRUE(deleted);
+
+  count = -1;
+  runtime_->GetAutoSavedStatesCount(kiwi::base::BindOnce(
+      [](int* output, int value) { *output = value; }, &count));
+  io_task_runner_->RunNextTask();
+  EXPECT_EQ(count, 40);
+
+  runtime_->StopAutoStateSave();
+  timer_task_runner_->RunUntilIdle();
 }
 
 TEST_F(GBARuntimeTest, ShutdownInvalidatesPendingLoadReply) {

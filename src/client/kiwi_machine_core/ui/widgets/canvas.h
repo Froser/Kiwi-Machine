@@ -88,6 +88,9 @@ class Canvas : public Widget, public NESFrameObserver {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerButtonReleased(SDL_ControllerButtonEvent* event) override;
+#if BUILDFLAG(IS_SWITCH)
+  bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
+#endif
   bool OnMousePressed(SDL_MouseButtonEvent* event) override;
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
@@ -99,7 +102,7 @@ class Canvas : public Widget, public NESFrameObserver {
  private:
   void InvokeInGameMenu();
 #if BUILDFLAG(IS_SWITCH)
-  void UpdateShoulderChord();
+  void UpdateTriggerChord();
   void InvokeQuickLoad();
 #endif
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
@@ -136,10 +139,10 @@ class Canvas : public Widget, public NESFrameObserver {
 #endif
   std::set<CanvasObserver*> observers_;
 #if BUILDFLAG(IS_SWITCH)
-  Timer shoulder_chord_timer_;
-  SDL_JoystickID shoulder_chord_controller_id_ = -1;
-  bool shoulder_chord_pending_ = false;
-  bool shoulder_chord_triggered_ = false;
+  Timer trigger_chord_timer_;
+  SDL_JoystickID trigger_chord_controller_id_ = -1;
+  bool trigger_chord_pending_ = false;
+  bool trigger_chord_triggered_ = false;
 #endif
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
   Timer hd_texture_hint_timer_;

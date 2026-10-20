@@ -26,6 +26,7 @@ set(Sources
     ${kiwi_machine_core_SOURCE_DIR}/utility/ips_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/math_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/runtime_util_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/utility/switch/paths_internal_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/texture_parser/mesen_texture_parser_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/zip_reader_unittest.cc
 )

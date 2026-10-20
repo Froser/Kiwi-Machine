@@ -232,6 +232,8 @@ class MainWindow : public WindowBase,
   void OnSaveState(int which_state);
   void OnLoadState(int which_state);
   void OnLoadAutoSavedState(int timestamp, bool discard_newer_states);
+  void StartPeriodicSaves();
+  const kiwi::emu::Colors& GetLastFrameForState();
   void OnStateSaved(int slot, bool succeed);
   void PrepareToLoadState();
   void OnStateLoaded(int slot_or_timestamp, bool succeed);

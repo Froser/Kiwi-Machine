@@ -231,12 +231,14 @@ endif ()
 
 if (KIWI_SWITCH)
     list(APPEND Sources
+            ui/widgets/canvas_switch.cc
             ui/widgets/flex_item_widget_switch.cc
             ui/widgets/in_game_menu_switch.cc
             utility/switch/controller_support.cc
             utility/switch/controller_support.h
             utility/switch/paths.cc
             utility/switch/paths.h
+            utility/switch/paths_internal.h
             utility/switch/system_keyboard.cc
             utility/switch/system_keyboard.h
             utility/switch/tiny_jpeg.cc

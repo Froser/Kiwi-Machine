@@ -43,7 +43,8 @@ class SideMenu : public Widget {
   };
 
   struct SystemToggleCallbacks {
-    kiwi::base::RepeatingClosure trigger_callback;
+    // Negative values cycle left; positive values cycle right.
+    kiwi::base::RepeatingCallback<void(int)> cycle_callback;
     kiwi::base::RepeatingCallback<bool()> is_gba_selected;
   };
 
@@ -125,7 +126,7 @@ class SideMenu : public Widget {
                          ImU32 hover_fill_color,
                          ImU32 accent_color,
                          ImU32 accent_text_color);
-  void TriggerSystemToggle();
+  void TriggerSystemToggle(int direction = 1);
   bool IsGBASystemSelected() const;
   SDL_Rect MapLocalBoundsToWindow(const SDL_Rect& local_bounds);
   bool FindItemIndexByMousePosition(int x_in_window,
@@ -209,7 +210,8 @@ class SideMenu : public Widget {
   bool system_toggle_animation_from_gba_ = false;
   bool system_toggle_last_gba_ = false;
 #if BUILDFLAG(IS_SWITCH)
-  bool system_toggle_trigger_pressed_ = false;
+  bool system_toggle_left_trigger_pressed_ = false;
+  bool system_toggle_right_trigger_pressed_ = false;
 #endif
 
   bool mouse_locked_ = false;

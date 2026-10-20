@@ -22,8 +22,8 @@
 #include <set>
 #include <vector>
 
-#include "models/battery_save.h"
 #include "emulator/nes/rom_hash.h"
+#include "models/battery_save.h"
 #include "ui/application.h"
 #include "ui/widgets/canvas.h"
 
@@ -254,7 +254,7 @@ kiwi::nes::Bytes ReadDataFromProfile(const std::string& path) {
 NESRuntime::StateResult GetStateByPathOnIOThread(
     const kiwi::base::FilePath& path_to_data,
     const kiwi::base::FilePath& path_to_thumbnail) {
-  NESRuntime::StateResult sr{false};
+  NESRuntime::StateResult sr;
   sr.state_data = ReadDataFromProfile(path_to_data.AsUTF8Unsafe());
 
   // Thumbnail is JPEG format, convert it to pixel data:
@@ -263,28 +263,26 @@ NESRuntime::StateResult GetStateByPathOnIOThread(
   if (!source.empty()) {
     SDL_RWops* rw = SDL_RWFromConstMem(source.data(), source.size());
     SDL_Surface* surface = IMG_Load_RW(rw, true);
-    if (surface->format->format == SDL_PIXELFORMAT_RGB24) {
-      sr.thumbnail_data.resize(4 * surface->w * surface->h);
-      kiwi::nes::Byte* ptr = reinterpret_cast<unsigned char*>(surface->pixels);
-      kiwi::nes::Byte* end = reinterpret_cast<unsigned char*>(surface->pixels) +
-                             (surface->pitch * surface->h);
-      size_t index = 0;
-      while (ptr < end) {
-        sr.thumbnail_data.at(index++) = ptr[0];
-        sr.thumbnail_data.at(index++) = ptr[1];
-        sr.thumbnail_data.at(index++) = ptr[2];
-        sr.thumbnail_data.at(index++) = 0xff;
-        ptr += 3;
+    if (surface) {
+      SDL_Surface* converted =
+          SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
+      SDL_FreeSurface(surface);
+      if (converted) {
+        sr.thumbnail_width = converted->w;
+        sr.thumbnail_height = converted->h;
+        constexpr size_t kBytesPerPixel = sizeof(kiwi::emu::Color);
+        const size_t row_size =
+            static_cast<size_t>(converted->w) * kBytesPerPixel;
+        sr.thumbnail_data.resize(row_size * converted->h);
+        for (int row = 0; row < converted->h; ++row) {
+          memcpy(sr.thumbnail_data.data() + row * row_size,
+                 static_cast<const uint8_t*>(converted->pixels) +
+                     row * converted->pitch,
+                 row_size);
+        }
+        SDL_FreeSurface(converted);
       }
-
-    } else if (surface->format->format == SDL_PIXELFORMAT_RGBA8888) {
-      sr.thumbnail_data.resize(surface->pitch * surface->h);
-      memcpy(sr.thumbnail_data.data(), surface->pixels,
-             sr.thumbnail_data.size());
-    } else {
-      SDL_assert(false);  // Format doesn't support.
     }
-    SDL_FreeSurface(surface);
   }
 
   sr.success = !sr.state_data.empty() && !sr.thumbnail_data.empty();
@@ -352,7 +350,7 @@ NESRuntime::StateResult GetAutoSavedStateOnIOThread(
     const kiwi::base::FilePath& profile_path,
     int crc32,
     int slot) {
-  NESRuntime::StateResult sr{false};
+  NESRuntime::StateResult sr;
   kiwi::base::FilePath auto_saved_snapshot_path =
       GetAutoSavedStatePath(profile_path, crc32);
   if (!kiwi::base::PathExists(auto_saved_snapshot_path)) {
@@ -688,6 +686,82 @@ scoped_refptr<kiwi::base::SequencedTaskRunner> NESRuntime::GetIOTaskRunner() {
                          : Application::Get()->GetIOTaskRunner();
 }
 
+void NESRuntime::PersistState(int slot,
+                              const kiwi::emu::Bytes& state_data,
+                              const kiwi::emu::Colors& thumbnail,
+                              kiwi::base::OnceCallback<void(bool)> callback) {
+  const kiwi::nes::RomData* rom_data = nes_emulator()->GetRomData();
+  if (!rom_data) {
+    std::move(callback).Run(false);
+    return;
+  }
+  SaveState(rom_data->crc, slot, state_data, thumbnail, std::move(callback));
+}
+
+void NESRuntime::GetSavedStatesCount(
+    kiwi::base::OnceCallback<void(int)> callback) {
+  const kiwi::nes::RomData* rom_data = nes_emulator()->GetRomData();
+  if (!rom_data) {
+    std::move(callback).Run(0);
+    return;
+  }
+  GetSavedStatesCount(rom_data->crc, std::move(callback));
+}
+
+void NESRuntime::GetState(int slot, StateResultCallback callback) {
+  const kiwi::nes::RomData* rom_data = nes_emulator()->GetRomData();
+  if (!rom_data) {
+    StateResult result;
+    result.slot_or_timestamp = slot;
+    std::move(callback).Run(result);
+    return;
+  }
+  GetState(rom_data->crc, slot, std::move(callback));
+}
+
+void NESRuntime::GetAutoSavedStatesCount(
+    kiwi::base::OnceCallback<void(int)> callback) {
+  const kiwi::nes::RomData* rom_data = nes_emulator()->GetRomData();
+  if (!rom_data) {
+    std::move(callback).Run(0);
+    return;
+  }
+  GetAutoSavedStatesCount(rom_data->crc, std::move(callback));
+}
+
+void NESRuntime::GetAutoSavedState(int slot, StateResultCallback callback) {
+  const kiwi::nes::RomData* rom_data = nes_emulator()->GetRomData();
+  if (!rom_data) {
+    StateResult result;
+    std::move(callback).Run(result);
+    return;
+  }
+  GetAutoSavedState(rom_data->crc, slot, std::move(callback));
+}
+
+void NESRuntime::GetAutoSavedStateByTimestamp(uint64_t timestamp,
+                                              StateResultCallback callback) {
+  const kiwi::nes::RomData* rom_data = nes_emulator()->GetRomData();
+  if (!rom_data) {
+    StateResult result;
+    result.slot_or_timestamp = static_cast<int>(timestamp);
+    std::move(callback).Run(result);
+    return;
+  }
+  GetAutoSavedStateByTimestamp(rom_data->crc, timestamp, std::move(callback));
+}
+
+void NESRuntime::DeleteAutoSavedStatesNewerThan(
+    uint64_t timestamp,
+    kiwi::base::OnceCallback<void(bool)> callback) {
+  const kiwi::nes::RomData* rom_data = nes_emulator()->GetRomData();
+  if (!rom_data) {
+    std::move(callback).Run(false);
+    return;
+  }
+  DeleteAutoSavedStatesNewerThan(rom_data->crc, timestamp, std::move(callback));
+}
+
 void NESRuntime::SaveState(
     int crc32,
     int slot,
@@ -928,7 +1002,7 @@ void NESRuntime::TriggerDelayedAutoSave(kiwi::base::TimeDelta delta,
   }
 
   std::weak_ptr<int> weak_lifetime = GetWeakLifetime();
-  kiwi::base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+  GetTimerTaskRunner()->PostDelayedTask(
       FROM_HERE,
       kiwi::base::BindOnce(
           [](std::weak_ptr<int> weak_lifetime, NESRuntime* runtime,

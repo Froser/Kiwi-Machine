@@ -16,6 +16,8 @@
 
 #include <utility>
 
+#include "emulator/gba/emulator.h"
+
 namespace save_state_util {
 namespace {
 
@@ -23,33 +25,50 @@ void Complete(StateOperationCallback callback, int value, bool success) {
   std::move(callback).Run(value, success);
 }
 
-void OnStateApplied(NESRuntime* runtime,
+void CaptureState(Runtime* runtime,
+                  kiwi::emu::Emulator::SaveStateCallback callback) {
+  if (runtime->emulator()->GetType() == kiwi::emu::Emulator::Type::kGBA) {
+    runtime->emulator()->AsGBAEmulator()->SaveState(std::move(callback));
+  } else {
+    runtime->emulator()->AsNESEmulator()->SaveState(std::move(callback));
+  }
+}
+
+void ApplyStateToEmulator(Runtime* runtime,
+                          const kiwi::emu::Bytes& state_data,
+                          kiwi::emu::Emulator::LoadCallback callback) {
+  if (runtime->emulator()->GetType() == kiwi::emu::Emulator::Type::kGBA) {
+    runtime->emulator()->AsGBAEmulator()->LoadState(state_data,
+                                                    std::move(callback));
+  } else {
+    runtime->emulator()->AsNESEmulator()->LoadState(state_data,
+                                                    std::move(callback));
+  }
+}
+
+void OnStateApplied(Runtime* runtime,
                     int slot_or_timestamp,
                     bool discard_newer_states,
                     StateOperationCallback callback,
                     bool success) {
   if (success && discard_newer_states) {
-    const kiwi::nes::RomData* rom_data =
-        runtime->emulator()->AsNESEmulator()->GetRomData();
-    if (rom_data) {
-      runtime->DeleteAutoSavedStatesNewerThan(
-          rom_data->crc, slot_or_timestamp,
-          kiwi::base::BindOnce([](bool deleted) {
-            if (!deleted) {
-              SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                          "Failed to delete newer auto saved states.");
-            }
-          }));
-    }
+    runtime->DeleteAutoSavedStatesNewerThan(
+        static_cast<uint64_t>(slot_or_timestamp),
+        kiwi::base::BindOnce([](bool deleted) {
+          if (!deleted) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Failed to delete newer auto saved states.");
+          }
+        }));
   }
   Complete(std::move(callback), slot_or_timestamp, success);
 }
 
-void ApplyState(NESRuntime* runtime,
+void ApplyState(Runtime* runtime,
                 bool discard_newer_states,
                 kiwi::base::OnceClosure prepare_to_load,
                 StateOperationCallback callback,
-                const NESRuntime::StateResult& state_result) {
+                const Runtime::StateResult& state_result) {
   if (!state_result.success || state_result.state_data.empty()) {
     Complete(std::move(callback), state_result.slot_or_timestamp, false);
     return;
@@ -58,77 +77,68 @@ void ApplyState(NESRuntime* runtime,
   if (prepare_to_load) {
     std::move(prepare_to_load).Run();
   }
-  runtime->emulator()->AsNESEmulator()->LoadState(
-      state_result.state_data,
-      kiwi::base::BindOnce(&OnStateApplied, runtime,
-                           state_result.slot_or_timestamp,
-                           discard_newer_states, std::move(callback)));
+  ApplyStateToEmulator(
+      runtime, state_result.state_data,
+      discard_newer_states
+          ? kiwi::base::BindOnce(&OnStateApplied, runtime,
+                                 state_result.slot_or_timestamp, true,
+                                 std::move(callback))
+          : kiwi::base::BindOnce(&Complete, std::move(callback),
+                                 state_result.slot_or_timestamp));
 }
 
-void OnStateCaptured(NESRuntime* runtime,
+void OnStateCaptured(Runtime* runtime,
                      int slot,
-                     NESRuntime::GetThumbnailCallback thumbnail_callback,
+                     Runtime::GetThumbnailCallback thumbnail_callback,
                      StateOperationCallback callback,
-                     kiwi::nes::Bytes state_data) {
-  const kiwi::nes::RomData* rom_data =
-      runtime->emulator()->AsNESEmulator()->GetRomData();
-  if (!rom_data || state_data.empty() || !thumbnail_callback) {
+                     kiwi::emu::Bytes state_data) {
+  if (state_data.empty() || !thumbnail_callback) {
     Complete(std::move(callback), slot, false);
     return;
   }
 
-  runtime->SaveState(
-      rom_data->crc, slot, state_data, thumbnail_callback.Run(),
+  runtime->PersistState(
+      slot, state_data, thumbnail_callback.Run(),
       kiwi::base::BindOnce(&Complete, std::move(callback), slot));
 }
 
 }  // namespace
 
-bool CanSaveOrLoadState(NESRuntime* runtime) {
-  return runtime &&
-         runtime->emulator()->AsNESEmulator()->GetRunningState() !=
-             kiwi::nes::Emulator::RunningState::kStopped;
+bool CanSaveOrLoadState(Runtime* runtime) {
+  return runtime && runtime->emulator()->HasROM();
 }
 
-void SaveState(NESRuntime* runtime,
+void SaveState(Runtime* runtime,
                int slot,
-               NESRuntime::GetThumbnailCallback thumbnail_callback,
+               Runtime::GetThumbnailCallback thumbnail_callback,
                StateOperationCallback callback) {
-  SDL_assert(slot >= 0 && slot < NESRuntime::MaxSaveStates);
+  SDL_assert(slot >= 0 && slot < Runtime::MaxSaveStates);
   if (!CanSaveOrLoadState(runtime)) {
     Complete(std::move(callback), slot, false);
     return;
   }
 
-  runtime->emulator()->AsNESEmulator()->SaveState(
-      kiwi::base::BindOnce(&OnStateCaptured, runtime, slot,
-                           std::move(thumbnail_callback), std::move(callback)));
+  CaptureState(runtime, kiwi::base::BindOnce(&OnStateCaptured, runtime, slot,
+                                             std::move(thumbnail_callback),
+                                             std::move(callback)));
 }
 
-void LoadState(NESRuntime* runtime,
+void LoadState(Runtime* runtime,
                int slot,
                kiwi::base::OnceClosure prepare_to_load,
                StateOperationCallback callback) {
-  SDL_assert(slot >= 0 && slot < NESRuntime::MaxSaveStates);
+  SDL_assert(slot >= 0 && slot < Runtime::MaxSaveStates);
   if (!CanSaveOrLoadState(runtime)) {
     Complete(std::move(callback), slot, false);
     return;
   }
 
-  const kiwi::nes::RomData* rom_data =
-      runtime->emulator()->AsNESEmulator()->GetRomData();
-  if (!rom_data) {
-    Complete(std::move(callback), slot, false);
-    return;
-  }
-
-  runtime->GetState(
-      rom_data->crc, slot,
-      kiwi::base::BindOnce(&ApplyState, runtime, false,
-                           std::move(prepare_to_load), std::move(callback)));
+  runtime->GetState(slot, kiwi::base::BindOnce(&ApplyState, runtime, false,
+                                               std::move(prepare_to_load),
+                                               std::move(callback)));
 }
 
-void LoadAutoSavedState(NESRuntime* runtime,
+void LoadAutoSavedState(Runtime* runtime,
                         uint64_t timestamp,
                         bool discard_newer_states,
                         kiwi::base::OnceClosure prepare_to_load,
@@ -138,15 +148,8 @@ void LoadAutoSavedState(NESRuntime* runtime,
     return;
   }
 
-  const kiwi::nes::RomData* rom_data =
-      runtime->emulator()->AsNESEmulator()->GetRomData();
-  if (!rom_data) {
-    Complete(std::move(callback), static_cast<int>(timestamp), false);
-    return;
-  }
-
   runtime->GetAutoSavedStateByTimestamp(
-      rom_data->crc, timestamp,
+      timestamp,
       kiwi::base::BindOnce(&ApplyState, runtime, discard_newer_states,
                            std::move(prepare_to_load), std::move(callback)));
 }

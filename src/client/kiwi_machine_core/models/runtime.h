@@ -18,13 +18,38 @@
 #include <string>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "emulator/emulator.h"
 
 class Runtime {
  public:
+  enum {
+#if BUILDFLAG(IS_SWITCH)
+    MaxSaveStates = 30,
+#else
+    MaxSaveStates = 10,
+#endif
+    MaxAutoSaveStates = 50,
+  };
+
+  struct StateResult {
+    bool success = false;
+    kiwi::emu::Bytes state_data;
+    kiwi::emu::Bytes thumbnail_data;
+    int slot_or_timestamp = 0;
+    int thumbnail_width = 0;
+    int thumbnail_height = 0;
+  };
+
+  using GetThumbnailCallback =
+      kiwi::base::RepeatingCallback<const kiwi::emu::Colors&()>;
+  using StateResultCallback =
+      kiwi::base::OnceCallback<void(const StateResult&)>;
+
   union ControllerMapping {
     int mapping[10];
     struct {
@@ -64,6 +89,25 @@ class Runtime {
   virtual void FlushBatterySave(kiwi::emu::Emulator::LoadCallback callback) = 0;
   virtual scoped_refptr<kiwi::emu::Emulator> emulator() = 0;
 
+  virtual void PersistState(int slot,
+                            const kiwi::emu::Bytes& state_data,
+                            const kiwi::emu::Colors& thumbnail,
+                            kiwi::base::OnceCallback<void(bool)> callback) = 0;
+  virtual void GetSavedStatesCount(
+      kiwi::base::OnceCallback<void(int)> callback) = 0;
+  virtual void GetState(int slot, StateResultCallback callback) = 0;
+  virtual void GetAutoSavedStatesCount(
+      kiwi::base::OnceCallback<void(int)> callback) = 0;
+  virtual void GetAutoSavedState(int slot, StateResultCallback callback) = 0;
+  virtual void GetAutoSavedStateByTimestamp(uint64_t timestamp,
+                                            StateResultCallback callback) = 0;
+  virtual void DeleteAutoSavedStatesNewerThan(
+      uint64_t timestamp,
+      kiwi::base::OnceCallback<void(bool)> callback) = 0;
+  virtual void StartAutoStateSave(kiwi::base::TimeDelta delta,
+                                  GetThumbnailCallback thumbnail) = 0;
+  virtual void StopAutoStateSave() = 0;
+
   void StartBatterySave(kiwi::base::TimeDelta delta);
   void StopBatterySave();
   void StopPeriodicSaves();
@@ -81,6 +125,7 @@ class Runtime {
 
  protected:
   std::weak_ptr<int> GetWeakLifetime() const;
+  scoped_refptr<kiwi::base::SequencedTaskRunner> GetTimerTaskRunner();
   virtual void OnStopPeriodicSaves();
 
  private:

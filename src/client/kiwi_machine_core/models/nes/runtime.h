@@ -29,13 +29,11 @@
 class NESRuntime : public Runtime {
  public:
   enum {
-#if BUILDFLAG(IS_SWITCH)
-    MaxSaveStates = 30,
-#else
-    MaxSaveStates = 10,
-#endif
-    MaxAutoSaveStates = 50,
+    MaxSaveStates = Runtime::MaxSaveStates,
+    MaxAutoSaveStates = Runtime::MaxAutoSaveStates,
   };
+  using StateResult = Runtime::StateResult;
+  using GetThumbnailCallback = Runtime::GetThumbnailCallback;
 
   explicit NESRuntime(
       const kiwi::base::FilePath& profile_path,
@@ -52,6 +50,21 @@ class NESRuntime : public Runtime {
   void UnloadROM(kiwi::emu::Emulator::LoadCallback callback) override;
   void FlushBatterySave(kiwi::emu::Emulator::LoadCallback callback) override;
   scoped_refptr<kiwi::emu::Emulator> emulator() override;
+  void PersistState(int slot,
+                    const kiwi::emu::Bytes& state_data,
+                    const kiwi::emu::Colors& thumbnail,
+                    kiwi::base::OnceCallback<void(bool)> callback) override;
+  void GetSavedStatesCount(
+      kiwi::base::OnceCallback<void(int)> callback) override;
+  void GetState(int slot, StateResultCallback callback) override;
+  void GetAutoSavedStatesCount(
+      kiwi::base::OnceCallback<void(int)> callback) override;
+  void GetAutoSavedState(int slot, StateResultCallback callback) override;
+  void GetAutoSavedStateByTimestamp(uint64_t timestamp,
+                                    StateResultCallback callback) override;
+  void DeleteAutoSavedStatesNewerThan(
+      uint64_t timestamp,
+      kiwi::base::OnceCallback<void(bool)> callback) override;
 
   void LoadROM(const kiwi::base::FilePath& rom_path,
                kiwi::emu::Emulator::LoadCallback callback,
@@ -68,13 +81,6 @@ class NESRuntime : public Runtime {
                  const kiwi::nes::Bytes& saved_state,
                  const kiwi::nes::IODevices::RenderDevice::Buffer& thumbnail,
                  kiwi::base::OnceCallback<void(bool)> callback);
-
-  struct StateResult {
-    bool success;
-    kiwi::nes::Bytes state_data;
-    kiwi::nes::Bytes thumbnail_data;
-    int slot_or_timestamp;
-  };
 
   void GetSavedStatesCount(int crc32,
                            kiwi::base::OnceCallback<void(int)> callback);
@@ -103,11 +109,9 @@ class NESRuntime : public Runtime {
   bool DeleteSaveState(int crc32, int slot);
 #endif
 
-  using GetThumbnailCallback = kiwi::base::RepeatingCallback<
-      const kiwi::nes::IODevices::RenderDevice::Buffer&()>;
   void StartAutoStateSave(kiwi::base::TimeDelta delta,
-                          GetThumbnailCallback thumbnail);
-  void StopAutoStateSave();
+                          GetThumbnailCallback thumbnail) override;
+  void StopAutoStateSave() override;
   scoped_refptr<kiwi::base::SequencedTaskRunner> GetIOTaskRunner();
 
  private:

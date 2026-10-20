@@ -354,10 +354,10 @@ class InGameMenu : public Widget {
   static void DispatchStateResult(std::weak_ptr<int> weak_lifetime,
                                   InGameMenu* menu,
                                   uint64_t request_id,
-                                  const NESRuntime::StateResult& result);
+                                  const Runtime::StateResult& result);
   void OnGotSavedStateCount(uint64_t request_id, int count);
   void OnGotAutoSavedStateCount(uint64_t request_id, int count);
-  void OnGotState(uint64_t request_id, const NESRuntime::StateResult& result);
+  void OnGotState(uint64_t request_id, const Runtime::StateResult& result);
   void CancelStatePreviewRequest();
 #if BUILDFLAG(IS_SWITCH)
   void ResetQuickLoadPreviews();
@@ -367,10 +367,10 @@ class InGameMenu : public Widget {
       InGameMenu* menu,
       uint64_t request_id,
       int slot,
-      const NESRuntime::StateResult& result);
+      const Runtime::StateResult& result);
   void OnGotQuickLoadPreview(uint64_t request_id,
                              int slot,
-                             const NESRuntime::StateResult& result);
+                             const Runtime::StateResult& result);
   int GetQuickLoadSlot(size_t visible_index) const;
   int GetQuickLoadTimestamp() const;
 #endif
@@ -432,8 +432,7 @@ class InGameMenu : public Widget {
   SDL_Texture* snapshot_ = nullptr;
 #if BUILDFLAG(IS_SWITCH)
   uint64_t quick_load_preview_request_id_ = 0;
-  std::array<QuickLoadPreview, NESRuntime::MaxAutoSaveStates>
-      quick_load_previews_;
+  std::array<QuickLoadPreview, Runtime::MaxAutoSaveStates> quick_load_previews_;
 #endif
 };
 

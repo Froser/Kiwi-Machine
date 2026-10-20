@@ -81,6 +81,12 @@ std::weak_ptr<int> Runtime::GetWeakLifetime() const {
   return lifetime_;
 }
 
+scoped_refptr<kiwi::base::SequencedTaskRunner> Runtime::GetTimerTaskRunner() {
+  return timer_task_runner_
+             ? timer_task_runner_
+             : kiwi::base::SingleThreadTaskRunner::GetCurrentDefault();
+}
+
 void Runtime::OnStopPeriodicSaves() {}
 
 void Runtime::TriggerDelayedBatterySave(kiwi::base::TimeDelta delta,
@@ -90,12 +96,8 @@ void Runtime::TriggerDelayedBatterySave(kiwi::base::TimeDelta delta,
     return;
   }
 
-  scoped_refptr<kiwi::base::SequencedTaskRunner> task_runner =
-      timer_task_runner_
-          ? timer_task_runner_
-          : kiwi::base::SingleThreadTaskRunner::GetCurrentDefault();
   std::weak_ptr<int> weak_lifetime = GetWeakLifetime();
-  task_runner->PostDelayedTask(
+  GetTimerTaskRunner()->PostDelayedTask(
       FROM_HERE,
       kiwi::base::BindOnce(
           [](std::weak_ptr<int> weak_lifetime, Runtime* runtime,
