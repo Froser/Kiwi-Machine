@@ -18,6 +18,28 @@ function(KIWI_ADD_MGBA mgba_source_dir)
     set(M_CORE_GBA ON)
     set(M_CORE_GB ON)
 
+    # Keep the vendored mGBA project core-only. These function-scoped values
+    # override stale cache entries without affecting Kiwi's other targets.
+    set(DISABLE_FRONTENDS ON)
+    set(DISABLE_DEPS ON)
+    set(BUILD_QT OFF)
+    set(BUILD_SDL OFF)
+    set(BUILD_LIBRETRO OFF)
+    set(BUILD_OPENEMU OFF)
+    set(BUILD_PYTHON OFF)
+    set(BUILD_EXAMPLE OFF)
+    set(BUILD_UPDATER OFF)
+    set(BUILD_PERF OFF)
+    set(BUILD_TEST OFF)
+    set(BUILD_SUITE OFF)
+    set(BUILD_CINEMA OFF)
+    set(BUILD_ROM_TEST OFF)
+    set(BUILD_DOCGEN OFF)
+    set(ENABLE_SCRIPTING OFF)
+    set(USE_DEBUGGERS OFF)
+    set(USE_GDB_STUB OFF)
+    set(USE_EDITLINE OFF)
+
     # ios-cmake uses static-library try_compile checks, which incorrectly
     # report popcount32 as available without linking. Keep mGBA's inline
     # fallback enabled on iOS.
