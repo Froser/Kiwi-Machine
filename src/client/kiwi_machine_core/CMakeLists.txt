@@ -94,6 +94,8 @@ set(Sources
         ui/widgets/flex_items_widget.h
         ui/widgets/game_library_view.cc
         ui/widgets/game_library_view.h
+        ui/widgets/gba_debug_widget.cc
+        ui/widgets/gba_debug_widget.h
         ui/widgets/performance_widget.cc
         ui/widgets/performance_widget.h
         ui/widgets/in_game_menu.cc
@@ -112,6 +114,8 @@ set(Sources
         ui/widgets/menu_bar.h
         ui/widgets/nametable_widget.cc
         ui/widgets/nametable_widget.h
+        ui/widgets/nes_debug_widget.cc
+        ui/widgets/nes_debug_widget.h
         ui/widgets/palette_widget.cc
         ui/widgets/palette_widget.h
         ui/widgets/pattern_widget.cc

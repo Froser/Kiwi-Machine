@@ -14,6 +14,7 @@
 
 #include <fcntl.h>
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -26,10 +27,17 @@
 #include "third_party/mgba-0.10.5/include/mgba/core/blip_buf.h"
 #include "third_party/mgba-0.10.5/include/mgba/core/core.h"
 #include "third_party/mgba-0.10.5/include/mgba/core/serialize.h"
+#include "third_party/mgba-0.10.5/include/mgba/core/timing.h"
+#include "third_party/mgba-0.10.5/include/mgba/debugger/debugger.h"
 #include "third_party/mgba-0.10.5/include/mgba/gba/interface.h"
+#include "third_party/mgba-0.10.5/include/mgba/internal/arm/arm.h"
+#include "third_party/mgba-0.10.5/include/mgba/internal/arm/decoder.h"
+#include "third_party/mgba-0.10.5/include/mgba/internal/debugger/stack-trace.h"
 #include "third_party/mgba-0.10.5/include/mgba/internal/gba/gba.h"
 #include "third_party/mgba-0.10.5/include/mgba/internal/gba/input.h"
+#include "third_party/mgba-0.10.5/include/mgba/internal/gba/io.h"
 #include "third_party/mgba-0.10.5/include/mgba/internal/gba/savedata.h"
+#include "third_party/mgba-0.10.5/include/mgba/internal/gba/video.h"
 
 #include "base/check.h"
 #include "base/functional/bind.h"
@@ -41,6 +49,8 @@ namespace gba {
 namespace {
 
 constexpr size_t kAudioBufferSamples = 2048;
+constexpr size_t kMaxDebugInstructionCount = 256;
+constexpr size_t kMaxDebugMemoryBytes = 4096;
 constexpr Color kOpaqueAlpha = 0xff000000;
 constexpr Color kColorMask = 0x00ffffff;
 
@@ -161,6 +171,36 @@ uint32_t ToMGBAKeyMask(ControllerButton button) {
       break;
   }
   return 0;
+}
+
+enum mWatchpointType ToMGBAWatchpointType(Emulator::DebugWatchpointType type) {
+  switch (type) {
+    case Emulator::DebugWatchpointType::kWrite:
+      return WATCHPOINT_WRITE;
+    case Emulator::DebugWatchpointType::kRead:
+      return WATCHPOINT_READ;
+    case Emulator::DebugWatchpointType::kReadWrite:
+      return WATCHPOINT_RW;
+    case Emulator::DebugWatchpointType::kWriteChange:
+      return WATCHPOINT_WRITE_CHANGE;
+  }
+  return WATCHPOINT_WRITE;
+}
+
+Emulator::DebugWatchpointType FromMGBAWatchpointType(
+    enum mWatchpointType type) {
+  switch (type) {
+    case WATCHPOINT_READ:
+      return Emulator::DebugWatchpointType::kRead;
+    case WATCHPOINT_RW:
+      return Emulator::DebugWatchpointType::kReadWrite;
+    case WATCHPOINT_CHANGE:
+    case WATCHPOINT_WRITE_CHANGE:
+      return Emulator::DebugWatchpointType::kWriteChange;
+    case WATCHPOINT_WRITE:
+      return Emulator::DebugWatchpointType::kWrite;
+  }
+  return Emulator::DebugWatchpointType::kWrite;
 }
 
 void RunAfterLoad(scoped_refptr<EmulatorImpl> emulator,
@@ -297,6 +337,29 @@ struct EmulatorImpl::CoreAdapters {
   RTC rtc;
 };
 
+struct EmulatorImpl::CoreDebugger {
+  explicit CoreDebugger(EmulatorImpl* emulator) : emulator(emulator) {
+    debugger.type = DEBUGGER_CUSTOM;
+    debugger.paused = &CoreDebugger::Paused;
+    debugger.entered = &CoreDebugger::Entered;
+  }
+
+  static CoreDebugger* From(mDebugger* debugger) {
+    return reinterpret_cast<CoreDebugger*>(debugger);
+  }
+
+  static void Paused(mDebugger* debugger) {}
+
+  static void Entered(mDebugger* debugger,
+                      enum mDebuggerEntryReason reason,
+                      mDebuggerEntryInfo* info) {
+    From(debugger)->emulator->OnDebuggerEnteredOnProperThread(reason, info);
+  }
+
+  mDebugger debugger = {};
+  EmulatorImpl* emulator = nullptr;
+};
+
 EmulatorImpl::EmulatorImpl() {
   for (Colors& frame : frame_buffers_)
     frame.resize(kFrameWidth * kFrameHeight, kOpaqueAlpha);
@@ -349,6 +412,12 @@ void EmulatorImpl::PowerOn() {
                        &core_adapters_->luminance.source);
   mCoreSetRTC(core_, &core_adapters_->rtc.source);
 
+  debug_video_layers_enabled_.fill(true);
+  debug_audio_channels_enabled_.fill(true);
+  last_debug_break_ = {};
+  debug_frame_count_ = 0;
+  debug_last_frame_duration_us_ = 0;
+  debug_last_audio_sample_count_ = 0;
   ClearFrameBuffersOnProperThread();
   is_power_on_ = true;
 }
@@ -448,6 +517,8 @@ void EmulatorImpl::Run() {
     LOG(ERROR) << "ROM has not been loaded.";
     return;
   }
+  if (core_debugger_)
+    core_debugger_->debugger.state = DEBUGGER_RUNNING;
   running_state_ = RunningState::kRunning;
 }
 
@@ -685,6 +756,244 @@ void EmulatorImpl::AcknowledgeSaveDataSaved(uint32_t rom_crc32,
       std::move(callback));
 }
 
+void EmulatorImpl::GetDebugSnapshot(size_t instruction_count,
+                                    DebugSnapshotCallback callback) {
+  if (!is_power_on_ || !is_rom_loaded_ ||
+      running_state_ == RunningState::kRunning) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(GetDebugSnapshotOnProperThread(instruction_count));
+    return;
+  }
+
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::GetDebugSnapshotOnProperThread,
+                     base::RetainedRef(this), instruction_count),
+      std::move(callback));
+}
+
+void EmulatorImpl::StepAndGetDebugSnapshot(size_t instruction_count,
+                                           DebugSnapshotCallback callback) {
+  if (!is_power_on_ || !is_rom_loaded_ ||
+      running_state_ == RunningState::kRunning) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(
+        StepAndGetDebugSnapshotOnProperThread(instruction_count));
+    return;
+  }
+
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::StepAndGetDebugSnapshotOnProperThread,
+                     base::RetainedRef(this), instruction_count),
+      std::move(callback));
+}
+
+void EmulatorImpl::GetDebugMemorySnapshot(
+    uint32_t address,
+    size_t byte_count,
+    DebugMemorySnapshotCallback callback) {
+  if (!is_power_on_ || !is_rom_loaded_ ||
+      running_state_ == RunningState::kRunning) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(
+        GetDebugMemorySnapshotOnProperThread(address, byte_count));
+    return;
+  }
+
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::GetDebugMemorySnapshotOnProperThread,
+                     base::RetainedRef(this), address, byte_count),
+      std::move(callback));
+}
+
+void EmulatorImpl::GetDebugGraphicsSnapshot(
+    DebugGraphicsSnapshotCallback callback) {
+  if (!is_power_on_ || !is_rom_loaded_ ||
+      running_state_ == RunningState::kRunning) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(GetDebugGraphicsSnapshotOnProperThread());
+    return;
+  }
+
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::GetDebugGraphicsSnapshotOnProperThread,
+                     base::RetainedRef(this)),
+      std::move(callback));
+}
+
+void EmulatorImpl::GetDebugAudioSnapshot(DebugAudioSnapshotCallback callback) {
+  if (!is_power_on_ || !is_rom_loaded_) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(GetDebugAudioSnapshotOnProperThread());
+    return;
+  }
+
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::GetDebugAudioSnapshotOnProperThread,
+                     base::RetainedRef(this)),
+      std::move(callback));
+}
+
+void EmulatorImpl::SetDebugVideoLayerEnabled(size_t id,
+                                             bool enabled,
+                                             DebugResultCallback callback) {
+  if (!is_power_on_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(
+        SetDebugVideoLayerEnabledOnProperThread(id, enabled));
+    return;
+  }
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::SetDebugVideoLayerEnabledOnProperThread,
+                     base::RetainedRef(this), id, enabled),
+      std::move(callback));
+}
+
+void EmulatorImpl::SetDebugAudioChannelEnabled(size_t id,
+                                               bool enabled,
+                                               DebugResultCallback callback) {
+  if (!is_power_on_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(
+        SetDebugAudioChannelEnabledOnProperThread(id, enabled));
+    return;
+  }
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::SetDebugAudioChannelEnabledOnProperThread,
+                     base::RetainedRef(this), id, enabled),
+      std::move(callback));
+}
+
+void EmulatorImpl::AddDebugBreakpoint(uint32_t address,
+                                      DebugResultCallback callback) {
+  if (!is_power_on_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(AddDebugBreakpointOnProperThread(address));
+    return;
+  }
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::AddDebugBreakpointOnProperThread,
+                     base::RetainedRef(this), address),
+      std::move(callback));
+}
+
+void EmulatorImpl::AddDebugWatchpoint(uint32_t address,
+                                      DebugWatchpointType type,
+                                      DebugResultCallback callback) {
+  if (!is_power_on_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(AddDebugWatchpointOnProperThread(address, type));
+    return;
+  }
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::AddDebugWatchpointOnProperThread,
+                     base::RetainedRef(this), address, type),
+      std::move(callback));
+}
+
+void EmulatorImpl::RemoveDebugPoint(int64_t id, DebugResultCallback callback) {
+  if (!is_power_on_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(RemoveDebugPointOnProperThread(id));
+    return;
+  }
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::RemoveDebugPointOnProperThread,
+                     base::RetainedRef(this), id),
+      std::move(callback));
+}
+
+void EmulatorImpl::SetDebugStackTraceEnabled(bool enabled,
+                                             DebugResultCallback callback) {
+  if (!is_power_on_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  if (RunsTasksInCurrentSequence()) {
+    std::move(callback).Run(SetDebugStackTraceEnabledOnProperThread(enabled));
+    return;
+  }
+  emulator_task_runner_->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&EmulatorImpl::SetDebugStackTraceEnabledOnProperThread,
+                     base::RetainedRef(this), enabled),
+      std::move(callback));
+}
+
+void EmulatorImpl::SetDebugBreakCallback(
+    base::RepeatingClosure on_debug_break) {
+  scoped_refptr<base::SequencedTaskRunner> callback_task_runner =
+      base::SingleThreadTaskRunner::HasCurrentDefault()
+          ? base::SingleThreadTaskRunner::GetCurrentDefault()
+          : nullptr;
+  if (!emulator_task_runner_ || RunsTasksInCurrentSequence()) {
+    debug_break_callback_ = std::move(on_debug_break);
+    debug_break_task_runner_ = std::move(callback_task_runner);
+    return;
+  }
+  emulator_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](scoped_refptr<EmulatorImpl> emulator,
+                        base::RepeatingClosure callback,
+                        scoped_refptr<base::SequencedTaskRunner> task_runner) {
+                       emulator->debug_break_callback_ = std::move(callback);
+                       emulator->debug_break_task_runner_ =
+                           std::move(task_runner);
+                     },
+                     base::RetainedRef(this), std::move(on_debug_break),
+                     std::move(callback_task_runner)));
+}
+
+Emulator::DebugMetrics EmulatorImpl::GetDebugMetrics() const {
+  return DebugMetrics{debug_frame_count_.load(),
+                      debug_last_frame_duration_us_.load(),
+                      debug_last_audio_sample_count_.load()};
+}
+
 bool EmulatorImpl::LoadFromFileOnProperThread(const base::FilePath& rom_path,
                                               const LoadOptions& options) {
   DCHECK(RunsTasksInCurrentSequence());
@@ -732,6 +1041,8 @@ bool EmulatorImpl::LoadROMOnProperThread(
     return false;
   }
 
+  ClearDebugPointsOnProperThread();
+  last_debug_break_ = {};
   running_state_ = RunningState::kStopped;
   if (io_devices_ && io_devices_->rumble_device())
     io_devices_->rumble_device()->SetRumble(false);
@@ -917,11 +1228,13 @@ void EmulatorImpl::UnloadOnProperThread() {
   DCHECK(RunsTasksInCurrentSequence());
   if (io_devices_ && io_devices_->rumble_device())
     io_devices_->rumble_device()->SetRumble(false);
+  ClearDebugPointsOnProperThread();
   if (core_ && is_rom_loaded_)
     core_->unloadROM(core_);
 
   is_rom_loaded_ = false;
   running_state_ = RunningState::kStopped;
+  last_debug_break_ = {};
   rom_data_.reset();
   ResetSaveDataTrackingOnProperThread();
   ClearFrameBuffersOnProperThread();
@@ -933,6 +1246,9 @@ void EmulatorImpl::ResetOnProperThread() {
     if (io_devices_ && io_devices_->rumble_device())
       io_devices_->rumble_device()->SetRumble(false);
     core_->reset(core_);
+    last_debug_break_ = {};
+    if (core_debugger_)
+      mStackTraceClear(&core_debugger_->debugger.stackTrace);
     UpdateSaveDataMetadataOnProperThread();
   }
 }
@@ -943,10 +1259,32 @@ void EmulatorImpl::RunOneFrameOnProperThread() {
     return;
   }
 
+  const auto started = std::chrono::steady_clock::now();
   UpdateInputOnProperThread();
-  core_->runFrame(core_);
-  PresentFrameOnProperThread();
-  DrainAudioOnProperThread();
+  const uint32_t frame = core_->frameCounter(core_);
+  mDebuggerPlatform* platform =
+      core_debugger_ ? core_debugger_->debugger.platform : nullptr;
+  if (platform && platform->hasBreakpoints(platform)) {
+    while (core_->frameCounter(core_) == frame &&
+           running_state_ == RunningState::kRunning) {
+      core_->step(core_);
+      if (core_debugger_->debugger.state == DEBUGGER_PAUSED)
+        break;
+      platform->checkBreakpoints(platform);
+    }
+  } else {
+    core_->runFrame(core_);
+  }
+
+  if (core_->frameCounter(core_) != frame) {
+    PresentFrameOnProperThread();
+    DrainAudioOnProperThread();
+    debug_frame_count_ = core_->frameCounter(core_);
+    debug_last_frame_duration_us_ = static_cast<uint32_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - started)
+            .count());
+  }
 }
 
 void EmulatorImpl::StepOnProperThread() {
@@ -955,7 +1293,424 @@ void EmulatorImpl::StepOnProperThread() {
     return;
 
   UpdateInputOnProperThread();
+  if (core_debugger_)
+    core_debugger_->debugger.state = DEBUGGER_RUNNING;
   core_->step(core_);
+  mDebuggerPlatform* platform =
+      core_debugger_ ? core_debugger_->debugger.platform : nullptr;
+  if (platform && platform->hasBreakpoints(platform) &&
+      core_debugger_->debugger.state != DEBUGGER_PAUSED) {
+    platform->checkBreakpoints(platform);
+  }
+}
+
+std::optional<Emulator::DebugSnapshot>
+EmulatorImpl::GetDebugSnapshotOnProperThread(size_t instruction_count) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_ || !is_rom_loaded_ || running_state_ == RunningState::kRunning) {
+    return std::nullopt;
+  }
+
+  auto* cpu = static_cast<ARMCore*>(core_->cpu);
+  DebugSnapshot snapshot;
+  for (size_t i = 0; i < snapshot.registers.size(); ++i)
+    snapshot.registers[i] = static_cast<uint32_t>(cpu->gprs[i]);
+  snapshot.cpsr = cpu->cpsr.packed;
+  snapshot.spsr = cpu->spsr.packed;
+  snapshot.cycles = mTimingGlobalTime(core_->timing);
+
+  const bool is_thumb = cpu->executionMode == MODE_THUMB;
+  snapshot.execution_mode =
+      is_thumb ? DebugExecutionMode::kThumb : DebugExecutionMode::kArm;
+  const uint32_t instruction_width = is_thumb ? WORD_SIZE_THUMB : WORD_SIZE_ARM;
+  uint32_t address = snapshot.registers[ARM_PC] - instruction_width;
+  address &= ~(instruction_width - 1);
+  snapshot.instruction_address = address;
+
+  instruction_count = std::min(instruction_count, kMaxDebugInstructionCount);
+  snapshot.instructions.reserve(instruction_count);
+  for (size_t i = 0; i < instruction_count; ++i) {
+    DebugInstruction instruction;
+    instruction.address = address;
+    char disassembly[128] = {};
+    ARMInstructionInfo info = {};
+
+    if (is_thumb) {
+      const uint16_t opcode =
+          static_cast<uint16_t>(core_->rawRead16(core_, address, -1));
+      const uint16_t next_opcode = static_cast<uint16_t>(
+          core_->rawRead16(core_, address + WORD_SIZE_THUMB, -1));
+      ARMInstructionInfo next_info = {};
+      ARMInstructionInfo combined = {};
+      ARMDecodeThumb(opcode, &info);
+      ARMDecodeThumb(next_opcode, &next_info);
+      if (ARMDecodeThumbCombine(&info, &next_info, &combined)) {
+        instruction.opcode =
+            (static_cast<uint32_t>(opcode) << 16) | next_opcode;
+        instruction.width = WORD_SIZE_THUMB * 2;
+        ARMDisassemble(&combined, cpu, core_->symbolTable,
+                       address + WORD_SIZE_THUMB * 2, disassembly,
+                       sizeof(disassembly));
+      } else {
+        instruction.opcode = opcode;
+        instruction.width = WORD_SIZE_THUMB;
+        ARMDisassemble(&info, cpu, core_->symbolTable,
+                       address + WORD_SIZE_THUMB * 2, disassembly,
+                       sizeof(disassembly));
+      }
+    } else {
+      instruction.opcode = core_->rawRead32(core_, address, -1);
+      instruction.width = WORD_SIZE_ARM;
+      ARMDecodeARM(instruction.opcode, &info);
+      ARMDisassemble(&info, cpu, core_->symbolTable,
+                     address + WORD_SIZE_ARM * 2, disassembly,
+                     sizeof(disassembly));
+    }
+
+    instruction.text = disassembly;
+    snapshot.instructions.push_back(std::move(instruction));
+    const uint32_t next_address = address + snapshot.instructions.back().width;
+    if (next_address < address)
+      break;
+    address = next_address;
+  }
+  PopulateDebugStateOnProperThread(&snapshot);
+  return snapshot;
+}
+
+std::optional<Emulator::DebugSnapshot>
+EmulatorImpl::StepAndGetDebugSnapshotOnProperThread(size_t instruction_count) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_ || !is_rom_loaded_ || running_state_ == RunningState::kRunning) {
+    return std::nullopt;
+  }
+
+  StepOnProperThread();
+  return GetDebugSnapshotOnProperThread(instruction_count);
+}
+
+std::optional<Emulator::DebugMemorySnapshot>
+EmulatorImpl::GetDebugMemorySnapshotOnProperThread(uint32_t address,
+                                                   size_t byte_count) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_ || !is_rom_loaded_ || running_state_ == RunningState::kRunning)
+    return std::nullopt;
+
+  DebugMemorySnapshot snapshot;
+  snapshot.address = address & ~0xfu;
+  byte_count =
+      std::min(byte_count ? byte_count : size_t{256}, kMaxDebugMemoryBytes);
+  snapshot.data.reserve(byte_count);
+  for (size_t i = 0; i < byte_count; ++i) {
+    snapshot.data.push_back(static_cast<Byte>(core_->rawRead8(
+        core_, snapshot.address + static_cast<uint32_t>(i), -1)));
+  }
+
+  const mCoreMemoryBlock* blocks = nullptr;
+  const size_t block_count = core_->listMemoryBlocks(core_, &blocks);
+  for (size_t i = 0; i < block_count; ++i) {
+    if (blocks[i].flags & mCORE_MEMORY_VIRTUAL)
+      continue;
+    DebugMemoryRegion region;
+    region.name = blocks[i].longName ? blocks[i].longName : blocks[i].shortName;
+    region.start = blocks[i].start;
+    region.end = blocks[i].end;
+    region.writable = blocks[i].flags & mCORE_MEMORY_WRITE;
+    snapshot.regions.push_back(std::move(region));
+  }
+
+  auto* gba = static_cast<GBA*>(core_->board);
+  for (uint32_t offset = 0; offset < REG_MAX; offset += 2) {
+    const char* name = GBAIORegisterNames[offset >> 1];
+    if (!name)
+      continue;
+    snapshot.io_registers.push_back(
+        DebugIORegister{name, BASE_IO + offset, gba->memory.io[offset >> 1]});
+  }
+  return snapshot;
+}
+
+std::optional<Emulator::DebugGraphicsSnapshot>
+EmulatorImpl::GetDebugGraphicsSnapshotOnProperThread() {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_ || !is_rom_loaded_ || running_state_ == RunningState::kRunning)
+    return std::nullopt;
+
+  auto* gba = static_cast<GBA*>(core_->board);
+  DebugGraphicsSnapshot snapshot;
+  std::copy(std::begin(gba->video.palette), std::end(gba->video.palette),
+            snapshot.palette.begin());
+  const Byte* vram = reinterpret_cast<const Byte*>(gba->video.vram);
+  snapshot.vram.assign(vram, vram + SIZE_VRAM);
+  snapshot.display_control = gba->memory.io[REG_DISPCNT >> 1];
+
+  snapshot.sprites.reserve(128);
+  for (size_t i = 0; i < 128; ++i) {
+    const GBAObj& object = gba->video.oam.obj[i];
+    DebugSprite sprite;
+    sprite.index = static_cast<uint16_t>(i);
+    sprite.transformed = GBAObjAttributesAIsTransformed(object.a);
+    sprite.double_size =
+        sprite.transformed && GBAObjAttributesAIsDoubleSize(object.a);
+    sprite.enabled =
+        sprite.transformed || !GBAObjAttributesAIsDisable(object.a);
+    sprite.color_256 = GBAObjAttributesAIs256Color(object.a);
+    sprite.x = static_cast<int16_t>(GBAObjAttributesBGetX(object.b));
+    if (sprite.x >= 256)
+      sprite.x -= 512;
+    sprite.y = static_cast<int16_t>(GBAObjAttributesAGetY(object.a));
+    if (sprite.y >= 160)
+      sprite.y -= 256;
+    const size_t size_index = GBAObjAttributesAGetShape(object.a) * 4 +
+                              GBAObjAttributesBGetSize(object.b);
+    sprite.width = static_cast<uint16_t>(GBAVideoObjSizes[size_index][0]);
+    sprite.height = static_cast<uint16_t>(GBAVideoObjSizes[size_index][1]);
+    sprite.tile = GBAObjAttributesCGetTile(object.c);
+    sprite.palette = GBAObjAttributesCGetPalette(object.c);
+    sprite.priority = GBAObjAttributesCGetPriority(object.c);
+    if (!sprite.transformed) {
+      sprite.hflip = GBAObjAttributesBIsHFlip(object.b);
+      sprite.vflip = GBAObjAttributesBIsVFlip(object.b);
+    }
+    snapshot.sprites.push_back(sprite);
+  }
+
+  const mCoreChannelInfo* layers = nullptr;
+  const size_t layer_count = core_->listVideoLayers(core_, &layers);
+  for (size_t i = 0; i < layer_count; ++i) {
+    snapshot.layers.push_back(
+        DebugChannel{layers[i].id, layers[i].visibleName,
+                     layers[i].visibleType ? layers[i].visibleType : "",
+                     layers[i].id < debug_video_layers_enabled_.size()
+                         ? debug_video_layers_enabled_[layers[i].id]
+                         : true});
+  }
+  return snapshot;
+}
+
+std::optional<Emulator::DebugAudioSnapshot>
+EmulatorImpl::GetDebugAudioSnapshotOnProperThread() {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_ || !is_rom_loaded_)
+    return std::nullopt;
+
+  DebugAudioSnapshot snapshot;
+  const mCoreChannelInfo* channels = nullptr;
+  const size_t channel_count = core_->listAudioChannels(core_, &channels);
+  for (size_t i = 0; i < channel_count; ++i) {
+    snapshot.channels.push_back(
+        DebugChannel{channels[i].id, channels[i].visibleName,
+                     channels[i].visibleType ? channels[i].visibleType : "",
+                     channels[i].id < debug_audio_channels_enabled_.size()
+                         ? debug_audio_channels_enabled_[channels[i].id]
+                         : true});
+  }
+  return snapshot;
+}
+
+bool EmulatorImpl::SetDebugVideoLayerEnabledOnProperThread(size_t id,
+                                                           bool enabled) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_ || id >= debug_video_layers_enabled_.size())
+    return false;
+  core_->enableVideoLayer(core_, id, enabled);
+  debug_video_layers_enabled_[id] = enabled;
+  return true;
+}
+
+bool EmulatorImpl::SetDebugAudioChannelEnabledOnProperThread(size_t id,
+                                                             bool enabled) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_ || id >= debug_audio_channels_enabled_.size())
+    return false;
+  core_->enableAudioChannel(core_, id, enabled);
+  debug_audio_channels_enabled_[id] = enabled;
+  return true;
+}
+
+bool EmulatorImpl::AddDebugBreakpointOnProperThread(uint32_t address) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!EnsureDebuggerOnProperThread())
+    return false;
+  mDebuggerPlatform* platform = core_debugger_->debugger.platform;
+  mBreakpointList existing;
+  mBreakpointListInit(&existing, 0);
+  platform->listBreakpoints(platform, &existing);
+  for (size_t i = 0; i < mBreakpointListSize(&existing); ++i) {
+    if (mBreakpointListGetConstPointer(&existing, i)->address ==
+        (address & ~1u)) {
+      mBreakpointListDeinit(&existing);
+      return false;
+    }
+  }
+  mBreakpointListDeinit(&existing);
+  mBreakpoint breakpoint = {};
+  breakpoint.address = address;
+  breakpoint.segment = -1;
+  breakpoint.type = BREAKPOINT_HARDWARE;
+  return platform->setBreakpoint(platform, &breakpoint) > 0;
+}
+
+bool EmulatorImpl::AddDebugWatchpointOnProperThread(uint32_t address,
+                                                    DebugWatchpointType type) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!EnsureDebuggerOnProperThread())
+    return false;
+  mDebuggerPlatform* platform = core_debugger_->debugger.platform;
+  mWatchpointList existing;
+  mWatchpointListInit(&existing, 0);
+  platform->listWatchpoints(platform, &existing);
+  for (size_t i = 0; i < mWatchpointListSize(&existing); ++i) {
+    if (mWatchpointListGetConstPointer(&existing, i)->address == address) {
+      mWatchpointListDeinit(&existing);
+      return false;
+    }
+  }
+  mWatchpointListDeinit(&existing);
+  mWatchpoint watchpoint = {};
+  watchpoint.address = address;
+  watchpoint.segment = -1;
+  watchpoint.type = ToMGBAWatchpointType(type);
+  return platform->setWatchpoint(platform, &watchpoint) > 0;
+}
+
+bool EmulatorImpl::RemoveDebugPointOnProperThread(int64_t id) {
+  DCHECK(RunsTasksInCurrentSequence());
+  return core_debugger_ && core_debugger_->debugger.platform &&
+         core_debugger_->debugger.platform->clearBreakpoint(
+             core_debugger_->debugger.platform, id);
+}
+
+bool EmulatorImpl::SetDebugStackTraceEnabledOnProperThread(bool enabled) {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!enabled && !core_debugger_)
+    return true;
+  if (!EnsureDebuggerOnProperThread())
+    return false;
+  mDebuggerPlatform* platform = core_debugger_->debugger.platform;
+  platform->setStackTraceMode(
+      platform, enabled ? STACK_TRACE_ENABLED : STACK_TRACE_DISABLED);
+  return true;
+}
+
+bool EmulatorImpl::EnsureDebuggerOnProperThread() {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (core_debugger_)
+    return core_debugger_->debugger.platform != nullptr;
+  if (!core_)
+    return false;
+  core_debugger_ = std::make_unique<CoreDebugger>(this);
+  mDebuggerAttach(&core_debugger_->debugger, core_);
+  return core_debugger_->debugger.platform != nullptr;
+}
+
+void EmulatorImpl::PopulateDebugStateOnProperThread(DebugSnapshot* snapshot) {
+  DCHECK(RunsTasksInCurrentSequence());
+  DCHECK(snapshot);
+  if (!core_debugger_ || !core_debugger_->debugger.platform)
+    return;
+
+  mDebuggerPlatform* platform = core_debugger_->debugger.platform;
+  mBreakpointList breakpoints;
+  mBreakpointListInit(&breakpoints, 0);
+  platform->listBreakpoints(platform, &breakpoints);
+  for (size_t i = 0; i < mBreakpointListSize(&breakpoints); ++i) {
+    const mBreakpoint* point = mBreakpointListGetConstPointer(&breakpoints, i);
+    snapshot->points.push_back(DebugPoint{point->id, point->address,
+                                          DebugPointType::kBreakpoint,
+                                          DebugWatchpointType::kWrite});
+  }
+  mBreakpointListDeinit(&breakpoints);
+
+  mWatchpointList watchpoints;
+  mWatchpointListInit(&watchpoints, 0);
+  platform->listWatchpoints(platform, &watchpoints);
+  for (size_t i = 0; i < mWatchpointListSize(&watchpoints); ++i) {
+    const mWatchpoint* point = mWatchpointListGetConstPointer(&watchpoints, i);
+    snapshot->points.push_back(DebugPoint{point->id, point->address,
+                                          DebugPointType::kWatchpoint,
+                                          FromMGBAWatchpointType(point->type)});
+  }
+  mWatchpointListDeinit(&watchpoints);
+
+  snapshot->stack_trace_enabled =
+      platform->getStackTraceMode(platform) != STACK_TRACE_DISABLED;
+  const size_t depth =
+      mStackTraceGetDepth(&core_debugger_->debugger.stackTrace);
+  for (size_t i = 0; i < depth; ++i) {
+    const mStackFrame* frame =
+        mStackTraceGetFrame(&core_debugger_->debugger.stackTrace, i);
+    if (!frame)
+      continue;
+    snapshot->stack_frames.push_back(
+        DebugStackFrame{frame->callAddress, frame->entryAddress,
+                        frame->frameBaseAddress, frame->interrupt});
+  }
+  snapshot->last_break = last_debug_break_;
+}
+
+void EmulatorImpl::ClearDebugPointsOnProperThread() {
+  DCHECK(RunsTasksInCurrentSequence());
+  if (!core_debugger_ || !core_debugger_->debugger.platform)
+    return;
+
+  mDebuggerPlatform* platform = core_debugger_->debugger.platform;
+  std::vector<ssize_t> ids;
+  mBreakpointList breakpoints;
+  mBreakpointListInit(&breakpoints, 0);
+  platform->listBreakpoints(platform, &breakpoints);
+  for (size_t i = 0; i < mBreakpointListSize(&breakpoints); ++i)
+    ids.push_back(mBreakpointListGetConstPointer(&breakpoints, i)->id);
+  mBreakpointListDeinit(&breakpoints);
+
+  mWatchpointList watchpoints;
+  mWatchpointListInit(&watchpoints, 0);
+  platform->listWatchpoints(platform, &watchpoints);
+  for (size_t i = 0; i < mWatchpointListSize(&watchpoints); ++i)
+    ids.push_back(mWatchpointListGetConstPointer(&watchpoints, i)->id);
+  mWatchpointListDeinit(&watchpoints);
+
+  for (ssize_t id : ids)
+    platform->clearBreakpoint(platform, id);
+  mStackTraceClear(&core_debugger_->debugger.stackTrace);
+}
+
+void EmulatorImpl::OnDebuggerEnteredOnProperThread(int reason,
+                                                   const void* entry_info) {
+  DCHECK(RunsTasksInCurrentSequence());
+  const auto* info = static_cast<const mDebuggerEntryInfo*>(entry_info);
+  last_debug_break_ = {};
+  last_debug_break_.address = info ? info->address : 0;
+  last_debug_break_.point_id = info ? info->pointId : 0;
+  switch (reason) {
+    case DEBUGGER_ENTER_BREAKPOINT:
+      last_debug_break_.reason = DebugBreakReason::kBreakpoint;
+      break;
+    case DEBUGGER_ENTER_WATCHPOINT:
+      last_debug_break_.reason = DebugBreakReason::kWatchpoint;
+      if (info) {
+        last_debug_break_.old_value = info->type.wp.oldValue;
+        last_debug_break_.new_value = info->type.wp.newValue;
+      }
+      break;
+    case DEBUGGER_ENTER_ILLEGAL_OP:
+      last_debug_break_.reason = DebugBreakReason::kIllegalInstruction;
+      break;
+    case DEBUGGER_ENTER_STACK:
+      last_debug_break_.reason = DebugBreakReason::kStack;
+      break;
+    case DEBUGGER_ENTER_MANUAL:
+    case DEBUGGER_ENTER_ATTACHED:
+      break;
+  }
+  running_state_ = RunningState::kPaused;
+
+  if (debug_break_callback_ && debug_break_task_runner_) {
+    debug_break_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce([](base::RepeatingClosure callback) { callback.Run(); },
+                       debug_break_callback_));
+  }
 }
 
 void EmulatorImpl::PowerOffOnProperThread() {
@@ -966,6 +1721,10 @@ void EmulatorImpl::PowerOffOnProperThread() {
     io_devices_->rumble_device()->SetRumble(false);
 
   if (core_) {
+    if (core_debugger_) {
+      core_->detachDebugger(core_);
+      core_debugger_.reset();
+    }
     if (is_rom_loaded_)
       core_->unloadROM(core_);
     is_rom_loaded_ = false;
@@ -981,6 +1740,12 @@ void EmulatorImpl::PowerOffOnProperThread() {
   core_adapters_.reset();
   rom_data_.reset();
   ResetSaveDataTrackingOnProperThread();
+  last_debug_break_ = {};
+  debug_break_callback_.Reset();
+  debug_break_task_runner_.reset();
+  debug_frame_count_ = 0;
+  debug_last_frame_duration_us_ = 0;
+  debug_last_audio_sample_count_ = 0;
   has_bios_ = false;
   is_power_on_ = false;
   emulator_task_runner_.reset();
@@ -1026,8 +1791,12 @@ bool EmulatorImpl::LoadStateOnProperThread(const Bytes& data) {
   constexpr int kSaveStateFlags = SAVESTATE_SAVEDATA | SAVESTATE_RTC;
   bool success = mCoreLoadStateNamed(core_, state_file, kSaveStateFlags);
   state_file->close(state_file);
-  if (success)
+  if (success) {
+    if (core_debugger_)
+      mStackTraceClear(&core_debugger_->debugger.stackTrace);
+    last_debug_break_ = {};
     UpdateSaveDataMetadataOnProperThread();
+  }
   return success;
 }
 
@@ -1091,6 +1860,7 @@ void EmulatorImpl::DrainAudioOnProperThread() {
   size_t sample_count =
       static_cast<size_t>(std::min(left_count, right_count)) * 2;
   audio_samples_.resize(sample_count);
+  debug_last_audio_sample_count_ = static_cast<uint32_t>(sample_count);
 
   float volume = volume_;
   if (volume != 1.f) {

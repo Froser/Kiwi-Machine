@@ -81,11 +81,38 @@ class EmulatorImpl : public Emulator {
   void AcknowledgeSaveDataSaved(uint32_t rom_crc32,
                                 uint64_t generation,
                                 LoadCallback callback) override;
+  void GetDebugSnapshot(size_t instruction_count,
+                        DebugSnapshotCallback callback) override;
+  void StepAndGetDebugSnapshot(size_t instruction_count,
+                               DebugSnapshotCallback callback) override;
+  void GetDebugMemorySnapshot(uint32_t address,
+                              size_t byte_count,
+                              DebugMemorySnapshotCallback callback) override;
+  void GetDebugGraphicsSnapshot(
+      DebugGraphicsSnapshotCallback callback) override;
+  void GetDebugAudioSnapshot(DebugAudioSnapshotCallback callback) override;
+  void SetDebugVideoLayerEnabled(size_t id,
+                                 bool enabled,
+                                 DebugResultCallback callback) override;
+  void SetDebugAudioChannelEnabled(size_t id,
+                                   bool enabled,
+                                   DebugResultCallback callback) override;
+  void AddDebugBreakpoint(uint32_t address,
+                          DebugResultCallback callback) override;
+  void AddDebugWatchpoint(uint32_t address,
+                          DebugWatchpointType type,
+                          DebugResultCallback callback) override;
+  void RemoveDebugPoint(int64_t id, DebugResultCallback callback) override;
+  void SetDebugStackTraceEnabled(bool enabled,
+                                 DebugResultCallback callback) override;
+  void SetDebugBreakCallback(base::RepeatingClosure on_debug_break) override;
+  DebugMetrics GetDebugMetrics() const override;
 
   bool is_power_on() const { return is_power_on_; }
 
  private:
   struct CoreAdapters;
+  struct CoreDebugger;
 
   void LoadFromBinaryWithOptionalSaveData(
       const Bytes& data,
@@ -122,6 +149,26 @@ class EmulatorImpl : public Emulator {
   void PresentFrameOnProperThread();
   void DrainAudioOnProperThread();
   void ClearFrameBuffersOnProperThread();
+  std::optional<DebugSnapshot> GetDebugSnapshotOnProperThread(
+      size_t instruction_count);
+  std::optional<DebugSnapshot> StepAndGetDebugSnapshotOnProperThread(
+      size_t instruction_count);
+  std::optional<DebugMemorySnapshot> GetDebugMemorySnapshotOnProperThread(
+      uint32_t address,
+      size_t byte_count);
+  std::optional<DebugGraphicsSnapshot> GetDebugGraphicsSnapshotOnProperThread();
+  std::optional<DebugAudioSnapshot> GetDebugAudioSnapshotOnProperThread();
+  bool SetDebugVideoLayerEnabledOnProperThread(size_t id, bool enabled);
+  bool SetDebugAudioChannelEnabledOnProperThread(size_t id, bool enabled);
+  bool AddDebugBreakpointOnProperThread(uint32_t address);
+  bool AddDebugWatchpointOnProperThread(uint32_t address,
+                                        DebugWatchpointType type);
+  bool RemoveDebugPointOnProperThread(int64_t id);
+  bool SetDebugStackTraceEnabledOnProperThread(bool enabled);
+  bool EnsureDebuggerOnProperThread();
+  void PopulateDebugStateOnProperThread(DebugSnapshot* snapshot);
+  void ClearDebugPointsOnProperThread();
+  void OnDebuggerEnteredOnProperThread(int reason, const void* entry_info);
 
   bool RunsTasksInCurrentSequence() const;
 
@@ -134,6 +181,7 @@ class EmulatorImpl : public Emulator {
   mCore* core_ = nullptr;
   bool config_initialized_ = false;
   std::unique_ptr<CoreAdapters> core_adapters_;
+  std::unique_ptr<CoreDebugger> core_debugger_;
   std::unique_ptr<IODevices> io_devices_;
   std::unique_ptr<RomData> rom_data_;
 
@@ -144,6 +192,16 @@ class EmulatorImpl : public Emulator {
   Bytes observed_save_data_;
   uint64_t save_data_generation_ = 0;
   uint64_t persisted_save_data_generation_ = 0;
+  std::array<bool, 8> debug_video_layers_enabled_ = {true, true, true, true,
+                                                     true, true, true, true};
+  std::array<bool, 6> debug_audio_channels_enabled_ = {true, true, true,
+                                                       true, true, true};
+  DebugBreakEvent last_debug_break_;
+  base::RepeatingClosure debug_break_callback_;
+  scoped_refptr<base::SequencedTaskRunner> debug_break_task_runner_;
+  std::atomic<uint64_t> debug_frame_count_ = 0;
+  std::atomic<uint32_t> debug_last_frame_duration_us_ = 0;
+  std::atomic<uint32_t> debug_last_audio_sample_count_ = 0;
 
   scoped_refptr<base::SequencedTaskRunner> emulator_task_runner_;
 };

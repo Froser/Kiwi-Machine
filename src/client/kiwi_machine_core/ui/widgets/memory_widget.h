@@ -20,6 +20,7 @@
 
 class StackWidget;
 class MainWindow;
+class NESDebugWidget;
 class MemoryWidget : public Widget {
  public:
   explicit MemoryWidget(MainWindow* main_window,
@@ -52,6 +53,8 @@ class MemoryWidget : public Widget {
   void Paint() override;
 
  private:
+  friend class NESDebugWidget;
+
   MainWindow* main_window_ = nullptr;
   kiwi::base::RepeatingClosure on_toggle_pause_;
   kiwi::base::RepeatingCallback<bool()> is_pause_;

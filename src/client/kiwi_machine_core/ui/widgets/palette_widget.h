@@ -18,6 +18,7 @@
 #include <kiwi_nes.h>
 
 class MainWindow;
+class NESDebugWidget;
 class PaletteWidget : public Widget {
  public:
   explicit PaletteWidget(MainWindow* main_window);
@@ -28,6 +29,8 @@ class PaletteWidget : public Widget {
   void Paint() override;
 
  private:
+  friend class NESDebugWidget;
+
   MainWindow* main_window_ = nullptr;
 };
 

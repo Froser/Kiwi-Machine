@@ -13,9 +13,12 @@
 #ifndef GBA_EMULATOR_H_
 #define GBA_EMULATOR_H_
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "emulator/gba/gba_export.h"
 
@@ -44,6 +47,146 @@ class GBA_EXPORT Emulator : public emu::Emulator {
   };
   using SaveDataCallback =
       base::OnceCallback<void(std::optional<SaveDataSnapshot>)>;
+
+  enum class DebugExecutionMode {
+    kArm,
+    kThumb,
+  };
+
+  enum class DebugPointType {
+    kBreakpoint,
+    kWatchpoint,
+  };
+
+  enum class DebugWatchpointType {
+    kWrite,
+    kRead,
+    kReadWrite,
+    kWriteChange,
+  };
+
+  enum class DebugBreakReason {
+    kNone,
+    kBreakpoint,
+    kWatchpoint,
+    kIllegalInstruction,
+    kStack,
+  };
+
+  struct DebugInstruction {
+    uint32_t address = 0;
+    uint32_t opcode = 0;
+    uint8_t width = 0;
+    std::string text;
+  };
+
+  struct DebugPoint {
+    int64_t id = 0;
+    uint32_t address = 0;
+    DebugPointType type = DebugPointType::kBreakpoint;
+    DebugWatchpointType watchpoint_type = DebugWatchpointType::kWrite;
+  };
+
+  struct DebugStackFrame {
+    uint32_t call_address = 0;
+    uint32_t entry_address = 0;
+    uint32_t frame_base_address = 0;
+    bool interrupt = false;
+  };
+
+  struct DebugBreakEvent {
+    DebugBreakReason reason = DebugBreakReason::kNone;
+    uint32_t address = 0;
+    int64_t point_id = 0;
+    uint32_t old_value = 0;
+    uint32_t new_value = 0;
+  };
+
+  struct DebugSnapshot {
+    std::array<uint32_t, 16> registers = {};
+    uint32_t cpsr = 0;
+    uint32_t spsr = 0;
+    uint32_t instruction_address = 0;
+    uint64_t cycles = 0;
+    DebugExecutionMode execution_mode = DebugExecutionMode::kArm;
+    std::vector<DebugInstruction> instructions;
+    std::vector<DebugPoint> points;
+    std::vector<DebugStackFrame> stack_frames;
+    DebugBreakEvent last_break;
+    bool stack_trace_enabled = false;
+  };
+  using DebugSnapshotCallback =
+      base::OnceCallback<void(std::optional<DebugSnapshot>)>;
+
+  struct DebugMemoryRegion {
+    std::string name;
+    uint32_t start = 0;
+    uint32_t end = 0;
+    bool writable = false;
+  };
+
+  struct DebugIORegister {
+    std::string name;
+    uint32_t address = 0;
+    uint16_t value = 0;
+  };
+
+  struct DebugMemorySnapshot {
+    uint32_t address = 0;
+    Bytes data;
+    std::vector<DebugMemoryRegion> regions;
+    std::vector<DebugIORegister> io_registers;
+  };
+  using DebugMemorySnapshotCallback =
+      base::OnceCallback<void(std::optional<DebugMemorySnapshot>)>;
+
+  struct DebugSprite {
+    uint16_t index = 0;
+    int16_t x = 0;
+    int16_t y = 0;
+    uint16_t width = 0;
+    uint16_t height = 0;
+    uint16_t tile = 0;
+    uint8_t palette = 0;
+    uint8_t priority = 0;
+    bool enabled = false;
+    bool transformed = false;
+    bool double_size = false;
+    bool color_256 = false;
+    bool hflip = false;
+    bool vflip = false;
+  };
+
+  struct DebugChannel {
+    size_t id = 0;
+    std::string name;
+    std::string type;
+    bool enabled = true;
+  };
+
+  struct DebugGraphicsSnapshot {
+    std::array<uint16_t, 512> palette = {};
+    Bytes vram;
+    std::vector<DebugSprite> sprites;
+    std::vector<DebugChannel> layers;
+    uint16_t display_control = 0;
+  };
+  using DebugGraphicsSnapshotCallback =
+      base::OnceCallback<void(std::optional<DebugGraphicsSnapshot>)>;
+
+  struct DebugAudioSnapshot {
+    std::vector<DebugChannel> channels;
+  };
+  using DebugAudioSnapshotCallback =
+      base::OnceCallback<void(std::optional<DebugAudioSnapshot>)>;
+
+  struct DebugMetrics {
+    uint64_t frame_count = 0;
+    uint32_t last_frame_duration_us = 0;
+    uint32_t last_audio_sample_count = 0;
+  };
+
+  using DebugResultCallback = base::OnceCallback<void(bool)>;
 
   struct LoadOptions {
     constexpr LoadOptions(bool should_skip_bios = true,
@@ -154,6 +297,40 @@ class GBA_EXPORT Emulator : public emu::Emulator {
   virtual void AcknowledgeSaveDataSaved(uint32_t rom_crc32,
                                         uint64_t generation,
                                         LoadCallback callback) = 0;
+
+  // Captures CPU registers and disassembly while emulation is not running.
+  virtual void GetDebugSnapshot(size_t instruction_count,
+                                DebugSnapshotCallback callback) = 0;
+
+  // Executes one ARM or Thumb instruction, then captures the resulting state.
+  virtual void StepAndGetDebugSnapshot(size_t instruction_count,
+                                       DebugSnapshotCallback callback) = 0;
+
+  virtual void GetDebugMemorySnapshot(uint32_t address,
+                                      size_t byte_count,
+                                      DebugMemorySnapshotCallback callback) = 0;
+  virtual void GetDebugGraphicsSnapshot(
+      DebugGraphicsSnapshotCallback callback) = 0;
+  virtual void GetDebugAudioSnapshot(DebugAudioSnapshotCallback callback) = 0;
+
+  virtual void SetDebugVideoLayerEnabled(size_t id,
+                                         bool enabled,
+                                         DebugResultCallback callback) = 0;
+  virtual void SetDebugAudioChannelEnabled(size_t id,
+                                           bool enabled,
+                                           DebugResultCallback callback) = 0;
+
+  virtual void AddDebugBreakpoint(uint32_t address,
+                                  DebugResultCallback callback) = 0;
+  virtual void AddDebugWatchpoint(uint32_t address,
+                                  DebugWatchpointType type,
+                                  DebugResultCallback callback) = 0;
+  virtual void RemoveDebugPoint(int64_t id, DebugResultCallback callback) = 0;
+  virtual void SetDebugStackTraceEnabled(bool enabled,
+                                         DebugResultCallback callback) = 0;
+  virtual void SetDebugBreakCallback(base::RepeatingClosure on_debug_break) = 0;
+
+  virtual DebugMetrics GetDebugMetrics() const = 0;
 };
 
 // Creates a GBA emulator backed by mGBA.

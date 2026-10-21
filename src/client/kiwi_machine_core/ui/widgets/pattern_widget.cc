@@ -14,6 +14,8 @@
 
 #include <imgui.h>
 
+#include <iterator>
+
 #include "ui/main_window.h"
 #include "ui/window_base.h"
 
@@ -49,32 +51,19 @@ void DrawPaletteIndex(ImDrawList* draw_list,
                      pen_color, str.c_str());
 }
 
-SDL_Rect MapToWindow(const SDL_Rect& rect) {
-  ImVec2 window_pos = ImGui::GetWindowPos();
-  return {static_cast<int>(rect.x + window_pos.x),
-          static_cast<int>(rect.y + window_pos.y), rect.w, rect.h};
-}
-
-// Save all 8 pattern tables and palettes in a big canvas.
-constexpr int kTopMargin = 20;
 constexpr int kPatternTableWidth = 256;
 constexpr int kPatternTableHeight = 128;
-constexpr int kMargin = 10;
-constexpr int kSpacing = 10;
 constexpr int kPaletteTileSize =
     32;  // A palette is presented as a 32*32 square.
-constexpr int kPaletteSpacingBetweenPatternTable = 32;
-constexpr int kHeight = kMargin * 2 + 8 * kPatternTableHeight + 7 * kSpacing;
-constexpr int kWidth = kMargin * 2 + kPatternTableWidth +
-                       kPaletteSpacingBetweenPatternTable +
-                       kPaletteTileSize * 4;
+constexpr int kPatternTableCount = 8;
 }  // namespace
 
 PatternWidget::PatternWidget(MainWindow* main_window)
     : Widget(main_window), main_window_(main_window) {
   set_flags(ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
   set_title("Pattern");
-  set_bounds(SDL_Rect{0, 0, kWidth, kHeight + kTopMargin});
+  set_bounds(
+      SDL_Rect{0, 0, 430, kPatternTableCount * (kPatternTableHeight + 10)});
 }
 
 PatternWidget::~PatternWidget() {
@@ -95,71 +84,60 @@ void PatternWidget::Paint() {
       pattern_table = SDL_CreateTexture(
           window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
           SDL_TEXTUREACCESS_STREAMING, kPatternTableWidth, kPatternTableHeight);
+      if (pattern_table)
+        SDL_SetTextureScaleMode(pattern_table, SDL_ScaleModeNearest);
     }
 
     first_paint_ = false;
   }
-  ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
-  int offset_y = kMargin + kTopMargin;
   kiwi::nes::Palette* palette = debug_port->GetPPUContext().palette;
   assert(palette);
 
-  // This is not a good way to get window's position. Consider move it to
-  // window's base infra.
-  ImVec2 window_pos = ImGui::GetWindowPos();
-
-  for (int i = 0; i < 8; ++i) {
-    // Draw each pattern table.
+  for (int i = 0; i < kPatternTableCount; ++i) {
     kiwi::nes::Colors bgra =
         debug_port->GetPatternTableBGRA(static_cast<kiwi::nes::PaletteName>(i));
-
-    // If ROMs is not loaded, color buffer will be empty.
     if (bgra.empty())
       break;
+    if (!pattern_tables_[i])
+      continue;
 
-    {
-      SDL_UpdateTexture(pattern_tables_[i], nullptr, bgra.data(),
-                        kPatternTableWidth * sizeof(bgra[0]));
-      SDL_Rect pattern_bounds =
-          MapToWindow({static_cast<int>(window_pos.x) + kMargin,
-                       static_cast<int>(window_pos.y) + offset_y,
-                       kPatternTableWidth, kPatternTableHeight});
-      draw_list->AddImage(reinterpret_cast<ImTextureID>(pattern_tables_[i]),
-                          ImVec2(pattern_bounds.x, pattern_bounds.y),
-                          ImVec2(pattern_bounds.x + pattern_bounds.w,
-                                 pattern_bounds.y + pattern_bounds.h));
-    }
-
-    // Draw each palette.
-    int palette_x =
-        kMargin + kPatternTableWidth + kPaletteSpacingBetweenPatternTable;
-    int palette_y = offset_y + (kPatternTableHeight - kPaletteTileSize) / 2;
+    SDL_UpdateTexture(pattern_tables_[i], nullptr, bgra.data(),
+                      kPatternTableWidth * sizeof(bgra[0]));
+    ImGui::PushID(i);
+    ImGui::Image(reinterpret_cast<ImTextureID>(pattern_tables_[i]),
+                 ImVec2(kPatternTableWidth, kPatternTableHeight));
+    ImGui::SameLine();
+    ImGui::BeginGroup();
     kiwi::nes::Byte indices[4];
     debug_port->GetPaletteIndices(static_cast<kiwi::nes::PaletteName>(i),
                                   indices);
-    for (unsigned char index : indices) {
-      {
-        kiwi::nes::Color palette_bgra = palette->GetColorBGRA(index);
-        SDL_Rect palette_bounds =
-            MapToWindow({static_cast<int>(window_pos.x) + palette_x,
-                         static_cast<int>(window_pos.y) + palette_y,
-                         kPaletteTileSize, kPaletteTileSize});
-        ImU32 color =
-            IM_COL32((palette_bgra >> 16) & 0xff, (palette_bgra >> 8) & 0xff,
-                     palette_bgra & 0xff, (palette_bgra >> 24) & 0xff);
-        draw_list->AddRectFilled(ImVec2(palette_bounds.x, palette_bounds.y),
-                                 ImVec2(palette_bounds.x + palette_bounds.w,
-                                        palette_bounds.y + palette_bounds.h),
-                                 color);
-
-        DrawPaletteIndex(draw_list, index, ImColor(color), palette_bounds.x,
-                         palette_bounds.y, kPaletteTileSize, kPaletteTileSize);
-      }
-
-      palette_x += kPaletteTileSize;
+    for (size_t palette_index = 0; palette_index < std::size(indices);
+         ++palette_index) {
+      const kiwi::nes::Byte index = indices[palette_index];
+      const kiwi::nes::Color palette_bgra = palette->GetColorBGRA(index);
+      const ImU32 color =
+          IM_COL32((palette_bgra >> 16) & 0xff, (palette_bgra >> 8) & 0xff,
+                   palette_bgra & 0xff, (palette_bgra >> 24) & 0xff);
+      ImGui::PushID(static_cast<int>(palette_index));
+      const ImVec2 palette_position = ImGui::GetCursorScreenPos();
+      ImGui::InvisibleButton("##palette",
+                             ImVec2(kPaletteTileSize, kPaletteTileSize));
+      ImDrawList* draw_list = ImGui::GetWindowDrawList();
+      draw_list->AddRectFilled(palette_position,
+                               ImVec2(palette_position.x + kPaletteTileSize,
+                                      palette_position.y + kPaletteTileSize),
+                               color);
+      DrawPaletteIndex(draw_list, index, ImColor(color),
+                       static_cast<int>(palette_position.x),
+                       static_cast<int>(palette_position.y), kPaletteTileSize,
+                       kPaletteTileSize);
+      if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Palette $%02X", index);
+      ImGui::PopID();
+      if (palette_index + 1 < std::size(indices))
+        ImGui::SameLine();
     }
-
-    offset_y += kPatternTableHeight + kSpacing;
+    ImGui::EndGroup();
+    ImGui::PopID();
   }
 }

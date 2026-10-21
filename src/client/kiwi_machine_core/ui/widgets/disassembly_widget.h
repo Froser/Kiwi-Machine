@@ -20,6 +20,7 @@
 
 class StackWidget;
 class MainWindow;
+class NESDebugWidget;
 class DisassemblyWidget : public Widget {
  public:
   explicit DisassemblyWidget(MainWindow* main_window,
@@ -35,6 +36,8 @@ class DisassemblyWidget : public Widget {
   void Paint() override;
 
  private:
+  friend class NESDebugWidget;
+
   MainWindow* main_window_ = nullptr;
   kiwi::base::RepeatingClosure on_toggle_pause_;
   kiwi::base::RepeatingCallback<bool()> is_pause_;

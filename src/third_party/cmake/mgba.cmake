@@ -36,7 +36,9 @@ function(KIWI_ADD_MGBA mgba_source_dir)
     set(BUILD_ROM_TEST OFF)
     set(BUILD_DOCGEN OFF)
     set(ENABLE_SCRIPTING OFF)
-    set(USE_DEBUGGERS OFF)
+    # ARM/Thumb disassembly is consumed by Kiwi's GBA debug widget. Keep the
+    # debugger core, but leave the CLI and GDB frontends disabled.
+    set(USE_DEBUGGERS ON)
     set(USE_GDB_STUB OFF)
     set(USE_EDITLINE OFF)
 
@@ -52,6 +54,7 @@ function(KIWI_ADD_MGBA mgba_source_dir)
             "${CMAKE_CURRENT_BINARY_DIR}/mgba-0.10.5"
     )
     add_library(mGBA::core ALIAS mgba)
+    target_compile_definitions(mgba PUBLIC USE_DEBUGGERS)
 
     # Reuse Kiwi's zlib implementation instead of exporting mGBA's fallback
     # crc32 symbol into the same final binary.

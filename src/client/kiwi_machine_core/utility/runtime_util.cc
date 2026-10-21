@@ -75,12 +75,17 @@ std::unique_ptr<Runtime> CreateRuntime(kiwi::emu::Emulator::Type system,
       kiwi::nes::Emulator* emulator = nes_runtime->emulator()->AsNESEmulator();
       emulator->SetDebugPort(nes_runtime->debug_port());
       nes_runtime->debug_port()->set_on_breakpoint_callback(
-          std::move(options.breakpoint_callback));
+          options.breakpoint_callback);
     }
     runtime = std::move(nes_runtime);
   }
 
   runtime->emulator()->PowerOn();
+  if (system == kiwi::emu::Emulator::Type::kGBA &&
+      options.breakpoint_callback) {
+    runtime->emulator()->AsGBAEmulator()->SetDebugBreakCallback(
+        options.breakpoint_callback);
+  }
   ConfigureDefaultKeyboardMappings(runtime.get());
   for (std::size_t player = 0; player < options.joystick_mappings.size();
        ++player) {

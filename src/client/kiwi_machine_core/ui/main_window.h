@@ -44,12 +44,10 @@ class InGameMenu;
 class KiwiBgWidget;
 class LoadingWidget;
 class StackWidget;
-class MemoryWidget;
-class DisassemblyWidget;
-class NametableWidget;
+class GBADebugWidget;
+class NESDebugWidget;
 class Splash;
 class FpsCounter;
-class PerformanceWidget;
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
 class TextureRenderer;
 #endif
@@ -253,21 +251,9 @@ class MainWindow : public WindowBase,
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
   bool IsAudioEnabled();
-  void OnToggleAudioChannelMasks(kiwi::nes::AudioChannel which_mask);
-  bool IsAudioChannelOn(kiwi::nes::AudioChannel which_mask);
-  void OnToggleRenderPaused();
-  bool IsRenderPaused();
   void OnSetFullscreen();
   void OnUnsetFullscreen();
-  void OnTogglePaletteWidget();
-  bool IsPaletteWidgetShown();
-  void OnTogglePatternWidget();
-  bool IsPatternWidgetShown();
-  void OnPerformanceWidget();
-  bool IsPerformanceWidgetShown();
-  void OnDebugMemory();
-  void OnDebugDisassembly();
-  void OnDebugNametable();
+  void OnDebug();
   void OnShowUiDemoWidget();
   void OnInGameMenuTrigger();
 #if BUILDFLAG(IS_SWITCH)
@@ -290,8 +276,8 @@ class MainWindow : public WindowBase,
   friend class FullscreenMask;
   bool HandleWindowFingerDown();
 
-  // Give a chance to pause the game, to view disassembly widget.
-  void PauseGameIfDisassemblyVisible();
+  // Keep a loaded or reset game paused while its debugger is open.
+  void PauseGameIfDebuggerVisible();
 
 #if BUILDFLAG(IS_MOBILE)
   void OnScaleModeChanged();
@@ -315,17 +301,13 @@ class MainWindow : public WindowBase,
   Widget* fullscreen_mask_ = nullptr;
   InGameMenu* in_game_menu_ = nullptr;
   Widget* menu_bar_ = nullptr;
-  Widget* palette_widget_ = nullptr;
-  Widget* pattern_widget_ = nullptr;
-  PerformanceWidget* performance_widget_ = nullptr;
   Widget* demo_widget_ = nullptr;
   StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
   GameLibraryView* game_library_view_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
-  MemoryWidget* memory_widget_ = nullptr;
-  DisassemblyWidget* disassembly_widget_ = nullptr;
-  NametableWidget* nametable_widget_ = nullptr;
+  NESDebugWidget* nes_debug_widget_ = nullptr;
+  GBADebugWidget* gba_debug_widget_ = nullptr;
   std::set<MainWindow::Observer*> observers_;
 #if BUILDFLAG(ENABLE_DEBUG_ROMS)
   MenuBar::MenuItem debug_roms_;

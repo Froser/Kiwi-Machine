@@ -22,6 +22,7 @@
 
 // A demo widget shows IMGui's demo.
 class DebugPort;
+class NESDebugWidget;
 class PerformanceWidget : public Widget,
                           public NESFrameObserver,
                           public ApplicationObserver,
@@ -52,6 +53,8 @@ class PerformanceWidget : public Widget,
                   int ppu_last_frame_duration_ms) override;
 
  private:
+  friend class NESDebugWidget;
+
   struct Plot {
     float samples[kSampleCount] = {0};
     size_t index = 0;

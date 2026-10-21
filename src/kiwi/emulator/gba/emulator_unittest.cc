@@ -35,6 +35,11 @@ void WriteWord(Bytes& data, size_t offset, uint32_t value) {
     data[offset + byte] = static_cast<Byte>(value >> (byte * 8));
 }
 
+void WriteHalfWord(Bytes& data, size_t offset, uint16_t value) {
+  data[offset] = static_cast<Byte>(value);
+  data[offset + 1] = static_cast<Byte>(value >> 8);
+}
+
 Bytes MakeTestROM() {
   Bytes rom(0xc0);
   // Infinite ARM branch at the cartridge entry point.
@@ -45,6 +50,46 @@ Bytes MakeTestROM() {
   std::copy(kGameCode, kGameCode + sizeof(kGameCode) - 1, rom.begin() + 0xac);
   // Fixed-value byte required by the GBA cartridge header.
   rom[0xb2] = 0x96;
+  return rom;
+}
+
+Bytes MakeDebugTestROM() {
+  Bytes rom = MakeTestROM();
+  WriteWord(rom, 0, 0xea000006);     // b 0x08000020
+  WriteWord(rom, 0x20, 0xe3a00001);  // mov r0, #1
+  WriteWord(rom, 0x24, 0xe3a01002);  // mov r1, #2
+  WriteWord(rom, 0x28, 0xeafffffe);  // b .
+  return rom;
+}
+
+Bytes MakeThumbDebugTestROM() {
+  Bytes rom = MakeTestROM();
+  WriteWord(rom, 0, 0xea000006);     // b 0x08000020
+  WriteWord(rom, 0x20, 0xe28f0001);  // add r0, pc, #1
+  WriteWord(rom, 0x24, 0xe12fff10);  // bx r0
+  WriteHalfWord(rom, 0x28, 0x2107);  // movs r1, #7
+  WriteHalfWord(rom, 0x2a, 0xe7fe);  // b .
+  return rom;
+}
+
+Bytes MakeWatchpointTestROM() {
+  Bytes rom = MakeTestROM();
+  WriteWord(rom, 0, 0xea000006);     // b 0x08000020
+  WriteWord(rom, 0x20, 0xe59f0008);  // ldr r0, [pc, #8]
+  WriteWord(rom, 0x24, 0xe3a0103c);  // mov r1, #0x3c
+  WriteWord(rom, 0x28, 0xe5c01000);  // strb r1, [r0]
+  WriteWord(rom, 0x2c, 0xeafffffe);  // b .
+  WriteWord(rom, 0x30, 0x02000010);
+  return rom;
+}
+
+Bytes MakeCallStackTestROM() {
+  Bytes rom = MakeTestROM();
+  WriteWord(rom, 0, 0xea000006);     // b 0x08000020
+  WriteWord(rom, 0x20, 0xeb000002);  // bl 0x08000030
+  WriteWord(rom, 0x24, 0xeafffffe);  // b .
+  WriteWord(rom, 0x30, 0xe3a00007);  // mov r0, #7
+  WriteWord(rom, 0x34, 0xe12fff1e);  // bx lr
   return rom;
 }
 
@@ -148,14 +193,16 @@ class EmulatorTest : public ::testing::Test {
 
   void TearDown() override { emulator_->PowerOff(); }
 
-  bool LoadROM(bool run) {
+  bool LoadROM(bool run) { return LoadROM(MakeTestROM(), run); }
+
+  bool LoadROM(const Bytes& rom, bool run) {
     bool loaded = false;
     Emulator::LoadCallback callback = base::BindOnce(
         [](bool* result, bool success) { *result = success; }, &loaded);
     if (run) {
-      emulator_->LoadAndRun(MakeTestROM(), std::move(callback));
+      emulator_->LoadAndRun(rom, std::move(callback));
     } else {
-      emulator_->LoadFromBinary(MakeTestROM(), std::move(callback));
+      emulator_->LoadFromBinary(rom, std::move(callback));
     }
     return loaded;
   }
@@ -283,6 +330,275 @@ TEST_F(EmulatorTest, ClampsVolume) {
   EXPECT_FLOAT_EQ(emulator_->GetVolume(), 1.f);
   emulator_->SetVolume(-1.f);
   EXPECT_FLOAT_EQ(emulator_->GetVolume(), 0.f);
+}
+
+TEST_F(EmulatorTest, CapturesArmStateAndStepsOneInstruction) {
+  ASSERT_TRUE(LoadROM(MakeDebugTestROM(), true));
+
+  std::optional<Emulator::DebugSnapshot> rejected;
+  emulator_->GetDebugSnapshot(
+      4, base::BindOnce(
+             [](std::optional<Emulator::DebugSnapshot>* output,
+                std::optional<Emulator::DebugSnapshot> snapshot) {
+               *output = std::move(snapshot);
+             },
+             &rejected));
+  EXPECT_FALSE(rejected);
+
+  emulator_->Pause();
+  std::optional<Emulator::DebugSnapshot> before;
+  emulator_->GetDebugSnapshot(
+      4, base::BindOnce(
+             [](std::optional<Emulator::DebugSnapshot>* output,
+                std::optional<Emulator::DebugSnapshot> snapshot) {
+               *output = std::move(snapshot);
+             },
+             &before));
+  ASSERT_TRUE(before);
+  EXPECT_EQ(before->execution_mode, Emulator::DebugExecutionMode::kArm);
+  EXPECT_EQ(before->instruction_address, 0x08000000u);
+  EXPECT_EQ(before->registers[0], 0u);
+  ASSERT_EQ(before->instructions.size(), 4u);
+  EXPECT_EQ(before->instructions[0].address, 0x08000000u);
+  EXPECT_EQ(before->instructions[0].opcode, 0xea000006u);
+  EXPECT_EQ(before->instructions[0].width, 4u);
+  EXPECT_NE(before->instructions[0].text.find("b"), std::string::npos);
+
+  std::optional<Emulator::DebugSnapshot> after;
+  emulator_->StepAndGetDebugSnapshot(
+      4, base::BindOnce(
+             [](std::optional<Emulator::DebugSnapshot>* output,
+                std::optional<Emulator::DebugSnapshot> snapshot) {
+               *output = std::move(snapshot);
+             },
+             &after));
+  ASSERT_TRUE(after);
+  EXPECT_EQ(after->instruction_address, 0x08000020u);
+  EXPECT_EQ(after->instructions[0].opcode, 0xe3a00001u);
+  EXPECT_NE(after->instructions[0].text.find("mov"), std::string::npos);
+
+  emulator_->StepAndGetDebugSnapshot(
+      4, base::BindOnce(
+             [](std::optional<Emulator::DebugSnapshot>* output,
+                std::optional<Emulator::DebugSnapshot> snapshot) {
+               *output = std::move(snapshot);
+             },
+             &after));
+  ASSERT_TRUE(after);
+  EXPECT_EQ(after->registers[0], 1u);
+  EXPECT_EQ(after->instruction_address, 0x08000024u);
+  EXPECT_EQ(after->instructions[0].opcode, 0xe3a01002u);
+}
+
+TEST_F(EmulatorTest, DisassemblesThumbAfterModeSwitch) {
+  ASSERT_TRUE(LoadROM(MakeThumbDebugTestROM(), true));
+  emulator_->Pause();
+
+  std::optional<Emulator::DebugSnapshot> snapshot;
+  auto capture = [](std::optional<Emulator::DebugSnapshot>* output,
+                    std::optional<Emulator::DebugSnapshot> value) {
+    *output = std::move(value);
+  };
+  emulator_->StepAndGetDebugSnapshot(4, base::BindOnce(capture, &snapshot));
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->instruction_address, 0x08000020u);
+
+  emulator_->StepAndGetDebugSnapshot(4, base::BindOnce(capture, &snapshot));
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->instruction_address, 0x08000024u);
+
+  emulator_->StepAndGetDebugSnapshot(4, base::BindOnce(capture, &snapshot));
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->execution_mode, Emulator::DebugExecutionMode::kThumb);
+  EXPECT_NE(snapshot->cpsr & (1u << 5), 0u);
+  EXPECT_EQ(snapshot->instruction_address, 0x08000028u);
+  ASSERT_FALSE(snapshot->instructions.empty());
+  EXPECT_EQ(snapshot->instructions[0].opcode, 0x2107u);
+  EXPECT_EQ(snapshot->instructions[0].width, 2u);
+  EXPECT_NE(snapshot->instructions[0].text.find("mov"), std::string::npos);
+
+  emulator_->StepAndGetDebugSnapshot(4, base::BindOnce(capture, &snapshot));
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->registers[1], 7u);
+  EXPECT_EQ(snapshot->instruction_address, 0x0800002au);
+}
+
+TEST_F(EmulatorTest, CapturesMemoryGraphicsAudioAndMetrics) {
+  ASSERT_TRUE(LoadROM(true));
+  emulator_->RunOneFrame();
+  emulator_->Pause();
+
+  std::optional<Emulator::DebugMemorySnapshot> memory;
+  emulator_->GetDebugMemorySnapshot(
+      0x08000000, 32,
+      base::BindOnce(
+          [](std::optional<Emulator::DebugMemorySnapshot>* output,
+             std::optional<Emulator::DebugMemorySnapshot> value) {
+            *output = std::move(value);
+          },
+          &memory));
+  ASSERT_TRUE(memory);
+  EXPECT_EQ(memory->address, 0x08000000u);
+  ASSERT_EQ(memory->data.size(), 32u);
+  EXPECT_EQ(memory->data[3], 0xeau);
+  EXPECT_FALSE(memory->regions.empty());
+  EXPECT_FALSE(memory->io_registers.empty());
+
+  std::optional<Emulator::DebugGraphicsSnapshot> graphics;
+  emulator_->GetDebugGraphicsSnapshot(base::BindOnce(
+      [](std::optional<Emulator::DebugGraphicsSnapshot>* output,
+         std::optional<Emulator::DebugGraphicsSnapshot> value) {
+        *output = std::move(value);
+      },
+      &graphics));
+  ASSERT_TRUE(graphics);
+  EXPECT_EQ(graphics->vram.size(), 0x18000u);
+  EXPECT_EQ(graphics->palette.size(), 512u);
+  EXPECT_EQ(graphics->sprites.size(), 128u);
+  EXPECT_EQ(graphics->layers.size(), 8u);
+
+  bool changed = false;
+  emulator_->SetDebugVideoLayerEnabled(
+      0, false,
+      base::BindOnce([](bool* output, bool success) { *output = success; },
+                     &changed));
+  ASSERT_TRUE(changed);
+  emulator_->GetDebugGraphicsSnapshot(base::BindOnce(
+      [](std::optional<Emulator::DebugGraphicsSnapshot>* output,
+         std::optional<Emulator::DebugGraphicsSnapshot> value) {
+        *output = std::move(value);
+      },
+      &graphics));
+  ASSERT_TRUE(graphics);
+  EXPECT_FALSE(graphics->layers[0].enabled);
+
+  std::optional<Emulator::DebugAudioSnapshot> audio;
+  emulator_->GetDebugAudioSnapshot(base::BindOnce(
+      [](std::optional<Emulator::DebugAudioSnapshot>* output,
+         std::optional<Emulator::DebugAudioSnapshot> value) {
+        *output = std::move(value);
+      },
+      &audio));
+  ASSERT_TRUE(audio);
+  EXPECT_EQ(audio->channels.size(), 6u);
+  changed = false;
+  emulator_->SetDebugAudioChannelEnabled(
+      5, false,
+      base::BindOnce([](bool* output, bool success) { *output = success; },
+                     &changed));
+  ASSERT_TRUE(changed);
+  emulator_->GetDebugAudioSnapshot(base::BindOnce(
+      [](std::optional<Emulator::DebugAudioSnapshot>* output,
+         std::optional<Emulator::DebugAudioSnapshot> value) {
+        *output = std::move(value);
+      },
+      &audio));
+  ASSERT_TRUE(audio);
+  EXPECT_FALSE(audio->channels[5].enabled);
+
+  const Emulator::DebugMetrics metrics = emulator_->GetDebugMetrics();
+  EXPECT_GT(metrics.frame_count, 0u);
+  EXPECT_GT(metrics.last_frame_duration_us, 0u);
+  EXPECT_GT(metrics.last_audio_sample_count, 0u);
+}
+
+TEST_F(EmulatorTest, BreakpointStopsBeforeTargetInstruction) {
+  ASSERT_TRUE(LoadROM(MakeDebugTestROM(), true));
+  emulator_->Pause();
+
+  bool added = false;
+  emulator_->AddDebugBreakpoint(
+      0x08000020,
+      base::BindOnce([](bool* output, bool success) { *output = success; },
+                     &added));
+  ASSERT_TRUE(added);
+
+  emulator_->Run();
+  emulator_->RunOneFrame();
+  EXPECT_EQ(emulator_->GetRunningState(), Emulator::RunningState::kPaused);
+
+  std::optional<Emulator::DebugSnapshot> snapshot;
+  emulator_->GetDebugSnapshot(
+      4, base::BindOnce(
+             [](std::optional<Emulator::DebugSnapshot>* output,
+                std::optional<Emulator::DebugSnapshot> value) {
+               *output = std::move(value);
+             },
+             &snapshot));
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->instruction_address, 0x08000020u);
+  EXPECT_EQ(snapshot->registers[0], 0u);
+  EXPECT_EQ(snapshot->last_break.reason,
+            Emulator::DebugBreakReason::kBreakpoint);
+  ASSERT_EQ(snapshot->points.size(), 1u);
+  EXPECT_EQ(snapshot->points[0].address, 0x08000020u);
+}
+
+TEST_F(EmulatorTest, WatchpointCapturesMemoryWrite) {
+  ASSERT_TRUE(LoadROM(MakeWatchpointTestROM(), true));
+  emulator_->Pause();
+
+  bool added = false;
+  emulator_->AddDebugWatchpoint(
+      0x02000010, Emulator::DebugWatchpointType::kWrite,
+      base::BindOnce([](bool* output, bool success) { *output = success; },
+                     &added));
+  ASSERT_TRUE(added);
+
+  emulator_->Run();
+  emulator_->RunOneFrame();
+  EXPECT_EQ(emulator_->GetRunningState(), Emulator::RunningState::kPaused);
+
+  std::optional<Emulator::DebugSnapshot> snapshot;
+  emulator_->GetDebugSnapshot(
+      4, base::BindOnce(
+             [](std::optional<Emulator::DebugSnapshot>* output,
+                std::optional<Emulator::DebugSnapshot> value) {
+               *output = std::move(value);
+             },
+             &snapshot));
+  ASSERT_TRUE(snapshot);
+  EXPECT_EQ(snapshot->last_break.reason,
+            Emulator::DebugBreakReason::kWatchpoint);
+  EXPECT_EQ(snapshot->last_break.address, 0x02000010u);
+  EXPECT_EQ(snapshot->last_break.new_value & 0xff, 0x3cu);
+
+  std::optional<Emulator::DebugMemorySnapshot> memory;
+  emulator_->GetDebugMemorySnapshot(
+      0x02000010, 16,
+      base::BindOnce(
+          [](std::optional<Emulator::DebugMemorySnapshot>* output,
+             std::optional<Emulator::DebugMemorySnapshot> value) {
+            *output = std::move(value);
+          },
+          &memory));
+  ASSERT_TRUE(memory);
+  EXPECT_EQ(memory->data[0], 0x3cu);
+}
+
+TEST_F(EmulatorTest, TracksArmCallStack) {
+  ASSERT_TRUE(LoadROM(MakeCallStackTestROM(), true));
+  emulator_->Pause();
+
+  bool enabled = false;
+  emulator_->SetDebugStackTraceEnabled(
+      true,
+      base::BindOnce([](bool* output, bool success) { *output = success; },
+                     &enabled));
+  ASSERT_TRUE(enabled);
+
+  std::optional<Emulator::DebugSnapshot> snapshot;
+  emulator_->StepAndGetDebugSnapshot(
+      4, base::BindOnce(
+             [](std::optional<Emulator::DebugSnapshot>* output,
+                std::optional<Emulator::DebugSnapshot> value) {
+               *output = std::move(value);
+             },
+             &snapshot));
+  ASSERT_TRUE(snapshot);
+  EXPECT_TRUE(snapshot->stack_trace_enabled);
+  ASSERT_EQ(snapshot->stack_frames.size(), 1u);
+  EXPECT_EQ(snapshot->stack_frames[0].call_address, 0x08000020u);
 }
 
 TEST_F(EmulatorTest, ValidatesAndLoadsBIOS) {

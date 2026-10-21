@@ -42,29 +42,40 @@ void NametableWidget::SetDebugPort(DebugPort* debug_port) {
     debug_port_->SetNametableRenderer(nullptr);
   }
   debug_port_ = debug_port;
+  if (!debug_port_)
+    SetRenderEnabled(false);
   if (debug_port_) {
     debug_port_->SetNametableRenderer(this);
   }
 }
 
+void NametableWidget::SetRenderEnabled(bool enabled) {
+  render_enabled_.store(enabled, std::memory_order_release);
+}
+
+void NametableWidget::Refresh() {
+  if (!debug_port_)
+    return;
+  const kiwi::nes::Colors bgra = debug_port_->GetNametableBGRA();
+  if (bgra.empty())
+    return;
+  kiwi::nes::PPUFrameData frame;
+  frame.width = kNametableWidth;
+  frame.height = kNametableHeight;
+  frame.native_pixels = &bgra;
+  Render(frame);
+}
+
 void NametableWidget::Paint() {
-  // Write buffer to the texture, and render.
-  if (!screen_buffer_.empty()) {
-    int result =
-        SDL_UpdateTexture(screen_texture_, nullptr, screen_buffer_.data(),
-                          kNametableWidth * sizeof(screen_buffer_[0]));
-    SDL_assert(result == 0);
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    SDL_Rect render_bounds = bounds();
-    ImVec2 work_pos = ImGui::GetMainViewport()->WorkPos;
-    ImVec2 window_pos = ImGui::GetWindowPos();
-    draw_list->AddImage(
-        reinterpret_cast<ImTextureID>(screen_texture_),
-        ImVec2(work_pos.x + window_pos.x + render_bounds.x,
-               work_pos.y + window_pos.y + render_bounds.y),
-        ImVec2(work_pos.x + window_pos.x + render_bounds.x + render_bounds.w,
-               work_pos.y + window_pos.y + render_bounds.y + render_bounds.h));
-  }
+  if (!screen_texture_ || screen_buffer_.empty())
+    return;
+
+  int result =
+      SDL_UpdateTexture(screen_texture_, nullptr, screen_buffer_.data(),
+                        kNametableWidth * sizeof(screen_buffer_[0]));
+  SDL_assert(result == 0);
+  ImGui::Image(reinterpret_cast<ImTextureID>(screen_texture_),
+               ImVec2(kNametableWidth, kNametableHeight));
 }
 
 void NametableWidget::Render(const kiwi::nes::PPUFrameData& frame) {
@@ -78,11 +89,15 @@ void NametableWidget::Render(const kiwi::nes::PPUFrameData& frame) {
     screen_texture_ = SDL_CreateTexture(
         window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
         SDL_TEXTUREACCESS_STREAMING, frame.width, frame.height);
+    if (screen_texture_)
+      SDL_SetTextureScaleMode(screen_texture_, SDL_ScaleModeNearest);
+    else
+      return;
   }
 
   screen_buffer_ = *frame.native_pixels;
 }
 
 bool NametableWidget::NeedRender() {
-  return visible();
+  return render_enabled_.load(std::memory_order_acquire);
 }

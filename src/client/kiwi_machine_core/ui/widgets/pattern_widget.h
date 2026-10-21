@@ -18,6 +18,7 @@
 #include <kiwi_nes.h>
 
 class MainWindow;
+class NESDebugWidget;
 class PatternWidget : public Widget {
  public:
   explicit PatternWidget(MainWindow* main_window);
@@ -28,6 +29,8 @@ class PatternWidget : public Widget {
   void Paint() override;
 
  private:
+  friend class NESDebugWidget;
+
   MainWindow* main_window_ = nullptr;
   bool first_paint_ = true;
   SDL_Texture* pattern_tables_[8] = {nullptr};

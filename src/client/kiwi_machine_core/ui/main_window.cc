@@ -26,15 +26,11 @@
 #include "ui/widgets/about_widget.h"
 #include "ui/widgets/canvas.h"
 #include "ui/widgets/demo_widget.h"
-#include "ui/widgets/disassembly_widget.h"
 #include "ui/widgets/game_library_view.h"
+#include "ui/widgets/gba_debug_widget.h"
 #include "ui/widgets/kiwi_bg_widget.h"
 #include "ui/widgets/loading_widget.h"
-#include "ui/widgets/memory_widget.h"
-#include "ui/widgets/nametable_widget.h"
-#include "ui/widgets/palette_widget.h"
-#include "ui/widgets/pattern_widget.h"
-#include "ui/widgets/performance_widget.h"
+#include "ui/widgets/nes_debug_widget.h"
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
@@ -946,53 +942,31 @@ void MainWindow::InitializeUI() {
 
   // Debug widgets
   if (FLAGS_enable_debug) {
-    std::unique_ptr<PaletteWidget> palette_widget =
-        std::make_unique<PaletteWidget>(this);
-    palette_widget_ = palette_widget.get();
-    palette_widget_->set_visible(false);
-    AddWidget(std::move(palette_widget));
+    std::unique_ptr<NESDebugWidget> nes_debug_widget =
+        std::make_unique<NESDebugWidget>(
+            this, canvas_->frame(),
+            kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
+                                      kiwi::base::Unretained(this)),
+            kiwi::base::BindRepeating(&MainWindow::IsPause,
+                                      kiwi::base::Unretained(this)));
+    nes_debug_widget_ = nes_debug_widget.get();
+    nes_debug_widget_->SetDebugPort(debug_port());
+    nes_debug_widget_->set_visible(false);
+    AddWidget(std::move(nes_debug_widget));
 
-    std::unique_ptr<PatternWidget> pattern_widget =
-        std::make_unique<PatternWidget>(this);
-    pattern_widget_ = pattern_widget.get();
-    pattern_widget_->set_visible(false);
-    AddWidget(std::move(pattern_widget));
-
-    std::unique_ptr<PerformanceWidget> performance_widget =
-        std::make_unique<PerformanceWidget>(this, canvas_->frame());
-    performance_widget->SetDebugPort(debug_port());
-    performance_widget_ = performance_widget.get();
-    performance_widget_->set_visible(false);
-    AddWidget(std::move(performance_widget));
-
-    std::unique_ptr<MemoryWidget> memory_widget =
-        std::make_unique<MemoryWidget>(
+    std::unique_ptr<GBADebugWidget> gba_debug_widget =
+        std::make_unique<GBADebugWidget>(
             this,
             kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
                                       kiwi::base::Unretained(this)),
             kiwi::base::BindRepeating(&MainWindow::IsPause,
                                       kiwi::base::Unretained(this)));
-    memory_widget_ = memory_widget.get();
-    memory_widget_->set_visible(false);
-    AddWidget(std::move(memory_widget));
-
-    std::unique_ptr<DisassemblyWidget> disassembly_widget =
-        std::make_unique<DisassemblyWidget>(
-            this,
-            kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
-                                      kiwi::base::Unretained(this)),
-            kiwi::base::BindRepeating(&MainWindow::IsPause,
-                                      kiwi::base::Unretained(this)));
-    disassembly_widget_ = disassembly_widget.get();
-    disassembly_widget_->set_visible(false);
-    AddWidget(std::move(disassembly_widget));
-
-    std::unique_ptr<NametableWidget> nametable_widget =
-        std::make_unique<NametableWidget>(this);
-    nametable_widget->SetDebugPort(debug_port());
-    nametable_widget_ = nametable_widget.get();
-    nametable_widget_->set_visible(false);
-    AddWidget(std::move(nametable_widget));
+    gba_debug_widget_ = gba_debug_widget.get();
+    if (runtime_->emulator()->GetType() == kiwi::emu::Emulator::Type::kGBA) {
+      gba_debug_widget_->SetEmulator(runtime_->emulator()->AsGBAEmulator());
+    }
+    gba_debug_widget_->set_visible(false);
+    AddWidget(std::move(gba_debug_widget));
 
     std::unique_ptr<Widget> demo_widget = std::make_unique<DemoWidget>(this);
     demo_widget_ = demo_widget.get();
@@ -1214,76 +1188,9 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
     MenuBar::Menu debug;
     debug.title = "Debug";
 
-    {
-      MenuBar::MenuItem debug_audio;
-      debug_audio.title = "Audio";
-      debug_audio.is_enabled = kiwi::base::BindRepeating(
-          &MainWindow::IsEmulationSystem, kiwi::base::Unretained(this),
-          kiwi::emu::Emulator::Type::kNES);
-
-      MenuBar::MenuItem debug_audio_square1 = {
-          "Square 1",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_1),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_1)};
-      MenuBar::MenuItem debug_audio_square2 = {
-          "Square 2",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_2),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_2)};
-      MenuBar::MenuItem debug_audio_triangle = {
-          "Triangle",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kTriangle),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kTriangle)};
-      MenuBar::MenuItem debug_audio_noise = {
-          "Noise",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kNoise),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kNoise)};
-      MenuBar::MenuItem debug_audio_dmc = {
-          "DMC",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kDMC),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kDMC)};
-
-      debug_audio.sub_items.push_back(std::move(debug_audio_square1));
-      debug_audio.sub_items.push_back(std::move(debug_audio_square2));
-      debug_audio.sub_items.push_back(std::move(debug_audio_triangle));
-      debug_audio.sub_items.push_back(std::move(debug_audio_noise));
-      debug_audio.sub_items.push_back(std::move(debug_audio_dmc));
-
-      debug.menu_items.push_back(std::move(debug_audio));
-    }
-
-    {
-      MenuBar::MenuItem disable_render = {
-          "Pause Render",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleRenderPaused,
-                                    kiwi::base::Unretained(this)),
-          kiwi::base::BindRepeating(&MainWindow::IsRenderPaused,
-                                    kiwi::base::Unretained(this)),
-          kiwi::base::BindRepeating(&MainWindow::IsEmulationSystem,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::emu::Emulator::Type::kNES),
-      };
-      debug.menu_items.push_back(std::move(disable_render));
-    }
+    debug.menu_items.push_back(
+        {"Debugger", kiwi::base::BindRepeating(&MainWindow::OnDebug,
+                                               kiwi::base::Unretained(this))});
 
 #if BUILDFLAG(ENABLE_DEBUG_ROMS)
     if (!debug_roms_.sub_items.empty()) {
@@ -1291,40 +1198,6 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
       // debug_roms_ should no longer use.
     }
 #endif
-
-    debug.menu_items.push_back(
-        {"Palette",
-         kiwi::base::BindRepeating(&MainWindow::OnTogglePaletteWidget,
-                                   kiwi::base::Unretained(this)),
-         kiwi::base::BindRepeating(&MainWindow::IsPaletteWidgetShown,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Patterns",
-         kiwi::base::BindRepeating(&MainWindow::OnTogglePatternWidget,
-                                   kiwi::base::Unretained(this)),
-         kiwi::base::BindRepeating(&MainWindow::IsPatternWidgetShown,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Performance",
-         kiwi::base::BindRepeating(&MainWindow::OnPerformanceWidget,
-                                   kiwi::base::Unretained(this)),
-         kiwi::base::BindRepeating(&MainWindow::IsPerformanceWidgetShown,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Memory", kiwi::base::BindRepeating(&MainWindow::OnDebugMemory,
-                                             kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Disassembly",
-         kiwi::base::BindRepeating(&MainWindow::OnDebugDisassembly,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Nametable", kiwi::base::BindRepeating(&MainWindow::OnDebugNametable,
-                                                kiwi::base::Unretained(this))});
 
     debug.menu_items.push_back(
         {"UI Demo Widget",
@@ -1439,9 +1312,14 @@ bool MainWindow::HandleWindowFingerDown() {
   return false;
 }
 
-void MainWindow::PauseGameIfDisassemblyVisible() {
-  // Give a chance to pause the emulator
-  if (disassembly_widget_ && disassembly_widget_->visible())
+void MainWindow::PauseGameIfDebuggerVisible() {
+  const bool nes_debug_visible =
+      emulation_system_ == kiwi::emu::Emulator::Type::kNES &&
+      nes_debug_widget_ && nes_debug_widget_->visible();
+  const bool gba_debug_visible =
+      emulation_system_ == kiwi::emu::Emulator::Type::kGBA &&
+      gba_debug_widget_ && gba_debug_widget_->visible();
+  if (nes_debug_visible || gba_debug_visible)
     OnPause();
 }
 
@@ -1531,11 +1409,14 @@ void MainWindow::ReplaceRuntime(kiwi::emu::Emulator::Type system) {
       system, Application::Get()->profile_path(), std::move(options));
   Application::Get()->set_runtime(runtime_.get());
 
-  if (performance_widget_) {
-    performance_widget_->SetDebugPort(debug_port());
-  }
-  if (nametable_widget_) {
-    nametable_widget_->SetDebugPort(debug_port());
+  if (nes_debug_widget_)
+    nes_debug_widget_->SetDebugPort(debug_port());
+  if (gba_debug_widget_) {
+    gba_debug_widget_->SetEmulator(
+        system == kiwi::emu::Emulator::Type::kGBA
+            ? scoped_refptr<kiwi::gba::Emulator>(
+                  runtime_->emulator()->AsGBAEmulator())
+            : nullptr);
   }
   if (canvas_) {
     canvas_->frame()->SetEmulator(system == kiwi::emu::Emulator::Type::kNES
@@ -1547,11 +1428,10 @@ void MainWindow::ReplaceRuntime(kiwi::emu::Emulator::Type system) {
 
 void MainWindow::PowerOffRuntime() {
   if (runtime_) {
-    if (performance_widget_) {
-      performance_widget_->SetDebugPort(nullptr);
-    }
-    if (nametable_widget_) {
-      nametable_widget_->SetDebugPort(nullptr);
+    if (nes_debug_widget_)
+      nes_debug_widget_->SetDebugPort(nullptr);
+    if (gba_debug_widget_) {
+      gba_debug_widget_->SetEmulator(nullptr);
     }
     if (canvas_) {
       canvas_->frame()->SetEmulator(nullptr);
@@ -1562,6 +1442,10 @@ void MainWindow::PowerOffRuntime() {
 
 void MainWindow::SwitchEmulationSystem(kiwi::emu::Emulator::Type system) {
   if (emulation_system_ != system && (!canvas_ || !canvas_->visible())) {
+    if (nes_debug_widget_)
+      nes_debug_widget_->set_visible(false);
+    if (gba_debug_widget_)
+      gba_debug_widget_->set_visible(false);
     emulation_system_ = system;
     ReplaceRuntime(system);
     config_->data().last_system = static_cast<int>(system);
@@ -1650,7 +1534,7 @@ void MainWindow::OnRomLoaded(std::unique_ptr<PendingROM> pending_rom,
     ShowMainMenu(false, pending_rom->load_from_finger_gesture);
     SetTitle(pending_rom->window_title);
     StartPeriodicSaves();
-    PauseGameIfDisassemblyVisible();
+    PauseGameIfDebuggerVisible();
     PauseForFocusLossIfNeeded();
   }
 }
@@ -1686,6 +1570,7 @@ void MainWindow::OnGBARomLoaded(std::string fallback_title, bool success) {
     ShowMainMenu(false, false);
     SetTitle(current_game_title_ + " [GBA]");
     StartPeriodicSaves();
+    PauseGameIfDebuggerVisible();
     PauseForFocusLossIfNeeded();
   }
 }
@@ -1699,12 +1584,10 @@ void MainWindow::OnQuit() {
 void MainWindow::OnResetROM() {
   kiwi::base::OnceClosure reset_callback = kiwi::base::BindOnce(
       &MainWindow::ResetAudio, kiwi::base::Unretained(this));
-  if (emulation_system_ == kiwi::emu::Emulator::Type::kNES) {
-    reset_callback = std::move(reset_callback)
-                         .Then(kiwi::base::BindOnce(
-                             &MainWindow::PauseGameIfDisassemblyVisible,
-                             kiwi::base::Unretained(this)));
-  }
+  reset_callback =
+      std::move(reset_callback)
+          .Then(kiwi::base::BindOnce(&MainWindow::PauseGameIfDebuggerVisible,
+                                     kiwi::base::Unretained(this)));
   runtime_->emulator()->Reset(
       std::move(reset_callback)
           .Then(kiwi::base::BindOnce(&MainWindow::PauseForFocusLossIfNeeded,
@@ -1843,10 +1726,10 @@ void MainWindow::OnPause() {
   pressing_keys_.clear();
   runtime_->emulator()->Pause();
   if (emulation_system_ == kiwi::emu::Emulator::Type::kNES) {
-    if (memory_widget_)
-      memory_widget_->UpdateMemory();
-    if (disassembly_widget_)
-      disassembly_widget_->UpdateDisassembly();
+    if (nes_debug_widget_)
+      nes_debug_widget_->Refresh();
+  } else if (gba_debug_widget_) {
+    gba_debug_widget_->Refresh();
   }
   StashVirtualButtonsVisible();
   SetVirtualButtonsVisible(false);
@@ -2004,31 +1887,6 @@ bool MainWindow::IsAudioEnabled() {
   return config_->data().volume > 0;
 }
 
-void MainWindow::OnToggleAudioChannelMasks(kiwi::nes::AudioChannel which_mask) {
-  DebugPort* port = debug_port();
-  if (port) {
-    int current_mask = port->GetAudioChannelMasks();
-    port->SetAudioChannelMasks(current_mask ^ which_mask);
-  }
-}
-
-bool MainWindow::IsAudioChannelOn(kiwi::nes::AudioChannel which_mask) {
-  DebugPort* port = debug_port();
-  return port && (port->GetAudioChannelMasks() & which_mask);
-}
-
-void MainWindow::OnToggleRenderPaused() {
-  DebugPort* port = debug_port();
-  if (port) {
-    port->set_render_paused(!port->render_paused());
-  }
-}
-
-bool MainWindow::IsRenderPaused() {
-  DebugPort* port = debug_port();
-  return port && port->render_paused();
-}
-
 void MainWindow::OnSetFullscreen() {
   if (SDL_GetWindowFlags(native_window()) & SDL_WINDOW_FULLSCREEN)
     return;
@@ -2058,48 +1916,28 @@ void MainWindow::OnUnsetFullscreen() {
   config_->SaveConfig();
 }
 
-void MainWindow::OnTogglePaletteWidget() {
-  SDL_assert(palette_widget_);
-  palette_widget_->set_visible(!palette_widget_->visible());
-}
-
-bool MainWindow::IsPaletteWidgetShown() {
-  SDL_assert(palette_widget_);
-  return palette_widget_->visible();
-}
-
-void MainWindow::OnTogglePatternWidget() {
-  SDL_assert(pattern_widget_);
-  pattern_widget_->set_visible(!pattern_widget_->visible());
-}
-
-bool MainWindow::IsPatternWidgetShown() {
-  SDL_assert(pattern_widget_);
-  return pattern_widget_->visible();
-}
-
-void MainWindow::OnPerformanceWidget() {
-  SDL_assert(performance_widget_);
-  performance_widget_->set_visible(!performance_widget_->visible());
-}
-
-bool MainWindow::IsPerformanceWidgetShown() {
-  SDL_assert(performance_widget_);
-  return performance_widget_->visible();
-}
-
-void MainWindow::OnDebugMemory() {
-  memory_widget_->set_visible(true);
-  memory_widget_->UpdateMemory();
-}
-
-void MainWindow::OnDebugDisassembly() {
-  disassembly_widget_->set_visible(true);
-  disassembly_widget_->UpdateDisassembly();
-}
-
-void MainWindow::OnDebugNametable() {
-  nametable_widget_->set_visible(true);
+void MainWindow::OnDebug() {
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_SWITCH)
+  SDL_Rect window_bounds = GetWindowBounds();
+  Resize(std::max(window_bounds.w, 1180), std::max(window_bounds.h, 760));
+#endif
+  SDL_Rect client_bounds = GetClientBounds();
+  const int margin = 20;
+  Widget* debug_widget = emulation_system_ == kiwi::emu::Emulator::Type::kNES
+                             ? static_cast<Widget*>(nes_debug_widget_)
+                             : static_cast<Widget*>(gba_debug_widget_);
+  SDL_assert(debug_widget);
+  debug_widget->set_bounds(
+      SDL_Rect{margin, margin, std::max(320, client_bounds.w - margin * 2),
+               std::max(320, client_bounds.h - margin * 2)});
+  debug_widget->set_visible(true);
+  if (!IsPause()) {
+    OnPause();
+  } else if (emulation_system_ == kiwi::emu::Emulator::Type::kNES) {
+    nes_debug_widget_->Refresh();
+  } else {
+    gba_debug_widget_->Refresh();
+  }
 }
 
 void MainWindow::OnShowUiDemoWidget() {
