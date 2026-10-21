@@ -12,6 +12,31 @@
 
 #include "utility/switch/paths.h"
 
+#include <optional>
+
+#include <switch.h>
+
+#include "utility/switch/paths_internal.h"
+
+namespace {
+
+std::optional<kiwi::switch_platform::internal::AccountId>
+GetPreselectedAccountId() {
+  Result initialize_result = accountInitialize(AccountServiceType_Application);
+  if (R_FAILED(initialize_result))
+    return std::nullopt;
+
+  AccountUid uid{};
+  Result account_result = accountGetPreselectedUser(&uid);
+  accountExit();
+  if (R_FAILED(account_result) || !accountUidIsValid(&uid))
+    return std::nullopt;
+
+  return kiwi::switch_platform::internal::AccountId{uid.uid[0], uid.uid[1]};
+}
+
+}  // namespace
+
 namespace kiwi::switch_platform {
 
 kiwi::base::FilePath GetApplicationDirectory() {
@@ -23,7 +48,10 @@ kiwi::base::FilePath GetResourceDirectory() {
 }
 
 kiwi::base::FilePath GetUserDataDirectory() {
-  return GetApplicationDirectory().Append(FILE_PATH_LITERAL("userdata"));
+  static const kiwi::base::FilePath user_data_directory =
+      internal::ResolveUserDataDirectory(GetApplicationDirectory(),
+                                         GetPreselectedAccountId());
+  return user_data_directory;
 }
 
 }  // namespace kiwi::switch_platform

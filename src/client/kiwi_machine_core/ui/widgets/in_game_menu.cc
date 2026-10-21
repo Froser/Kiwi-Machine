@@ -171,18 +171,15 @@ void DrawButtonBackground(const SDL_Rect& rect,
 }  // namespace
 
 InGameMenu::InGameMenu(MainWindow* main_window,
-                       NESRuntimeID runtime_id,
                        MenuItemCallback menu_callback,
                        SettingsItemCallback settings_callback)
     : Widget(main_window),
       main_window_(main_window),
-      runtime_data_(NESRuntime::GetInstance()->GetDataById(runtime_id)),
       menu_callback_(std::move(menu_callback)),
       settings_callback_(std::move(settings_callback)) {
   set_flags(ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs);
   set_title("InGameMenu");
-  SDL_assert(runtime_data_);
 
   menu_item_visible_.fill(true);
   SetFirstSelection();
@@ -446,7 +443,7 @@ InGameMenu::FrameText InGameMenu::BuildFrameText() const {
     text.state_position =
         GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SLOT) +
         std::to_string(which_state_ + 1) + " / " +
-        std::to_string(NESRuntime::Data::MaxSaveStates);
+        std::to_string(Runtime::MaxSaveStates);
   }
 
   text.state_action = GetLocalizedString(
@@ -738,8 +735,11 @@ void InGameMenu::LayoutStateBrowser(FrameLayout& layout) {
   const float controls_height = title_height + metadata_height +
                                 layout.row_height + gap * vertical_gap_count;
   const float preview_aspect =
-      static_cast<float>(Canvas::kNESFrameDefaultWidth) /
-      static_cast<float>(Canvas::kNESFrameDefaultHeight);
+      main_window_->emulation_system() == kiwi::emu::Emulator::Type::kGBA
+          ? static_cast<float>(kiwi::gba::kFrameWidth) /
+                static_cast<float>(kiwi::gba::kFrameHeight)
+          : static_cast<float>(Canvas::kNESFrameDefaultWidth) /
+                static_cast<float>(Canvas::kNESFrameDefaultHeight);
   const float available_preview_width =
       std::max(0.f, inner.w - (arrow_size + gap) * 2.f);
   const float available_preview_height =
@@ -1159,7 +1159,7 @@ void InGameMenu::DrawSettings(const FrameText& text,
                              RectMax(layout.setting_values[i]),
                              kPanelMutedColor);
     if (item == SettingsItem::kVolume) {
-      float volume = std::clamp(runtime_data_->emulator->GetVolume(), 0.f, 1.f);
+      float volume = std::clamp(main_window_->audio_volume(), 0.f, 1.f);
       SDL_Rect volume_fill = layout.setting_values[i];
       volume_fill.w = static_cast<int>(volume_fill.w * volume);
       draw_list->AddRectFilled(RectMin(volume_fill), RectMax(volume_fill),
@@ -1262,7 +1262,8 @@ bool InGameMenu::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     auto matches = [this, keyboard](kiwi::nes::ControllerButton button,
                                     SDL_KeyCode key) {
       return keyboard->keysym.sym == key ||
-             IsJoystickButtonMatch(runtime_data_, button, keyboard->keysym);
+             IsJoystickButtonMatch(main_window_->runtime(), button,
+                                   keyboard->keysym);
     };
     if (matches(kiwi::nes::ControllerButton::kUp, SDLK_UP))
       return HandleNavigationAction(NavigationAction::kUp,
@@ -1614,8 +1615,8 @@ void InGameMenu::StepState(StepDirection direction) {
     which_autosave_state_slot_ = next_slot;
   } else {
     const int delta = direction == StepDirection::kPrevious ? -1 : 1;
-    which_state_ = (which_state_ + delta + NESRuntime::Data::MaxSaveStates) %
-                   NESRuntime::Data::MaxSaveStates;
+    which_state_ = (which_state_ + delta + Runtime::MaxSaveStates) %
+                   Runtime::MaxSaveStates;
   }
 
   PlayEffect(audio_resources::AudioID::kSelect);
@@ -1882,8 +1883,8 @@ void InGameMenu::RefreshStatePreview() {
   if (!IsStateMenuItem(focus_.menu_item))
     return;
 
-  const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
-  if (!rom_data)
+  Runtime* runtime = main_window_->runtime();
+  if (!runtime || !runtime->emulator()->HasROM())
     return;
 
   state_preview_.status = StatePreview::Status::kLoading;
@@ -1893,10 +1894,9 @@ void InGameMenu::RefreshStatePreview() {
       kiwi::base::BindOnce(&InGameMenu::DispatchStateResult,
                            std::move(weak_lifetime), this, request_id);
   if (focus_.menu_item == MenuItem::kLoadAutoSave) {
-    runtime_data_->GetAutoSavedState(rom_data->crc, which_autosave_state_slot_,
-                                     std::move(callback));
+    runtime->GetAutoSavedState(which_autosave_state_slot_, std::move(callback));
   } else {
-    runtime_data_->GetState(rom_data->crc, which_state_, std::move(callback));
+    runtime->GetState(which_state_, std::move(callback));
   }
 }
 
@@ -1922,16 +1922,15 @@ void InGameMenu::RequestSavedStateCount() {
   ++saved_state_count_request_id_;
   current_saved_states_count_ = 0;
   saved_state_count_ready_ = false;
-  const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
-  if (!rom_data) {
+  Runtime* runtime = main_window_->runtime();
+  if (!runtime || !runtime->emulator()->HasROM()) {
     saved_state_count_ready_ = true;
     return;
   }
 
   const uint64_t request_id = saved_state_count_request_id_;
   std::weak_ptr<int> weak_lifetime = lifetime_token_;
-  runtime_data_->GetSavedStatesCount(
-      rom_data->crc,
+  runtime->GetSavedStatesCount(
       kiwi::base::BindOnce(&InGameMenu::DispatchSavedStateCount,
                            std::move(weak_lifetime), this, request_id));
 }
@@ -1940,16 +1939,15 @@ void InGameMenu::RequestAutoSavedStateCount() {
   ++auto_save_count_request_id_;
   current_auto_states_count_ = 0;
   auto_save_count_ready_ = false;
-  const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
-  if (!rom_data) {
+  Runtime* runtime = main_window_->runtime();
+  if (!runtime || !runtime->emulator()->HasROM()) {
     auto_save_count_ready_ = true;
     return;
   }
 
   const uint64_t request_id = auto_save_count_request_id_;
   std::weak_ptr<int> weak_lifetime = lifetime_token_;
-  runtime_data_->GetAutoSavedStatesCount(
-      rom_data->crc,
+  runtime->GetAutoSavedStatesCount(
       kiwi::base::BindOnce(&InGameMenu::DispatchAutoSavedStateCount,
                            std::move(weak_lifetime), this, request_id));
 }
@@ -1970,11 +1968,10 @@ void InGameMenu::DispatchAutoSavedStateCount(std::weak_ptr<int> weak_lifetime,
     menu->OnGotAutoSavedStateCount(request_id, count);
 }
 
-void InGameMenu::DispatchStateResult(
-    std::weak_ptr<int> weak_lifetime,
-    InGameMenu* menu,
-    uint64_t request_id,
-    const NESRuntime::Data::StateResult& result) {
+void InGameMenu::DispatchStateResult(std::weak_ptr<int> weak_lifetime,
+                                     InGameMenu* menu,
+                                     uint64_t request_id,
+                                     const Runtime::StateResult& result) {
   if (!weak_lifetime.expired())
     menu->OnGotState(request_id, result);
 }
@@ -2006,7 +2003,7 @@ void InGameMenu::OnGotAutoSavedStateCount(uint64_t request_id, int count) {
 }
 
 void InGameMenu::OnGotState(uint64_t request_id,
-                            const NESRuntime::Data::StateResult& state_result) {
+                            const Runtime::StateResult& state_result) {
   if (request_id != state_preview_request_id_)
     return;
 
@@ -2018,21 +2015,32 @@ void InGameMenu::OnGotState(uint64_t request_id,
 
   state_preview_.status = StatePreview::Status::kReady;
   state_preview_.timestamp = state_result.slot_or_timestamp;
-  if (state_result.thumbnail_data.empty())
+  if (state_result.thumbnail_data.empty() ||
+      state_result.thumbnail_width <= 0 || state_result.thumbnail_height <= 0) {
     return;
+  }
 
+  int texture_width = 0;
+  int texture_height = 0;
+  if (snapshot_ && (SDL_QueryTexture(snapshot_, nullptr, nullptr,
+                                     &texture_width, &texture_height) != 0 ||
+                    texture_width != state_result.thumbnail_width ||
+                    texture_height != state_result.thumbnail_height)) {
+    SDL_DestroyTexture(snapshot_);
+    snapshot_ = nullptr;
+  }
   if (!snapshot_) {
     snapshot_ = SDL_CreateTexture(
         window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
-        SDL_TEXTUREACCESS_STREAMING, Canvas::kNESFrameDefaultWidth,
-        Canvas::kNESFrameDefaultHeight);
+        SDL_TEXTUREACCESS_STREAMING, state_result.thumbnail_width,
+        state_result.thumbnail_height);
   }
   if (!snapshot_)
     return;
 
   constexpr int kColorComponents = 4;
   if (SDL_UpdateTexture(snapshot_, nullptr, state_result.thumbnail_data.data(),
-                        Canvas::kNESFrameDefaultWidth * kColorComponents *
+                        state_result.thumbnail_width * kColorComponents *
                             sizeof(state_result.thumbnail_data.data()[0])) ==
       0) {
     state_preview_.has_thumbnail = true;
@@ -2123,7 +2131,7 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
 
   switch (item) {
     case SettingsItem::kVolume: {
-      const float volume = runtime_data_->emulator->GetVolume();
+      const float volume = main_window_->audio_volume();
       return direction == StepDirection::kPrevious ? volume > 0.f
                                                    : volume < 1.f;
     }
@@ -2150,7 +2158,7 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
       const int player = item == SettingsItem::kJoyP1 ? 0 : 1;
       std::vector<SDL_GameController*> controllers = GetControllerList();
       auto* current = reinterpret_cast<SDL_GameController*>(
-          runtime_data_->joystick_mappings[player].which);
+          main_window_->runtime()->joystick_mapping(player).which);
       auto current_iter =
           std::find(controllers.begin(), controllers.end(), current);
       if (current_iter == controllers.end())
@@ -2189,8 +2197,7 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
       std::snprintf(
           buffer, sizeof(buffer), "%d%%",
           static_cast<int>(std::round(
-              std::clamp(runtime_data_->emulator->GetVolume(), 0.f, 1.f) *
-              100.f)));
+              std::clamp(main_window_->audio_volume(), 0.f, 1.f) * 100.f)));
       return buffer;
     }
 #if !BUILDFLAG(IS_SWITCH)
@@ -2216,7 +2223,7 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
     case SettingsItem::kJoyP2: {
       const int player = item == SettingsItem::kJoyP1 ? 0 : 1;
       auto* controller = reinterpret_cast<SDL_GameController*>(
-          runtime_data_->joystick_mappings[player].which);
+          main_window_->runtime()->joystick_mapping(player).which);
       std::vector<SDL_GameController*> controllers = GetControllerList();
       auto controller_iter =
           std::find(controllers.begin(), controllers.end(), controller);

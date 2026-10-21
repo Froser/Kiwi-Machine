@@ -14,6 +14,8 @@
 
 #include <imgui.h>
 
+#include "ui/main_window.h"
+
 namespace {
 std::string ToHex(int n) {
   std::stringstream ss;
@@ -22,19 +24,20 @@ std::string ToHex(int n) {
 }
 }  // namespace
 
-PaletteWidget::PaletteWidget(WindowBase* window_base,
-                             kiwi::nes::DebugPort* debug_port)
-    : Widget(window_base), debug_port_(debug_port) {
+PaletteWidget::PaletteWidget(MainWindow* main_window)
+    : Widget(main_window), main_window_(main_window) {
   set_flags(ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize |
             ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings);
-  SDL_assert(debug_port);
   set_title("Palette");
 }
 
 PaletteWidget::~PaletteWidget() = default;
 
 void PaletteWidget::Paint() {
-  kiwi::nes::Palette* palette = debug_port_->GetPPUContext().palette;
+  DebugPort* debug_port = main_window_->debug_port();
+  if (!debug_port)
+    return;
+  kiwi::nes::Palette* palette = debug_port->GetPPUContext().palette;
   // A palette's index is from 0 to 63.
   for (int row = 0; row < 4; ++row) {
     for (int col = 0; col < 16; ++col) {

@@ -350,14 +350,11 @@ void DrawBackArrow(const SDL_Rect& rect, ImU32 color, float scale) {
 
 }  // namespace
 
-AboutWidget::AboutWidget(MainWindow* main_window,
-                         StackWidget* parent,
-                         NESRuntimeID runtime_id)
+AboutWidget::AboutWidget(MainWindow* main_window, StackWidget* parent)
     : Widget(main_window), parent_(parent), main_window_(main_window) {
   set_flags(ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs);
   set_title("About");
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
 }
 
 AboutWidget::~AboutWidget() = default;
@@ -393,7 +390,6 @@ bool AboutWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 }
 
 bool AboutWidget::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
-  static_cast<void>(event);
   return HandleInputEvent(nullptr, nullptr);
 }
 
@@ -826,7 +822,6 @@ void AboutWidget::DrawMobileSectionTabs(const FrameText& text,
 #endif
 
 void AboutWidget::DrawBackground(const FrameLayout& layout) {
-  static_cast<void>(layout);
   ImVec2 window_pos = ImGui::GetWindowPos();
   ImVec2 window_size = ImGui::GetWindowSize();
   ImGui::GetWindowDrawList()->AddRectFilled(
@@ -1106,8 +1101,8 @@ void AboutWidget::DrawGamepad(const FrameText& text,
   };
 #if BUILDFLAG(IS_SWITCH)
   const std::array<std::string, 6> values = {
-      text.gamepad_direction, "A / Y", "B / X", "-",
-      text.gamepad_start,     "L + R",
+      text.gamepad_direction, "A / Y",   "B / X", "-",
+      text.gamepad_start,     "ZL + ZR",
   };
 #else
   const std::array<std::string, 6> values = {
@@ -1254,7 +1249,8 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     auto matches = [this, keyboard](kiwi::nes::ControllerButton button,
                                     SDL_KeyCode key) {
       return keyboard->keysym.sym == key ||
-             IsJoystickButtonMatch(runtime_data_, button, keyboard->keysym);
+             IsJoystickButtonMatch(main_window_->runtime(), button,
+                                   keyboard->keysym);
     };
 #if BUILDFLAG(IS_MOBILE)
     if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {

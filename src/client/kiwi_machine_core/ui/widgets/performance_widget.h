@@ -16,12 +16,13 @@
 #include <kiwi_nes.h>
 
 #include "debug/debug_port.h"
-#include "models/nes_frame.h"
+#include "models/nes/frame.h"
 #include "ui/application.h"
 #include "ui/widgets/widget.h"
 
 // A demo widget shows IMGui's demo.
 class DebugPort;
+class NESDebugWidget;
 class PerformanceWidget : public Widget,
                           public NESFrameObserver,
                           public ApplicationObserver,
@@ -32,9 +33,9 @@ class PerformanceWidget : public Widget,
   };
 
   explicit PerformanceWidget(WindowBase* window_base,
-                             scoped_refptr<NESFrame> frame,
-                             DebugPort* debug_port);
+                             scoped_refptr<NESFrame> frame);
   ~PerformanceWidget() override;
+  void SetDebugPort(DebugPort* debug_port);
 
  protected:
   // Widget:
@@ -52,6 +53,8 @@ class PerformanceWidget : public Widget,
                   int ppu_last_frame_duration_ms) override;
 
  private:
+  friend class NESDebugWidget;
+
   struct Plot {
     float samples[kSampleCount] = {0};
     size_t index = 0;

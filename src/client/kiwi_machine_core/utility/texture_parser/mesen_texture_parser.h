@@ -22,7 +22,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "nes/components/mesen_hd_pack/hd_pack_types.h"
+#include "emulator/nes/components/mesen_hd_pack/hd_pack_types.h"
 #include "utility/texture_parser/texture_parser.h"
 
 // Parses and verifies a Mesen texture pack, then creates its renderer.

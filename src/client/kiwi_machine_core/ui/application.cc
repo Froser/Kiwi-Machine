@@ -19,7 +19,12 @@
 
 #include <algorithm>
 
+#if BUILDFLAG(IS_WIN)
+#include <Windows.h>
+#endif
+
 #include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "preset_roms/preset_roms.h"
 #include "ui/application.h"
 #include "ui/application_events.h"
@@ -32,8 +37,6 @@
 #if BUILDFLAG(IS_MAC)
 #include <CoreFoundation/CoreFoundation.h>
 #include "ui/window_base_macos.h"
-#elif BUILDFLAG(IS_WIN)
-#include <Windows.h>
 #elif BUILDFLAG(IS_ANDROID)
 #include <jni.h>
 #include "utility/android/asset.h"
@@ -43,14 +46,8 @@
 
 namespace {
 constexpr int kInitializeSDLImageFailed = -2;
+constexpr int kBatterySaveIntervalMilliseconds = 30000;
 Application* g_app_instance = nullptr;
-
-void OnBackgroundBatterySaveFlushed(bool success) {
-  if (!success) {
-    SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                "Could not save battery-backed data before suspension.");
-  }
-}
 }  // namespace
 
 namespace application_events {
@@ -130,29 +127,39 @@ Application::~Application() {
 void Application::HandlePreEvent(SDL_Event* event) {
   ImGui_ImplSDL2_ProcessEvent(event);
   if (application_events::RequiresBatterySaveFlush(event->type)) {
-    NESRuntime::Data* runtime_data =
-        NESRuntime::GetInstance()->GetDataById(runtime_id_);
-    if (runtime_data) {
-      const bool was_running = runtime_data->emulator->GetRunningState() ==
-                               kiwi::nes::Emulator::RunningState::kRunning;
-      if (event->type == SDL_APP_WILLENTERBACKGROUND && was_running) {
-        resume_emulator_after_background_ = true;
-      }
+    bool was_running = false;
+    if (runtime_) {
+      was_running = runtime_->emulator()->IsRunning();
       if (was_running) {
-        runtime_data->emulator->Pause();
+        runtime_->emulator()->Pause();
       }
-      runtime_data->FlushBatterySave(
-          kiwi::base::BindOnce(&OnBackgroundBatterySaveFlushed));
-      // Export tasks are serviced by the render coroutine. Drain it before the
-      // platform can suspend frame delivery.
-      runtime_data->emulator->RunOneFrame();
+
+      bool flush_completed = false;
+      bool flush_succeeded = false;
+      kiwi::base::RunLoop flush_run_loop;
+      runtime_->FlushBatterySave(kiwi::base::BindOnce(
+          [](bool* completed, bool* succeeded,
+             kiwi::base::RepeatingClosure quit, bool success) {
+            *completed = true;
+            *succeeded = success;
+            quit.Run();
+          },
+          &flush_completed, &flush_succeeded, flush_run_loop.QuitClosure()));
+      if (!flush_completed) {
+        flush_run_loop.Run();
+      }
+      if (!flush_succeeded) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "Could not save battery-backed data before suspension.");
+      }
+    }
+    if (event->type == SDL_APP_WILLENTERBACKGROUND && was_running) {
+      resume_emulator_after_background_ = true;
     }
   } else if (event->type == SDL_APP_DIDENTERFOREGROUND &&
              resume_emulator_after_background_) {
-    NESRuntime::Data* runtime_data =
-        NESRuntime::GetInstance()->GetDataById(runtime_id_);
-    if (runtime_data) {
-      runtime_data->emulator->Run();
+    if (runtime_ && runtime_->emulator()->HasROM()) {
+      runtime_->emulator()->Run();
     }
     resume_emulator_after_background_ = false;
   }
@@ -167,17 +174,14 @@ void Application::HandlePreEvent(SDL_Event* event) {
   }
   quit_pending_ = true;
 
-  NESRuntime::Data* runtime_data =
-      NESRuntime::GetInstance()->GetDataById(runtime_id_);
-  if (!runtime_data) {
+  if (!runtime_) {
     OnPreparedToQuit(true);
     return;
   }
 
-  runtime_data->StopAutoSave();
-  runtime_data->StopBatterySave();
-  runtime_data->UnloadROM(kiwi::base::BindOnce(&Application::OnPreparedToQuit,
-                                               kiwi::base::Unretained(this)));
+  runtime_->StopBatterySave();
+  runtime_->UnloadROM(kiwi::base::BindOnce(&Application::OnPreparedToQuit,
+                                           kiwi::base::Unretained(this)));
 }
 
 void Application::HandleEvent(SDL_Event* event) {
@@ -313,6 +317,12 @@ void Application::OnPreparedToQuit(bool success) {
   if (!success) {
     SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                 "Could not save battery-backed data before quitting.");
+    quit_pending_ = false;
+    if (runtime_) {
+      runtime_->StartBatterySave(
+          kiwi::base::Milliseconds(kBatterySaveIntervalMilliseconds));
+    }
+    return;
   }
   quit_ready_ = true;
   runloop_.QuitClosure().Run();
@@ -336,10 +346,8 @@ uint32_t Application::FindIDFromWindow(WindowBase* window) {
 
 void Application::Render() {
   // Logical frame
-  NESRuntime::Data* runtime_data =
-      NESRuntime::GetInstance()->GetDataById(runtime_id_);
-  if (runtime_data) {
-    runtime_data->emulator->RunOneFrame();
+  if (runtime_) {
+    runtime_->emulator()->RunOneFrame();
   }
 
   // Render frame
@@ -419,27 +427,24 @@ void Application::InitializePackageIndex(
       },
       ui_task_runner, std::move(progress_callback));
 
-  NESRuntime::Data* runtime_data =
-      NESRuntime::GetInstance()->GetDataById(runtime_id_);
-  SDL_assert(runtime_data);
   GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE,
       kiwi::base::BindOnce(
           [](preset_roms::Package* package, kiwi::base::FilePath profile_path,
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
              std::vector<kiwi::base::FilePath> texture_pack_paths,
 #endif
              PackageIndexProgressCallback progress_callback) {
             if (!BuildPackageIndex(package, profile_path, progress_callback)) {
               return false;
             }
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
             InitializeTexturePacksForPackage(package, texture_pack_paths);
 #endif
             return true;
           },
-          kiwi::base::Unretained(package), runtime_data->profile_path,
-#if KIWI_ENABLE_HD_TEXTURE
+          kiwi::base::Unretained(package), profile_path_,
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
           texture_pack_paths_, std::move(io_progress)),
 #else
           std::move(io_progress)),
@@ -589,28 +594,12 @@ void Application::InitializeStyles() {
 }
 
 void Application::InitializeRuntimeAndConfigs() {
-  // Make a kiwi-nes runtime.
-  NESRuntimeID runtime_id = NESRuntime::GetInstance()->CreateData("Default");
-  NESRuntime::Data* runtime_data =
-      NESRuntime::GetInstance()->GetDataById(runtime_id);
-  runtime_data->emulator = kiwi::nes::CreateEmulator();
-  runtime_data->debug_port =
-      std::make_unique<DebugPort>(runtime_data->emulator.get());
-  runtime_id_ = runtime_id;
-
-  // Create configs
-  scoped_refptr<NESConfig> config =
-      kiwi::base::MakeRefCounted<NESConfig>(runtime_data->profile_path);
-
-  // Set key mappings.
-  NESRuntime::Data::ControllerMapping key_mapping1 = {
-      SDLK_j, SDLK_k, SDLK_l, SDLK_RETURN, SDLK_w, SDLK_s, SDLK_a, SDLK_d};
-  NESRuntime::Data::ControllerMapping key_mapping2 = {
-      SDLK_DELETE, SDLK_END,  SDLK_PAGEDOWN, SDLK_HOME,
-      SDLK_UP,     SDLK_DOWN, SDLK_LEFT,     SDLK_RIGHT};
-  runtime_data->keyboard_mappings[0] = key_mapping1;
-  runtime_data->keyboard_mappings[1] = key_mapping2;
-  runtime_data->emulator->PowerOn();
+  profile_path_ = Runtime::GetProfilePath("Default");
+  if (!kiwi::base::PathExists(profile_path_)) {
+    kiwi::base::CreateDirectory(profile_path_);
+  }
+  scoped_refptr<ApplicationConfig> config =
+      kiwi::base::MakeRefCounted<ApplicationConfig>(profile_path_);
   config->LoadConfigAndWait();
   config_ = config;
 }
@@ -622,14 +611,11 @@ void Application::InitializeROMs() {
     OpenPackageFromFile(file_path);
   }
 
-  NESRuntime::Data* runtime_data =
-      NESRuntime::GetInstance()->GetDataById(runtime_id_);
-  SDL_assert(runtime_data);
   for (auto* package : preset_roms::GetPresetOrTestRomsPackages()) {
-    RestorePackageIndexFromCache(package, runtime_data->profile_path);
+    RestorePackageIndexFromCache(package, profile_path_);
   }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   texture_pack_paths_ = GetTexturePackPathList(file_paths);
   InitializeTexturePacks(texture_pack_paths_);
 #endif
@@ -721,7 +707,7 @@ std::vector<kiwi::base::FilePath> Application::GetPackagePathList() {
 #endif
 }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 std::vector<kiwi::base::FilePath> Application::GetTexturePackPathList(
     const std::vector<kiwi::base::FilePath>& package_paths) {
   std::vector<kiwi::base::FilePath> paths;

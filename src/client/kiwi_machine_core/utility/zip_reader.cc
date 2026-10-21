@@ -29,30 +29,20 @@
 #include <unordered_set>
 #include <utility>
 
+#include "base/strings/string_util.h"
+
 #if BUILDFLAG(IS_WIN)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
 #include <windows.h>
-#if defined(min)
-#undef min
-#endif
-#if defined(max)
-#undef max
-#endif
-#if defined(CreateDirectory)
-#undef CreateDirectory
-#endif
 #endif
 
 #include "base/files/file_util.h"
-#include "nes/rom_hash.h"
+#include "emulator/nes/rom_hash.h"
 #include "preset_roms/preset_roms.h"
 #include "third_party/nlohmann_json/json.hpp"
 #include "third_party/zlib-1.3.2/contrib/minizip/unzip.h"
 #include "ui/application.h"
 #include "utility/localization.h"
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 #include "utility/texture_parser/mesen_texture_parser.h"
 #include "utility/texture_parser/texture_resource_provider.h"
 #include "utility/texture_renderer.h"
@@ -67,7 +57,7 @@ constexpr size_t kFileNameMaxLength = 256;
 constexpr int kPackageIndexVersion = 1;
 constexpr size_t kMaximumCachedStringLength = 16 * 1024;
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 using TexturePackIndex = std::unordered_map<std::string, kiwi::base::FilePath>;
 #endif
 
@@ -152,7 +142,7 @@ bool GetCurrentZipFileName(unzFile file, std::string* filename) {
   return true;
 }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 std::unordered_set<std::string> GetZipEntries(unzFile file) {
   std::unordered_set<std::string> entries;
   int located = unzGoToFirstFile(file);
@@ -358,6 +348,7 @@ class PackageImpl : public preset_roms::Package {
               std::map<std::string, std::string>&& titles,
               kiwi::nes::Bytes&& icon,
               kiwi::nes::Bytes&& icon_highlight,
+              preset_roms::PackageType type,
               kiwi::base::FilePath package_path,
               std::string fingerprint,
               std::vector<std::string>&& entry_names,
@@ -369,6 +360,8 @@ class PackageImpl : public preset_roms::Package {
   kiwi::nes::Bytes GetSideMenuImage() override;
   kiwi::nes::Bytes GetSideMenuHighlightImage() override;
   std::string GetTitleForLanguage(SupportedLanguage language) override;
+  preset_roms::PackageType GetType() const override { return type_; }
+  bool IsMainPackage() const override;
 
   bool index_ready() const { return index_ready_; }
   void set_index_ready(bool ready) { index_ready_ = ready; }
@@ -384,6 +377,7 @@ class PackageImpl : public preset_roms::Package {
   std::map<std::string, std::string> titles_;
   kiwi::nes::Bytes icon_;
   kiwi::nes::Bytes icon_highlight_;
+  preset_roms::PackageType type_;
   kiwi::base::FilePath package_path_;
   std::string fingerprint_;
   std::vector<std::string> entry_names_;
@@ -395,6 +389,7 @@ PackageImpl::PackageImpl(std::vector<preset_roms::PresetROM>&& roms,
                          std::map<std::string, std::string>&& titles,
                          kiwi::nes::Bytes&& icon,
                          kiwi::nes::Bytes&& icon_highlight,
+                         preset_roms::PackageType type,
                          kiwi::base::FilePath package_path,
                          std::string fingerprint,
                          std::vector<std::string>&& entry_names,
@@ -403,6 +398,7 @@ PackageImpl::PackageImpl(std::vector<preset_roms::PresetROM>&& roms,
       titles_(std::move(titles)),
       icon_(std::move(icon)),
       icon_highlight_(std::move(icon_highlight)),
+      type_(type),
       package_path_(std::move(package_path)),
       fingerprint_(std::move(fingerprint)),
       entry_names_(std::move(entry_names)),
@@ -426,6 +422,14 @@ kiwi::nes::Bytes PackageImpl::GetSideMenuHighlightImage() {
 
 std::string PackageImpl::GetTitleForLanguage(SupportedLanguage language) {
   return titles_[ToLanguageCode(language)];
+}
+
+bool PackageImpl::IsMainPackage() const {
+  const std::string stem =
+      package_path_.BaseName().RemoveExtension().AsUTF8Unsafe();
+  return kiwi::base::CompareCaseInsensitiveASCII(stem, "main") == 0 ||
+         kiwi::base::EndsWith(stem, "_main",
+                              kiwi::base::CompareCase::INSENSITIVE_ASCII);
 }
 
 bool PackageImpl::ValidateFilePosition(size_t index,
@@ -452,6 +456,10 @@ preset_roms::Region GuessROMRegion(std::string_view filename) {
     return preset_roms::Region::kCN;
   }
   return preset_roms::Region::kUnknown;
+}
+
+const char* GetROMExtension(preset_roms::PackageType type) {
+  return type == preset_roms::PackageType::kGBA ? ".gba" : ".nes";
 }
 
 struct CachedROMMetadata {
@@ -641,6 +649,7 @@ void ApplyCachedMetadata(const CachedROMMetadata& metadata,
                 cached_alternate.name.size() + 1);
     alternate.file_pos = rom->file_pos;
     alternate.zip_data_loader = rom->zip_data_loader;
+    alternate.type = rom->type;
     ApplyCachedMetadata(cached_alternate, &alternate);
     rom->alternates.push_back(std::move(alternate));
   }
@@ -692,7 +701,7 @@ kiwi::nes::Bytes LoadZipDataFromFilePos(scoped_refptr<Unz> f,
   return data;
 }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 std::optional<nlohmann::json> ReadTexturePackManifest(unzFile archive) {
   kiwi::nes::Bytes manifest;
   if (!ReadFileFromZip(archive, "manifest.json", manifest)) {
@@ -809,7 +818,8 @@ TexturePackIndex BuildTexturePackIndex(
 
 void ConfigureTexturePacksForPackage(preset_roms::Package* package,
                                      const TexturePackIndex& pack_by_rom_sha1) {
-  if (!IsPackageIndexReady(package)) {
+  if (package->GetType() != preset_roms::PackageType::kNES ||
+      !IsPackageIndexReady(package)) {
     return;
   }
   for (size_t i = 0; i < package->GetRomsCount(); ++i) {
@@ -903,8 +913,10 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
           rom_data.sha1 = indexed_sha1->second;
         } else {
           kiwi::nes::Bytes rom_contents;
-          if (ReadFileFromZip(file, std::string(rom_data.name) + ".nes",
-                              rom_contents)) {
+          if (ReadFileFromZip(
+                  file,
+                  std::string(rom_data.name) + GetROMExtension(rom_data.type),
+                  rom_contents)) {
             rom_data.sha1 = kiwi::nes::CalculateSha1Hex(rom_contents);
           }
         }
@@ -924,7 +936,8 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
             kiwi::base::FilePath::FromUTF8Unsafe(filename);
         const std::string extension =
             kiwi::base::FilePath(alter_rom_path.Extension()).AsUTF8Unsafe();
-        if (kiwi::base::CompareCaseInsensitiveASCII(extension, ".nes") != 0) {
+        if (kiwi::base::CompareCaseInsensitiveASCII(
+                extension, GetROMExtension(rom_data.type)) != 0) {
           located = unzGoToNextFile(file);
           continue;
         }
@@ -978,6 +991,7 @@ void InitializePresetROM(preset_roms::PresetROM& rom_data) {
         } else {
           preset_roms::PresetROM new_alternative_rom;
           new_alternative_rom.title_loaded = true;
+          new_alternative_rom.type = rom_data.type;
           new_alternative_rom.file_pos = rom_data.file_pos;
           new_alternative_rom.zip_data_loader = rom_data.zip_data_loader;
           new_alternative_rom.sha1 = sha1;
@@ -1021,8 +1035,7 @@ bool RestorePackageIndexFromCache(preset_roms::Package* package,
     return false;
   }
 
-  const char* cache_begin =
-      reinterpret_cast<const char*>(cache_data->data());
+  const char* cache_begin = reinterpret_cast<const char*>(cache_data->data());
   nlohmann::json cache = nlohmann::json::parse(
       cache_begin, cache_begin + cache_data->size(), nullptr, false);
   if (cache.is_discarded() || !cache.is_object()) {
@@ -1157,7 +1170,7 @@ bool IsPackageIndexReady(const preset_roms::Package* package) {
   return static_cast<const PackageImpl*>(package)->index_ready();
 }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 void InitializeTexturePacks(
     const std::vector<kiwi::base::FilePath>& texture_pack_paths) {
   scoped_refptr<kiwi::base::SequencedTaskRunner> io_task_runner =
@@ -1214,14 +1227,15 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
     return result;
   }
 
-  if (!ReadFileFromZip(*archive, std::string(rom_data.name) + ".nes",
-                       result.rom_data)) {
+  if (!ReadFileFromZip(
+          *archive, std::string(rom_data.name) + GetROMExtension(rom_data.type),
+          result.rom_data)) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                  "Failed to get rom data for name %s", rom_data.name);
     return result;
   }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   const bool should_load_texture = !rom_data.hd_texture_path.empty() &&
                                    (rom_data.hd_texture_toggle_available ||
                                     edition == preset_roms::ROMEdition::kHD);
@@ -1260,8 +1274,6 @@ LoadedPresetROM LoadPresetROM(const preset_roms::PresetROM& rom_data,
                  "Failed to load HD texture data for name %s", rom_data.name);
     result.rom_data.clear();
   }
-#else
-  static_cast<void>(edition);
 #endif
   return result;
 }
@@ -1271,6 +1283,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
                             std::map<std::string, std::string>& titles,
                             kiwi::nes::Bytes& icon,
                             kiwi::nes::Bytes& icon_highlight,
+                            preset_roms::PackageType& type,
                             const kiwi::base::FilePath& package,
                             std::string& fingerprint,
                             std::vector<std::string>& entry_names,
@@ -1310,6 +1323,29 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
 
       nlohmann::json manifest_json =
           nlohmann::json::parse(manifest_data.data());
+      const auto manifest_type = manifest_json.find("type");
+      if (manifest_type == manifest_json.end()) {
+        type = preset_roms::PackageType::kNES;
+      } else if (!manifest_type->is_string()) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                     "Package type is not a string: %s",
+                     package.AsUTF8Unsafe().c_str());
+        roms.clear();
+        return;
+      } else {
+        const std::string value = manifest_type->get<std::string>();
+        if (kiwi::base::CompareCaseInsensitiveASCII(value, "nes") == 0) {
+          type = preset_roms::PackageType::kNES;
+        } else if (kiwi::base::CompareCaseInsensitiveASCII(value, "gba") == 0) {
+          type = preset_roms::PackageType::kGBA;
+        } else {
+          SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+                       "Unknown package type '%s': %s", value.c_str(),
+                       package.AsUTF8Unsafe().c_str());
+          roms.clear();
+          return;
+        }
+      }
       const auto& menu_titles = manifest_json.at("titles");
       for (const auto& menu_title : menu_titles.items()) {
         titles.insert({menu_title.key(), menu_title.value()});
@@ -1371,6 +1407,7 @@ void OpenRomDataFromPackage(std::vector<preset_roms::PresetROM>& roms,
   }
 
   for (preset_roms::PresetROM& rom : roms) {
+    rom.type = type;
     const auto hashes = rom_sha1s.find(rom.name);
     if (hashes != rom_sha1s.end()) {
       rom.sha1_by_name = hashes->second;
@@ -1388,14 +1425,15 @@ preset_roms::Package* CreatePackageFromFile(
   std::vector<preset_roms::PresetROM> roms;
   std::map<std::string, std::string> titles;
   kiwi::nes::Bytes icon, icon_highlight;
+  preset_roms::PackageType type = preset_roms::PackageType::kNES;
   std::string fingerprint;
   std::vector<std::string> entry_names;
   scoped_refptr<Unz> archive;
-  OpenRomDataFromPackage(roms, titles, icon, icon_highlight, package_path,
+  OpenRomDataFromPackage(roms, titles, icon, icon_highlight, type, package_path,
                          fingerprint, entry_names, archive);
   preset_roms::Package* package = new PackageImpl(
       std::move(roms), std::move(titles), std::move(icon),
-      std::move(icon_highlight), package_path, std::move(fingerprint),
+      std::move(icon_highlight), type, package_path, std::move(fingerprint),
       std::move(entry_names), std::move(archive));
   return package;
 }

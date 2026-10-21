@@ -15,6 +15,7 @@
 
 #include <SDL.h>
 #include <gflags/gflags.h>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -23,11 +24,18 @@
 
 #define U8(x) (reinterpret_cast<const char*>(u8##x))
 
+enum class ROMSystem {
+  kNES,
+  kGBA,
+};
+
 class ROMWindow;
 struct ROM {
   friend class ROMWindow;
 
   static constexpr size_t MAX = 128;
+
+  ROMSystem system = ROMSystem::kNES;
 
   // Title
   std::string key;
@@ -39,8 +47,8 @@ struct ROM {
   // Cover (boxart)
   std::vector<uint8_t> boxart_data;
 
-  std::vector<uint8_t> nes_data;
-  char nes_file_name[MAX]{0};
+  std::vector<uint8_t> rom_data;
+  char rom_file_name[MAX]{0};
 
   bool has_boxarts_size_hint = false;
 
@@ -52,30 +60,38 @@ using ROMS = std::vector<ROM>;
 
 bool IsZipExtension(const std::string& filename);
 bool IsJPEGExtension(const std::string& filename);
-bool IsNESExtension(const std::string& filename);
+bool IsROMExtension(const std::string& filename, ROMSystem system);
+std::optional<ROMSystem> GetROMSystemForExtension(const std::string& filename);
+const char* GetROMSystemName(ROMSystem system);
+const char* GetROMExtension(ROMSystem system);
 
 void ReplaceAndAppendUnsafe(char* original_string,
                             const std::vector<const char*>& replacements,
                             const char* append_string);
 
-[[nodiscard]] ROMS ReadZipFromFile(const kiwi::base::FilePath& path);
+[[nodiscard]] ROMS ReadZipFromFile(
+    const kiwi::base::FilePath& path,
+    std::optional<ROMSystem> expected_system = std::nullopt);
 kiwi::base::FilePath WriteZip(const kiwi::base::FilePath& save_dir,
                               const ROMS& roms);
 std::vector<kiwi::base::FilePath> PackZip(
     const std::vector<std::pair<kiwi::base::FilePath,
                                 kiwi::base::FilePath::StringType>>& rom_zips,
-    const kiwi::base::FilePath& save_dir);
+    const kiwi::base::FilePath& save_dir,
+    ROMSystem system = ROMSystem::kNES);
 kiwi::base::FilePath PackZip(
     const kiwi::base::FilePath& rom_zip,
     const kiwi::base::FilePath::StringType& package_name,
-    const kiwi::base::FilePath& save_dir);
+    const kiwi::base::FilePath& save_dir,
+    ROMSystem system = ROMSystem::kNES);
 // Packs the entire directory.
 // If the root contains manifest.json, uses it. Otherwise, use a template
 // manifest.json for testing. If the root contains subdirectories, it will
 // generate its package as well.
 std::vector<kiwi::base::FilePath> PackEntireDirectory(
     const kiwi::base::FilePath& dir,
-    const kiwi::base::FilePath& save_dir);
+    const kiwi::base::FilePath& save_dir,
+    ROMSystem system = ROMSystem::kNES);
 kiwi::base::FilePath WriteROM(const char* filename,
                               const std::vector<uint8_t>& data,
                               const kiwi::base::FilePath& dir);
@@ -99,6 +115,7 @@ void RunExecutable(const kiwi::base::FilePath& executable,
 #endif
 
 std::vector<uint8_t> TryFetchBoxArtImage(const std::string& name,
+                                         ROMSystem system,
                                          kiwi::base::FilePath* suggested_url);
 std::string TryGetPinyin(const std::string& chinese);
 std::string TryGetKana(const std::string& kanji);
@@ -113,7 +130,8 @@ std::vector<uint8_t> ReadImageAsJPGFromImageData(int width,
                                                  size_t bytes_per_row,
                                                  unsigned char* data);
 void PackSingleZipAndRun(const kiwi::base::FilePath& zip,
-                         const kiwi::base::FilePath& save_dir);
+                         const kiwi::base::FilePath& save_dir,
+                         ROMSystem system);
 
 // Explorer
 struct Explorer {
@@ -139,15 +157,17 @@ struct Explorer {
 
 void InitializeExplorerFiles(const kiwi::base::FilePath& input_dir,
                              const kiwi::base::FilePath& cmp_dir,
+                             ROMSystem system,
                              std::vector<Explorer::File>& out);
 void UpdateExplorerFiles(const kiwi::base::FilePath& updated_zip_file,
+                         ROMSystem system,
                          std::vector<Explorer::File>& files);
 void UpdateMarks(const kiwi::base::FilePath& save_dir,
                  const std::vector<Explorer::File>& files);
 
 // Some roms may have special naming rules:
-// XXX, The (USA).nes, XXX, A (USA).nes will be adjusted into two possible
-// names: The XXX (USA).nes, A XXX (USA).nes
+// XXX, The (USA).<ext>, XXX, A (USA).<ext> will be adjusted into two possible
+// names: The XXX (USA).<ext>, A XXX (USA).<ext>.
 // Returns the suggested normalized rom title. Always use the first one if
 // possible.
 std::vector<std::string> NormalizeROMTitle(const std::string& title);

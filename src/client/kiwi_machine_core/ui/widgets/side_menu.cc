@@ -14,9 +14,11 @@
 #include "build/build_config.h"
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
+#include <cmath>
 
-#include "models/nes_runtime.h"
+#include "models/nes/runtime.h"
 #include "ui/main_window.h"
 #include "ui/styles.h"
 #include "utility/audio_effects.h"
@@ -32,6 +34,7 @@ const int kItemMarginBottom = styles::side_menu::GetMarginBottom();
 constexpr ImVec2 kItemSpacing(3, 10);
 constexpr int kItemAnimationMs = 50;
 constexpr int kHoverAnimationMs = 180;
+constexpr int kSystemToggleAnimationMs = 150;
 constexpr int kPointerCollapseDelayMs = 120;
 #if BUILDFLAG(IS_SWITCH)
 constexpr int kIconInset = 24;
@@ -53,6 +56,17 @@ constexpr ImU32 kSelectedBackgroundColor = IM_COL32(216, 245, 162, 255);
 constexpr ImU32 kHoverFillColor = IM_COL32(233, 250, 200, 255);
 constexpr ImU32 kAccentColor = IM_COL32(116, 184, 22, 255);
 constexpr ImU32 kAccentTextColor = IM_COL32(92, 148, 13, 255);
+constexpr ImU32 kGBABackgroundColor = IM_COL32(242, 241, 248, 255);
+constexpr ImU32 kGBABorderColor = IM_COL32(81, 70, 155, 255);
+constexpr ImU32 kGBADividerColor = IM_COL32(224, 222, 242, 255);
+constexpr ImU32 kGBASelectedBackgroundColor = IM_COL32(224, 222, 242, 255);
+constexpr ImU32 kGBAHoverFillColor = IM_COL32(234, 232, 247, 255);
+constexpr ImU32 kGBAAccentColor = IM_COL32(81, 70, 155, 255);
+constexpr ImU32 kGBAAccentTextColor = IM_COL32(71, 61, 139, 255);
+#if BUILDFLAG(IS_SWITCH)
+constexpr Sint16 kSystemToggleTriggerThreshold = 16000;
+constexpr Sint16 kSystemToggleTriggerReleaseThreshold = 8000;
+#endif
 const PreferredFontSize kPreferredFontSize(
     styles::side_menu::GetPreferredFontSize());
 
@@ -93,11 +107,15 @@ ImVec2 MeasureText(const ScopedFont& font, const char* text) {
                                        text);
 }
 
+float EaseOutCubic(float progress) {
+  progress = std::clamp(progress, 0.f, 1.f);
+  return 1.f - std::pow(1.f - progress, 3.f);
+}
+
 }  // namespace
 
-SideMenu::SideMenu(MainWindow* main_window, NESRuntimeID runtime_id)
+SideMenu::SideMenu(MainWindow* main_window)
     : Widget(main_window), main_window_(main_window) {
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
   set_flags(ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs);
   set_title("SideMenu");
@@ -125,17 +143,32 @@ void SideMenu::Paint() {
   UpdateHoverState();
   UpdateHoverAnimations();
 
+  const bool is_gba = IsGBASystemSelected();
+  const ImU32 background_color =
+      is_gba ? kGBABackgroundColor : kBackgroundColor;
+  const ImU32 border_color = is_gba ? kGBABorderColor : kBorderColor;
+  const ImU32 divider_color = is_gba ? kGBADividerColor : kDividerColor;
+  const ImU32 selected_background_color =
+      is_gba ? kGBASelectedBackgroundColor : kSelectedBackgroundColor;
+  const ImU32 hover_fill_color = is_gba ? kGBAHoverFillColor : kHoverFillColor;
+  const ImU32 accent_color = is_gba ? kGBAAccentColor : kAccentColor;
+  const ImU32 accent_text_color =
+      is_gba ? kGBAAccentTextColor : kAccentTextColor;
+
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   const SDL_Rect kBoundsToWindow = MapToWindow(bounds());
   draw_list->AddRectFilled(ImVec2(kBoundsToWindow.x, kBoundsToWindow.y),
                            ImVec2(kBoundsToWindow.x + kBoundsToWindow.w,
                                   kBoundsToWindow.y + kBoundsToWindow.h),
-                           kBackgroundColor);
+                           background_color);
   draw_list->AddLine(
       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w - 1, kBoundsToWindow.y),
       ImVec2(kBoundsToWindow.x + kBoundsToWindow.w - 1,
              kBoundsToWindow.y + kBoundsToWindow.h),
-      kBorderColor);
+      border_color);
+
+  PaintSystemToggle(draw_list, divider_color, hover_fill_color, accent_color,
+                    accent_text_color);
 
   for (int i = 0; i < button_items_.size(); ++i) {
     const SDL_Rect button_bounds =
@@ -149,21 +182,35 @@ void SideMenu::Paint() {
 #else
     const int kIconLeft = button_bounds.x + SCALED(kIconInset);
 #endif
-    const float hover_opacity = button_hover_opacities_[i];
+    const bool selected = button_items_[i].callbacks.is_selected &&
+                          button_items_[i].callbacks.is_selected.Run();
+    const float hover_opacity = selected ? 0.f : button_hover_opacities_[i];
 
-    if (hover_opacity > 0.f) {
+    if (selected) {
       draw_list->AddRectFilled(ImVec2(button_bounds.x, button_bounds.y),
                                ImVec2(button_bounds.x + button_bounds.w,
                                       button_bounds.y + button_bounds.h),
-                               ColorWithOpacity(kHoverFillColor, hover_opacity),
-                               SCALED(4));
+                               selected_background_color);
+      const int accent_height = static_cast<int>(button_bounds.h * .56f);
+      const int accent_top =
+          button_bounds.y + (button_bounds.h - accent_height) / 2;
+      draw_list->AddRectFilled(
+          ImVec2(button_bounds.x, accent_top),
+          ImVec2(button_bounds.x + SCALED(3), accent_top + accent_height),
+          accent_color, SCALED(2), ImDrawFlags_RoundCornersRight);
+    } else if (hover_opacity > 0.f) {
+      draw_list->AddRectFilled(
+          ImVec2(button_bounds.x, button_bounds.y),
+          ImVec2(button_bounds.x + button_bounds.w,
+                 button_bounds.y + button_bounds.h),
+          ColorWithOpacity(hover_fill_color, hover_opacity), SCALED(4));
     }
 
     draw_list->AddLine(
         ImVec2(button_bounds.x, button_bounds.y + button_bounds.h - 1),
         ImVec2(button_bounds.x + button_bounds.w,
                button_bounds.y + button_bounds.h - 1),
-        kDividerColor);
+        divider_color);
 
     if (expanded()) {
       std::string contents =
@@ -177,9 +224,9 @@ void SideMenu::Paint() {
           button_bounds.x + button_bounds.w - SCALED(kTextSpacing),
           button_bounds.y + button_bounds.h);
       draw_list->AddText(
-          font.GetFont(), GetFontRenderSize(font),
-          ImVec2(text_left, text_top),
-          BlendColor(kTextColor, kAccentTextColor, hover_opacity),
+          font.GetFont(), GetFontRenderSize(font), ImVec2(text_left, text_top),
+          selected ? accent_text_color
+                   : BlendColor(kTextColor, accent_text_color, hover_opacity),
           contents.c_str(), nullptr, 0.f, &text_clip);
     }
 
@@ -190,18 +237,22 @@ void SideMenu::Paint() {
         ImVec2(kIconLeft, kIconTop),
         ImVec2(kIconLeft + kIconSize, kIconTop + kIconSize), ImVec2(0, 0),
         ImVec2(1, 1),
-        BlendColor(kMutedIconColor, kAccentTextColor, hover_opacity));
+        selected
+            ? accent_text_color
+            : BlendColor(kMutedIconColor, accent_text_color, hover_opacity));
   }
 
   for (int i = menu_items_.size() - 1; i >= 0; --i) {
+    if (!IsMenuVisible(i))
+      continue;
+
     const SDL_Rect global_item_rect =
         MapLocalBoundsToWindow(items_bounds_map_[i]);
     const int kIconSize = kIconSizeScale * global_item_rect.h;
 #if BUILDFLAG(IS_SWITCH)
     const int kIconLeft =
         expanded() ? global_item_rect.x + kIconInset
-                   : global_item_rect.x +
-                         (global_item_rect.w - kIconSize) / 2;
+                   : global_item_rect.x + (global_item_rect.w - kIconSize) / 2;
 #else
     const int kIconLeft = global_item_rect.x + SCALED(kIconInset);
 #endif
@@ -215,11 +266,11 @@ void SideMenu::Paint() {
     const bool selected = i == current_index_;
     const float hover_opacity = selected ? 0.f : menu_hover_opacities_[i];
     if (hover_opacity > 0.f) {
-      draw_list->AddRectFilled(ImVec2(global_item_rect.x, global_item_rect.y),
-                               ImVec2(global_item_rect.x + global_item_rect.w,
-                                      global_item_rect.y + global_item_rect.h),
-                               ColorWithOpacity(kHoverFillColor, hover_opacity),
-                               SCALED(4));
+      draw_list->AddRectFilled(
+          ImVec2(global_item_rect.x, global_item_rect.y),
+          ImVec2(global_item_rect.x + global_item_rect.w,
+                 global_item_rect.y + global_item_rect.h),
+          ColorWithOpacity(hover_fill_color, hover_opacity), SCALED(4));
     }
 
     if (selected) {
@@ -245,7 +296,7 @@ void SideMenu::Paint() {
           ImVec2(global_selection_rect.x, global_selection_rect.y),
           ImVec2(global_selection_rect.x + global_selection_rect.w,
                  global_selection_rect.y + global_selection_rect.h),
-          kSelectedBackgroundColor);
+          selected_background_color);
       const int accent_height =
           static_cast<int>(global_selection_rect.h * .56f);
       const int accent_top = global_selection_rect.y +
@@ -253,7 +304,7 @@ void SideMenu::Paint() {
       draw_list->AddRectFilled(ImVec2(global_selection_rect.x, accent_top),
                                ImVec2(global_selection_rect.x + SCALED(3),
                                       accent_top + accent_height),
-                               kAccentColor, SCALED(2),
+                               accent_color, SCALED(2),
                                ImDrawFlags_RoundCornersRight);
 
       if (expanded()) {
@@ -268,7 +319,7 @@ void SideMenu::Paint() {
                 SCALED(kTextSpacing),
             global_target_selection_rect.y + global_target_selection_rect.h);
         draw_list->AddText(font.GetFont(), GetFontRenderSize(font),
-                           ImVec2(text_left, text_top), kAccentTextColor,
+                           ImVec2(text_left, text_top), accent_text_color,
                            menu_content.c_str(), nullptr, 0.f, &text_clip);
       }
     } else if (expanded()) {
@@ -282,22 +333,22 @@ void SideMenu::Paint() {
           global_item_rect.x + global_item_rect.w - SCALED(kTextSpacing),
           global_item_rect.y + global_item_rect.h);
       draw_list->AddText(
-          font.GetFont(), GetFontRenderSize(font),
-          ImVec2(text_left, text_top),
-          BlendColor(kTextColor, kAccentTextColor, hover_opacity),
+          font.GetFont(), GetFontRenderSize(font), ImVec2(text_left, text_top),
+          BlendColor(kTextColor, accent_text_color, hover_opacity),
           menu_content.c_str(), nullptr, 0.f, &text_clip);
     }
 
     // Use the monochrome source for every state and tint it consistently.
     SDL_Texture* icon_texture =
         GetImage(window()->renderer(), menu_items_[i].icon);
-    draw_list->AddImage(reinterpret_cast<ImTextureID>(icon_texture),
-                        ImVec2(kIconLeft, kIconTop),
-                        ImVec2(kIconLeft + kIconSize, kIconTop + kIconSize),
-                        ImVec2(0, 0), ImVec2(1, 1),
-                        selected ? kAccentTextColor
-                                 : BlendColor(kMutedIconColor, kAccentTextColor,
-                                              hover_opacity));
+    draw_list->AddImage(
+        reinterpret_cast<ImTextureID>(icon_texture),
+        ImVec2(kIconLeft, kIconTop),
+        ImVec2(kIconLeft + kIconSize, kIconTop + kIconSize), ImVec2(0, 0),
+        ImVec2(1, 1),
+        selected
+            ? accent_text_color
+            : BlendColor(kMutedIconColor, accent_text_color, hover_opacity));
   }
 }
 
@@ -331,6 +382,176 @@ void SideMenu::AddButton(std::unique_ptr<LocalizedStringUpdater> string_updater,
   button_items_.push_back(ButtonItem(std::move(string_updater), icon,
                                      std::move(callbacks), hotkey,
                                      controller_hotkey));
+}
+
+void SideMenu::SetSystemToggle(
+    std::unique_ptr<LocalizedStringUpdater> nes_string_updater,
+    std::unique_ptr<LocalizedStringUpdater> gba_string_updater,
+    image_resources::ImageID nes_icon,
+    image_resources::ImageID gba_icon,
+    SystemToggleCallbacks callbacks) {
+  system_toggle_ = std::make_unique<SystemToggleItem>();
+  system_toggle_->nes_string_updater = std::move(nes_string_updater);
+  system_toggle_->gba_string_updater = std::move(gba_string_updater);
+  system_toggle_->nes_icon = nes_icon;
+  system_toggle_->gba_icon = gba_icon;
+  system_toggle_->callbacks = std::move(callbacks);
+  system_toggle_animation_initialized_ = false;
+  invalidate();
+}
+
+void SideMenu::PaintSystemToggle(ImDrawList* draw_list,
+                                 ImU32 divider_color,
+                                 ImU32 hover_fill_color,
+                                 ImU32 accent_color,
+                                 ImU32 accent_text_color) {
+  if (!system_toggle_)
+    return;
+
+  const SDL_Rect toggle_bounds = MapLocalBoundsToWindow(system_toggle_bounds_);
+  if (SDL_RectEmpty(&toggle_bounds))
+    return;
+
+  if (system_toggle_focused_ && activate_) {
+    draw_list->AddRectFilled(ImVec2(toggle_bounds.x, toggle_bounds.y),
+                             ImVec2(toggle_bounds.x + toggle_bounds.w,
+                                    toggle_bounds.y + toggle_bounds.h),
+                             ColorWithOpacity(accent_color, .14f), SCALED(4));
+    const int accent_height = static_cast<int>(toggle_bounds.h * .56f);
+    const int accent_top =
+        toggle_bounds.y + (toggle_bounds.h - accent_height) / 2;
+    draw_list->AddRectFilled(
+        ImVec2(toggle_bounds.x, accent_top),
+        ImVec2(toggle_bounds.x + SCALED(3), accent_top + accent_height),
+        accent_color, SCALED(2), ImDrawFlags_RoundCornersRight);
+  } else if (system_toggle_hover_opacity_ > 0.f) {
+    draw_list->AddRectFilled(
+        ImVec2(toggle_bounds.x, toggle_bounds.y),
+        ImVec2(toggle_bounds.x + toggle_bounds.w,
+               toggle_bounds.y + toggle_bounds.h),
+        ColorWithOpacity(hover_fill_color, system_toggle_hover_opacity_),
+        SCALED(4));
+  }
+
+  const bool is_gba = IsGBASystemSelected();
+  if (!system_toggle_animation_initialized_) {
+    system_toggle_animation_initialized_ = true;
+    system_toggle_animation_from_gba_ = is_gba;
+    system_toggle_last_gba_ = is_gba;
+  } else if (system_toggle_last_gba_ != is_gba) {
+    system_toggle_animation_from_gba_ = system_toggle_last_gba_;
+    system_toggle_last_gba_ = is_gba;
+    system_toggle_animation_timer_.Reset();
+  }
+  const float animation_progress =
+      EaseOutCubic(system_toggle_animation_timer_.ElapsedInMilliseconds() /
+                   static_cast<float>(kSystemToggleAnimationMs));
+  const float selection_progress =
+      Lerp(system_toggle_animation_from_gba_ ? 1.f : 0.f, is_gba ? 1.f : 0.f,
+           animation_progress);
+
+#if BUILDFLAG(IS_SWITCH)
+  constexpr int kExpandedControlWidth = 220;
+  constexpr int kExpandedControlHeight = 42;
+  constexpr int kCollapsedControlWidth = 72;
+  constexpr int kCollapsedControlHeight = 36;
+#elif BUILDFLAG(IS_ANDROID)
+  constexpr int kExpandedControlWidth = 220;
+  constexpr int kExpandedControlHeight = 44;
+  constexpr int kCollapsedControlWidth = 72;
+  constexpr int kCollapsedControlHeight = 36;
+#else
+  const int kExpandedControlWidth = SCALED(122);
+  const int kExpandedControlHeight = SCALED(28);
+  const int kCollapsedControlWidth = SCALED(36);
+  const int kCollapsedControlHeight = SCALED(24);
+#endif
+
+  const int control_width =
+      std::min(expanded() ? kExpandedControlWidth : kCollapsedControlWidth,
+               toggle_bounds.w - SCALED(kItemSpacing.x) * 2);
+  const int control_height =
+      std::min(expanded() ? kExpandedControlHeight : kCollapsedControlHeight,
+               toggle_bounds.h - SCALED(6));
+  const int control_left =
+      toggle_bounds.x + (toggle_bounds.w - control_width) / 2;
+  const int control_top =
+      toggle_bounds.y + (toggle_bounds.h - control_height) / 2;
+  const int first_segment_width = control_width / 2;
+  const float control_radius = SCALED(6);
+
+  draw_list->AddRectFilled(
+      ImVec2(control_left, control_top),
+      ImVec2(control_left + control_width, control_top + control_height),
+      divider_color, control_radius);
+  draw_list->AddRect(
+      ImVec2(control_left, control_top),
+      ImVec2(control_left + control_width, control_top + control_height),
+      ColorWithOpacity(accent_color, .45f), control_radius);
+
+  const float selection_left =
+      Lerp(static_cast<float>(control_left),
+           static_cast<float>(control_left + first_segment_width),
+           selection_progress);
+  draw_list->AddRectFilled(
+      ImVec2(selection_left + SCALED(2), control_top + SCALED(2)),
+      ImVec2(selection_left + first_segment_width - SCALED(2),
+             control_top + control_height - SCALED(2)),
+      ColorWithOpacity(accent_color, .2f), SCALED(4));
+  draw_list->AddLine(
+      ImVec2(control_left + first_segment_width, control_top + SCALED(5)),
+      ImVec2(control_left + first_segment_width,
+             control_top + control_height - SCALED(5)),
+      ColorWithOpacity(accent_color, .28f));
+
+  if (expanded()) {
+    const std::array<std::string, 2> labels = {
+        system_toggle_->nes_string_updater->GetLocalizedString(),
+        system_toggle_->gba_string_updater->GetLocalizedString()};
+    ScopedFont nes_font = GetPreferredFont(
+        kPreferredFontSize, labels[0].c_str(), FontType::kSystemDefault);
+    ScopedFont gba_font = GetPreferredFont(
+        kPreferredFontSize, labels[1].c_str(), FontType::kSystemDefault);
+    ScopedFont* fonts[] = {&nes_font, &gba_font};
+    for (size_t i = 0; i < labels.size(); ++i) {
+      const int segment_left = control_left + first_segment_width * i;
+      const int segment_width =
+          i == 0 ? first_segment_width : control_width - first_segment_width;
+      const float font_size = GetFontRenderSize(*fonts[i]);
+      const ImVec2 text_size = fonts[i]->GetFont()->CalcTextSizeA(
+          font_size, FLT_MAX, 0.f, labels[i].c_str());
+      const bool selected = is_gba == (i == 1);
+      draw_list->AddText(
+          fonts[i]->GetFont(), font_size,
+          ImVec2(segment_left + (segment_width - text_size.x) / 2,
+                 control_top + (control_height - text_size.y) / 2),
+          selected ? accent_text_color : kTextColor, labels[i].c_str());
+    }
+  } else {
+    const std::array<image_resources::ImageID, 2> icons = {
+        system_toggle_->nes_icon, system_toggle_->gba_icon};
+    const int icon_size = static_cast<int>(control_height * .54f);
+    for (size_t i = 0; i < icons.size(); ++i) {
+      const int segment_left = control_left + first_segment_width * i;
+      const int segment_width =
+          i == 0 ? first_segment_width : control_width - first_segment_width;
+      const int icon_left = segment_left + (segment_width - icon_size) / 2;
+      const int icon_top = control_top + (control_height - icon_size) / 2;
+      const bool selected = is_gba == (i == 1);
+      SDL_Texture* icon_texture = GetImage(window()->renderer(), icons[i]);
+      draw_list->AddImage(reinterpret_cast<ImTextureID>(icon_texture),
+                          ImVec2(icon_left, icon_top),
+                          ImVec2(icon_left + icon_size, icon_top + icon_size),
+                          ImVec2(0, 0), ImVec2(1, 1),
+                          selected ? accent_text_color : kMutedIconColor);
+    }
+  }
+
+  draw_list->AddLine(
+      ImVec2(toggle_bounds.x, toggle_bounds.y + toggle_bounds.h - 1),
+      ImVec2(toggle_bounds.x + toggle_bounds.w,
+             toggle_bounds.y + toggle_bounds.h - 1),
+      divider_color);
 }
 
 int SideMenu::GetSuggestedCollapsedWidth() {
@@ -371,6 +592,7 @@ void SideMenu::UpdateHoverState() {
 #else
   int hovered_menu_index = -1;
   int hovered_button_index = -1;
+  bool system_toggle_hovered = false;
   const ImVec2 mouse_position = ImGui::GetIO().MousePos;
   const int mouse_x = static_cast<int>(mouse_position.x);
   const int mouse_y = static_cast<int>(mouse_position.y);
@@ -380,12 +602,18 @@ void SideMenu::UpdateHoverState() {
   if (pointer_inside) {
     FindItemIndexByMousePosition(mouse_x, mouse_y, hovered_menu_index);
     if (hovered_menu_index < 0) {
-      for (int i = 0; i < buttons_bounds_map_.size(); ++i) {
-        const SDL_Rect button_bounds =
-            MapLocalBoundsToWindow(buttons_bounds_map_[i]);
-        if (Contains(button_bounds, mouse_x, mouse_y)) {
-          hovered_button_index = i;
-          break;
+      const SDL_Rect toggle_bounds =
+          MapLocalBoundsToWindow(system_toggle_bounds_);
+      system_toggle_hovered =
+          system_toggle_ && Contains(toggle_bounds, mouse_x, mouse_y);
+      if (!system_toggle_hovered) {
+        for (int i = 0; i < buttons_bounds_map_.size(); ++i) {
+          const SDL_Rect button_bounds =
+              MapLocalBoundsToWindow(buttons_bounds_map_[i]);
+          if (Contains(button_bounds, mouse_x, mouse_y)) {
+            hovered_button_index = i;
+            break;
+          }
         }
       }
     }
@@ -413,6 +641,7 @@ void SideMenu::UpdateHoverState() {
   pointer_inside_ = pointer_inside;
   hovered_menu_index_ = hovered_menu_index;
   hovered_button_index_ = hovered_button_index;
+  system_toggle_hovered_ = system_toggle_hovered;
 #endif
 }
 
@@ -433,11 +662,13 @@ void SideMenu::UpdateHoverAnimations() {
   };
 
   for (int i = 0; i < menu_hover_opacities_.size(); ++i) {
-    update_opacity(menu_hover_opacities_[i],
-                   i == hovered_menu_index_ && i != current_index_);
+    update_opacity(menu_hover_opacities_[i], IsMenuVisible(i) &&
+                                                 i == hovered_menu_index_ &&
+                                                 i != current_index_);
   }
   for (int i = 0; i < button_hover_opacities_.size(); ++i)
     update_opacity(button_hover_opacities_[i], i == hovered_button_index_);
+  update_opacity(system_toggle_hover_opacity_, system_toggle_hovered_);
 }
 
 bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
@@ -446,43 +677,58 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
     return false;
 
   if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kUp, k) ||
+          main_window_->runtime(), kiwi::nes::ControllerButton::kUp, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_UP) {
-    int next_index = (current_index_ <= 0 ? 0 : current_index_ - 1);
-    if (next_index != current_index_) {
+    if (system_toggle_focused_)
+      return true;
+    const int next_index = FindVisibleMenu(current_index_ - 1, -1);
+    if (next_index >= 0) {
       SetIndex(next_index);
+    } else if (system_toggle_) {
+      PlayEffect(audio_resources::AudioID::kSelect);
+      system_toggle_focused_ = true;
     }
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kDown, k) ||
+          main_window_->runtime(), kiwi::nes::ControllerButton::kDown, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
-    int next_index =
-        (current_index_ >= menu_items_.size() - 1 ? current_index_
-                                                  : current_index_ + 1);
-    if (next_index != current_index_) {
+    if (system_toggle_focused_) {
+      const int first_index = FindVisibleMenu(0, 1);
+      if (first_index >= 0)
+        SetIndex(first_index);
+      return true;
+    }
+    const int next_index = FindVisibleMenu(current_index_ + 1, 1);
+    if (next_index >= 0) {
       SetIndex(next_index);
     }
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kRight, k) ||
+          main_window_->runtime(), kiwi::nes::ControllerButton::kRight, k) ||
       c && c->button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
     if (activate_) {
-      EnterIndex(current_index_);
+      if (system_toggle_focused_)
+        main_window_->ChangeFocus(MainWindow::MainFocus::kContents);
+      else
+        EnterIndex(current_index_);
     }
     return true;
   }
 
   if (IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kA, k) ||
+          main_window_->runtime(), kiwi::nes::ControllerButton::kA, k) ||
       IsKeyboardOrControllerAxisMotionMatch(
-          runtime_data_, kiwi::nes::ControllerButton::kStart, k) ||
+          main_window_->runtime(), kiwi::nes::ControllerButton::kStart, k) ||
       IsGameSelectionConfirmButton(c)) {
     if (activate_) {
-      TriggerCurrentItem();
+      if (system_toggle_focused_)
+        TriggerSystemToggle();
+      else
+        TriggerCurrentItem();
     }
     return true;
   }
@@ -499,7 +745,16 @@ bool SideMenu::HandleInputEvent(SDL_KeyboardEvent* k,
   return false;
 }
 
-bool SideMenu::HandleMouseOrFingerDown() {
+bool SideMenu::HandleMouseOrFingerDown(int x_in_window, int y_in_window) {
+  const SDL_Rect toggle_bounds = MapLocalBoundsToWindow(system_toggle_bounds_);
+  if (system_toggle_ && Contains(toggle_bounds, x_in_window, y_in_window)) {
+    mouse_locked_ = true;
+    system_toggle_press_pending_ = true;
+    if (activate_)
+      system_toggle_focused_ = true;
+    return true;
+  }
+
   if (!activate_) {
 #if !BUILDFLAG(IS_MOBILE)
     if (pointer_expanded_) {
@@ -519,6 +774,18 @@ bool SideMenu::HandleMouseOrFingerDown() {
 bool SideMenu::HandleMouseOrFingerUp(MouseButton button,
                                      int x_in_window,
                                      int y_in_window) {
+  if (system_toggle_press_pending_) {
+    const SDL_Rect toggle_bounds =
+        MapLocalBoundsToWindow(system_toggle_bounds_);
+    if (button == MouseButton::kLeftButton &&
+        Contains(toggle_bounds, x_in_window, y_in_window)) {
+      TriggerSystemToggle();
+    }
+    system_toggle_press_pending_ = false;
+    mouse_locked_ = false;
+    return true;
+  }
+
   if ((activate_ || pointer_expanded_) && mouse_locked_) {
     if (button == MouseButton::kLeftButton) {
       int index = 0;
@@ -553,6 +820,12 @@ void SideMenu::Layout() {
   const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
 
   int y = local_bounds.y + SCALED(kItemMarginBottom);
+  if (system_toggle_) {
+    system_toggle_bounds_ = SDL_Rect{item_x, y, item_width, button_height};
+    y += button_height;
+  } else {
+    system_toggle_bounds_ = SDL_Rect{};
+  }
   for (size_t i = 0; i < button_items_.size(); ++i) {
     buttons_bounds_map_[i] = SDL_Rect{item_x, y, item_width, button_height};
     y += button_height;
@@ -560,6 +833,10 @@ void SideMenu::Layout() {
 
   y = local_bounds.y + local_bounds.h - SCALED(kItemMarginBottom) - item_height;
   for (int i = static_cast<int>(menu_items_.size()) - 1; i >= 0; --i) {
+    if (!IsMenuVisible(i)) {
+      items_bounds_map_[i] = SDL_Rect{};
+      continue;
+    }
     items_bounds_map_[i] = SDL_Rect{item_x, y, item_width, item_height};
     y -= item_height;
   }
@@ -568,7 +845,10 @@ void SideMenu::Layout() {
 }
 
 void SideMenu::SetIndex(int index) {
+  if (!IsMenuVisible(index))
+    return;
   PlayEffect(audio_resources::AudioID::kSelect);
+  system_toggle_focused_ = false;
   current_index_ = index;
   timer_.Reset();
 }
@@ -581,6 +861,8 @@ SDL_Rect SideMenu::MapLocalBoundsToWindow(const SDL_Rect& local_bounds) {
 }
 
 void SideMenu::EnterIndex(int index) {
+  if (!IsMenuVisible(index))
+    return;
   SetIndex(triggered_index_);
   menu_items_[index].callbacks.enter_callback.Run();
   if (activate_)
@@ -588,9 +870,40 @@ void SideMenu::EnterIndex(int index) {
 }
 
 void SideMenu::TriggerCurrentItem() {
+  if (!IsMenuVisible(current_index_))
+    return;
   triggered_index_ = current_index_;
   menu_items_[current_index_].callbacks.trigger_callback.Run(triggered_index_);
   menu_items_[current_index_].callbacks.enter_callback.Run();
+}
+
+void SideMenu::TriggerSystemToggle(int direction) {
+  if (!system_toggle_ || !system_toggle_->callbacks.cycle_callback)
+    return;
+  PlayEffect(audio_resources::AudioID::kSelect);
+  system_toggle_->callbacks.cycle_callback.Run(direction);
+}
+
+bool SideMenu::IsGBASystemSelected() const {
+  return system_toggle_ && system_toggle_->callbacks.is_gba_selected &&
+         system_toggle_->callbacks.is_gba_selected.Run();
+}
+
+bool SideMenu::IsMenuVisible(int index) const {
+  if (index < 0 || index >= static_cast<int>(menu_items_.size()))
+    return false;
+  const MenuCallbacks& callbacks = menu_items_[index].callbacks;
+  return !callbacks.is_visible || callbacks.is_visible.Run();
+}
+
+int SideMenu::FindVisibleMenu(int start, int step) const {
+  for (int index = start;
+       index >= 0 && index < static_cast<int>(menu_items_.size());
+       index += step) {
+    if (IsMenuVisible(index))
+      return index;
+  }
+  return -1;
 }
 
 bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
@@ -599,6 +912,8 @@ bool SideMenu::FindItemIndexByMousePosition(int x_in_window,
   // There's no intersection between each item's bounds, so we can find the
   // target item easily
   for (int i = 0; i < items_bounds_map_.size(); ++i) {
+    if (!IsMenuVisible(i))
+      continue;
     SDL_Rect bounds_to_window = MapLocalBoundsToWindow(items_bounds_map_[i]);
     if (Contains(bounds_to_window, x_in_window, y_in_window)) {
       index_out = i;
@@ -625,7 +940,7 @@ bool SideMenu::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool SideMenu::OnMousePressed(SDL_MouseButtonEvent* event) {
-  return HandleMouseOrFingerDown();
+  return HandleMouseOrFingerDown(event->x, event->y);
 }
 
 bool SideMenu::OnMouseReleased(SDL_MouseButtonEvent* event) {
@@ -642,6 +957,24 @@ bool SideMenu::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 }
 
 bool SideMenu::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
+#if BUILDFLAG(IS_SWITCH)
+  const bool is_left_trigger = event->axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT;
+  const bool is_right_trigger = event->axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT;
+  if (system_toggle_ && (is_left_trigger || is_right_trigger)) {
+    bool& trigger_pressed = is_left_trigger
+                                ? system_toggle_left_trigger_pressed_
+                                : system_toggle_right_trigger_pressed_;
+    if (event->value >= kSystemToggleTriggerThreshold) {
+      if (!trigger_pressed) {
+        trigger_pressed = true;
+        TriggerSystemToggle(is_left_trigger ? -1 : 1);
+      }
+    } else if (event->value <= kSystemToggleTriggerReleaseThreshold) {
+      trigger_pressed = false;
+    }
+    return true;
+  }
+#endif
   return HandleInputEvent(nullptr, nullptr);
 }
 

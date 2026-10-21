@@ -20,6 +20,7 @@
 #include "resources/string_resources.h"
 
 namespace preset_roms {
+enum class ROMEdition;
 struct PresetROM;
 }  // namespace preset_roms
 
@@ -65,6 +66,9 @@ SupportedLanguage GetCurrentSupportedLanguage();
 std::string GetLanguage();
 
 const char* GetROMLocalizedTitle(const preset_roms::PresetROM& rom);
+
+std::string GetROMLocalizedTitle(const preset_roms::PresetROM& rom,
+                                 preset_roms::ROMEdition edition);
 
 const char* GetROMLocalizedCollateStringHint(const preset_roms::PresetROM& rom);
 

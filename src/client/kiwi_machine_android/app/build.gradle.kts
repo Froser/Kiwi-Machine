@@ -78,11 +78,11 @@ val cleanAllRomsPaks = tasks.register<Delete>("cleanAllRomsPaks") {
     delete(generatedAllRomsManifestsDirectory)
 }
 
-val allRomsPackageSources = mutableListOf(allRomsDirectory to "main.pak")
+val allRomsPackageSources = mutableListOf(allRomsDirectory to "nes_main.pak")
 allRomsDirectory.listFiles()
     ?.filter { it.isDirectory }
     ?.sortedBy { it.name }
-    ?.forEach { allRomsPackageSources.add(it to "${it.name}.pak") }
+    ?.forEach { allRomsPackageSources.add(it to "nes_${it.name}.pak") }
 
 fun calculateSha1(input: InputStream): String {
     val digest = MessageDigest.getInstance("SHA-1")
@@ -232,7 +232,7 @@ val validateCachedPakResources = tasks.register("validateCachedPakResources") {
         val cachedTextures =
             generatedHdTextureAssetsDirectory.get().asFile.resolve("textures")
         val missingPackages =
-            listOf("main.pak", "specials.pak").filterNot {
+            listOf("nes_main.pak", "nes_specials.pak").filterNot {
                 cachedPackages.resolve(it).isFile
             }
         val texturePaks =

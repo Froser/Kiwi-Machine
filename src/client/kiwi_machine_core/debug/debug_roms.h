@@ -16,7 +16,7 @@
 #include "build/kiwi_defines.h"
 #include "ui/widgets/menu_bar.h"
 
-#if ENABLE_DEBUG_ROMS
+#if BUILDFLAG(ENABLE_DEBUG_ROMS)
 
 using DebugRomsLoadCallback =
     kiwi::base::RepeatingCallback<void(kiwi::base::FilePath)>;

@@ -18,7 +18,7 @@
 #include <SDL.h>
 #include <vector>
 
-#include "models/nes_runtime.h"
+#include "models/nes/runtime.h"
 #include "ui/widgets/widget.h"
 #include "utility/timer.h"
 
@@ -26,7 +26,7 @@ class MainWindow;
 class LoadingWidget;
 class KiwiBgWidget : public Widget {
  public:
-  explicit KiwiBgWidget(MainWindow* main_window, NESRuntimeID runtime_id);
+  explicit KiwiBgWidget(MainWindow* main_window);
   ~KiwiBgWidget() override;
 
  public:
@@ -38,7 +38,6 @@ class KiwiBgWidget : public Widget {
 
  private:
   MainWindow* main_window_ = nullptr;
-  NESRuntime::Data* runtime_data_ = nullptr;
   bool is_loading_ = false;
   Timer bg_last_render_elapsed_;
   Timer bg_fade_out_timer_;

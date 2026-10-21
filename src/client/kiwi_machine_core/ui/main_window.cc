@@ -18,27 +18,19 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "base/files/file_util.h"
 #include "build/kiwi_defines.h"
 #include "debug/debug_roms.h"
 #include "kiwi_flags.h"
 #include "preset_roms/preset_roms.h"
-#include "resources/image_resources.h"
 #include "ui/application.h"
 #include "ui/widgets/about_widget.h"
 #include "ui/widgets/canvas.h"
-#include "ui/widgets/card_widget.h"
 #include "ui/widgets/demo_widget.h"
-#include "ui/widgets/disassembly_widget.h"
-#include "ui/widgets/flex_items_widget.h"
+#include "ui/widgets/game_library_view.h"
+#include "ui/widgets/gba_debug_widget.h"
 #include "ui/widgets/kiwi_bg_widget.h"
 #include "ui/widgets/loading_widget.h"
-#include "ui/widgets/memory_widget.h"
-#include "ui/widgets/nametable_widget.h"
-#include "ui/widgets/palette_widget.h"
-#include "ui/widgets/pattern_widget.h"
-#include "ui/widgets/performance_widget.h"
-#include "ui/widgets/side_menu.h"
+#include "ui/widgets/nes_debug_widget.h"
 #include "ui/widgets/splash.h"
 #include "ui/widgets/stack_widget.h"
 #include "ui/widgets/toast.h"
@@ -48,8 +40,9 @@
 #include "utility/key_mapping_util.h"
 #include "utility/localization.h"
 #include "utility/logging.h"
-#include "utility/math.h"
-#if KIWI_ENABLE_HD_TEXTURE
+#include "utility/runtime_util.h"
+#include "utility/save_state_util.h"
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 #include "utility/texture_renderer.h"
 #endif
 #if BUILDFLAG(IS_SWITCH)
@@ -68,7 +61,6 @@ constexpr int kDefaultWindowWidth =
     Canvas::kNESFrameDefaultWidth + kWindowPadding * 2;
 constexpr int kDefaultWindowHeight = Canvas::kNESFrameDefaultHeight;
 constexpr int kDefaultFontSize = 15;
-constexpr int kSideMenuAnimationMs = 180;
 constexpr int kSplashTimeoutMs = 2000;
 constexpr float kMinUIScale = 1.f;
 constexpr float kMaxUIScale = 4.f;
@@ -93,11 +85,6 @@ SDL_GameControllerButton GetEquivalentSwitchFaceButton(
 }
 #endif
 
-float EaseOutQuadratic(float progress) {
-  progress = std::clamp(progress, 0.f, 1.f);
-  return 1.f - (1.f - progress) * (1.f - progress);
-}
-
 const kiwi::base::RepeatingCallback<bool()> kNoCheck =
     kiwi::base::RepeatingCallback<bool()>();
 
@@ -110,67 +97,8 @@ void FillLayout(WindowBase* window, Widget* widget) {
   widget->set_bounds(SDL_Rect{0, 0, client_bounds.w, client_bounds.h});
 }
 
-bool HasHDVersion(const preset_roms::PresetROM* rom) {
-#if KIWI_ENABLE_HD_TEXTURE
-  return rom->hd_texture_toggle_available || rom->hd_edition_available;
-#else
-  static_cast<void>(rom);
-  return false;
-#endif
-}
-
-bool HasSwitchableHDTexture(const preset_roms::PresetROM* rom) {
-#if KIWI_ENABLE_HD_TEXTURE
-  return rom->hd_texture_toggle_available;
-#else
-  static_cast<void>(rom);
-  return false;
-#endif
-}
-
-bool MatchesCurrentLanguage(const preset_roms::PresetROM* rom) {
-  const SupportedLanguage current_language = GetCurrentSupportedLanguage();
-  if (current_language == SupportedLanguage::kEnglish &&
-      rom->region == preset_roms::Region::kUSA) {
-    return true;
-  }
-
-#if !DISABLE_JAPANESE_FONT
-  if (current_language == SupportedLanguage::kJapanese &&
-      rom->region == preset_roms::Region::kJapan) {
-    return true;
-  }
-#endif
-
-#if !DISABLE_CHINESE_FONT
-  if (current_language == SupportedLanguage::kSimplifiedChinese &&
-      (rom->region == preset_roms::Region::kCN ||
-       rom->region == preset_roms::Region::kJapan)) {
-    return true;
-  }
-#endif
-
-  return false;
-}
-
-preset_roms::PresetROM* FindPreferredROM(
-    const std::vector<preset_roms::PresetROM*>& roms) {
-  for (preset_roms::PresetROM* rom : roms) {
-    if (HasHDVersion(rom) && MatchesCurrentLanguage(rom)) {
-      return rom;
-    }
-  }
-  for (preset_roms::PresetROM* rom : roms) {
-    if (HasHDVersion(rom)) {
-      return rom;
-    }
-  }
-  for (preset_roms::PresetROM* rom : roms) {
-    if (MatchesCurrentLanguage(rom)) {
-      return rom;
-    }
-  }
-  return roms.front();
+bool CanSaveOrLoadState(MainWindow* window) {
+  return save_state_util::CanSaveOrLoadState(window->runtime());
 }
 
 void ToastGameControllersAddedOrRemoved(WindowBase* window,
@@ -184,41 +112,6 @@ void ToastGameControllersAddedOrRemoved(WindowBase* window,
         name + (is_added ? GetLocalizedString(IDR_MAIN_WINDOW_CONNECTED)
                          : GetLocalizedString(IDR_MAIN_WINDOW_DISCONNECTED)));
   }
-}
-
-class SideMenuTitleStringUpdater : public LocalizedStringUpdater {
- public:
-  explicit SideMenuTitleStringUpdater(preset_roms::Package* package);
-  ~SideMenuTitleStringUpdater() override = default;
-
- protected:
-  std::string GetLocalizedString() override;
-  std::string GetCollateStringHint() override;
-  bool IsTitleMatchedFilter(const std::string& filter,
-                            int& similarity) override;
-
- private:
-  preset_roms::Package* package_;
-};
-
-SideMenuTitleStringUpdater::SideMenuTitleStringUpdater(
-    preset_roms::Package* package)
-    : package_(package) {}
-
-std::string SideMenuTitleStringUpdater::GetLocalizedString() {
-  SDL_assert(package_);
-  return package_->GetTitleForLanguage(GetCurrentSupportedLanguage());
-}
-
-std::string SideMenuTitleStringUpdater::GetCollateStringHint() {
-  return GetLocalizedString();
-}
-
-bool SideMenuTitleStringUpdater::IsTitleMatchedFilter(const std::string& filter,
-                                                      int& similarity) {
-  // SideMenu won't call this function.
-  SDL_assert(false);
-  return false;
 }
 
 int CalculateWindowWidth(float window_scale) {
@@ -265,133 +158,13 @@ SDL_Rect FitRectPreservingAspect(const SDL_Rect& bounds,
                   bounds.y + (bounds.h - height) / 2, width, height};
 }
 
-class StringUpdater : public LocalizedStringUpdater {
- public:
-  explicit StringUpdater(int string_id);
-  ~StringUpdater() override = default;
-
- protected:
-  std::string GetLocalizedString() override;
-  std::string GetCollateStringHint() override;
-  bool IsTitleMatchedFilter(const std::string& filter,
-                            int& similarity) override;
-
- private:
-  int string_id_;
-};
-
-StringUpdater::StringUpdater(int string_id) : string_id_(string_id) {}
-
-std::string StringUpdater::GetLocalizedString() {
-  return ::GetLocalizedString(string_id_);
-}
-
-std::string StringUpdater::GetCollateStringHint() {
-  return ::GetLocalizedString(string_id_);
-}
-
-bool StringUpdater::IsTitleMatchedFilter(const std::string& filter,
-                                         int& similarity) {
-  // StringUpdater won't call this function.
-  SDL_assert(false);
-  return false;
-}
-
-std::string GetROMEditionTitle(const preset_roms::PresetROM& rom,
-                               preset_roms::ROMEdition edition) {
-  std::string title = GetROMLocalizedTitle(rom);
-#if KIWI_ENABLE_HD_TEXTURE
-  if (edition == preset_roms::ROMEdition::kHD)
-    title.append(" [HD]");
-#else
-  static_cast<void>(edition);
-#endif
-  return title;
-}
-
-void AppendROMFilterStrings(const preset_roms::PresetROM& rom,
-                            preset_roms::ROMEdition edition,
-                            std::vector<std::string>* filter_strings) {
-  filter_strings->push_back(GetROMEditionTitle(rom, edition));
-  filter_strings->push_back(rom.name);
-  filter_strings->push_back(
-      language_conversion::KanaToRomaji(GetROMLocalizedCollateStringHint(rom)));
-}
-
-class ROMTitleUpdater : public LocalizedStringUpdater {
- public:
-  ROMTitleUpdater(
-      const preset_roms::PresetROM& preset_rom,
-      preset_roms::ROMEdition edition,
-      std::vector<const preset_roms::PresetROM*> filter_aliases = {});
-  ~ROMTitleUpdater() override = default;
-
- protected:
-  std::string GetLocalizedString() override;
-  std::string GetCollateStringHint() override;
-  std::vector<std::string> GetFilterStrings() override;
-  bool IsTitleMatchedFilter(const std::string& filter,
-                            int& similarity) override;
-
- private:
-  const preset_roms::PresetROM& preset_rom_;
-  preset_roms::ROMEdition edition_;
-  std::vector<const preset_roms::PresetROM*> filter_aliases_;
-};
-
-ROMTitleUpdater::ROMTitleUpdater(
-    const preset_roms::PresetROM& preset_rom,
-    preset_roms::ROMEdition edition,
-    std::vector<const preset_roms::PresetROM*> filter_aliases)
-    : preset_rom_(preset_rom),
-      edition_(edition),
-      filter_aliases_(std::move(filter_aliases)) {}
-
-std::string ROMTitleUpdater::GetLocalizedString() {
-  return GetROMEditionTitle(preset_rom_, edition_);
-}
-
-std::string ROMTitleUpdater::GetCollateStringHint() {
-  std::string title = GetROMLocalizedCollateStringHint(preset_rom_);
-#if KIWI_ENABLE_HD_TEXTURE
-  if (edition_ == preset_roms::ROMEdition::kHD)
-    title.append(" HD");
-#endif
-  return title;
-}
-
-std::vector<std::string> ROMTitleUpdater::GetFilterStrings() {
-  std::vector<std::string> filter_strings;
-  AppendROMFilterStrings(preset_rom_, edition_, &filter_strings);
-  for (const preset_roms::PresetROM* alias : filter_aliases_) {
-    if (alias != &preset_rom_) {
-      AppendROMFilterStrings(*alias, preset_roms::ROMEdition::kOriginal,
-                             &filter_strings);
-    }
-  }
-  return filter_strings;
-}
-
-bool ROMTitleUpdater::IsTitleMatchedFilter(const std::string& filter,
-                                           int& similarity) {
-  for (const std::string& candidate : GetFilterStrings()) {
-    if (HasString(candidate, filter)) {
-      similarity =
-          static_cast<int>(candidate.size()) - static_cast<int>(filter.size());
-      return true;
-    }
-  }
-
-  return false;
-}
-
 }  // namespace
 
 struct MainWindow::PendingROM {
   std::string game_title;
   std::string window_title;
   bool load_from_finger_gesture = false;
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   bool hd_texture_available = false;
   bool hd_texture_enabled = false;
   std::unique_ptr<TextureRenderer> texture_renderer;
@@ -445,14 +218,16 @@ void MainWindow::Observer::OnLoadStateFailed(int slot) {}
 void MainWindow::Observer::OnABSwapChanged(int player, bool enabled) {}
 
 MainWindow::MainWindow(const std::string& title,
-                       NESRuntimeID runtime_id,
-                       scoped_refptr<NESConfig> config)
+                       scoped_refptr<ApplicationConfig> config)
     : WindowBase(title,
                  CalculateWindowWidth(config->data().window_scale),
                  CalculateWindowHeight(config->data().window_scale)),
-      runtime_id_(runtime_id),
       config_(config),
       ui_scale_(config->data().window_scale) {
+  if (config_->data().last_system ==
+      static_cast<int>(kiwi::emu::Emulator::Type::kGBA)) {
+    emulation_system_ = kiwi::emu::Emulator::Type::kGBA;
+  }
   is_focused_ =
       (SDL_GetWindowFlags(native_window()) & SDL_WINDOW_INPUT_FOCUS) != 0;
 #if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_WASM)
@@ -465,6 +240,27 @@ MainWindow::MainWindow(const std::string& title,
   g_main_window_instance = this;
   fps_counter_ = std::make_unique<FpsCounter>();
 #endif
+}
+
+NESRuntime* MainWindow::nes_runtime() {
+  if (!runtime_ ||
+      runtime_->emulator()->GetType() != kiwi::emu::Emulator::Type::kNES) {
+    return nullptr;
+  }
+  return static_cast<NESRuntime*>(runtime_.get());
+}
+
+const NESRuntime* MainWindow::nes_runtime() const {
+  if (!runtime_ ||
+      runtime_->emulator()->GetType() != kiwi::emu::Emulator::Type::kNES) {
+    return nullptr;
+  }
+  return static_cast<const NESRuntime*>(runtime_.get());
+}
+
+DebugPort* MainWindow::debug_port() {
+  NESRuntime* current_runtime = nes_runtime();
+  return current_runtime ? current_runtime->debug_port() : nullptr;
 }
 
 // Initialization flow:
@@ -492,13 +288,12 @@ void MainWindow::InitializeAsync(kiwi::base::OnceClosure callback) {
 }
 
 MainWindow::~MainWindow() {
-  SDL_assert(runtime_data_);
-  SDL_assert(runtime_data_->emulator);
-  runtime_data_->emulator->PowerOff();
   if (canvas_) {
     canvas_->RemoveObserver(this);
   }
   SaveConfig();
+  PowerOffRuntime();
+  Application::Get()->set_runtime(nullptr);
 
 #if BUILDFLAG(IS_WASM)
   g_main_window_instance = nullptr;
@@ -548,42 +343,42 @@ bool MainWindow::IsABSwapped_WASM(int player) const {
 }
 
 void MainWindow::SaveState_WASM(int slot) {
-  if (CanSaveOrLoadState()) {
+  if (save_state_util::CanSaveOrLoadState(nes_runtime())) {
     OnSaveState(slot);
   }
 }
 
 void MainWindow::LoadState_WASM(int slot) {
-  if (CanSaveOrLoadState()) {
+  if (save_state_util::CanSaveOrLoadState(nes_runtime())) {
     OnLoadState(slot);
   }
 }
 
 int MainWindow::GetSaveStatesCount_WASM() {
-  return NESRuntime::Data::MaxSaveStates;
+  return NESRuntime::MaxSaveStates;
 }
 
 bool MainWindow::HasSaveState_WASM(int slot) {
-  if (!runtime_data_ || !runtime_data_->emulator) {
+  if (!nes_runtime() || !runtime_->emulator()->AsNESEmulator()) {
     return false;
   }
-  auto* rom_data = runtime_data_->emulator->GetRomData();
+  auto* rom_data = runtime_->emulator()->AsNESEmulator()->GetRomData();
   if (!rom_data) {
     return false;
   }
-  return runtime_data_->SaveStateExists(rom_data->crc, slot);
+  return nes_runtime()->SaveStateExists(rom_data->crc, slot);
 }
 
 std::string MainWindow::GetSaveStateThumbnail_WASM(int slot) {
-  if (!runtime_data_ || !runtime_data_->emulator) {
+  if (!nes_runtime() || !runtime_->emulator()->AsNESEmulator()) {
     return "";
   }
-  auto* rom_data = runtime_data_->emulator->GetRomData();
+  auto* rom_data = runtime_->emulator()->AsNESEmulator()->GetRomData();
   if (!rom_data) {
     return "";
   }
   kiwi::nes::Bytes thumbnail_data =
-      runtime_data_->ReadSaveStateThumbnail(rom_data->crc, slot);
+      nes_runtime()->ReadSaveStateThumbnail(rom_data->crc, slot);
   if (thumbnail_data.empty()) {
     return "";
   }
@@ -592,14 +387,13 @@ std::string MainWindow::GetSaveStateThumbnail_WASM(int slot) {
 }
 
 void MainWindow::DeleteState_WASM(int slot) {
-  if (!runtime_data_ || !runtime_data_->emulator) {
-    return;
+  NESRuntime* current_runtime = nes_runtime();
+  if (current_runtime) {
+    auto* rom_data = runtime_->emulator()->AsNESEmulator()->GetRomData();
+    if (rom_data) {
+      current_runtime->DeleteSaveState(rom_data->crc, slot);
+    }
   }
-  auto* rom_data = runtime_data_->emulator->GetRomData();
-  if (!rom_data) {
-    return;
-  }
-  runtime_data_->DeleteSaveState(rom_data->crc, slot);
 }
 
 #endif
@@ -671,33 +465,21 @@ int MainWindow::Scaled(int i) {
 }
 
 int MainWindow::GetMainMenuContentLeft() {
-  return contents_card_widget_ ? contents_card_widget_->bounds().x : 0;
+  return game_library_view_ ? game_library_view_->GetContentLeft() : 0;
 }
 
 void MainWindow::ChangeFocus(MainFocus focus) {
-  SDL_assert(side_menu_);
+  SDL_assert(game_library_view_);
   switch (focus) {
     case MainFocus::kContents:
-      if (contents_card_widget_->HasWidgets()) {
-        side_menu_->set_activate(false);
-        SwitchToSideMenuByCurrentFlexItemWidget();
-        for (auto* items_widget : items_widgets_) {
-          items_widget->SetActivate(true);
-        }
-      }
+      game_library_view_->ChangeFocus(GameLibraryView::Focus::kContents);
       break;
     case MainFocus::kSideMenu:
-      if (contents_card_widget_->HasWidgets()) {
-        side_menu_->set_activate(true);
-        for (auto* items_widget : items_widgets_) {
-          items_widget->SetActivate(false);
-        }
-      }
+      game_library_view_->ChangeFocus(GameLibraryView::Focus::kSideMenu);
       break;
     default:
       SDL_assert(false);  // Bad focus. Shouldn't be here.
   }
-  FlexLayout();
 }
 
 void MainWindow::AddObserver(Observer* observer) {
@@ -746,7 +528,7 @@ void MainWindow::IgnoreHeldControllerButtonsUntilRelease() {
   ignored_controller_buttons_.clear();
   for (int player = 0; player < 2; ++player) {
     auto* controller = reinterpret_cast<SDL_GameController*>(
-        runtime_data_->joystick_mappings[player].which);
+        runtime_->joystick_mapping(player).which);
     if (!IsGameControllerInputSupported(controller))
       continue;
 
@@ -774,7 +556,7 @@ bool MainWindow::IsKeyDown(int controller_id,
 
   // Matching keyboard
   matched =
-      pressing_keys_.find(runtime_data_->keyboard_mappings[controller_id]
+      pressing_keys_.find(runtime_->keyboard_mapping(controller_id)
                               .mapping[static_cast<int>(physical_button)]) !=
       pressing_keys_.cend();
 
@@ -784,8 +566,8 @@ bool MainWindow::IsKeyDown(int controller_id,
   }
 
   // Key doesn't match. Try joysticks.
-  NESRuntime::Data::JoystickMapping joystick_mapping =
-      runtime_data_->joystick_mappings[controller_id];
+  Runtime::JoystickMapping joystick_mapping =
+      runtime_->joystick_mapping(controller_id);
   if (joystick_mapping.which) {
     // If mapping is available, cast it to game controller interface.
     SDL_GameController* game_controller =
@@ -796,7 +578,7 @@ bool MainWindow::IsKeyDown(int controller_id,
 
     const SDL_GameControllerButton mapped_button =
         static_cast<SDL_GameControllerButton>(
-            runtime_data_->joystick_mappings[controller_id]
+            runtime_->joystick_mapping(controller_id)
                 .mapping.mapping[static_cast<int>(physical_button)]);
     matched =
         IsControllerButtonPressedForGameplay(game_controller, mapped_button);
@@ -893,18 +675,13 @@ void MainWindow::HandleJoystickButtonEvent(SDL_ControllerButtonEvent* event) {
 
 void MainWindow::HandleFocusChangedEvent(bool focused) {
   is_focused_ = focused;
-  if (!runtime_data_ || !runtime_data_->emulator)
-    return;
-
   if (!focused) {
     PauseForFocusLossIfNeeded();
-    return;
-  }
-
-  if (resume_after_focus_gained_) {
+  } else if (resume_after_focus_gained_) {
     resume_after_focus_gained_ = false;
-    if (IsPause())
+    if (IsPause()) {
       OnResume();
+    }
   }
 }
 
@@ -934,8 +711,9 @@ void MainWindow::HandleResizedEvent() {
     FillLayout(this, main_stack_widget_);
   }
 
-  if (side_menu_) {
-    FlexLayout(false);
+  if (game_library_view_) {
+    FillLayout(this, game_library_view_);
+    game_library_view_->Layout(false);
   }
 
   if (in_game_menu_) {
@@ -988,56 +766,6 @@ void MainWindow::Render() {
     }
   }
 
-  // Handles animations here
-  if (side_menu_) {
-#if BUILDFLAG(IS_MOBILE)
-    const SDL_Rect safe_bounds = GetSafeAreaClientBounds();
-    const int collapsed_width = side_menu_->GetSuggestedCollapsedWidth();
-    const SDL_Rect expected_contents_bounds = {
-        safe_bounds.x + collapsed_width, safe_bounds.y,
-        safe_bounds.w - collapsed_width, safe_bounds.h};
-    const SDL_Rect current_contents_bounds = contents_card_widget_->bounds();
-    const SDL_Rect current_side_menu_bounds = side_menu_->bounds();
-    if (!SDL_RectEquals(&expected_contents_bounds, &current_contents_bounds) ||
-        current_side_menu_bounds.x != safe_bounds.x ||
-        current_side_menu_bounds.y != safe_bounds.y ||
-        current_side_menu_bounds.h != safe_bounds.h) {
-      FlexLayout(false);
-      LayoutVirtualTouchButtons();
-    }
-#endif
-
-#if BUILDFLAG(IS_MOBILE)
-    const SDL_Rect layout_bounds = GetSafeAreaClientBounds();
-#else
-    const SDL_Rect client_bounds = GetClientBounds();
-    const SDL_Rect layout_bounds = {0, 0, client_bounds.w, client_bounds.h};
-#endif
-    const int desired_side_menu_width =
-        side_menu_->expanded()
-            ? side_menu_->GetSuggestedExtendedWidth(layout_bounds.w)
-            : side_menu_->GetSuggestedCollapsedWidth();
-    if (desired_side_menu_width != side_menu_target_width_) {
-      side_menu_original_width_ = side_menu_->bounds().w;
-      side_menu_target_width_ = desired_side_menu_width;
-      side_menu_timer_.Reset();
-    }
-
-    float percentage = side_menu_timer_.ElapsedInMilliseconds() /
-                       static_cast<float>(kSideMenuAnimationMs);
-    percentage = EaseOutQuadratic(percentage);
-
-    int side_menu_width =
-        Lerp(side_menu_original_width_, side_menu_target_width_, percentage);
-    SDL_Rect side_menu_target_bounds = SDL_Rect{
-        layout_bounds.x, layout_bounds.y, side_menu_width, layout_bounds.h};
-    SDL_Rect side_menu_current_bounds = side_menu_->bounds();
-    if (!SDL_RectEquals(&side_menu_target_bounds, &side_menu_current_bounds)) {
-      side_menu_->set_bounds(side_menu_target_bounds);
-      side_menu_->invalidate();
-    }
-  }
-
   render_done_ = true;
 }
 
@@ -1045,46 +773,51 @@ void MainWindow::Render() {
 void MainWindow::OnAboutToRenderFrame(Canvas* canvas,
                                       scoped_refptr<NESFrame> frame) {
   SDL_Rect render_bounds = GetClientBounds();
+  const int frame_width = canvas->frame_width();
+  const int frame_height = canvas->frame_height();
   SDL_Rect dest_rect =
-      FitRectPreservingAspect(render_bounds, frame->width(), frame->height());
+      FitRectPreservingAspect(render_bounds, frame_width, frame_height);
   canvas->set_frame_scale(
-      std::min(static_cast<float>(dest_rect.w) / frame->width(),
-               static_cast<float>(dest_rect.h) / frame->height()));
+      std::min(static_cast<float>(dest_rect.w) / frame_width,
+               static_cast<float>(dest_rect.h) / frame_height));
   canvas->set_bounds(dest_rect);
 }
 #endif
 
 void MainWindow::InitializeRuntimeData() {
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id_);
-
-  if (FLAGS_enable_debug) {
-    // If menu is visible, debug will be enabled as well. Otherwise, there's no
-    // entry to debug namespace, memory, and disassembly. In this scenario,
-    // there's no need to set a debug port.
-    runtime_data_->emulator->SetDebugPort(runtime_data_->debug_port.get());
-
-    SDL_assert(runtime_data_->debug_port);
-    runtime_data_->debug_port->set_on_breakpoint_callback(
-        kiwi::base::BindRepeating(&MainWindow::OnPause,
-                                  kiwi::base::Unretained(this)));
-  } else {
+  ReplaceRuntime(emulation_system_);
+  if (!FLAGS_enable_debug) {
     // If there's no menu, disable text input.
     SDL_StopTextInput();
   }
 }
 
 void MainWindow::ResetAudio() {
-  audio_->Reset();
-  if (runtime_data_->emulator && runtime_data_->emulator->GetIODevices()) {
-    runtime_data_->emulator->GetIODevices()->set_audio_device(audio_.get());
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kNES) {
+    audio_->Reset();
+    kiwi::nes::IODevices* devices =
+        runtime_->emulator()->AsNESEmulator()->GetIODevices();
+    if (devices) {
+      devices->set_audio_device(audio_.get());
+    }
+  } else {
+    gba_audio_->Reset();
+    kiwi::gba::IODevices* devices =
+        runtime_->emulator()->AsGBAEmulator()->GetIODevices();
+    if (devices) {
+      devices->set_audio_device(gba_audio_.get());
+    }
   }
 }
 
 void MainWindow::InitializeAudio() {
   SDL_assert(!audio_);
-  audio_ = std::make_unique<NESAudio>(runtime_id_);
+  audio_ = std::make_unique<NESAudio>();
   audio_->Initialize();
   audio_->Start();
+  gba_audio_ = std::make_unique<GBAAudio>();
+  gba_audio_->Initialize();
+  gba_audio_->Start();
   OnSetAudioVolume(config_->data().volume);
 }
 
@@ -1121,112 +854,33 @@ void MainWindow::InitializeUI() {
   // Background
   SDL_Rect client_bounds = GetClientBounds();
   std::unique_ptr<KiwiBgWidget> bg_widget =
-      std::make_unique<KiwiBgWidget>(this, runtime_id_);
+      std::make_unique<KiwiBgWidget>(this);
   bg_widget_ = bg_widget.get();
   main_stack_widget_->PushWidget(std::move(bg_widget));
 
   if (!is_headless_) {
-    // Contents stack widget
-    std::unique_ptr<CardWidget> contents_card_widget =
-        std::make_unique<CardWidget>(this);
-    contents_card_widget_ = contents_card_widget.get();
-    contents_card_widget_->set_bounds(client_bounds);
-    bg_widget_->AddWidget(std::move(contents_card_widget));
+    GameLibraryView::Callbacks callbacks;
+    callbacks.load_rom = kiwi::base::BindRepeating(
+        &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this));
+    callbacks.switch_emulation_system = kiwi::base::BindRepeating(
+        &MainWindow::SwitchEmulationSystem, kiwi::base::Unretained(this));
+    callbacks.show_settings = kiwi::base::BindRepeating(
+        &MainWindow::ShowSettings, kiwi::base::Unretained(this));
+    callbacks.show_about = kiwi::base::BindRepeating(
+        &MainWindow::ShowAbout, kiwi::base::Unretained(this));
+    callbacks.quit = kiwi::base::BindRepeating(&MainWindow::OnQuit,
+                                               kiwi::base::Unretained(this));
+    callbacks.layout_changed = kiwi::base::BindRepeating(
+        &MainWindow::LayoutVirtualTouchButtons, kiwi::base::Unretained(this));
 
-    // Main game items
-    const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
-    for (const auto& package : packages) {
-      std::unique_ptr<FlexItemsWidget> items_widget =
-          std::make_unique<FlexItemsWidget>(this, runtime_id_);
-      items_widgets_.push_back(items_widget.get());
-      items_widget->set_back_callback(kiwi::base::BindRepeating(
-          &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
-          MainWindow::MainFocus::kSideMenu));
-      SDL_assert(package->GetRomsCount() > 0);
-      if (IsPackageIndexReady(package)) {
-        PopulatePackageItems(package, items_widget.get());
-      }
-
-      contents_card_widget_->AddWidget(std::move(items_widget));
-    }
-
-    if (FlexItemsWidget* main_items_widget = GetMainItemsWidget();
-        main_items_widget && !main_items_widget->empty()) {
-      int main_items_index =
-          std::clamp(config_->data().last_index, 0,
-                     static_cast<int>(main_items_widget->size() - 1));
-      main_items_widget->SetIndex(main_items_index);
-    }
-
-    // Side menu
-    std::unique_ptr<SideMenu> side_menu =
-        std::make_unique<SideMenu>(this, runtime_id_);
-    if (preset_roms::GetPresetOrTestRomsPackages().empty()) {
-      // If there's no game package, show a default background.
-      // There's no game selection menu, so we won't trigger the first menu
-      // item, because the first menu item will be a settings menu.
-      side_menu->set_auto_trigger_first_item(false);
-    }
-
-    side_menu->set_activate(true);
-
-    size_t package_index = 0;
-    for (auto* items_widget : items_widgets_) {
-      preset_roms::Package* package =
-          preset_roms::GetPresetOrTestRomsPackages()[package_index];
-      side_menu->AddMenu(
-          std::make_unique<SideMenuTitleStringUpdater>(package),
-          package->GetSideMenuImage(), package->GetSideMenuHighlightImage(),
-          CreateMenuChangeFocusToGameItemsCallbacks(package, items_widget));
-      package_index++;
-    }
-    side_menu->AddMenu(std::make_unique<StringUpdater>(
-                           string_resources::IDR_SIDE_MENU_SETTINGS),
-                       image_resources::ImageID::kMenuSettings,
-                       image_resources::ImageID::kMenuSettingsHighlight,
-                       CreateMenuSettingsCallbacks());
-    side_menu->AddMenu(
-        std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_ABOUT),
-        image_resources::ImageID::kMenuAbout,
-        image_resources::ImageID::kMenuAboutHighlight,
-        CreateMenuAboutCallbacks());
-
-#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_SWITCH)
-    // Mobile and Switch apps needn't quit the application manually.
-    SideMenu::MenuCallbacks quit_callbacks;
-    quit_callbacks.trigger_callback = kiwi::base::BindRepeating(
-        [](MainWindow* this_window, int) { this_window->OnQuit(); },
-        kiwi::base::Unretained(this));
-    side_menu->AddMenu(
-        std::make_unique<StringUpdater>(string_resources::IDR_SIDE_MENU_QUIT),
-        image_resources::ImageID::kMenuQuit,
-        image_resources::ImageID::kMenuQuitHighlight, quit_callbacks);
-#endif
-
-    {
-#if BUILDFLAG(IS_SWITCH)
-      constexpr int kSearchStringId =
-          string_resources::IDR_SIDE_MENU_SEARCH_SWITCH;
-      constexpr SDL_GameControllerButton kSearchControllerHotkey =
-          SDL_CONTROLLER_BUTTON_X;
-#else
-      constexpr int kSearchStringId = string_resources::IDR_SIDE_MENU_SEARCH;
-      constexpr SDL_GameControllerButton kSearchControllerHotkey =
-          SDL_CONTROLLER_BUTTON_INVALID;
-#endif
-      SideMenu::ButtonCallbacks button_callbacks = {
-          // Callback when search button is triggered
-          kiwi::base::BindRepeating(
-              &MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter,
-              kiwi::base::Unretained(this))};
-      side_menu->AddButton(std::make_unique<StringUpdater>(kSearchStringId),
-                           image_resources::ImageID::kMenuSearch,
-                           button_callbacks, SDLK_f, kSearchControllerHotkey);
-    }
-
-    side_menu->Layout();
-    side_menu_ = side_menu.get();
-    bg_widget_->AddWidget(std::move(side_menu));
+    std::unique_ptr<GameLibraryView> game_library_view =
+        std::make_unique<GameLibraryView>(this, emulation_system_,
+                                          config_->data().last_index,
+                                          std::move(callbacks));
+    game_library_view_ = game_library_view.get();
+    FillLayout(this, game_library_view_);
+    bg_widget_->AddWidget(std::move(game_library_view));
+    UpdateWorkspaceForSystem();
     ChangeFocus(MainFocus::kContents);
   }
 
@@ -1235,8 +889,13 @@ void MainWindow::InitializeUI() {
   CreateVirtualTouchButtons();
   LayoutVirtualTouchButtons();
 
-  std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(this, runtime_id_);
+  std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(this);
   canvas_ = canvas.get();
+  canvas_->frame()->SetEmulator(emulation_system_ ==
+                                        kiwi::emu::Emulator::Type::kNES
+                                    ? runtime_->emulator()->AsNESEmulator()
+                                    : nullptr);
+  canvas_->SetEmulationSystem(emulation_system_);
   canvas_->set_visible(false);
   canvas_->AddObserver(this);
   canvas_->set_frame_scale(2.f);
@@ -1246,14 +905,14 @@ void MainWindow::InitializeUI() {
   canvas_->set_quick_load_trigger_callback(kiwi::base::BindRepeating(
       &MainWindow::OnQuickLoadTrigger, kiwi::base::Unretained(this)));
 #endif
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   canvas_->set_hd_texture_toggle_callback(kiwi::base::BindRepeating(
       &MainWindow::OnToggleHDTextureRendering, kiwi::base::Unretained(this)));
 #endif
   AddWidget(std::move(canvas));
 
   std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
-      this, runtime_id_,
+      this,
       kiwi::base::BindRepeating(&MainWindow::OnInGameMenuItemTrigger,
                                 kiwi::base::Unretained(this)),
       kiwi::base::BindRepeating(&MainWindow::OnInGameSettingsItemTrigger,
@@ -1283,52 +942,31 @@ void MainWindow::InitializeUI() {
 
   // Debug widgets
   if (FLAGS_enable_debug) {
-    std::unique_ptr<PaletteWidget> palette_widget =
-        std::make_unique<PaletteWidget>(this, runtime_data_->debug_port.get());
-    palette_widget_ = palette_widget.get();
-    palette_widget_->set_visible(false);
-    AddWidget(std::move(palette_widget));
-
-    std::unique_ptr<PatternWidget> pattern_widget =
-        std::make_unique<PatternWidget>(this, runtime_data_->debug_port.get());
-    pattern_widget_ = pattern_widget.get();
-    pattern_widget_->set_visible(false);
-    AddWidget(std::move(pattern_widget));
-
-    std::unique_ptr<PerformanceWidget> performance_widget =
-        std::make_unique<PerformanceWidget>(this, canvas_->frame(),
-                                            runtime_data_->debug_port.get());
-    performance_widget_ = performance_widget.get();
-    performance_widget_->set_visible(false);
-    AddWidget(std::move(performance_widget));
-
-    std::unique_ptr<MemoryWidget> memory_widget =
-        std::make_unique<MemoryWidget>(
-            this, runtime_id_,
+    std::unique_ptr<NESDebugWidget> nes_debug_widget =
+        std::make_unique<NESDebugWidget>(
+            this, canvas_->frame(),
             kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
                                       kiwi::base::Unretained(this)),
             kiwi::base::BindRepeating(&MainWindow::IsPause,
                                       kiwi::base::Unretained(this)));
-    memory_widget_ = memory_widget.get();
-    memory_widget_->set_visible(false);
-    AddWidget(std::move(memory_widget));
+    nes_debug_widget_ = nes_debug_widget.get();
+    nes_debug_widget_->SetDebugPort(debug_port());
+    nes_debug_widget_->set_visible(false);
+    AddWidget(std::move(nes_debug_widget));
 
-    std::unique_ptr<DisassemblyWidget> disassembly_widget =
-        std::make_unique<DisassemblyWidget>(
-            this, runtime_id_,
+    std::unique_ptr<GBADebugWidget> gba_debug_widget =
+        std::make_unique<GBADebugWidget>(
+            this,
             kiwi::base::BindRepeating(&MainWindow::OnTogglePause,
                                       kiwi::base::Unretained(this)),
             kiwi::base::BindRepeating(&MainWindow::IsPause,
                                       kiwi::base::Unretained(this)));
-    disassembly_widget_ = disassembly_widget.get();
-    disassembly_widget_->set_visible(false);
-    AddWidget(std::move(disassembly_widget));
-
-    std::unique_ptr<NametableWidget> nametable_widget =
-        std::make_unique<NametableWidget>(this, runtime_id_);
-    nametable_widget_ = nametable_widget.get();
-    nametable_widget_->set_visible(false);
-    AddWidget(std::move(nametable_widget));
+    gba_debug_widget_ = gba_debug_widget.get();
+    if (runtime_->emulator()->GetType() == kiwi::emu::Emulator::Type::kGBA) {
+      gba_debug_widget_->SetEmulator(runtime_->emulator()->AsGBAEmulator());
+    }
+    gba_debug_widget_->set_visible(false);
+    AddWidget(std::move(gba_debug_widget));
 
     std::unique_ptr<Widget> demo_widget = std::make_unique<DemoWidget>(this);
     demo_widget_ = demo_widget.get();
@@ -1348,19 +986,26 @@ void MainWindow::InitializeUI() {
 }
 
 void MainWindow::InitializeIODevices() {
-  SDL_assert(runtime_data_);
-  SDL_assert(runtime_data_->emulator);
   SDL_assert(canvas_);
-  std::unique_ptr<kiwi::nes::IODevices> io_devices =
-      std::make_unique<kiwi::nes::IODevices>();
-  io_devices->set_input_device(this);
-  io_devices->add_render_device(canvas_->render_device());
-  io_devices->set_audio_device(audio_.get());
-  runtime_data_->emulator->SetIODevices(std::move(io_devices));
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kNES) {
+    std::unique_ptr<kiwi::nes::IODevices> io_devices =
+        std::make_unique<kiwi::nes::IODevices>();
+    io_devices->set_input_device(this);
+    io_devices->add_render_device(canvas_->render_device());
+    io_devices->set_audio_device(audio_.get());
+    runtime_->emulator()->AsNESEmulator()->SetIODevices(std::move(io_devices));
+  } else {
+    std::unique_ptr<kiwi::gba::IODevices> io_devices =
+        std::make_unique<kiwi::gba::IODevices>();
+    io_devices->set_input_device(this);
+    io_devices->add_render_device(canvas_->gba_render_device());
+    io_devices->set_audio_device(gba_audio_.get());
+    runtime_->emulator()->AsGBAEmulator()->SetIODevices(std::move(io_devices));
+  }
 }
 
 void MainWindow::InitializeDebugROMs() {
-#if ENABLE_DEBUG_ROMS
+#if BUILDFLAG(ENABLE_DEBUG_ROMS)
   if (HasDebugRoms()) {
     debug_roms_ = CreateDebugRomsMenu(kiwi::base::BindRepeating(
         &MainWindow::OnLoadDebugROM, kiwi::base::Unretained(this)));
@@ -1369,53 +1014,54 @@ void MainWindow::InitializeDebugROMs() {
 }
 
 void MainWindow::LoadTestRomIfSpecified() {
-  if (FLAGS_test_rom.empty() || !FLAGS_enable_debug) {
-    return;
+  if (!FLAGS_test_rom.empty() && FLAGS_enable_debug) {
+    std::optional<kiwi::base::FilePath> save_path;
+    if (!FLAGS_sav.empty()) {
+      save_path = kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_sav);
+    }
+    LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_rom),
+                  save_path);
   }
-
-  std::optional<kiwi::base::FilePath> save_path;
-  if (!FLAGS_sav.empty()) {
-    save_path = kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_sav);
-  }
-  LoadROMByPath(kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_test_rom),
-                save_path);
 }
 
 void MainWindow::LoadROMByPath(kiwi::base::FilePath rom_path,
                                std::optional<kiwi::base::FilePath> save_path) {
-  SDL_assert(runtime_data_->emulator);
+  const kiwi::emu::Emulator::Type target_system =
+      runtime_util::GetEmulationSystemForROMPath(rom_path);
+  if (canvas_ && canvas_->visible() && emulation_system_ != target_system) {
+    Toast::ShowToast(this,
+                     GetLocalizedString(
+                         string_resources::IDR_MAIN_WINDOW_ROM_NOT_SUPPORTED));
+  } else {
+    SwitchEmulationSystem(target_system);
+    if (target_system == kiwi::emu::Emulator::Type::kGBA) {
+      LoadGBAROMByPath(std::move(rom_path));
+    } else {
+      SDL_assert(runtime_->emulator()->AsNESEmulator());
+      SetLoading(true);
+      runtime_util::StopPeriodicSaves(runtime_.get());
+
+      auto pending_rom = std::make_unique<PendingROM>();
+      pending_rom->game_title = rom_path.BaseName().AsUTF8Unsafe();
+      pending_rom->window_title = pending_rom->game_title;
+
+      nes_runtime()->LoadROM(rom_path,
+                             kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                                                  kiwi::base::Unretained(this),
+                                                  std::move(pending_rom)),
+                             save_path);
+    }
+  }
+}
+
+void MainWindow::LoadGBAROMByPath(kiwi::base::FilePath rom_path) {
+  SDL_assert(runtime_.get());
   SetLoading(true);
-  StopAutoSave();
-
-  auto pending_rom = std::make_unique<PendingROM>();
-  pending_rom->game_title = rom_path.BaseName().AsUTF8Unsafe();
-  pending_rom->window_title = pending_rom->game_title;
-
-  runtime_data_->LoadROM(rom_path,
-                         kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                                              kiwi::base::Unretained(this),
-                                              std::move(pending_rom)),
-                         save_path);
-}
-
-void MainWindow::StartAutoSave() {
-  constexpr int kBatterySaveTimeDelta = 30000;
-  runtime_data_->StartBatterySave(
-      kiwi::base::Milliseconds(kBatterySaveTimeDelta));
-
-  // Disable automatic save states in wasm because they are expensive.
-#if !BUILDFLAG(IS_WASM)
-  constexpr int kAutoSaveTimeDelta = 5000;
-  runtime_data_->StartAutoSave(
-      kiwi::base::Milliseconds(kAutoSaveTimeDelta),
-      kiwi::base::BindRepeating(&NESFrame::GetLastFrame, canvas_->frame()));
-#endif
-}
-
-void MainWindow::StopAutoSave() {
-  SDL_assert(runtime_data_);
-  runtime_data_->StopBatterySave();
-  runtime_data_->StopAutoSave();
+  runtime_util::StopPeriodicSaves(runtime_.get());
+  const std::string fallback_title = rom_path.BaseName().AsUTF8Unsafe();
+  runtime_->LoadROM(rom_path, kiwi::base::BindOnce(&MainWindow::OnGBARomLoaded,
+                                                   kiwi::base::Unretained(this),
+                                                   fallback_title));
 }
 
 std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
@@ -1522,14 +1168,14 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
            kiwi::base::BindRepeating(&MainWindow::OnSaveState,
                                      kiwi::base::Unretained(this), 0),
            kNoCheck,
-           kiwi::base::BindRepeating(&MainWindow::CanSaveOrLoadState,
+           kiwi::base::BindRepeating(&CanSaveOrLoadState,
                                      kiwi::base::Unretained(this))});
       states.sub_items.push_back(
           {"Load state",
            kiwi::base::BindRepeating(&MainWindow::OnLoadState,
                                      kiwi::base::Unretained(this), 0),
            kNoCheck,
-           kiwi::base::BindRepeating(&MainWindow::CanSaveOrLoadState,
+           kiwi::base::BindRepeating(&CanSaveOrLoadState,
                                      kiwi::base::Unretained(this))});
       emulator.menu_items.push_back(std::move(states));
     }
@@ -1542,111 +1188,16 @@ std::vector<MenuBar::Menu> MainWindow::GetMenuModel() {
     MenuBar::Menu debug;
     debug.title = "Debug";
 
-    {
-      MenuBar::MenuItem debug_audio;
-      debug_audio.title = "Audio";
+    debug.menu_items.push_back(
+        {"Debugger", kiwi::base::BindRepeating(&MainWindow::OnDebug,
+                                               kiwi::base::Unretained(this))});
 
-      MenuBar::MenuItem debug_audio_square1 = {
-          "Square 1",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_1),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_1)};
-      MenuBar::MenuItem debug_audio_square2 = {
-          "Square 2",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_2),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kSquare_2)};
-      MenuBar::MenuItem debug_audio_triangle = {
-          "Triangle",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kTriangle),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kTriangle)};
-      MenuBar::MenuItem debug_audio_noise = {
-          "Noise",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kNoise),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kNoise)};
-      MenuBar::MenuItem debug_audio_dmc = {
-          "DMC",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleAudioChannelMasks,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kDMC),
-          kiwi::base::BindRepeating(&MainWindow::IsAudioChannelOn,
-                                    kiwi::base::Unretained(this),
-                                    kiwi::nes::kDMC)};
-
-      debug_audio.sub_items.push_back(std::move(debug_audio_square1));
-      debug_audio.sub_items.push_back(std::move(debug_audio_square2));
-      debug_audio.sub_items.push_back(std::move(debug_audio_triangle));
-      debug_audio.sub_items.push_back(std::move(debug_audio_noise));
-      debug_audio.sub_items.push_back(std::move(debug_audio_dmc));
-
-      debug.menu_items.push_back(std::move(debug_audio));
-    }
-
-    {
-      MenuBar::MenuItem disable_render = {
-          "Pause Render",
-          kiwi::base::BindRepeating(&MainWindow::OnToggleRenderPaused,
-                                    kiwi::base::Unretained(this)),
-          kiwi::base::BindRepeating(&MainWindow::IsRenderPaused,
-                                    kiwi::base::Unretained(this)),
-      };
-      debug.menu_items.push_back(std::move(disable_render));
-    }
-
-#if ENABLE_DEBUG_ROMS
+#if BUILDFLAG(ENABLE_DEBUG_ROMS)
     if (!debug_roms_.sub_items.empty()) {
       debug.menu_items.push_back(std::move(debug_roms_));
       // debug_roms_ should no longer use.
     }
 #endif
-
-    debug.menu_items.push_back(
-        {"Palette",
-         kiwi::base::BindRepeating(&MainWindow::OnTogglePaletteWidget,
-                                   kiwi::base::Unretained(this)),
-         kiwi::base::BindRepeating(&MainWindow::IsPaletteWidgetShown,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Patterns",
-         kiwi::base::BindRepeating(&MainWindow::OnTogglePatternWidget,
-                                   kiwi::base::Unretained(this)),
-         kiwi::base::BindRepeating(&MainWindow::IsPatternWidgetShown,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Performance",
-         kiwi::base::BindRepeating(&MainWindow::OnPerformanceWidget,
-                                   kiwi::base::Unretained(this)),
-         kiwi::base::BindRepeating(&MainWindow::IsPerformanceWidgetShown,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Memory", kiwi::base::BindRepeating(&MainWindow::OnDebugMemory,
-                                             kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Disassembly",
-         kiwi::base::BindRepeating(&MainWindow::OnDebugDisassembly,
-                                   kiwi::base::Unretained(this))});
-
-    debug.menu_items.push_back(
-        {"Nametable", kiwi::base::BindRepeating(&MainWindow::OnDebugNametable,
-                                                kiwi::base::Unretained(this))});
 
     debug.menu_items.push_back(
         {"UI Demo Widget",
@@ -1680,7 +1231,7 @@ void MainWindow::ShowMainMenu(bool show, bool load_from_finger_gesture) {
   } else {
     SetVirtualButtonsVisible(!show);
   }
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   SetHDTextureToggleState(!show && hd_texture_available_, hd_texture_enabled_);
 #endif
   SetLoading(false);
@@ -1706,25 +1257,25 @@ void MainWindow::UpdateGameControllerMapping() {
   // If any game controller is removed, remove it from joystick mapping as well.
   for (int player = 0; player < 2; ++player) {
     auto* mapped_controller = reinterpret_cast<SDL_GameController*>(
-        runtime_data_->joystick_mappings[player].which);
+        runtime_->joystick_mapping(player).which);
     if (mapped_controller &&
         game_controllers.find(mapped_controller) == game_controllers.end()) {
-      runtime_data_->joystick_mappings[player].which = nullptr;
+      runtime_->joystick_mapping(player).which = nullptr;
     }
   }
 
   const std::vector<SDL_GameController*> ordered_controllers =
       GetControllerList();
   auto is_mapped = [this](SDL_GameController* controller) {
-    return runtime_data_->joystick_mappings[0].which == controller ||
-           runtime_data_->joystick_mappings[1].which == controller;
+    return runtime_->joystick_mapping(0).which == controller ||
+           runtime_->joystick_mapping(1).which == controller;
   };
 
   // devkitPro SDL announces all eight Switch controller slots at startup.
   // Preserve existing assignments and only fill empty players; restarting from
   // P1 on every add event can otherwise leave gameplay bound to an idle slot.
   for (int player = 0; player < 2; ++player) {
-    if (runtime_data_->joystick_mappings[player].which)
+    if (runtime_->joystick_mapping(player).which)
       continue;
 
     auto controller =
@@ -1735,7 +1286,7 @@ void MainWindow::UpdateGameControllerMapping() {
     if (controller == ordered_controllers.end())
       break;
 
-    SetControllerMapping(runtime_data_, player, *controller, false);
+    SetControllerMapping(runtime_.get(), player, *controller, false);
   }
 }
 
@@ -1747,7 +1298,7 @@ void MainWindow::SetVirtualTouchButtonVisible(VirtualTouchButton button,
 
 void MainWindow::LayoutVirtualTouchButtons() {}
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 void MainWindow::SetHDTextureToggleState(bool visible, bool hd_enabled) {}
 #endif
 
@@ -1761,9 +1312,14 @@ bool MainWindow::HandleWindowFingerDown() {
   return false;
 }
 
-void MainWindow::PauseGameIfDisassemblyVisible() {
-  // Give a chance to pause the emulator
-  if (disassembly_widget_ && disassembly_widget_->visible())
+void MainWindow::PauseGameIfDebuggerVisible() {
+  const bool nes_debug_visible =
+      emulation_system_ == kiwi::emu::Emulator::Type::kNES &&
+      nes_debug_widget_ && nes_debug_widget_->visible();
+  const bool gba_debug_visible =
+      emulation_system_ == kiwi::emu::Emulator::Type::kGBA &&
+      gba_debug_widget_ && gba_debug_widget_->visible();
+  if (nes_debug_visible || gba_debug_visible)
     OnPause();
 }
 
@@ -1774,14 +1330,14 @@ void MainWindow::PopVirtualButtonsVisible() {}
 #endif
 
 void MainWindow::OnSetJoystickType(int id, kiwi::nes::Controller::Type type) {
-  if (runtime_data_ && runtime_data_->debug_port) {
-    runtime_data_->debug_port->SetControllerType(id, type);
+  if (nes_runtime() && nes_runtime()->debug_port()) {
+    nes_runtime()->debug_port()->SetControllerType(id, type);
   }
 }
 
 bool MainWindow::IsJoystickType(int id, kiwi::nes::Controller::Type type) {
-  if (runtime_data_ && runtime_data_->debug_port) {
-    return runtime_data_->debug_port->GetControllerType(id) == type;
+  if (nes_runtime() && nes_runtime()->debug_port()) {
+    return nes_runtime()->debug_port()->GetControllerType(id) == type;
   }
 
   return type == kiwi::nes::Controller::Type::kStandard;
@@ -1833,300 +1389,190 @@ void MainWindow::CloseInGameMenu() {
   in_game_menu_->Close();
 }
 
-void MainWindow::FlexLayout(bool animate) {
-#if BUILDFLAG(IS_MOBILE)
-  const SDL_Rect client_bounds = GetSafeAreaClientBounds();
-#else
-  const SDL_Rect window_client_bounds = GetClientBounds();
-  const SDL_Rect client_bounds = {0, 0, window_client_bounds.w,
-                                  window_client_bounds.h};
-#endif
-  int left_width = side_menu_->GetSuggestedCollapsedWidth();
-  int right_width = client_bounds.w - left_width;
-
-  const int extended_width =
-      side_menu_->GetSuggestedExtendedWidth(client_bounds.w);
-
-  side_menu_target_width_ =
-      side_menu_->expanded() ? extended_width : left_width;
-  if (animate) {
-    side_menu_timer_.Reset();
-    side_menu_original_width_ = side_menu_->bounds().w;
-    if (side_menu_original_width_ <= 0) {
-      side_menu_original_width_ =
-          side_menu_->expanded() ? left_width : extended_width;
-    }
-  } else {
-    side_menu_original_width_ = side_menu_target_width_;
-    side_menu_->set_bounds(SDL_Rect{client_bounds.x, client_bounds.y,
-                                    side_menu_target_width_, client_bounds.h});
-    side_menu_->invalidate();
+void MainWindow::ReplaceRuntime(kiwi::emu::Emulator::Type system) {
+  runtime_util::CreateRuntimeOptions options;
+  options.volume = config_->data().volume;
+  options.joystick_mappings =
+      runtime_util::CopyJoystickMappings(runtime_.get());
+  if (FLAGS_enable_debug) {
+    options.breakpoint_callback = kiwi::base::BindRepeating(
+        &MainWindow::OnPause, kiwi::base::Unretained(this));
   }
 
-  contents_card_widget_->set_bounds(SDL_Rect{client_bounds.x + left_width,
-                                             client_bounds.y, right_width,
-                                             client_bounds.h});
-}
+  if (runtime_) {
+    PowerOffRuntime();
+    Application::Get()->set_runtime(nullptr);
+    runtime_.reset();
+  }
 
-FlexItemsWidget* MainWindow::GetMainItemsWidget() {
-  if (!items_widgets_.empty())
-    return items_widgets_[0];
+  runtime_ = runtime_util::CreateRuntime(
+      system, Application::Get()->profile_path(), std::move(options));
+  Application::Get()->set_runtime(runtime_.get());
 
-  return nullptr;
-}
-
-void MainWindow::PopulatePackageItems(preset_roms::Package* package,
-                                      FlexItemsWidget* items_widget) {
-  SDL_assert(package);
-  SDL_assert(items_widget);
-  SDL_assert(items_widget->empty());
-  for (size_t i = 0; i < package->GetRomsCount(); ++i) {
-    std::vector<preset_roms::PresetROM*> roms;
-    preset_roms::PresetROM& rom = package->GetRomsByIndex(i);
-    roms.push_back(&rom);
-    for (preset_roms::PresetROM& alternative_rom : rom.alternates) {
-      roms.push_back(&alternative_rom);
-    }
-
-    preset_roms::PresetROM* priority_rom = FindPreferredROM(roms);
-    std::vector<preset_roms::PresetROM*> ordered_roms = {priority_rom};
-    for (preset_roms::PresetROM* candidate : roms) {
-      if (candidate != priority_rom) {
-        ordered_roms.push_back(candidate);
-      }
-    }
-
-    std::vector<const preset_roms::PresetROM*> filter_aliases;
-    filter_aliases.reserve(roms.size());
-    for (preset_roms::PresetROM* candidate : roms) {
-      filter_aliases.push_back(candidate);
-    }
-
-#if KIWI_ENABLE_HD_TEXTURE
-    for (preset_roms::PresetROM* candidate : ordered_roms) {
-      if (!candidate->hd_edition_available) {
-        continue;
-      }
-      items_widget->AddItem(
-          std::make_unique<ROMTitleUpdater>(
-              *candidate, preset_roms::ROMEdition::kHD, filter_aliases),
-          candidate->boxart_width, candidate->boxart_height, true,
-          kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
-          kiwi::base::BindRepeating(
-              &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-              std::ref(*candidate), preset_roms::ROMEdition::kHD));
-    }
-#endif
-
-    preset_roms::PresetROM* default_rom = ordered_roms.front();
-    size_t main_item_index = items_widget->AddItem(
-        std::make_unique<ROMTitleUpdater>(*default_rom,
-                                          preset_roms::ROMEdition::kOriginal),
-        default_rom->boxart_width, default_rom->boxart_height,
-        HasSwitchableHDTexture(default_rom),
-        kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *default_rom),
-        kiwi::base::BindRepeating(
-            &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-            std::ref(*default_rom), preset_roms::ROMEdition::kOriginal));
-
-    for (size_t rom_index = 1; rom_index < ordered_roms.size(); ++rom_index) {
-      preset_roms::PresetROM* candidate = ordered_roms[rom_index];
-      items_widget->AddSubItem(
-          main_item_index,
-          std::make_unique<ROMTitleUpdater>(*candidate,
-                                            preset_roms::ROMEdition::kOriginal),
-          candidate->boxart_width, candidate->boxart_height,
-          HasSwitchableHDTexture(candidate),
-          kiwi::base::BindRepeating(&LoadPresetROMBoxArt, *candidate),
-          kiwi::base::BindRepeating(
-              &MainWindow::OnLoadPresetROM, kiwi::base::Unretained(this),
-              std::ref(*candidate), preset_roms::ROMEdition::kOriginal));
-    }
+  if (nes_debug_widget_)
+    nes_debug_widget_->SetDebugPort(debug_port());
+  if (gba_debug_widget_) {
+    gba_debug_widget_->SetEmulator(
+        system == kiwi::emu::Emulator::Type::kGBA
+            ? scoped_refptr<kiwi::gba::Emulator>(
+                  runtime_->emulator()->AsGBAEmulator())
+            : nullptr);
+  }
+  if (canvas_) {
+    canvas_->frame()->SetEmulator(system == kiwi::emu::Emulator::Type::kNES
+                                      ? runtime_->emulator()->AsNESEmulator()
+                                      : nullptr);
+    InitializeIODevices();
   }
 }
 
-void MainWindow::EnsurePackageIndex(preset_roms::Package* package,
-                                    FlexItemsWidget* items_widget) {
-  if (IsPackageIndexReady(package)) {
-    if (items_widget->empty()) {
-      PopulatePackageItems(package, items_widget);
+void MainWindow::PowerOffRuntime() {
+  if (runtime_) {
+    if (nes_debug_widget_)
+      nes_debug_widget_->SetDebugPort(nullptr);
+    if (gba_debug_widget_) {
+      gba_debug_widget_->SetEmulator(nullptr);
     }
-    return;
-  }
-  if (!indexing_packages_.insert(package).second) {
-    return;
-  }
-
-  items_widget->SetIndexingProgress(0, package->GetRomsCount());
-  Application::Get()->InitializePackageIndex(
-      package,
-      kiwi::base::BindRepeating(&MainWindow::OnPackageIndexProgress,
-                                kiwi::base::Unretained(this),
-                                kiwi::base::Unretained(items_widget)),
-      kiwi::base::BindOnce(&MainWindow::OnPackageIndexReady,
-                           kiwi::base::Unretained(this),
-                           kiwi::base::Unretained(package),
-                           kiwi::base::Unretained(items_widget)));
-}
-
-void MainWindow::OnPackageIndexProgress(FlexItemsWidget* items_widget,
-                                        size_t completed,
-                                        size_t total) {
-  items_widget->SetIndexingProgress(completed, total);
-}
-
-void MainWindow::OnPackageIndexReady(preset_roms::Package* package,
-                                     FlexItemsWidget* items_widget,
-                                     bool success) {
-  indexing_packages_.erase(package);
-  if (success && items_widget->empty()) {
-    PopulatePackageItems(package, items_widget);
-    if (items_widget == GetMainItemsWidget() && !items_widget->empty()) {
-      const int index = std::clamp(config_->data().last_index, 0,
-                                   static_cast<int>(items_widget->size() - 1));
-      items_widget->SetIndex(index);
+    if (canvas_) {
+      canvas_->frame()->SetEmulator(nullptr);
     }
+    runtime_util::ShutdownRuntime(runtime_.get());
   }
-  items_widget->FinishIndexing(success);
 }
 
-SideMenu::MenuCallbacks MainWindow::CreateMenuSettingsCallbacks() {
-  SideMenu::MenuCallbacks callbacks;
-  callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* window, NESRuntimeID runtime_id, int) {
-        std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
-            window, runtime_id,
-            kiwi::base::BindRepeating(
-                [](StackWidget* stack_widget,
-                   const InGameMenu::MenuCommand& command) {
-                  // Mapping button 'B' will trigger kContinue.
-                  if (command.item == InGameMenu::MenuItem::kToGameSelection ||
-                      command.item == InGameMenu::MenuItem::kContinue) {
-                    stack_widget->PopWidget();
-                  }
-                },
-                window->main_stack_widget_),
-            kiwi::base::BindRepeating(&MainWindow::OnInGameSettingsItemTrigger,
-                                      kiwi::base::Unretained(window)));
-        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kContinue,
-                                         false);
-        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kLoadAutoSave,
-                                         false);
-        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState,
-                                         false);
-        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState,
-                                         false);
-        in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kResetGame,
-                                         false);
-        in_game_menu->set_bounds(
-            SDL_Rect{0, 0, window->main_stack_widget_->bounds().w,
-                     window->main_stack_widget_->bounds().h});
-        window->main_stack_widget_->PushWidget(std::move(in_game_menu));
-      },
-      this, runtime_id_);
-  return callbacks;
-}
-
-SideMenu::MenuCallbacks MainWindow::CreateMenuAboutCallbacks() {
-  SideMenu::MenuCallbacks callbacks;
-  callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* window, NESRuntimeID runtime_id, int) {
-        std::unique_ptr<AboutWidget> about_widget =
-            std::make_unique<AboutWidget>(window, window->main_stack_widget_,
-                                          runtime_id);
-        about_widget->set_bounds(
-            SDL_Rect{0, 0, window->main_stack_widget_->bounds().w,
-                     window->main_stack_widget_->bounds().h});
-        window->main_stack_widget_->PushWidget(std::move(about_widget));
-      },
-      this, runtime_id_);
-  return callbacks;
-}
-
-SideMenu::MenuCallbacks MainWindow::CreateMenuChangeFocusToGameItemsCallbacks(
-    preset_roms::Package* package,
-    FlexItemsWidget* items_widget) {
-  SDL_assert(package);
-  SDL_assert(items_widget);
-  SideMenu::MenuCallbacks callbacks;
-  callbacks.trigger_callback = kiwi::base::BindRepeating(
-      [](MainWindow* this_window, preset_roms::Package* package,
-         FlexItemsWidget* items_widget, int menu_index) {
-        this_window->flex_items_map_[menu_index] = items_widget;
-        this_window->SwitchToWidgetForSideMenu(menu_index);
-        this_window->EnsurePackageIndex(package, items_widget);
-      },
-      kiwi::base::Unretained(this), kiwi::base::Unretained(package),
-      kiwi::base::Unretained(items_widget));
-  callbacks.enter_callback = kiwi::base::BindRepeating(
-      &MainWindow::ChangeFocus, kiwi::base::Unretained(this),
-      MainFocus::kContents);
-
-  return callbacks;
-}
-
-void MainWindow::SwitchToWidgetForSideMenu(int menu_index) {
-  SDL_assert(contents_card_widget_);
-  SDL_assert(flex_items_map_[menu_index]);
-  bool succeeded =
-      contents_card_widget_->SetCurrentWidget(flex_items_map_[menu_index]);
-  SDL_assert(succeeded);
-}
-
-void MainWindow::SwitchToSideMenuByCurrentFlexItemWidget() {
-  SDL_assert(contents_card_widget_);
-  Widget* current_widget = contents_card_widget_->GetCurrentWidget();
-  SDL_assert(current_widget);
-  int target_index = -1;
-  for (auto [side_menu_index, widget] : flex_items_map_) {
-    if (widget == current_widget) {
-      target_index = side_menu_index;
-      break;
-    }
+void MainWindow::SwitchEmulationSystem(kiwi::emu::Emulator::Type system) {
+  if (emulation_system_ != system && (!canvas_ || !canvas_->visible())) {
+    if (nes_debug_widget_)
+      nes_debug_widget_->set_visible(false);
+    if (gba_debug_widget_)
+      gba_debug_widget_->set_visible(false);
+    emulation_system_ = system;
+    ReplaceRuntime(system);
+    config_->data().last_system = static_cast<int>(system);
+    config_->SaveConfig();
+    UpdateWorkspaceForSystem();
   }
-  if (target_index == -1) {
-    SDL_assert(false);  // Shouldn't be here
-    target_index = 0;
-  }
-  side_menu_->SetIndex(target_index);
 }
 
-void MainWindow::ChangeFocusToCurrentSideMenuAndShowFilter() {
-  // A test-rom commandline will have no side menu items.
-  if (flex_items_map_.find(side_menu_->current_index()) !=
-      flex_items_map_.end()) {
-    ChangeFocus(MainFocus::kContents);
-    flex_items_map_[side_menu_->current_index()]->ShowFilterWidget();
+bool MainWindow::IsEmulationSystem(kiwi::emu::Emulator::Type system) const {
+  return emulation_system_ == system;
+}
+
+void MainWindow::UpdateWorkspaceForSystem() {
+  if (canvas_) {
+    canvas_->SetEmulationSystem(emulation_system_);
   }
+  if (game_library_view_) {
+    game_library_view_->SetEmulationSystem(emulation_system_,
+                                           config_->data().last_index);
+  }
+
+  SetTitle(emulation_system_ == kiwi::emu::Emulator::Type::kGBA
+               ? "Kiwi Machine [Game Boy Advance]"
+               : "Kiwi Machine");
+}
+
+void MainWindow::ShowSettings() {
+  std::unique_ptr<InGameMenu> in_game_menu = std::make_unique<InGameMenu>(
+      this,
+      kiwi::base::BindRepeating(
+          [](StackWidget* stack_widget,
+             const InGameMenu::MenuCommand& command) {
+            // Mapping button 'B' will trigger kContinue.
+            if (command.item == InGameMenu::MenuItem::kToGameSelection ||
+                command.item == InGameMenu::MenuItem::kContinue) {
+              stack_widget->PopWidget();
+            }
+          },
+          main_stack_widget_),
+      kiwi::base::BindRepeating(&MainWindow::OnInGameSettingsItemTrigger,
+                                kiwi::base::Unretained(this)));
+  in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kContinue, false);
+  in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kLoadAutoSave, false);
+  in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState, false);
+  in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState, false);
+  in_game_menu->SetMenuItemVisible(InGameMenu::MenuItem::kResetGame, false);
+  in_game_menu->set_bounds(SDL_Rect{0, 0, main_stack_widget_->bounds().w,
+                                    main_stack_widget_->bounds().h});
+  main_stack_widget_->PushWidget(std::move(in_game_menu));
+}
+
+void MainWindow::ShowAbout() {
+  std::unique_ptr<AboutWidget> about_widget =
+      std::make_unique<AboutWidget>(this, main_stack_widget_);
+  about_widget->set_bounds(SDL_Rect{0, 0, main_stack_widget_->bounds().w,
+                                    main_stack_widget_->bounds().h});
+  main_stack_widget_->PushWidget(std::move(about_widget));
 }
 
 void MainWindow::OnRomLoaded(std::unique_ptr<PendingROM> pending_rom,
                              bool success) {
   if (!success) {
     SetLoading(false);
-    if (runtime_data_->emulator->GetRomData()) {
-      StartAutoSave();
+    if (runtime_->emulator()->AsNESEmulator()->GetRomData()) {
+      StartPeriodicSaves();
     }
     Toast::ShowToast(this,
                      GetLocalizedString(
                          string_resources::IDR_MAIN_WINDOW_ROM_NOT_SUPPORTED));
-    return;
-  }
-
-  current_game_title_ = std::move(pending_rom->game_title);
-#if KIWI_ENABLE_HD_TEXTURE
-  hd_texture_available_ = pending_rom->hd_texture_available;
-  hd_texture_enabled_ = pending_rom->hd_texture_enabled;
-  canvas_->frame()->SetTextureRenderer(
-      std::move(pending_rom->texture_renderer));
-  canvas_->frame()->SetHDTextureRenderingEnabled(hd_texture_enabled_);
-  canvas_->SetHDTextureToggleAvailable(hd_texture_available_);
+  } else {
+    emulation_system_ = kiwi::emu::Emulator::Type::kNES;
+    canvas_->SetEmulationSystem(emulation_system_);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadAutoSave,
+                                      true);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState, true);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState, true);
+    current_game_title_ = std::move(pending_rom->game_title);
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+    hd_texture_available_ = pending_rom->hd_texture_available;
+    hd_texture_enabled_ = pending_rom->hd_texture_enabled;
+    canvas_->frame()->SetTextureRenderer(
+        std::move(pending_rom->texture_renderer));
+    canvas_->frame()->SetHDTextureRenderingEnabled(hd_texture_enabled_);
+    canvas_->SetHDTextureToggleAvailable(hd_texture_available_);
 #endif
-  ShowMainMenu(false, pending_rom->load_from_finger_gesture);
-  SetTitle(pending_rom->window_title);
-  StartAutoSave();
-  PauseGameIfDisassemblyVisible();
-  PauseForFocusLossIfNeeded();
+    ShowMainMenu(false, pending_rom->load_from_finger_gesture);
+    SetTitle(pending_rom->window_title);
+    StartPeriodicSaves();
+    PauseGameIfDebuggerVisible();
+    PauseForFocusLossIfNeeded();
+  }
+}
+
+void MainWindow::OnGBARomLoaded(std::string fallback_title, bool success) {
+  if (!success) {
+    SetLoading(false);
+    if (runtime_->emulator()->HasROM()) {
+      StartPeriodicSaves();
+    }
+    Toast::ShowToast(this,
+                     GetLocalizedString(
+                         string_resources::IDR_MAIN_WINDOW_ROM_NOT_SUPPORTED));
+  } else {
+    emulation_system_ = kiwi::emu::Emulator::Type::kGBA;
+    config_->data().last_system = static_cast<int>(emulation_system_);
+    config_->SaveConfig();
+    canvas_->SetEmulationSystem(emulation_system_);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadAutoSave,
+                                      true);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState, true);
+    in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState, true);
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+    hd_texture_available_ = false;
+    hd_texture_enabled_ = false;
+    canvas_->SetHDTextureToggleAvailable(false);
+#endif
+
+    const kiwi::gba::RomData* rom_data =
+        runtime_->emulator()->AsGBAEmulator()->GetRomData();
+    current_game_title_ =
+        rom_data && !rom_data->title.empty() ? rom_data->title : fallback_title;
+    ShowMainMenu(false, false);
+    SetTitle(current_game_title_ + " [GBA]");
+    StartPeriodicSaves();
+    PauseGameIfDebuggerVisible();
+    PauseForFocusLossIfNeeded();
+  }
 }
 
 void MainWindow::OnQuit() {
@@ -2136,23 +1582,23 @@ void MainWindow::OnQuit() {
 }
 
 void MainWindow::OnResetROM() {
-  SDL_assert(runtime_data_->emulator);
-  runtime_data_->emulator->Reset(
-      kiwi::base::BindOnce(&MainWindow::ResetAudio,
-                           kiwi::base::Unretained(this))
-          .Then(kiwi::base::BindOnce(&MainWindow::PauseGameIfDisassemblyVisible,
-                                     kiwi::base::Unretained(this)))
+  kiwi::base::OnceClosure reset_callback = kiwi::base::BindOnce(
+      &MainWindow::ResetAudio, kiwi::base::Unretained(this));
+  reset_callback =
+      std::move(reset_callback)
+          .Then(kiwi::base::BindOnce(&MainWindow::PauseGameIfDebuggerVisible,
+                                     kiwi::base::Unretained(this)));
+  runtime_->emulator()->Reset(
+      std::move(reset_callback)
           .Then(kiwi::base::BindOnce(&MainWindow::PauseForFocusLossIfNeeded,
                                      kiwi::base::Unretained(this))));
 }
 
 void MainWindow::OnBackToMainMenu() {
   SetLoading(true);
-  StopAutoSave();
-
-  SDL_assert(runtime_data_->emulator);
-  runtime_data_->UnloadROM(kiwi::base::BindOnce(&MainWindow::OnRomUnloaded,
-                                                kiwi::base::Unretained(this)));
+  runtime_util::StopPeriodicSaves(runtime_.get());
+  runtime_->UnloadROM(kiwi::base::BindOnce(&MainWindow::OnRomUnloaded,
+                                           kiwi::base::Unretained(this)));
 }
 
 void MainWindow::OnRomUnloaded(bool success) {
@@ -2160,74 +1606,62 @@ void MainWindow::OnRomUnloaded(bool success) {
     SetLoading(false);
     SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
                 "Could not save battery-backed data before unloading ROM.");
-    StartAutoSave();
-    return;
-  }
-
-  SetTitle("Kiwi Machine");
-  current_game_title_.clear();
-#if KIWI_ENABLE_HD_TEXTURE
-  hd_texture_available_ = false;
-  hd_texture_enabled_ = false;
-  canvas_->SetHDTextureToggleAvailable(false);
-  canvas_->frame()->SetTextureRenderer(nullptr);
+    StartPeriodicSaves();
+  } else {
+    current_game_title_.clear();
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+    hd_texture_available_ = false;
+    hd_texture_enabled_ = false;
+    canvas_->SetHDTextureToggleAvailable(false);
+    canvas_->frame()->SetTextureRenderer(nullptr);
 #endif
-  ShowMainMenu(true, false);
-  canvas_->Clear();
+    ShowMainMenu(true, false);
+    canvas_->Clear();
+    UpdateWorkspaceForSystem();
+  }
 }
 
 void MainWindow::OnSaveState(int which_state) {
-  SDL_assert(runtime_data_->emulator);
-  runtime_data_->emulator->SaveState(kiwi::base::BindOnce(
-      [](MainWindow* window, NESRuntime::Data* runtime_data, int which_state,
-         kiwi::nes::Bytes data) {
-        SDL_assert(which_state < NESRuntime::Data::MaxSaveStates);
-        auto* rom_data = runtime_data->emulator->GetRomData();
-        SDL_assert(rom_data);
-        if (!data.empty()) {
-          runtime_data->SaveState(
-              rom_data->crc, which_state, data,
-              window->canvas_->frame()->GetLastFrame(),
-              kiwi::base::BindOnce(
-                  [](MainWindow* window, int slot, bool succeed) {
-                    window->OnStateSaved(slot, succeed);
-                  },
-                  kiwi::base::Unretained(window), which_state));
-        } else {
-          window->OnStateSaved(which_state, false);
-        }
-      },
-      this, runtime_data_, which_state));
+  save_state_util::SaveState(
+      runtime_.get(), which_state,
+      kiwi::base::BindRepeating(&MainWindow::GetLastFrameForState,
+                                kiwi::base::Unretained(this)),
+      kiwi::base::BindOnce(&MainWindow::OnStateSaved,
+                           kiwi::base::Unretained(this)));
 }
 
 void MainWindow::OnLoadState(int which_state) {
-  SDL_assert(which_state < NESRuntime::Data::MaxSaveStates);
-  auto* rom_data = runtime_data_->emulator->GetRomData();
-  if (rom_data) {
-    runtime_data_->GetState(runtime_data_->emulator->GetRomData()->crc,
-                            which_state,
-                            kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
-                                                 kiwi::base::Unretained(this),
-                                                 false));
-  } else {
-    NESRuntime::Data::StateResult failed_result{false};
-    OnStateLoaded(false, failed_result);
+  save_state_util::LoadState(
+      runtime_.get(), which_state,
+      kiwi::base::BindOnce(&MainWindow::PrepareToLoadState,
+                           kiwi::base::Unretained(this)),
+      kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
+                           kiwi::base::Unretained(this)));
+}
+
+void MainWindow::StartPeriodicSaves() {
+  runtime_util::StartPeriodicSaves(
+      runtime_.get(),
+      kiwi::base::BindRepeating(&MainWindow::GetLastFrameForState,
+                                kiwi::base::Unretained(this)));
+}
+
+const kiwi::emu::Colors& MainWindow::GetLastFrameForState() {
+  SDL_assert(runtime_);
+  if (runtime_->emulator()->GetType() == kiwi::emu::Emulator::Type::kGBA) {
+    return runtime_->emulator()->AsGBAEmulator()->GetLastFrame();
   }
+  return canvas_->frame()->GetLastFrame();
 }
 
 void MainWindow::OnLoadAutoSavedState(int timestamp,
                                       bool discard_newer_states) {
-  auto* rom_data = runtime_data_->emulator->GetRomData();
-  if (rom_data) {
-    runtime_data_->GetAutoSavedStateByTimestamp(
-        runtime_data_->emulator->GetRomData()->crc, timestamp,
-        kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
-                             kiwi::base::Unretained(this),
-                             discard_newer_states));
-  } else {
-    NESRuntime::Data::StateResult failed_result{false};
-    OnStateLoaded(discard_newer_states, failed_result);
-  }
+  save_state_util::LoadAutoSavedState(
+      runtime_.get(), timestamp, discard_newer_states,
+      kiwi::base::BindOnce(&MainWindow::PrepareToLoadState,
+                           kiwi::base::Unretained(this)),
+      kiwi::base::BindOnce(&MainWindow::OnStateLoaded,
+                           kiwi::base::Unretained(this)));
 }
 
 void MainWindow::OnStateSaved(int slot, bool succeed) {
@@ -2253,65 +1687,31 @@ void MainWindow::OnStateSaved(int slot, bool succeed) {
   }
 }
 
-void MainWindow::OnStateLoaded(
-    bool discard_newer_states,
-    const NESRuntime::Data::StateResult& state_result) {
-  using namespace string_resources;
-
-  if (state_result.success && !state_result.state_data.empty()) {
-    audio_->Reset();
-    runtime_data_->emulator->LoadState(
-        state_result.state_data,
-        kiwi::base::BindOnce(
-            [](MainWindow* window, int slot_or_timestamp,
-               bool discard_newer_states, bool success) {
-#if !BUILDFLAG(IS_WASM)
-              if (success)
-                Toast::ShowToast(
-                    window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_SUCCEEDED));
-              else
-                Toast::ShowToast(
-                    window, GetLocalizedString(IDR_MAIN_WINDOW_LOAD_FAILED));
-#endif
-              if (success) {
-                if (discard_newer_states) {
-                  const kiwi::nes::RomData* rom_data =
-                      window->runtime_data_->emulator->GetRomData();
-                  if (rom_data) {
-                    window->runtime_data_->DeleteAutoSavedStatesNewerThan(
-                        rom_data->crc, slot_or_timestamp,
-                        kiwi::base::BindOnce([](bool deleted) {
-                          if (!deleted) {
-                            SDL_LogWarn(
-                                SDL_LOG_CATEGORY_APPLICATION,
-                                "Failed to delete newer auto saved states.");
-                          }
-                        }));
-                  }
-                }
-                for (auto* observer : window->observers_) {
-                  observer->OnLoadStateSucceeded(slot_or_timestamp);
-                }
-              } else {
-                for (auto* observer : window->observers_) {
-                  observer->OnLoadStateFailed(slot_or_timestamp);
-                }
-              }
-              window->PauseForFocusLossIfNeeded();
-            },
-            this, state_result.slot_or_timestamp, discard_newer_states));
-    audio_->Start();
-  }
+void MainWindow::PrepareToLoadState() {
+  audio_->Reset();
+  audio_->Start();
 }
 
-bool MainWindow::CanSaveOrLoadState() {
-  SDL_assert(runtime_data_->emulator);
-  return runtime_data_->emulator->GetRunningState() !=
-         kiwi::nes::Emulator::RunningState::kStopped;
+void MainWindow::OnStateLoaded(int slot_or_timestamp, bool succeed) {
+  using namespace string_resources;
+
+#if !BUILDFLAG(IS_WASM)
+  Toast::ShowToast(this,
+                   GetLocalizedString(succeed ? IDR_MAIN_WINDOW_LOAD_SUCCEEDED
+                                              : IDR_MAIN_WINDOW_LOAD_FAILED));
+#endif
+
+  for (auto* observer : observers_) {
+    if (succeed) {
+      observer->OnLoadStateSucceeded(slot_or_timestamp);
+    } else {
+      observer->OnLoadStateFailed(slot_or_timestamp);
+    }
+  }
+  PauseForFocusLossIfNeeded();
 }
 
 void MainWindow::OnTogglePause() {
-  SDL_assert(runtime_data_->emulator);
   if (IsPause()) {
     OnResume();
   } else {
@@ -2321,17 +1721,19 @@ void MainWindow::OnTogglePause() {
 
 void MainWindow::OnPause() {
   resume_after_focus_gained_ = false;
-  StopAutoSave();
+  runtime_util::StopPeriodicSaves(runtime_.get());
   // Cleanup all pressing keys when pausing.
   pressing_keys_.clear();
-  runtime_data_->emulator->Pause();
-  if (memory_widget_)
-    memory_widget_->UpdateMemory();
-  if (disassembly_widget_)
-    disassembly_widget_->UpdateDisassembly();
+  runtime_->emulator()->Pause();
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kNES) {
+    if (nes_debug_widget_)
+      nes_debug_widget_->Refresh();
+  } else if (gba_debug_widget_) {
+    gba_debug_widget_->Refresh();
+  }
   StashVirtualButtonsVisible();
   SetVirtualButtonsVisible(false);
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   SetHDTextureToggleState(false, hd_texture_enabled_);
 #endif
 }
@@ -2340,42 +1742,43 @@ void MainWindow::OnResume() {
   if (!is_focused_) {
     PauseForFocusLossIfNeeded();
     resume_after_focus_gained_ = IsPause();
-    return;
-  }
-
-  resume_after_focus_gained_ = false;
-  runtime_data_->emulator->Run();
-  PopVirtualButtonsVisible();
-#if KIWI_ENABLE_HD_TEXTURE
-  SetHDTextureToggleState(hd_texture_available_ && canvas_->visible(),
-                          hd_texture_enabled_);
+  } else {
+    resume_after_focus_gained_ = false;
+    runtime_->emulator()->Run();
+    PopVirtualButtonsVisible();
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+    SetHDTextureToggleState(hd_texture_available_ && canvas_->visible(),
+                            hd_texture_enabled_);
 #endif
-  StartAutoSave();
+    StartPeriodicSaves();
+  }
 }
 
 void MainWindow::PauseForFocusLossIfNeeded() {
-  if (is_focused_ || !runtime_data_ || !runtime_data_->emulator ||
-      runtime_data_->emulator->GetRunningState() !=
-          kiwi::nes::Emulator::RunningState::kRunning) {
-    return;
+  if (!is_focused_) {
+    if (runtime_->emulator()->IsRunning()) {
+      OnPause();
+      resume_after_focus_gained_ = true;
+    }
   }
-
-  OnPause();
-  resume_after_focus_gained_ = true;
 }
 
 void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
                                  preset_roms::ROMEdition edition,
                                  bool load_from_finger_gesture) {
-  SDL_assert(runtime_data_->emulator);
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   SDL_assert(edition == preset_roms::ROMEdition::kOriginal ||
              rom.hd_edition_available);
 #else
   SDL_assert(edition == preset_roms::ROMEdition::kOriginal);
 #endif
+  const kiwi::emu::Emulator::Type target_system =
+      rom.type == preset_roms::PackageType::kGBA
+          ? kiwi::emu::Emulator::Type::kGBA
+          : kiwi::emu::Emulator::Type::kNES;
+  SwitchEmulationSystem(target_system);
   SetLoading(true);
-  StopAutoSave();
+  runtime_util::StopPeriodicSaves(runtime_.get());
 
   Application::Get()->GetIOTaskRunner()->PostTaskAndReplyWithResult(
       FROM_HERE, kiwi::base::BindOnce(&LoadPresetROM, std::ref(rom), edition),
@@ -2383,57 +1786,71 @@ void MainWindow::OnLoadPresetROM(preset_roms::PresetROM& rom,
           [](MainWindow* this_window, preset_roms::PresetROM& rom,
              preset_roms::ROMEdition edition, bool load_from_finger_gesture,
              LoadedPresetROM loaded_rom) {
-            auto pending_rom = std::make_unique<PendingROM>();
-            pending_rom->game_title = GetROMLocalizedTitle(rom);
-#if KIWI_ENABLE_HD_TEXTURE
-            const bool has_hd_renderer = loaded_rom.texture_renderer != nullptr;
-            const bool hd_enabled =
-                has_hd_renderer && edition == preset_roms::ROMEdition::kHD;
-            pending_rom->window_title = GetROMEditionTitle(
-                rom, hd_enabled ? preset_roms::ROMEdition::kHD
-                                : preset_roms::ROMEdition::kOriginal);
-            pending_rom->hd_texture_available =
-                has_hd_renderer && loaded_rom.hd_texture_toggle_available;
-            pending_rom->hd_texture_enabled = hd_enabled;
+            if (rom.type == preset_roms::PackageType::kGBA) {
+              const std::string title = GetROMLocalizedTitle(rom);
+              this_window->runtime_->LoadROM(
+                  std::move(loaded_rom.rom_data),
+                  kiwi::base::BindOnce(
+                      [](MainWindow* this_window, std::string title,
+                         bool success) {
+                        this_window->OnGBARomLoaded(title, success);
+                        if (success) {
+                          this_window->current_game_title_ = title;
+                          this_window->SetTitle(title + " [GBA]");
+                        }
+                      },
+                      kiwi::base::Unretained(this_window), title));
+            } else {
+              auto pending_rom = std::make_unique<PendingROM>();
+              pending_rom->game_title = GetROMLocalizedTitle(rom);
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+              const bool has_hd_renderer =
+                  loaded_rom.texture_renderer != nullptr;
+              const bool hd_enabled =
+                  has_hd_renderer && edition == preset_roms::ROMEdition::kHD;
+              pending_rom->window_title = GetROMLocalizedTitle(
+                  rom, hd_enabled ? preset_roms::ROMEdition::kHD
+                                  : preset_roms::ROMEdition::kOriginal);
+              pending_rom->hd_texture_available =
+                  has_hd_renderer && loaded_rom.hd_texture_toggle_available;
+              pending_rom->hd_texture_enabled = hd_enabled;
 #else
-            static_cast<void>(edition);
-            pending_rom->window_title =
-                GetROMEditionTitle(rom, preset_roms::ROMEdition::kOriginal);
+              pending_rom->window_title =
+                  GetROMLocalizedTitle(rom, preset_roms::ROMEdition::kOriginal);
 #endif
-            pending_rom->load_from_finger_gesture = load_from_finger_gesture;
-            kiwi::nes::Emulator::LoadOptions load_options;
-#if KIWI_ENABLE_HD_TEXTURE
-            if (has_hd_renderer) {
-              load_options.capture_ppu_texture_metadata = hd_enabled;
-              load_options.uses_chr_ram =
-                  loaded_rom.texture_renderer->IsUseChrRam();
+              pending_rom->load_from_finger_gesture = load_from_finger_gesture;
+              kiwi::nes::Emulator::LoadOptions load_options;
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+              if (has_hd_renderer) {
+                load_options.capture_ppu_texture_metadata = hd_enabled;
+                load_options.uses_chr_ram =
+                    loaded_rom.texture_renderer->IsUseChrRam();
+              }
+              pending_rom->texture_renderer =
+                  std::move(loaded_rom.texture_renderer);
+#endif
+              this_window->nes_runtime()->LoadROM(
+                  std::move(loaded_rom.rom_data),
+                  kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
+                                       kiwi::base::Unretained(this_window),
+                                       std::move(pending_rom)),
+                  load_options);
             }
-            pending_rom->texture_renderer =
-                std::move(loaded_rom.texture_renderer);
-#endif
-            this_window->runtime_data_->LoadROM(
-                std::move(loaded_rom.rom_data),
-                kiwi::base::BindOnce(&MainWindow::OnRomLoaded,
-                                     kiwi::base::Unretained(this_window),
-                                     std::move(pending_rom)),
-                load_options);
           },
           kiwi::base::Unretained(this), std::ref(rom), edition,
           load_from_finger_gesture));
 }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 void MainWindow::OnSetHDTextureRenderingEnabled(bool enabled) {
-  if (!hd_texture_available_ || !canvas_->frame()->HasHDTextureRenderer()) {
-    return;
+  if (hd_texture_available_ && canvas_->frame()->HasHDTextureRenderer()) {
+    hd_texture_enabled_ = enabled;
+    runtime_->emulator()->AsNESEmulator()->SetTextureMetadataCaptureEnabled(
+        hd_texture_enabled_);
+    canvas_->frame()->SetHDTextureRenderingEnabled(hd_texture_enabled_);
+    SetTitle(current_game_title_ + (hd_texture_enabled_ ? " [HD]" : ""));
+    SetHDTextureToggleState(canvas_->visible(), hd_texture_enabled_);
   }
-
-  hd_texture_enabled_ = enabled;
-  runtime_data_->emulator->SetTextureMetadataCaptureEnabled(
-      hd_texture_enabled_);
-  canvas_->frame()->SetHDTextureRenderingEnabled(hd_texture_enabled_);
-  SetTitle(current_game_title_ + (hd_texture_enabled_ ? " [HD]" : ""));
-  SetHDTextureToggleState(canvas_->visible(), hd_texture_enabled_);
 }
 
 void MainWindow::OnToggleHDTextureRendering() {
@@ -2446,9 +1863,8 @@ void MainWindow::OnLoadDebugROM(kiwi::base::FilePath rom_path) {
 }
 
 void MainWindow::OnToggleAudioEnabled() {
-  SDL_assert(runtime_data_->emulator);
-  runtime_data_->emulator->SetVolume(IsAudioEnabled() ? 0 : 1);
-  SetEffectVolume(IsAudioEnabled() ? 0 : 1);
+  const float volume = IsAudioEnabled() ? 0.f : 1.f;
+  OnSetAudioVolume(volume);
 }
 
 void MainWindow::OnSetAudioVolume(float volume) {
@@ -2457,8 +1873,7 @@ void MainWindow::OnSetAudioVolume(float volume) {
   else if (volume > 1.f)
     volume = 1.f;
 
-  SDL_assert(runtime_data_->emulator);
-  runtime_data_->emulator->SetVolume(volume);
+  runtime_->emulator()->SetVolume(volume);
   SetEffectVolume(volume);
   config_->data().volume = volume;
   config_->SaveConfig();
@@ -2469,28 +1884,7 @@ void MainWindow::OnSetAudioVolume(float volume) {
 }
 
 bool MainWindow::IsAudioEnabled() {
-  return runtime_data_->emulator->GetVolume() > 0;
-}
-
-void MainWindow::OnToggleAudioChannelMasks(kiwi::nes::AudioChannel which_mask) {
-  SDL_assert(runtime_data_->debug_port);
-  int current_mask = runtime_data_->debug_port->GetAudioChannelMasks();
-  runtime_data_->debug_port->SetAudioChannelMasks(current_mask ^ which_mask);
-}
-
-bool MainWindow::IsAudioChannelOn(kiwi::nes::AudioChannel which_mask) {
-  SDL_assert(runtime_data_->debug_port);
-  return runtime_data_->debug_port->GetAudioChannelMasks() & which_mask;
-}
-
-void MainWindow::OnToggleRenderPaused() {
-  SDL_assert(runtime_data_->debug_port);
-  runtime_data_->debug_port->set_render_paused(!IsRenderPaused());
-}
-
-bool MainWindow::IsRenderPaused() {
-  SDL_assert(runtime_data_->debug_port);
-  return runtime_data_->debug_port->render_paused();
+  return config_->data().volume > 0;
 }
 
 void MainWindow::OnSetFullscreen() {
@@ -2522,48 +1916,28 @@ void MainWindow::OnUnsetFullscreen() {
   config_->SaveConfig();
 }
 
-void MainWindow::OnTogglePaletteWidget() {
-  SDL_assert(palette_widget_);
-  palette_widget_->set_visible(!palette_widget_->visible());
-}
-
-bool MainWindow::IsPaletteWidgetShown() {
-  SDL_assert(palette_widget_);
-  return palette_widget_->visible();
-}
-
-void MainWindow::OnTogglePatternWidget() {
-  SDL_assert(pattern_widget_);
-  pattern_widget_->set_visible(!pattern_widget_->visible());
-}
-
-bool MainWindow::IsPatternWidgetShown() {
-  SDL_assert(pattern_widget_);
-  return pattern_widget_->visible();
-}
-
-void MainWindow::OnPerformanceWidget() {
-  SDL_assert(performance_widget_);
-  performance_widget_->set_visible(!performance_widget_->visible());
-}
-
-bool MainWindow::IsPerformanceWidgetShown() {
-  SDL_assert(performance_widget_);
-  return performance_widget_->visible();
-}
-
-void MainWindow::OnDebugMemory() {
-  memory_widget_->set_visible(true);
-  memory_widget_->UpdateMemory();
-}
-
-void MainWindow::OnDebugDisassembly() {
-  disassembly_widget_->set_visible(true);
-  disassembly_widget_->UpdateDisassembly();
-}
-
-void MainWindow::OnDebugNametable() {
-  nametable_widget_->set_visible(true);
+void MainWindow::OnDebug() {
+#if !BUILDFLAG(IS_MOBILE) && !BUILDFLAG(IS_SWITCH)
+  SDL_Rect window_bounds = GetWindowBounds();
+  Resize(std::max(window_bounds.w, 1180), std::max(window_bounds.h, 760));
+#endif
+  SDL_Rect client_bounds = GetClientBounds();
+  const int margin = 20;
+  Widget* debug_widget = emulation_system_ == kiwi::emu::Emulator::Type::kNES
+                             ? static_cast<Widget*>(nes_debug_widget_)
+                             : static_cast<Widget*>(gba_debug_widget_);
+  SDL_assert(debug_widget);
+  debug_widget->set_bounds(
+      SDL_Rect{margin, margin, std::max(320, client_bounds.w - margin * 2),
+               std::max(320, client_bounds.h - margin * 2)});
+  debug_widget->set_visible(true);
+  if (!IsPause()) {
+    OnPause();
+  } else if (emulation_system_ == kiwi::emu::Emulator::Type::kNES) {
+    nes_debug_widget_->Refresh();
+  } else {
+    gba_debug_widget_->Refresh();
+  }
 }
 
 void MainWindow::OnShowUiDemoWidget() {
@@ -2593,15 +1967,14 @@ void MainWindow::OnInGameMenuItemTrigger(
           std::get_if<InGameMenu::AutoSaveTimestamp>(&command.payload);
       if (!timestamp)
         break;
-      OnLoadAutoSavedState(timestamp->value,
-                           timestamp->discard_newer_states);
+      OnLoadAutoSavedState(timestamp->value, timestamp->discard_newer_states);
       CloseInGameMenu();
     } break;
     case InGameMenu::MenuItem::kLoadState: {
       const auto* slot = std::get_if<InGameMenu::StateSlot>(&command.payload);
       if (!slot)
         break;
-      SDL_assert(slot->value < NESRuntime::Data::MaxSaveStates);
+      SDL_assert(slot->value < Runtime::MaxSaveStates);
       OnLoadState(slot->value);
       CloseInGameMenu();
     } break;
@@ -2609,7 +1982,7 @@ void MainWindow::OnInGameMenuItemTrigger(
       const auto* slot = std::get_if<InGameMenu::StateSlot>(&command.payload);
       if (!slot)
         break;
-      SDL_assert(slot->value < NESRuntime::Data::MaxSaveStates);
+      SDL_assert(slot->value < Runtime::MaxSaveStates);
       OnSaveState(slot->value);
     } break;
     case InGameMenu::MenuItem::kResetGame: {
@@ -2650,8 +2023,9 @@ void MainWindow::OnInGameSettingsItemTrigger(
       if (!kiwi::switch_platform::ShowControllerSupport(1, 2))
         break;
 
-      for (auto& mapping : runtime_data_->joystick_mappings)
-        mapping.which = nullptr;
+      for (int player = 0; player < 2; ++player) {
+        runtime_->joystick_mapping(player).which = nullptr;
+      }
       if (!Application::Get()->ReloadGameControllers()) {
         SDL_LogError(SDL_LOG_CATEGORY_INPUT,
                      "Could not reload controllers after native selection: %s",
@@ -2667,18 +2041,17 @@ void MainWindow::OnInGameSettingsItemTrigger(
       std::vector<SDL_GameController*> controllers = GetControllerList();
       int player_index = (item == InGameMenu::SettingsItem::kJoyP1 ? 0 : 1);
       // Find next controller
-      auto iter =
-          std::find(controllers.begin(), controllers.end(),
-                    runtime_data_->joystick_mappings[player_index].which);
+      auto iter = std::find(controllers.begin(), controllers.end(),
+                            runtime_->joystick_mapping(player_index).which);
       if (iter == controllers.end())
         iter = controllers.begin();
       if (*go_left_ptr && iter != controllers.begin()) {
         SDL_GameController* next_controller = *(iter - 1);
-        SetControllerMapping(runtime_data_, player_index, next_controller,
+        SetControllerMapping(runtime_.get(), player_index, next_controller,
                              false);
       } else if (!*go_left_ptr && (iter != controllers.end() - 1)) {
         SDL_GameController* next_controller = *(iter + 1);
-        SetControllerMapping(runtime_data_, player_index, next_controller,
+        SetControllerMapping(runtime_.get(), player_index, next_controller,
                              false);
       }
     } break;
@@ -2724,7 +2097,7 @@ void MainWindow::OnInGameSettingsHandleWindowMode(bool is_left) {
 }
 
 void MainWindow::OnInGameSettingsHandleVolume(bool is_left) {
-  float volume = runtime_data_->emulator->GetVolume();
+  float volume = config_->data().volume;
   volume = (is_left ? volume - .1f : volume + .1f);
   OnSetAudioVolume(volume);
 }
@@ -2747,17 +2120,17 @@ void MainWindow::OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
 void MainWindow::SaveConfig() {
   // Before main window destruct, save current game index.
   // This happens when MainWindow is about to destroy, and has IO operation.
-  if (!is_headless_) {
-    FlexItemsWidget* main_items_widget = GetMainItemsWidget();
-    if (main_items_widget) {
-      config_->data().last_index = main_items_widget->current_index();
+  if (!is_headless_ && game_library_view_) {
+    const std::optional<int> current_index =
+        game_library_view_->GetCurrentIndex();
+    if (current_index) {
+      config_->data().last_index = *current_index;
+      config_->data().last_system = static_cast<int>(emulation_system_);
       config_->SaveConfig();
     }
   }
 }
 
 bool MainWindow::IsPause() {
-  SDL_assert(runtime_data_->emulator);
-  return runtime_data_->emulator->GetRunningState() ==
-         kiwi::nes::Emulator::RunningState::kPaused;
+  return runtime_->emulator()->IsPaused();
 }

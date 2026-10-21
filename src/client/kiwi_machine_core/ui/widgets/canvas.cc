@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <cfloat>
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 #include "resources/string_resources.h"
 #include "utility/fonts.h"
 #include "utility/localization.h"
@@ -32,16 +32,13 @@
 
 namespace {
 constexpr int kBrightThreshold = 220;
-#if BUILDFLAG(IS_SWITCH)
-constexpr int kQuickLoadHoldDurationMs = 600;
-#endif
 
 bool IsColorBrightEnough(int r, int g, int b) {
   float luminance = 0.299 * r + 0.587 * g + 0.114 * b;
   return luminance > kBrightThreshold;
 }
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 constexpr int kHDTextureHintDurationMs = 3000;
 constexpr int kHDTextureHintFadeInMs = 220;
 constexpr int kHDTextureHintFadeOutMs = 360;
@@ -57,9 +54,9 @@ ImU32 WithAlpha(ImU32 color, float alpha) {
 
 }  // namespace
 
-Canvas::Canvas(WindowBase* window_base, NESRuntimeID runtime_id)
-    : Widget(window_base) {
-  frame_ = kiwi::base::MakeRefCounted<NESFrame>(window_base, runtime_id);
+Canvas::Canvas(WindowBase* window_base) : Widget(window_base) {
+  frame_ = kiwi::base::MakeRefCounted<NESFrame>(window_base);
+  gba_frame_ = kiwi::base::MakeRefCounted<GBAFrame>(window_base);
   frame_->AddObserver(this);
   set_bounds(SDL_Rect{0, 0, kNESFrameDefaultWidth, kNESFrameDefaultHeight});
 }
@@ -71,6 +68,9 @@ void Canvas::Clear() {
 }
 
 int Canvas::GetZapperState() {
+  if (emulation_system_ != kiwi::emu::Emulator::Type::kNES)
+    return kiwi::nes::IODevices::InputDevice::ZapperState::kNone;
+
   using State = kiwi::nes::IODevices::InputDevice::ZapperState;
   int state = State::kNone;
   if (mouse_or_finger_down_) {
@@ -83,6 +83,28 @@ int Canvas::GetZapperState() {
   return state;
 }
 
+void Canvas::SetEmulationSystem(kiwi::emu::Emulator::Type system) {
+  emulation_system_ = system;
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+  if (system != kiwi::emu::Emulator::Type::kNES)
+    SetHDTextureToggleAvailable(false);
+#endif
+}
+
+int Canvas::frame_width() const {
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kGBA)
+    return gba_frame_->width() > 0 ? gba_frame_->width()
+                                   : kiwi::gba::kFrameWidth;
+  return frame_->width() > 0 ? frame_->width() : kNESFrameDefaultWidth;
+}
+
+int Canvas::frame_height() const {
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kGBA)
+    return gba_frame_->height() > 0 ? gba_frame_->height()
+                                    : kiwi::gba::kFrameHeight;
+  return frame_->height() > 0 ? frame_->height() : kNESFrameDefaultHeight;
+}
+
 void Canvas::AddObserver(CanvasObserver* observer) {
   observers_.insert(observer);
 }
@@ -93,7 +115,7 @@ void Canvas::RemoveObserver(CanvasObserver* observer) {
 
 void Canvas::Paint() {
 #if BUILDFLAG(IS_SWITCH)
-  UpdateShoulderChord();
+  UpdateTriggerChord();
 #endif
 
   // Notify all observers
@@ -101,12 +123,16 @@ void Canvas::Paint() {
     observer->OnAboutToRenderFrame(this, frame_.get());
   }
 
-  SDL_Rect src_rect = {0, 0, frame_->width(), frame_->height()};
+  SDL_Texture* texture = active_texture();
+  if (!texture)
+    return;
+
+  SDL_Rect src_rect = {0, 0, frame_width(), frame_height()};
   SDL_Rect dest_rect = bounds();
-  SDL_RenderCopy(window()->renderer(), frame_->texture(), &src_rect,
-                 &dest_rect);
-#if KIWI_ENABLE_HD_TEXTURE
-  PaintHDTextureToggleHint();
+  SDL_RenderCopy(window()->renderer(), texture, &src_rect, &dest_rect);
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kNES)
+    PaintHDTextureToggleHint();
 #endif
 }
 
@@ -115,7 +141,7 @@ bool Canvas::IsWindowless() {
 }
 
 bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   last_hd_toggle_input_was_controller_ = false;
   if (hd_texture_toggle_available_ && event->keysym.sym == SDLK_TAB &&
       event->repeat == 0) {
@@ -136,7 +162,10 @@ bool Canvas::OnKeyPressed(SDL_KeyboardEvent* event) {
 }
 
 bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
-#if KIWI_ENABLE_HD_TEXTURE
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kGBA)
+    return false;
+
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   last_hd_toggle_input_was_controller_ = true;
 #endif
   SDL_GameController* controller =
@@ -145,28 +174,21 @@ bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
       controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
   const bool right_shoulder = SDL_GameControllerGetButton(
       controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   if (event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
     right_shoulder_pending_ = true;
   }
 #endif
   if (left_shoulder && right_shoulder) {
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
     shoulder_chord_used_ = true;
 #endif
-#if BUILDFLAG(IS_SWITCH)
-    if (!shoulder_chord_pending_) {
-      shoulder_chord_controller_id_ = event->which;
-      shoulder_chord_pending_ = true;
-      shoulder_chord_triggered_ = false;
-      shoulder_chord_timer_.Reset();
-    }
-#else
+#if !BUILDFLAG(IS_SWITCH)
     InvokeInGameMenu();
-#endif
     return true;
+#endif
   }
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   return hd_texture_toggle_available_ &&
          event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
 #else
@@ -175,27 +197,10 @@ bool Canvas::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 }
 
 bool Canvas::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
-#if BUILDFLAG(IS_SWITCH)
-  const bool is_shoulder =
-      event->button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER ||
-      event->button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER;
-  if (is_shoulder && shoulder_chord_pending_ &&
-      event->which == shoulder_chord_controller_id_) {
-    const bool open_regular_menu = !shoulder_chord_triggered_;
-    shoulder_chord_pending_ = false;
-    shoulder_chord_triggered_ = false;
-    shoulder_chord_controller_id_ = -1;
-#if KIWI_ENABLE_HD_TEXTURE
-    right_shoulder_pending_ = false;
-    shoulder_chord_used_ = false;
-#endif
-    if (open_regular_menu)
-      InvokeInGameMenu();
-    return true;
-  }
-#endif
+  if (emulation_system_ == kiwi::emu::Emulator::Type::kGBA)
+    return false;
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   if (event->button != SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
     return false;
   }
@@ -215,7 +220,7 @@ bool Canvas::OnControllerButtonReleased(SDL_ControllerButtonEvent* event) {
 }
 
 bool Canvas::OnMousePressed(SDL_MouseButtonEvent* event) {
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   last_hd_toggle_input_was_controller_ = false;
 #endif
   mouse_or_finger_down_ = true;
@@ -248,40 +253,7 @@ void Canvas::InvokeInGameMenu() {
     on_menu_trigger_.Run();
 }
 
-#if BUILDFLAG(IS_SWITCH)
-void Canvas::UpdateShoulderChord() {
-  if (!shoulder_chord_pending_ || shoulder_chord_triggered_)
-    return;
-
-  SDL_GameController* controller =
-      SDL_GameControllerFromInstanceID(shoulder_chord_controller_id_);
-  if (!controller) {
-    shoulder_chord_pending_ = false;
-    shoulder_chord_controller_id_ = -1;
-    return;
-  }
-
-  const bool left_shoulder = SDL_GameControllerGetButton(
-      controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-  const bool right_shoulder = SDL_GameControllerGetButton(
-      controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-  if (!left_shoulder || !right_shoulder)
-    return;
-
-  if (shoulder_chord_timer_.ElapsedInMilliseconds() >=
-      kQuickLoadHoldDurationMs) {
-    shoulder_chord_triggered_ = true;
-    InvokeQuickLoad();
-  }
-}
-
-void Canvas::InvokeQuickLoad() {
-  if (on_quick_load_trigger_)
-    on_quick_load_trigger_.Run();
-}
-#endif
-
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 void Canvas::SetHDTextureToggleAvailable(bool available) {
   hd_texture_toggle_available_ = available;
   hd_texture_hint_visible_ = available;
@@ -411,6 +383,9 @@ Canvas::ZapperDetails Canvas::CreateZapperDetailsByMouseOrFingerPosition(
 }
 
 bool Canvas::ZapperTest(Input input) {
+  if (emulation_system_ != kiwi::emu::Emulator::Type::kNES)
+    return false;
+
   ZapperDetails details;
   if (input == Input::kMouse) {
     int x, y;
@@ -436,4 +411,10 @@ bool Canvas::ZapperTest(Input input) {
   kiwi::nes::Color color = frame_->GetCurrentFrame()[data_index];
   return IsColorBrightEnough(color & 0xff, (color >> 8) & 0xff,
                              (color >> 16) & 0xff);
+}
+
+SDL_Texture* Canvas::active_texture() const {
+  return emulation_system_ == kiwi::emu::Emulator::Type::kGBA
+             ? gba_frame_->texture()
+             : frame_->texture();
 }

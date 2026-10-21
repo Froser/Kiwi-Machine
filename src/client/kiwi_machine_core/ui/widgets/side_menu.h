@@ -16,7 +16,7 @@
 #include <kiwi_nes.h>
 #include "build/build_config.h"
 
-#include "models/nes_runtime.h"
+#include "models/nes/runtime.h"
 #include "ui/widgets/widget.h"
 #include "utility/images.h"
 #include "utility/timer.h"
@@ -32,13 +32,23 @@ class SideMenu : public Widget {
 
     // Triggers when joystick 'right' pressed
     kiwi::base::RepeatingClosure enter_callback = kiwi::base::DoNothing();
+
+    // Controls whether this item participates in layout and input.
+    kiwi::base::RepeatingCallback<bool()> is_visible;
   };
 
   struct ButtonCallbacks {
     kiwi::base::RepeatingClosure trigger_callback;
+    kiwi::base::RepeatingCallback<bool()> is_selected;
   };
 
-  explicit SideMenu(MainWindow* main_window, NESRuntimeID runtime_id);
+  struct SystemToggleCallbacks {
+    // Negative values cycle left; positive values cycle right.
+    kiwi::base::RepeatingCallback<void(int)> cycle_callback;
+    kiwi::base::RepeatingCallback<bool()> is_gba_selected;
+  };
+
+  explicit SideMenu(MainWindow* main_window);
   ~SideMenu() override;
 
  public:
@@ -59,6 +69,13 @@ class SideMenu : public Widget {
                  SDL_KeyCode hotkey,
                  SDL_GameControllerButton controller_hotkey =
                      SDL_CONTROLLER_BUTTON_INVALID);
+
+  void SetSystemToggle(
+      std::unique_ptr<LocalizedStringUpdater> nes_string_updater,
+      std::unique_ptr<LocalizedStringUpdater> gba_string_updater,
+      image_resources::ImageID nes_icon,
+      image_resources::ImageID gba_icon,
+      SystemToggleCallbacks callbacks);
 
   void set_activate(bool activate);
   bool activate() { return activate_; }
@@ -89,7 +106,7 @@ class SideMenu : public Widget {
   void OnWindowPostRender() override;
 
   bool HandleInputEvent(SDL_KeyboardEvent* k, SDL_ControllerButtonEvent* c);
-  bool HandleMouseOrFingerDown();
+  bool HandleMouseOrFingerDown(int x_in_window, int y_in_window);
   enum class MouseButton {
     kLeftButton,
     kRightButton,
@@ -100,8 +117,17 @@ class SideMenu : public Widget {
                              int y_in_window);
   void EnterIndex(int index);
   void TriggerCurrentItem();
+  bool IsMenuVisible(int index) const;
+  int FindVisibleMenu(int start, int step) const;
   void UpdateHoverState();
   void UpdateHoverAnimations();
+  void PaintSystemToggle(ImDrawList* draw_list,
+                         ImU32 divider_color,
+                         ImU32 hover_fill_color,
+                         ImU32 accent_color,
+                         ImU32 accent_text_color);
+  void TriggerSystemToggle(int direction = 1);
+  bool IsGBASystemSelected() const;
   SDL_Rect MapLocalBoundsToWindow(const SDL_Rect& local_bounds);
   bool FindItemIndexByMousePosition(int x_in_window,
                                     int y_in_window,
@@ -110,7 +136,6 @@ class SideMenu : public Widget {
 
  private:
   MainWindow* main_window_ = nullptr;
-  NESRuntime::Data* runtime_data_ = nullptr;
   bool auto_trigger_first_menu_ = true;
   struct MenuItem {
     MenuItem(std::unique_ptr<LocalizedStringUpdater> string_updater,
@@ -151,8 +176,19 @@ class SideMenu : public Widget {
   std::vector<ButtonItem> button_items_;
   std::vector<SDL_Rect> buttons_bounds_map_;
 
+  struct SystemToggleItem {
+    std::unique_ptr<LocalizedStringUpdater> nes_string_updater;
+    std::unique_ptr<LocalizedStringUpdater> gba_string_updater;
+    image_resources::ImageID nes_icon = image_resources::ImageID::kLast;
+    image_resources::ImageID gba_icon = image_resources::ImageID::kLast;
+    SystemToggleCallbacks callbacks;
+  };
+  std::unique_ptr<SystemToggleItem> system_toggle_;
+  SDL_Rect system_toggle_bounds_;
+
   int current_index_ = 0;
   int triggered_index_ = 0;
+  bool system_toggle_focused_ = false;
   bool activate_ = false;
   bool pointer_inside_ = false;
   bool pointer_expanded_ = false;
@@ -164,11 +200,22 @@ class SideMenu : public Widget {
   SDL_Rect selection_target_rect_in_global_;
   int hovered_menu_index_ = -1;
   int hovered_button_index_ = -1;
+  bool system_toggle_hovered_ = false;
+  float system_toggle_hover_opacity_ = 0.f;
   std::vector<float> menu_hover_opacities_;
   std::vector<float> button_hover_opacities_;
   Timer hover_frame_timer_;
+  Timer system_toggle_animation_timer_;
+  bool system_toggle_animation_initialized_ = false;
+  bool system_toggle_animation_from_gba_ = false;
+  bool system_toggle_last_gba_ = false;
+#if BUILDFLAG(IS_SWITCH)
+  bool system_toggle_left_trigger_pressed_ = false;
+  bool system_toggle_right_trigger_pressed_ = false;
+#endif
 
   bool mouse_locked_ = false;
+  bool system_toggle_press_pending_ = false;
 };
 
 #endif  // UI_WIDGETS_SIDE_MENU_H_

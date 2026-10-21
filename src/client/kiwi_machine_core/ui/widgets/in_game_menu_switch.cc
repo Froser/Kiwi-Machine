@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "ui/main_window.h"
 #include "ui/widgets/canvas.h"
 #include "ui/widgets/in_game_menu_internal.h"
 #include "ui/window_base.h"
@@ -158,8 +159,8 @@ void InGameMenu::RefreshQuickLoadPreviews() {
   if (!auto_save_count_ready_)
     return;
 
-  const kiwi::nes::RomData* rom_data = runtime_data_->emulator->GetRomData();
-  if (!rom_data)
+  Runtime* runtime = main_window_->runtime();
+  if (!runtime || !runtime->emulator()->HasROM())
     return;
 
   const uint64_t request_id = quick_load_preview_request_id_;
@@ -175,8 +176,8 @@ void InGameMenu::RefreshQuickLoadPreviews() {
     preview.requested = true;
     preview.status = StatePreview::Status::kLoading;
     std::weak_ptr<int> weak_lifetime = lifetime_token_;
-    runtime_data_->GetAutoSavedState(
-        rom_data->crc, slot,
+    runtime->GetAutoSavedState(
+        slot,
         kiwi::base::BindOnce(&InGameMenu::DispatchQuickLoadPreviewResult,
                              std::move(weak_lifetime), this, request_id, slot));
   }
@@ -187,7 +188,7 @@ void InGameMenu::DispatchQuickLoadPreviewResult(
     InGameMenu* menu,
     uint64_t request_id,
     int slot,
-    const NESRuntime::Data::StateResult& result) {
+    const Runtime::StateResult& result) {
   if (!weak_lifetime.expired())
     menu->OnGotQuickLoadPreview(request_id, slot, result);
 }
@@ -195,9 +196,9 @@ void InGameMenu::DispatchQuickLoadPreviewResult(
 void InGameMenu::OnGotQuickLoadPreview(
     uint64_t request_id,
     int slot,
-    const NESRuntime::Data::StateResult& state_result) {
+    const Runtime::StateResult& state_result) {
   if (request_id != quick_load_preview_request_id_ || slot < 0 ||
-      slot >= NESRuntime::Data::MaxAutoSaveStates) {
+      slot >= Runtime::MaxAutoSaveStates) {
     return;
   }
 
@@ -205,16 +206,28 @@ void InGameMenu::OnGotQuickLoadPreview(
   preview.status = StatePreview::Status::kEmpty;
   preview.has_thumbnail = false;
   preview.timestamp = 0;
-  if (!state_result.success || state_result.thumbnail_data.empty())
+  if (!state_result.success || state_result.thumbnail_data.empty() ||
+      state_result.thumbnail_width <= 0 || state_result.thumbnail_height <= 0) {
     return;
+  }
 
   preview.status = StatePreview::Status::kReady;
   preview.timestamp = state_result.slot_or_timestamp;
+  int texture_width = 0;
+  int texture_height = 0;
+  if (preview.texture &&
+      (SDL_QueryTexture(preview.texture, nullptr, nullptr, &texture_width,
+                        &texture_height) != 0 ||
+       texture_width != state_result.thumbnail_width ||
+       texture_height != state_result.thumbnail_height)) {
+    SDL_DestroyTexture(preview.texture);
+    preview.texture = nullptr;
+  }
   if (!preview.texture) {
     preview.texture = SDL_CreateTexture(
         window()->renderer(), SDL_PIXELFORMAT_ARGB8888,
-        SDL_TEXTUREACCESS_STREAMING, Canvas::kNESFrameDefaultWidth,
-        Canvas::kNESFrameDefaultHeight);
+        SDL_TEXTUREACCESS_STREAMING, state_result.thumbnail_width,
+        state_result.thumbnail_height);
   }
   if (!preview.texture)
     return;
@@ -222,7 +235,7 @@ void InGameMenu::OnGotQuickLoadPreview(
   constexpr int kColorComponents = 4;
   if (SDL_UpdateTexture(
           preview.texture, nullptr, state_result.thumbnail_data.data(),
-          Canvas::kNESFrameDefaultWidth * kColorComponents *
+          state_result.thumbnail_width * kColorComponents *
               sizeof(state_result.thumbnail_data.data()[0])) == 0) {
     preview.has_thumbnail = true;
   }
@@ -240,7 +253,7 @@ int InGameMenu::GetQuickLoadSlot(size_t visible_index) const {
 
 int InGameMenu::GetQuickLoadTimestamp() const {
   if (which_autosave_state_slot_ < 0 ||
-      which_autosave_state_slot_ >= NESRuntime::Data::MaxAutoSaveStates) {
+      which_autosave_state_slot_ >= Runtime::MaxAutoSaveStates) {
     return 0;
   }
   return quick_load_previews_[which_autosave_state_slot_].timestamp;

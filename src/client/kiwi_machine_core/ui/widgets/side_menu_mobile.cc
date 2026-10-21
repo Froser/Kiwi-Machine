@@ -15,7 +15,9 @@
 #include "ui/window_base.h"
 
 bool SideMenu::OnTouchFingerDown(SDL_TouchFingerEvent* event) {
-  return HandleMouseOrFingerDown();
+  SDL_Rect window_rect = window()->GetClientBounds();
+  return HandleMouseOrFingerDown(event->x * window_rect.w,
+                                 event->y * window_rect.h);
 }
 
 bool SideMenu::OnTouchFingerUp(SDL_TouchFingerEvent* event) {

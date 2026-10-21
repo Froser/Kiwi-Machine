@@ -25,7 +25,7 @@ struct PresetROM;
 struct Package;
 }  // namespace preset_roms
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 class TextureRenderer;
 #endif
 
@@ -56,7 +56,7 @@ bool IsPackageIndexReady(const preset_roms::Package* package);
 // Loads each ROM's title, SHA-1, i18n names, and alternative titles.
 void InitializePresetROM(preset_roms::PresetROM& rom_data);
 
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 // Loads standalone texture package manifests and associates valid packs with
 // preset ROMs. This function must be called on the IO thread.
 void InitializeTexturePacks(
@@ -80,7 +80,7 @@ struct LoadedPresetROM {
   LoadedPresetROM& operator=(const LoadedPresetROM&) = delete;
 
   kiwi::nes::Bytes rom_data;
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   std::unique_ptr<TextureRenderer> texture_renderer;
   bool hd_texture_toggle_available = false;
 #endif
