@@ -14,6 +14,7 @@
 #define MODELS_CONFIG_H_
 
 #include <array>
+#include <map>
 #include <string>
 
 #include "base/files/file_path.h"
@@ -26,6 +27,22 @@ class ApplicationConfig : public kiwi::base::RefCounted<ApplicationConfig> {
   friend class kiwi::base::RefCounted<ApplicationConfig>;
 
  public:
+  using ABSwapValues = std::array<bool, 2>;
+
+  struct ABSwapSystemSettings {
+    ABSwapValues global = {};
+    std::map<std::string, ABSwapValues> game_overrides;
+
+    bool HasGameOverride(const std::string& game_id) const;
+    const ABSwapValues& GetEffective(const std::string& game_id) const;
+    bool SetGameValue(const std::string& game_id, int player, bool swapped);
+  };
+
+  struct ABSwapSettings {
+    ABSwapSystemSettings nes;
+    ABSwapSystemSettings gba;
+  };
+
   struct Data {
     float window_scale = 3.f;
     bool is_fullscreen = false;
@@ -33,7 +50,7 @@ class ApplicationConfig : public kiwi::base::RefCounted<ApplicationConfig> {
     int last_index = 0;
     int last_system = 0;
     int language = -1;  // -1 means automatic (follows system's locale)
-    std::array<bool, 2> swap_ab = {};
+    ABSwapSettings swap_ab_settings;
 #if BUILDFLAG(IS_MOBILE)
     bool is_stretch_mode = true;
 #endif

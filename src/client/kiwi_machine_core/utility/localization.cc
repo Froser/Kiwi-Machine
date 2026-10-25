@@ -21,6 +21,10 @@
 #include "resources/string_resources.h"
 #include "utility/zip_reader.h"
 
+#if BUILDFLAG(IS_SWITCH)
+#include "utility/switch/system_language.h"
+#endif
+
 namespace {
 std::string g_global_language;
 
@@ -142,6 +146,15 @@ SupportedLanguage GetCurrentSupportedLanguage() {
 std::string GetLanguage() {
   if (!g_global_language.empty())
     return g_global_language.c_str();
+
+#if BUILDFLAG(IS_SWITCH)
+  // switch-sdl2 has no locale backend. On Switch this is only a fallback if
+  // the libnx query above fails; other platforms use their native SDL backend.
+  static const std::string system_language =
+      kiwi::switch_platform::GetSystemLanguage();
+  if (!system_language.empty())
+    return system_language;
+#endif
 
   SDL_Locale* locale = SDL_GetPreferredLocales();
   std::string retval =

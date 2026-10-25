@@ -70,6 +70,19 @@ TEST(AudioBaseTest, DropsNewestBufferWhenRingIsFull) {
   EXPECT_EQ(output[3], 4);
 }
 
+TEST(AudioBaseTest, PreservesInterleavedStereoAcrossBuffers) {
+  TestAudioBase audio(4, 2);
+  const std::array<kiwi::emu::Sample, 8> input = {
+      10, 11, 20, 21, 30, 31, 40, 41,
+  };
+  std::array<kiwi::emu::Sample, 8> output = {};
+
+  audio.WriteSamples(input.data(), input.size());
+  EXPECT_EQ(audio.ReadSamples(output.data(), 6), 6u);
+  EXPECT_EQ(audio.ReadSamples(output.data() + 6, 2), 2u);
+  EXPECT_EQ(output, input);
+}
+
 TEST(AudioBaseTest, LocksActiveOutputWhileResetting) {
   TestAudioBase audio(4, 2);
   audio.Reset();

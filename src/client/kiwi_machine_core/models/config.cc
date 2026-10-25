@@ -65,7 +65,27 @@ bool SaveConfigOnIOThread(const kiwi::base::FilePath& profile_path,
   return true;
 }
 
+void RemoveRedundantGameOverrides(
+    ApplicationConfig::ABSwapSystemSettings* settings) {
+  for (auto override = settings->game_overrides.begin();
+       override != settings->game_overrides.end();) {
+    if (override->second == settings->global)
+      override = settings->game_overrides.erase(override);
+    else
+      ++override;
+  }
+}
+
 }  // namespace
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    ApplicationConfig::ABSwapSystemSettings,
+    global,
+    game_overrides);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    ApplicationConfig::ABSwapSettings,
+    nes,
+    gba);
 
 #if BUILDFLAG(IS_MOBILE)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ApplicationConfig::Data,
@@ -76,7 +96,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ApplicationConfig::Data,
                                                 last_system,
                                                 is_stretch_mode,
                                                 language,
-                                                swap_ab);
+                                                swap_ab_settings);
 #else
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ApplicationConfig::Data,
                                                 window_scale,
@@ -85,8 +105,44 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ApplicationConfig::Data,
                                                 last_index,
                                                 last_system,
                                                 language,
-                                                swap_ab);
+                                                swap_ab_settings);
 #endif
+
+bool ApplicationConfig::ABSwapSystemSettings::HasGameOverride(
+    const std::string& game_id) const {
+  return !game_id.empty() && game_overrides.contains(game_id);
+}
+
+const ApplicationConfig::ABSwapValues&
+ApplicationConfig::ABSwapSystemSettings::GetEffective(
+    const std::string& game_id) const {
+  auto override = game_overrides.find(game_id);
+  return override == game_overrides.end() ? global : override->second;
+}
+
+bool ApplicationConfig::ABSwapSystemSettings::SetGameValue(
+    const std::string& game_id,
+    int player,
+    bool swapped) {
+  if (game_id.empty() || player < 0 ||
+      player >= static_cast<int>(global.size()))
+    return false;
+
+  auto override = game_overrides.find(game_id);
+  if (override == game_overrides.end()) {
+    if (global[player] == swapped)
+      return false;
+    override = game_overrides.emplace(game_id, global).first;
+  } else if (override->second[player] == swapped &&
+             override->second != global) {
+    return false;
+  }
+
+  override->second[player] = swapped;
+  if (override->second == global)
+    game_overrides.erase(override);
+  return true;
+}
 
 ApplicationConfig::ApplicationConfig(const kiwi::base::FilePath& profile_path)
     : profile_path_(profile_path) {}
@@ -113,8 +169,19 @@ std::string ApplicationConfig::DataToJson() {
 void ApplicationConfig::LoadFromUTF8Json(const std::string& utf8_json) {
   if (!utf8_json.empty()) {
     try {
-      data_ = nlohmann::json::parse(utf8_json);
-    } catch (std::exception e) {
+      nlohmann::json json = nlohmann::json::parse(utf8_json);
+      data_ = json;
+      if (!json.contains("swap_ab_settings")) {
+        auto legacy_swap_ab = json.find("swap_ab");
+        if (legacy_swap_ab != json.end()) {
+          const ABSwapValues values = legacy_swap_ab->get<ABSwapValues>();
+          data_.swap_ab_settings.nes.global = values;
+          data_.swap_ab_settings.gba.global = values;
+        }
+      }
+      RemoveRedundantGameOverrides(&data_.swap_ab_settings.nes);
+      RemoveRedundantGameOverrides(&data_.swap_ab_settings.gba);
+    } catch (const std::exception& e) {
       SDL_LogWarn(
           SDL_LOG_CATEGORY_APPLICATION,
           "Parsing config file failed, exception: %s. Try to create a new one.",

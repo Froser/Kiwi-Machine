@@ -15,10 +15,12 @@
 
 #include <SDL.h>
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <vector>
 
+#include "build/build_config.h"
 #include "emulator/types.h"
 
 class AudioBase {
@@ -34,6 +36,11 @@ class AudioBase {
   bool InitializeAudioDevice(int frequency,
                              int channels,
                              const char* system_name);
+#if BUILDFLAG(IS_SWITCH)
+  bool InitializeMixerOutput(int frequency,
+                             int channels,
+                             const char* system_name);
+#endif
   size_t ReadSamples(kiwi::emu::Sample* output, size_t count);
   void WriteSamples(const kiwi::emu::Sample* samples, size_t count);
 
@@ -50,6 +57,14 @@ class AudioBase {
   static void ReadAudioBuffer(void* userdata, Uint8* stream, int len);
   void ReadAudioBuffer(Uint8* stream, int count);
   void ResetBuffer();
+#if BUILDFLAG(IS_SWITCH)
+  static void MixAudioBuffer(void* userdata, Uint8* stream, int len);
+  void MixIntoAudioBuffer(Uint8* stream, int count);
+  void UnregisterMixerOutput();
+
+  static constexpr size_t kMaxMixerSources = 2;
+  static std::array<AudioBase*, kMaxMixerSources> mixer_sources_;
+#endif
 
   const size_t buffer_size_;
   const size_t buffer_count_;
@@ -62,6 +77,12 @@ class AudioBase {
   std::atomic<size_t> write_buffer_{0};
   std::atomic<size_t> read_buffer_{0};
   std::atomic<size_t> filled_count_{0};
+#if BUILDFLAG(IS_SWITCH)
+  int mixer_source_channels_ = 0;
+  bool mixer_output_registered_ = false;
+  std::vector<kiwi::emu::Sample> mixer_input_buffer_;
+  std::vector<kiwi::emu::Sample> mixer_output_buffer_;
+#endif
 };
 
 #endif  // MODELS_AUDIO_BASE_H_

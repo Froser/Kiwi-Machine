@@ -11,14 +11,20 @@
 // GNU General Public License for more details.
 
 #include "models/gba/audio.h"
+#include "build/build_config.h"
 
 GBAAudio::GBAAudio() : AudioBase(kBufferSize) {}
 
 GBAAudio::~GBAAudio() = default;
 
 void GBAAudio::Initialize() {
+#if BUILDFLAG(IS_SWITCH)
+  InitializeMixerOutput(kiwi::gba::IODevices::AudioDevice::kFrequency,
+                        kiwi::gba::IODevices::AudioDevice::kChannels, "GBA");
+#else
   InitializeAudioDevice(kiwi::gba::IODevices::AudioDevice::kFrequency,
                         kiwi::gba::IODevices::AudioDevice::kChannels, "GBA");
+#endif
 }
 
 void GBAAudio::OnSampleArrived(kiwi::gba::Sample* samples, size_t count) {

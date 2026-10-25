@@ -161,6 +161,24 @@ int CalculateIntersectionArea(const SDL_Rect& lhs, const SDL_Rect& rhs) {
   return std::min(lhs_x2, rhs_x2) - std::max(lhs.x, rhs.x);
 }
 
+SDL_Rect GetSuggestedItemSize(FlexItemWidget* item,
+                              kiwi::emu::Emulator::Type system,
+                              int available_width) {
+#if BUILDFLAG(IS_SWITCH)
+  constexpr int kSwitchGBAColumnCount = 5;
+  if (system == kiwi::emu::Emulator::Type::kGBA) {
+    const int total_gap = (kSwitchGBAColumnCount - 1) * kItemGap;
+    const int cover_width =
+        std::max(1, (available_width - total_gap) / kSwitchGBAColumnCount);
+    return item->GetSuggestedSizeForWidth(cover_width);
+  }
+#else
+  static_cast<void>(system);
+  static_cast<void>(available_width);
+#endif
+  return item->GetSuggestedSize(kItemHeightHint);
+}
+
 void DrawBackgroundShape(ImDrawList* draw_list,
                          BackgroundShape shape,
                          const ImVec2& center,
@@ -551,7 +569,8 @@ void FlexItemsWidget::LayoutAll(LayoutOption option) {
 
   bool current_index_exceeded_bottom = false;
   for (auto* item : items_) {
-    SDL_Rect item_bounds = item->GetSuggestedSize(kItemHeightHint);
+    SDL_Rect item_bounds =
+        GetSuggestedItemSize(item, emulation_system_, bounds().w);
     if (anchor_x + item_bounds.w > bounds().w) {
       anchor_y += item_bounds.h + kItemGap;
       anchor_x = 0;
@@ -1009,7 +1028,7 @@ void FlexItemsWidget::RestoreCurrentItemToDefault() {
 void FlexItemsWidget::RefreshCurrentItemBounds() {
   FlexItemWidget* item = items_[current_index_];
   SDL_Rect item_bounds =
-      items_[current_index_]->GetSuggestedSize(kItemHeightHint);
+      GetSuggestedItemSize(item, emulation_system_, bounds().w);
 
   // The new bound is center aligned
   const SDL_Rect& kBounds = bounds_map_without_scrolling_[item];

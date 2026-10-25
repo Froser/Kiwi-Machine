@@ -169,6 +169,36 @@
     "zh": "P2 交换 A/B",
     "ja": "P2 A/B入れ替え"
   },
+  "IDR_IN_GAME_MENU_SWAP_AB": {
+    "default": "Swap A/B",
+    "zh": "交换 A/B",
+    "ja": "A/B 入れ替え"
+  },
+  "IDR_IN_GAME_MENU_AB_SCOPE": {
+    "default": "Applies To",
+    "zh": "适用范围",
+    "ja": "適用範囲"
+  },
+  "IDR_IN_GAME_MENU_AB_NES_GLOBAL": {
+    "default": "All NES Games",
+    "zh": "所有 NES 游戏",
+    "ja": "すべての NES ゲーム"
+  },
+  "IDR_IN_GAME_MENU_AB_GBA_GLOBAL": {
+    "default": "All GBA Games",
+    "zh": "所有 GBA 游戏",
+    "ja": "すべての GBA ゲーム"
+  },
+  "IDR_IN_GAME_MENU_AB_CURRENT_GAME": {
+    "default": "Current Game",
+    "zh": "当前游戏",
+    "ja": "現在のゲーム"
+  },
+  "IDR_IN_GAME_MENU_SWAP": {
+    "default": "Swap",
+    "zh": "交换",
+    "ja": "入れ替え"
+  },
   "IDR_IN_GAME_MENU_SMALL": {
     "default": "Small",
     "zh": "小",

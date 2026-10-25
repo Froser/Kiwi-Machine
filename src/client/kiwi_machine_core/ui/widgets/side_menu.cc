@@ -504,47 +504,23 @@ void SideMenu::PaintSystemToggle(ImDrawList* draw_list,
              control_top + control_height - SCALED(5)),
       ColorWithOpacity(accent_color, .28f));
 
-  if (expanded()) {
-    const std::array<std::string, 2> labels = {
-        system_toggle_->nes_string_updater->GetLocalizedString(),
-        system_toggle_->gba_string_updater->GetLocalizedString()};
-    ScopedFont nes_font = GetPreferredFont(
-        kPreferredFontSize, labels[0].c_str(), FontType::kSystemDefault);
-    ScopedFont gba_font = GetPreferredFont(
-        kPreferredFontSize, labels[1].c_str(), FontType::kSystemDefault);
-    ScopedFont* fonts[] = {&nes_font, &gba_font};
-    for (size_t i = 0; i < labels.size(); ++i) {
-      const int segment_left = control_left + first_segment_width * i;
-      const int segment_width =
-          i == 0 ? first_segment_width : control_width - first_segment_width;
-      const float font_size = GetFontRenderSize(*fonts[i]);
-      const ImVec2 text_size = fonts[i]->GetFont()->CalcTextSizeA(
-          font_size, FLT_MAX, 0.f, labels[i].c_str());
-      const bool selected = is_gba == (i == 1);
-      draw_list->AddText(
-          fonts[i]->GetFont(), font_size,
-          ImVec2(segment_left + (segment_width - text_size.x) / 2,
-                 control_top + (control_height - text_size.y) / 2),
-          selected ? accent_text_color : kTextColor, labels[i].c_str());
-    }
-  } else {
-    const std::array<image_resources::ImageID, 2> icons = {
-        system_toggle_->nes_icon, system_toggle_->gba_icon};
-    const int icon_size = static_cast<int>(control_height * .54f);
-    for (size_t i = 0; i < icons.size(); ++i) {
-      const int segment_left = control_left + first_segment_width * i;
-      const int segment_width =
-          i == 0 ? first_segment_width : control_width - first_segment_width;
-      const int icon_left = segment_left + (segment_width - icon_size) / 2;
-      const int icon_top = control_top + (control_height - icon_size) / 2;
-      const bool selected = is_gba == (i == 1);
-      SDL_Texture* icon_texture = GetImage(window()->renderer(), icons[i]);
-      draw_list->AddImage(reinterpret_cast<ImTextureID>(icon_texture),
-                          ImVec2(icon_left, icon_top),
-                          ImVec2(icon_left + icon_size, icon_top + icon_size),
-                          ImVec2(0, 0), ImVec2(1, 1),
-                          selected ? accent_text_color : kMutedIconColor);
-    }
+  const std::array<image_resources::ImageID, 2> icons = {
+      system_toggle_->nes_icon, system_toggle_->gba_icon};
+  const float icon_size_scale = expanded() ? .8f : .54f;
+  const int icon_size = static_cast<int>(control_height * icon_size_scale);
+  for (size_t i = 0; i < icons.size(); ++i) {
+    const int segment_left = control_left + first_segment_width * i;
+    const int segment_width =
+        i == 0 ? first_segment_width : control_width - first_segment_width;
+    const int icon_left = segment_left + (segment_width - icon_size) / 2;
+    const int icon_top = control_top + (control_height - icon_size) / 2;
+    const bool selected = is_gba == (i == 1);
+    SDL_Texture* icon_texture = GetImage(window()->renderer(), icons[i]);
+    draw_list->AddImage(reinterpret_cast<ImTextureID>(icon_texture),
+                        ImVec2(icon_left, icon_top),
+                        ImVec2(icon_left + icon_size, icon_top + icon_size),
+                        ImVec2(0, 0), ImVec2(1, 1),
+                        selected ? accent_text_color : kMutedIconColor);
   }
 
   draw_list->AddLine(

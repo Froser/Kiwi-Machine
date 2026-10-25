@@ -75,6 +75,7 @@ class FlexItemWidget : public Widget {
   Data* current_data() { return current_data_; }
 
   SDL_Rect GetSuggestedSize(int item_height);
+  SDL_Rect GetSuggestedSizeForWidth(int item_width);
 
   void Trigger(bool triggered_by_finger);
 

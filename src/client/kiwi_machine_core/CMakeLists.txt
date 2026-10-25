@@ -243,6 +243,8 @@ if (KIWI_SWITCH)
             utility/switch/paths.cc
             utility/switch/paths.h
             utility/switch/paths_internal.h
+            utility/switch/system_language.cc
+            utility/switch/system_language.h
             utility/switch/system_keyboard.cc
             utility/switch/system_keyboard.h
             utility/switch/tiny_jpeg.cc

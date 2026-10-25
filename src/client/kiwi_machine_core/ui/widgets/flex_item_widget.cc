@@ -258,6 +258,13 @@ SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height) {
   return bs;
 }
 
+SDL_Rect FlexItemWidget::GetSuggestedSizeForWidth(int item_width) {
+  SDL_Rect bs = bounds();
+  bs.w = item_width;
+  bs.h = bs.w * current_data()->image_height / current_data()->image_width;
+  return bs;
+}
+
 void FlexItemWidget::Trigger(bool triggered_by_finger) {
   if (current_data()->on_trigger_callback)
     current_data()->on_trigger_callback.Run(triggered_by_finger);

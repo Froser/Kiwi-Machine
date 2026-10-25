@@ -70,13 +70,13 @@ constexpr std::array<int, static_cast<size_t>(InGameMenu::SettingsItem::kMax)>
         string_resources::IDR_IN_GAME_MENU_CONTROLLER_ORDER,
 #else
         string_resources::IDR_IN_GAME_MENU_P1,
-#endif
-        string_resources::IDR_IN_GAME_MENU_SWAP_AB_P1,
-#if !BUILDFLAG(IS_SWITCH)
         string_resources::IDR_IN_GAME_MENU_P2,
 #endif
-        string_resources::IDR_IN_GAME_MENU_SWAP_AB_P2,
+        string_resources::IDR_IN_GAME_MENU_SWAP_AB,
         string_resources::IDR_IN_GAME_MENU_LANGUAGE,
+        string_resources::IDR_IN_GAME_MENU_AB_SCOPE,
+        string_resources::IDR_IN_GAME_MENU_P1,
+        string_resources::IDR_IN_GAME_MENU_P2,
 };
 
 template <typename T>
@@ -219,6 +219,7 @@ void InGameMenu::Show() {
   focus_.area = FocusArea::kMenu;
   focus_.settings_item = kFirstSettingsItem;
   focus_.confirm_action = false;
+  ab_swap_current_game_scope_ = false;
   menu_scroll_offset_ = 0.f;
   settings_scroll_offset_ = 0.f;
   has_layout_ = false;
@@ -283,7 +284,7 @@ bool InGameMenu::OnMouseWheel(SDL_MouseWheelEvent* event) {
   if (!has_layout_)
     return true;
 
-  if (last_layout_.visible_page == Page::kSettings &&
+  if (IsSettingsPage(last_layout_.visible_page) &&
       last_layout_.settings_content_height > last_layout_.detail.h) {
     settings_scroll_offset_ -= event->preciseY * last_layout_.row_height;
     ClampSettingsScroll(last_layout_);
@@ -367,7 +368,7 @@ bool InGameMenu::OnTouchFingerMove(SDL_TouchFingerEvent* event) {
       pressed_target_.index == static_cast<int>(SettingsItem::kVolume)) {
     SetVolumeFromPoint(
         point.x, last_layout_.setting_values[ToIndex(SettingsItem::kVolume)]);
-  } else if (last_layout_.visible_page == Page::kSettings &&
+  } else if (IsSettingsPage(last_layout_.visible_page) &&
              last_layout_.settings_content_height > last_layout_.detail.h) {
     settings_scroll_offset_ -= point.y - last_touch_position_.y;
     ClampSettingsScroll(last_layout_);
@@ -418,10 +419,15 @@ InGameMenu::FrameText InGameMenu::BuildFrameText() const {
     text.setting_values[i] = GetSettingValue(static_cast<SettingsItem>(i));
   }
 
-  text.header =
-      IsStandaloneSettingsMenu()
-          ? text.menu_items[ToIndex(MenuItem::kOptions)]
-          : GetLocalizedString(string_resources::IDR_IN_GAME_MENU_PAUSED);
+  if (page_ == Page::kABSwapSettings) {
+    text.header =
+        GetLocalizedString(string_resources::IDR_IN_GAME_MENU_SWAP_AB);
+  } else {
+    text.header =
+        IsStandaloneSettingsMenu()
+            ? text.menu_items[ToIndex(MenuItem::kOptions)]
+            : GetLocalizedString(string_resources::IDR_IN_GAME_MENU_PAUSED);
+  }
   text.subtitle = main_window_->title();
 
   text.state_title = text.menu_items[ToIndex(focus_.menu_item)];
@@ -618,6 +624,7 @@ InGameMenu::FrameLayout InGameMenu::CalculateFrameLayout(
       LayoutStateBrowser(layout);
       break;
     case Page::kSettings:
+    case Page::kABSwapSettings:
       LayoutSettings(text, layout);
       break;
     case Page::kConfirmation:
@@ -814,16 +821,18 @@ void InGameMenu::LayoutSettings(const FrameText& text, FrameLayout& layout) {
     const float row_height = row_heights[i];
     layout.setting_items[i] = MakeRect(inner.x, y, inner.w, row_height);
     const float button_width = std::min(layout.row_height, control_width / 3.f);
-#if BUILDFLAG(IS_SWITCH)
-    if (static_cast<SettingsItem>(i) == SettingsItem::kControllerSupport) {
+    if (IsCommandSetting(static_cast<SettingsItem>(i))) {
+      const float control_x = RectRight(inner) - control_width;
       layout.setting_previous[i] = {};
-      layout.setting_values[i] = {};
+      if (static_cast<SettingsItem>(i) == SettingsItem::kSwapAB) {
+        layout.setting_values[i] =
+            MakeRect(control_x, y, control_width - button_width, row_height);
+      }
       layout.setting_next[i] = MakeRect(RectRight(inner) - button_width, y,
                                         button_width, row_height);
       y += row_height + kRowGap;
       continue;
     }
-#endif
     const float control_x = RectRight(inner) - control_width;
     layout.setting_previous[i] =
         MakeRect(control_x, y, button_width, row_height);
@@ -881,6 +890,7 @@ void InGameMenu::DrawFrame(const FrameText& text, const FrameLayout& layout) {
 #endif
       break;
     case Page::kSettings:
+    case Page::kABSwapSettings:
       DrawSettings(text, layout);
       break;
     case Page::kConfirmation:
@@ -1091,40 +1101,55 @@ void InGameMenu::DrawSettings(const FrameText& text,
     SettingsItem item = static_cast<SettingsItem>(i);
     if (!IsSettingItemVisible(item))
       continue;
-    const bool selected = page_ == Page::kSettings &&
+    const bool enabled = IsSettingItemEnabled(item);
+    const bool selected = IsSettingsPage(page_) &&
                           focus_.area == FocusArea::kDetail &&
                           focus_.settings_item == item;
     bool row_hovered = hovered_target_ == HitTarget{HitTargetType::kSettingItem,
                                                     static_cast<int>(i)};
-#if BUILDFLAG(IS_SWITCH)
-    if (item == SettingsItem::kControllerSupport &&
+    if (IsCommandSetting(item) &&
         hovered_target_ ==
             HitTarget{HitTargetType::kSettingNext, static_cast<int>(i)}) {
       row_hovered = true;
     }
-#endif
     DrawButtonBackground(layout.setting_items[i], selected, row_hovered, false,
-                         false);
+                         false, enabled);
 
-#if BUILDFLAG(IS_SWITCH)
-    if (item == SettingsItem::kControllerSupport) {
-      SDL_Rect label_rect = MakeRect(
-          layout.setting_items[i].x, layout.setting_items[i].y,
-          layout.setting_next[i].x - layout.setting_items[i].x - layout.padding,
-          layout.setting_items[i].h);
+    if (IsCommandSetting(item)) {
+      const float control_x = IsValidRect(layout.setting_values[i])
+                                  ? layout.setting_values[i].x
+                                  : layout.setting_next[i].x;
+      SDL_Rect label_rect =
+          MakeRect(layout.setting_items[i].x, layout.setting_items[i].y,
+                   control_x - layout.setting_items[i].x - layout.padding,
+                   layout.setting_items[i].h);
       DrawTextInRect(text.setting_labels[i], label_rect, layout.font_size,
-                     kTextColor, layout.padding, false, true);
+                     enabled ? kTextColor : kMutedTextColor, layout.padding,
+                     false, true);
+
+      if (IsValidRect(layout.setting_values[i])) {
+        draw_list->AddRectFilled(RectMin(layout.setting_values[i]),
+                                 RectMax(layout.setting_values[i]),
+                                 kPanelMutedColor);
+        draw_list->AddRect(RectMin(layout.setting_values[i]),
+                           RectMax(layout.setting_values[i]), kBorderColor);
+        DrawTextInRect(text.setting_values[i], layout.setting_values[i],
+                       GetSecondaryFontSize(layout.font_size),
+                       enabled ? kTextColor : kMutedTextColor,
+                       layout.padding / 2.f, true, true,
+                       FontType::kSystemDefault);
+      }
 
       const bool next_hovered =
           hovered_target_ ==
           HitTarget{HitTargetType::kSettingNext, static_cast<int>(i)};
       DrawButtonBackground(layout.setting_next[i], false, next_hovered, false,
-                           false, true);
+                           false, enabled);
       DrawChevron(layout.setting_next[i], false,
-                  next_hovered ? kBrandColor : kTextColor);
+                  !enabled ? kMutedTextColor
+                           : (next_hovered ? kBrandColor : kTextColor));
       continue;
     }
-#endif
 
     SDL_Rect label_rect =
         MakeRect(layout.setting_items[i].x, layout.setting_items[i].y,
@@ -1132,7 +1157,8 @@ void InGameMenu::DrawSettings(const FrameText& text,
                      layout.padding,
                  layout.setting_items[i].h);
     DrawTextInRect(text.setting_labels[i], label_rect, layout.font_size,
-                   kTextColor, layout.padding, false, true);
+                   enabled ? kTextColor : kMutedTextColor, layout.padding,
+                   false, true);
 
     const bool previous_hovered =
         hovered_target_ ==
@@ -1168,8 +1194,9 @@ void InGameMenu::DrawSettings(const FrameText& text,
     draw_list->AddRect(RectMin(layout.setting_values[i]),
                        RectMax(layout.setting_values[i]), kBorderColor);
     DrawTextInRect(text.setting_values[i], layout.setting_values[i],
-                   GetSecondaryFontSize(layout.font_size), kTextColor,
-                   layout.padding / 2.f, true, true, FontType::kSystemDefault);
+                   GetSecondaryFontSize(layout.font_size),
+                   enabled ? kTextColor : kMutedTextColor, layout.padding / 2.f,
+                   true, true, FontType::kSystemDefault);
   }
   if (layout.settings_content_height > layout.detail.h) {
     const float track_height =
@@ -1430,7 +1457,7 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
     return true;
   }
 
-  if (page_ == Page::kSettings) {
+  if (IsSettingsPage(page_)) {
     if (action == NavigationAction::kUp) {
       MoveSettingsSelection(-1);
     } else if (action == NavigationAction::kDown) {
@@ -1442,7 +1469,12 @@ bool InGameMenu::HandleNavigationAction(NavigationAction action,
       StepSetting(focus_.settings_item, StepDirection::kNext);
     } else if (action == NavigationAction::kBack) {
       PlayEffect(audio_resources::AudioID::kBack);
-      ReturnToMenu();
+      if (page_ == Page::kABSwapSettings) {
+        focus_.settings_item = SettingsItem::kSwapAB;
+        OpenPage(Page::kSettings);
+      } else {
+        ReturnToMenu();
+      }
     }
     return true;
   }
@@ -1538,12 +1570,19 @@ void InGameMenu::OpenPage(Page page) {
   } else {
     focus_.area = FocusArea::kDetail;
   }
-  if (page == Page::kSettings)
+  if (IsSettingsPage(page))
     ScrollSettingsSelectionIntoView();
   if (page == Page::kStateBrowser &&
       state_preview_.status == StatePreview::Status::kEmpty) {
     RefreshStatePreview();
   }
+}
+
+void InGameMenu::OpenABSwapSettings() {
+  ab_swap_current_game_scope_ = false;
+  focus_.settings_item = kFirstABSwapSetting;
+  settings_scroll_offset_ = 0.f;
+  OpenPage(Page::kABSwapSettings);
 }
 
 void InGameMenu::ReturnToMenu() {
@@ -1573,7 +1612,7 @@ void InGameMenu::MoveSettingsSelection(int delta) {
     selection = (selection + delta + static_cast<int>(kSettingsItemCount)) %
                 static_cast<int>(kSettingsItemCount);
     SettingsItem item = static_cast<SettingsItem>(selection);
-    if (IsSettingItemVisible(item)) {
+    if (IsSettingItemVisible(item) && IsSettingItemEnabled(item)) {
       focus_.settings_item = item;
       PlayEffect(audio_resources::AudioID::kSelect);
       ScrollSettingsSelectionIntoView();
@@ -1630,11 +1669,27 @@ void InGameMenu::StepState(StepDirection direction) {
 }
 
 void InGameMenu::StepSetting(SettingsItem item, StepDirection direction) {
-  if (!IsSettingItemVisible(item) || !CanStepSetting(item, direction))
+  if (!IsSettingItemVisible(item) || !IsSettingItemEnabled(item) ||
+      !CanStepSetting(item, direction)) {
     return;
+  }
 
   focus_.settings_item = item;
   PlayEffect(audio_resources::AudioID::kSelect);
+  if (item == SettingsItem::kSwapAB) {
+    OpenABSwapSettings();
+    return;
+  }
+  if (item == SettingsItem::kABSwapScope) {
+    ab_swap_current_game_scope_ = direction == StepDirection::kNext;
+    return;
+  }
+  if (item == SettingsItem::kABSwapP1 || item == SettingsItem::kABSwapP2) {
+    settings_callback_.Run(item,
+                           ABSwapChange{direction == StepDirection::kPrevious,
+                                        ab_swap_current_game_scope_});
+    return;
+  }
   settings_callback_.Run(item, direction == StepDirection::kPrevious);
 }
 
@@ -1694,10 +1749,10 @@ InGameMenu::HitTarget InGameMenu::HitTest(const FrameLayout& layout,
     const bool can_execute = CanExecuteStateAction();
     if (can_execute && PointInRect(layout.state_action, x, y))
       return {HitTargetType::kStateAction};
-  } else if (layout.visible_page == Page::kSettings) {
+  } else if (IsSettingsPage(layout.visible_page)) {
     for (size_t i = 0; i < kSettingsItemCount; ++i) {
       SettingsItem item = static_cast<SettingsItem>(i);
-      if (!IsSettingItemVisible(item))
+      if (!IsSettingItemVisible(item) || !IsSettingItemEnabled(item))
         continue;
       if (CanStepSetting(item, StepDirection::kPrevious) &&
           PointInClippedRect(layout.setting_previous[i], layout.detail, x, y)) {
@@ -1795,14 +1850,17 @@ void InGameMenu::ActivateHitTarget(const HitTarget& target, float x) {
       ActivateMenuItem(focus_.menu_item);
       break;
 #endif
-    case HitTargetType::kSettingItem:
-      OpenPage(Page::kSettings);
-      focus_.settings_item = static_cast<SettingsItem>(target.index);
-#if BUILDFLAG(IS_SWITCH)
-      if (focus_.settings_item == SettingsItem::kControllerSupport)
-        StepSetting(focus_.settings_item, StepDirection::kNext);
-#endif
+    case HitTargetType::kSettingItem: {
+      if (page_ == Page::kMainMenu)
+        OpenPage(Page::kSettings);
+      const SettingsItem item = static_cast<SettingsItem>(target.index);
+      if (!IsSettingItemEnabled(item))
+        break;
+      focus_.settings_item = item;
+      if (IsCommandSetting(item))
+        StepSetting(item, StepDirection::kNext);
       break;
+    }
     case HitTargetType::kSettingPrevious:
       if (page_ == Page::kMainMenu)
         OpenPage(Page::kSettings);
@@ -1864,7 +1922,7 @@ void InGameMenu::ScrollMenuSelectionIntoView() {
 }
 
 void InGameMenu::ScrollSettingsSelectionIntoView() {
-  if (!has_layout_ || last_layout_.visible_page != Page::kSettings)
+  if (!has_layout_ || !IsSettingsPage(last_layout_.visible_page))
     return;
   const SDL_Rect& item =
       last_layout_.setting_items[ToIndex(focus_.settings_item)];
@@ -2081,12 +2139,36 @@ bool InGameMenu::IsStateMenuItem(MenuItem item) const {
          item == MenuItem::kSaveState;
 }
 
+bool InGameMenu::IsSettingsPage(Page page) const {
+  return page == Page::kSettings || page == Page::kABSwapSettings;
+}
+
+bool InGameMenu::IsCommandSetting(SettingsItem item) const {
+#if BUILDFLAG(IS_SWITCH)
+  if (item == SettingsItem::kControllerSupport)
+    return true;
+#endif
+  return item == SettingsItem::kSwapAB;
+}
+
 bool InGameMenu::IsSettingItemVisible(SettingsItem item) const {
+  const bool is_ab_swap_item = item == SettingsItem::kABSwapScope ||
+                               item == SettingsItem::kABSwapP1 ||
+                               item == SettingsItem::kABSwapP2;
+  if (page_ == Page::kABSwapSettings) {
+    return is_ab_swap_item;
+  }
+  if (is_ab_swap_item)
+    return false;
 #if BUILDFLAG(IS_MOBILE) || BUILDFLAG(IS_SWITCH)
   return item != SettingsItem::kVolume;
 #else
   return true;
 #endif
+}
+
+bool InGameMenu::IsSettingItemEnabled(SettingsItem item) const {
+  return IsSettingItemVisible(item);
 }
 
 bool InGameMenu::IsStandaloneSettingsMenu() const {
@@ -2126,7 +2208,7 @@ bool InGameMenu::CanExecuteStateAction() const {
 
 bool InGameMenu::CanStepSetting(SettingsItem item,
                                 StepDirection direction) const {
-  if (!IsSettingItemVisible(item))
+  if (!IsSettingItemVisible(item) || !IsSettingItemEnabled(item))
     return false;
 
   switch (item) {
@@ -2168,10 +2250,19 @@ bool InGameMenu::CanStepSetting(SettingsItem item,
                  : current_iter + 1 != controllers.end();
     }
 #endif
-    case SettingsItem::kSwapABP1:
-    case SettingsItem::kSwapABP2: {
-      const int player = item == SettingsItem::kSwapABP1 ? 0 : 1;
-      const bool swapped = main_window_->IsABSwapped(player);
+    case SettingsItem::kSwapAB:
+      return direction == StepDirection::kNext;
+    case SettingsItem::kABSwapScope:
+      return direction == StepDirection::kPrevious
+                 ? ab_swap_current_game_scope_
+                 : !ab_swap_current_game_scope_ &&
+                       main_window_->CanUseCurrentGameABSwap();
+    case SettingsItem::kABSwapP1:
+    case SettingsItem::kABSwapP2: {
+      const int player = item == SettingsItem::kABSwapP1 ? 0 : 1;
+      const bool swapped = ab_swap_current_game_scope_
+                               ? main_window_->IsCurrentGameABSwapped(player)
+                               : main_window_->IsGlobalABSwapped(player);
       return direction == StepDirection::kPrevious ? swapped : !swapped;
     }
     case SettingsItem::kLanguage:
@@ -2236,12 +2327,33 @@ std::string InGameMenu::GetSettingValue(SettingsItem item) const {
                  : GetLocalizedString(string_resources::IDR_IN_GAME_MENU_NONE);
     }
 #endif
-    case SettingsItem::kSwapABP1:
-    case SettingsItem::kSwapABP2: {
-      const int player = item == SettingsItem::kSwapABP1 ? 0 : 1;
-      return GetLocalizedString(main_window_->IsABSwapped(player)
-                                    ? string_resources::IDR_IN_GAME_MENU_ON
-                                    : string_resources::IDR_IN_GAME_MENU_OFF);
+    case SettingsItem::kSwapAB:
+      if (main_window_->HasCurrentGameABSwapOverride()) {
+        return GetLocalizedString(
+            string_resources::IDR_IN_GAME_MENU_AB_CURRENT_GAME);
+      }
+      return GetLocalizedString(
+          main_window_->emulation_system() == kiwi::emu::Emulator::Type::kGBA
+              ? string_resources::IDR_IN_GAME_MENU_AB_GBA_GLOBAL
+              : string_resources::IDR_IN_GAME_MENU_AB_NES_GLOBAL);
+    case SettingsItem::kABSwapScope:
+      if (ab_swap_current_game_scope_) {
+        return GetLocalizedString(
+            string_resources::IDR_IN_GAME_MENU_AB_CURRENT_GAME);
+      }
+      return GetLocalizedString(
+          main_window_->emulation_system() == kiwi::emu::Emulator::Type::kGBA
+              ? string_resources::IDR_IN_GAME_MENU_AB_GBA_GLOBAL
+              : string_resources::IDR_IN_GAME_MENU_AB_NES_GLOBAL);
+    case SettingsItem::kABSwapP1:
+    case SettingsItem::kABSwapP2: {
+      const int player = item == SettingsItem::kABSwapP1 ? 0 : 1;
+      const bool swapped = ab_swap_current_game_scope_
+                               ? main_window_->IsCurrentGameABSwapped(player)
+                               : main_window_->IsGlobalABSwapped(player);
+      return GetLocalizedString(
+          swapped ? string_resources::IDR_IN_GAME_MENU_SWAP
+                  : string_resources::IDR_IN_GAME_MENU_NORMAL);
     }
     case SettingsItem::kLanguage:
       switch (GetCurrentSupportedLanguage()) {

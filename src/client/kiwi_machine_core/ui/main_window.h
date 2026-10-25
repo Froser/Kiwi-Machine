@@ -122,6 +122,10 @@ class MainWindow : public WindowBase,
   float window_scale() { return ui_scale_; }
   bool is_fullscreen() { return config_->data().is_fullscreen; }
   bool IsABSwapped(int player) const;
+  bool IsGlobalABSwapped(int player) const;
+  bool IsCurrentGameABSwapped(int player) const;
+  bool HasCurrentGameABSwapOverride() const;
+  bool CanUseCurrentGameABSwap() const;
   bool IsLandscape();
 #if BUILDFLAG(IS_MOBILE)
   bool is_stretch_mode() { return config_->data().is_stretch_mode; }
@@ -211,7 +215,11 @@ class MainWindow : public WindowBase,
   bool IsControllerButtonPressedForGameplay(SDL_GameController* controller,
                                             SDL_GameControllerButton button);
   void IgnoreHeldControllerButtonsUntilRelease();
-  void SetABSwapped(int player, bool swapped);
+  const ApplicationConfig::ABSwapSystemSettings& GetABSwapSettings() const;
+  ApplicationConfig::ABSwapSystemSettings& GetABSwapSettings();
+  void NotifyEffectiveABSwapChanges(
+      const ApplicationConfig::ABSwapValues& previous_values);
+  void SetABSwapped(int player, bool swapped, bool for_current_game);
   void CloseInGameMenu();
   void ShowSettings();
   void ShowAbout();
@@ -339,6 +347,7 @@ class MainWindow : public WindowBase,
   kiwi::emu::Emulator::Type emulation_system_ = kiwi::emu::Emulator::Type::kNES;
   float ui_scale_ = 1.f;
   std::string current_game_title_;
+  std::string current_game_id_;
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
   bool hd_texture_available_ = false;
   bool hd_texture_enabled_ = false;

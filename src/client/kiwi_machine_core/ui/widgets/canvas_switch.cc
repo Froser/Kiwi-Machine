@@ -21,9 +21,8 @@ constexpr Sint16 kTriggerChordReleaseThreshold = 8000;
 }  // namespace
 
 bool Canvas::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
-  if (emulation_system_ == kiwi::emu::Emulator::Type::kGBA ||
-      (event->axis != SDL_CONTROLLER_AXIS_TRIGGERLEFT &&
-       event->axis != SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) {
+  if (event->axis != SDL_CONTROLLER_AXIS_TRIGGERLEFT &&
+      event->axis != SDL_CONTROLLER_AXIS_TRIGGERRIGHT) {
     return false;
   }
 

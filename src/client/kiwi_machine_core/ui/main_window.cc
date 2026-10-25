@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "base/strings/stringprintf.h"
 #include "build/kiwi_defines.h"
 #include "debug/debug_roms.h"
 #include "kiwi_flags.h"
@@ -335,7 +336,7 @@ void MainWindow::JoystickButtonUp_WASM(kiwi::nes::ControllerButton button) {
 }
 
 void MainWindow::SetABSwapped_WASM(int player, bool swapped) {
-  SetABSwapped(player, swapped);
+  SetABSwapped(player, swapped, HasCurrentGameABSwapOverride());
 }
 
 bool MainWindow::IsABSwapped_WASM(int player) const {
@@ -492,7 +493,40 @@ void MainWindow::RemoveObserver(Observer* observer) {
 
 bool MainWindow::IsABSwapped(int player) const {
   SDL_assert(player == 0 || player == 1);
-  return config_->data().swap_ab[player];
+  return GetABSwapSettings().GetEffective(current_game_id_)[player];
+}
+
+bool MainWindow::IsGlobalABSwapped(int player) const {
+  SDL_assert(player == 0 || player == 1);
+  return GetABSwapSettings().global[player];
+}
+
+bool MainWindow::IsCurrentGameABSwapped(int player) const {
+  SDL_assert(player == 0 || player == 1);
+  return GetABSwapSettings().GetEffective(current_game_id_)[player];
+}
+
+bool MainWindow::HasCurrentGameABSwapOverride() const {
+  return GetABSwapSettings().HasGameOverride(current_game_id_);
+}
+
+bool MainWindow::CanUseCurrentGameABSwap() const {
+  return !current_game_id_.empty();
+}
+
+const ApplicationConfig::ABSwapSystemSettings& MainWindow::GetABSwapSettings()
+    const {
+  const ApplicationConfig::ABSwapSettings& settings =
+      config_->data().swap_ab_settings;
+  return emulation_system_ == kiwi::emu::Emulator::Type::kGBA ? settings.gba
+                                                              : settings.nes;
+}
+
+ApplicationConfig::ABSwapSystemSettings& MainWindow::GetABSwapSettings() {
+  ApplicationConfig::ABSwapSettings& settings =
+      config_->data().swap_ab_settings;
+  return emulation_system_ == kiwi::emu::Emulator::Type::kGBA ? settings.gba
+                                                              : settings.nes;
 }
 
 kiwi::nes::ControllerButton MainWindow::MapPhysicalInputButton(
@@ -1367,19 +1401,41 @@ bool MainWindow::IsVirtualJoystickButtonPressed(
   return virtual_controller_button_states_[which][static_cast<int>(button)];
 }
 
-void MainWindow::SetABSwapped(int player, bool swapped) {
+void MainWindow::NotifyEffectiveABSwapChanges(
+    const ApplicationConfig::ABSwapValues& previous_values) {
+  const ApplicationConfig::ABSwapValues current_values =
+      GetABSwapSettings().GetEffective(current_game_id_);
+  for (int player = 0; player < 2; ++player) {
+    if (previous_values[player] == current_values[player])
+      continue;
+
+    SetVirtualJoystickButton(player, kiwi::nes::ControllerButton::kA, false);
+    SetVirtualJoystickButton(player, kiwi::nes::ControllerButton::kB, false);
+    if (player == 0)
+      LayoutVirtualTouchButtons();
+    for (auto* observer : observers_)
+      observer->OnABSwapChanged(player, current_values[player]);
+  }
+}
+
+void MainWindow::SetABSwapped(int player, bool swapped, bool for_current_game) {
   SDL_assert(player == 0 || player == 1);
-  if (config_->data().swap_ab[player] == swapped)
+  if (for_current_game && current_game_id_.empty())
     return;
 
-  SetVirtualJoystickButton(player, kiwi::nes::ControllerButton::kA, false);
-  SetVirtualJoystickButton(player, kiwi::nes::ControllerButton::kB, false);
-  config_->data().swap_ab[player] = swapped;
+  ApplicationConfig::ABSwapSystemSettings& settings = GetABSwapSettings();
+  const ApplicationConfig::ABSwapValues previous_values =
+      settings.GetEffective(current_game_id_);
+  if (for_current_game) {
+    if (!settings.SetGameValue(current_game_id_, player, swapped))
+      return;
+  } else {
+    if (settings.global[player] == swapped)
+      return;
+    settings.global[player] = swapped;
+  }
   config_->SaveConfig();
-  if (player == 0)
-    LayoutVirtualTouchButtons();
-  for (auto* observer : observers_)
-    observer->OnABSwapChanged(player, swapped);
+  NotifyEffectiveABSwapChanges(previous_values);
 }
 
 void MainWindow::CloseInGameMenu() {
@@ -1442,6 +1498,8 @@ void MainWindow::PowerOffRuntime() {
 
 void MainWindow::SwitchEmulationSystem(kiwi::emu::Emulator::Type system) {
   if (emulation_system_ != system && (!canvas_ || !canvas_->visible())) {
+    const ApplicationConfig::ABSwapValues previous_swap_values =
+        GetABSwapSettings().GetEffective(current_game_id_);
     if (nes_debug_widget_)
       nes_debug_widget_->set_visible(false);
     if (gba_debug_widget_)
@@ -1451,6 +1509,7 @@ void MainWindow::SwitchEmulationSystem(kiwi::emu::Emulator::Type system) {
     config_->data().last_system = static_cast<int>(system);
     config_->SaveConfig();
     UpdateWorkspaceForSystem();
+    NotifyEffectiveABSwapChanges(previous_swap_values);
   }
 }
 
@@ -1523,6 +1582,12 @@ void MainWindow::OnRomLoaded(std::unique_ptr<PendingROM> pending_rom,
     in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kLoadState, true);
     in_game_menu_->SetMenuItemVisible(InGameMenu::MenuItem::kSaveState, true);
     current_game_title_ = std::move(pending_rom->game_title);
+    const ApplicationConfig::ABSwapValues previous_swap_values =
+        GetABSwapSettings().GetEffective(current_game_id_);
+    const kiwi::nes::RomData* rom_data =
+        runtime_->emulator()->AsNESEmulator()->GetRomData();
+    current_game_id_ = rom_data ? rom_data->sha1 : std::string();
+    NotifyEffectiveABSwapChanges(previous_swap_values);
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
     hd_texture_available_ = pending_rom->hd_texture_available;
     hd_texture_enabled_ = pending_rom->hd_texture_enabled;
@@ -1567,6 +1632,12 @@ void MainWindow::OnGBARomLoaded(std::string fallback_title, bool success) {
         runtime_->emulator()->AsGBAEmulator()->GetRomData();
     current_game_title_ =
         rom_data && !rom_data->title.empty() ? rom_data->title : fallback_title;
+    const ApplicationConfig::ABSwapValues previous_swap_values =
+        GetABSwapSettings().GetEffective(current_game_id_);
+    current_game_id_ = rom_data
+                           ? kiwi::base::StringPrintf("%08x", rom_data->crc32)
+                           : std::string();
+    NotifyEffectiveABSwapChanges(previous_swap_values);
     ShowMainMenu(false, false);
     SetTitle(current_game_title_ + " [GBA]");
     StartPeriodicSaves();
@@ -1608,7 +1679,11 @@ void MainWindow::OnRomUnloaded(bool success) {
                 "Could not save battery-backed data before unloading ROM.");
     StartPeriodicSaves();
   } else {
+    const ApplicationConfig::ABSwapValues previous_swap_values =
+        GetABSwapSettings().GetEffective(current_game_id_);
     current_game_title_.clear();
+    current_game_id_.clear();
+    NotifyEffectiveABSwapChanges(previous_swap_values);
 #if BUILDFLAG(ENABLE_HD_TEXTURE)
     hd_texture_available_ = false;
     hd_texture_enabled_ = false;
@@ -1688,8 +1763,7 @@ void MainWindow::OnStateSaved(int slot, bool succeed) {
 }
 
 void MainWindow::PrepareToLoadState() {
-  audio_->Reset();
-  audio_->Start();
+  ResetAudio();
 }
 
 void MainWindow::OnStateLoaded(int slot_or_timestamp, bool succeed) {
@@ -2003,6 +2077,8 @@ void MainWindow::OnInGameSettingsItemTrigger(
     InGameMenu::SettingsItemValue value) {
   bool* go_left_ptr = std::get_if<bool>(&value);
   float* value_ptr = std::get_if<float>(&value);
+  InGameMenu::ABSwapChange* ab_swap_change =
+      std::get_if<InGameMenu::ABSwapChange>(&value);
 
   switch (item) {
     case InGameMenu::SettingsItem::kVolume:
@@ -2056,11 +2132,15 @@ void MainWindow::OnInGameSettingsItemTrigger(
       }
     } break;
 #endif
-    case InGameMenu::SettingsItem::kSwapABP1:
-    case InGameMenu::SettingsItem::kSwapABP2: {
-      SDL_assert(go_left_ptr);
-      const int player = item == InGameMenu::SettingsItem::kSwapABP1 ? 0 : 1;
-      SetABSwapped(player, !*go_left_ptr);
+    case InGameMenu::SettingsItem::kSwapAB:
+    case InGameMenu::SettingsItem::kABSwapScope:
+      break;
+    case InGameMenu::SettingsItem::kABSwapP1:
+    case InGameMenu::SettingsItem::kABSwapP2: {
+      SDL_assert(ab_swap_change);
+      const int player = item == InGameMenu::SettingsItem::kABSwapP1 ? 0 : 1;
+      SetABSwapped(player, !ab_swap_change->go_left,
+                   ab_swap_change->for_current_game);
     } break;
     case InGameMenu::SettingsItem::kLanguage: {
       SDL_assert(go_left_ptr);
