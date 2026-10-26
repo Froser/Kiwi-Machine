@@ -10,6 +10,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/mgba.cmake")
+KIWI_ADD_MGBA("${CMAKE_CURRENT_LIST_DIR}/mgba-0.10.5")
+
 add_subdirectory(gflags)
 if(KIWI_SWITCH)
     KIWI_SWITCH_PREPARE_IMGUI()
@@ -31,6 +34,7 @@ if(IOS AND TARGET ios_frameworks)
 endif()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set_target_properties(mgba mgba-version-info PROPERTIES FOLDER "3rdparty/mgba")
 set_target_properties(gflags_nothreads_static PROPERTIES FOLDER "3rdparty/gflags")
 set_target_properties(imgui PROPERTIES FOLDER "3rdparty/imgui")
 if(NOT KIWI_SWITCH)

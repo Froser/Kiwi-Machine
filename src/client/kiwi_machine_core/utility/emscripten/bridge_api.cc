@@ -14,7 +14,7 @@
 
 #include <emscripten.h>
 
-#include "nes/controller.h"
+#include "emulator/nes/controller.h"
 #include "ui/main_window.h"
 
 namespace {

@@ -15,776 +15,286 @@
 #include <backends/imgui_impl_sdlrenderer2.h>
 #include <gflags/gflags.h>
 #include <imgui.h>
-#include <map>
-#include <set>
-#include <string>
 
-#include "base/files/file_enumerator.h"
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
-#include "rom_window.h"
+#include "package_manager_ui.h"
 #include "texture_packager.h"
 #include "util.h"
-#include "workspace.h"
 
 DEFINE_string(km_path, "", "Kiwi-Machine executable/bundle directory.");
 DEFINE_string(zipped_path, "", "Input path for zipped files.");
 DEFINE_string(output_path, "", "Output path for packaged files.");
-DEFINE_string(mesen_hd_texture_path, "",
+DEFINE_string(mesen_hd_texture_path,
+              "",
               "Input directory containing Mesen HD Texture Pack folders.");
+DEFINE_string(rom_system, "nes", "ROM system for --zipped_path: nes or gba.");
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
 #endif
 
-SDL_Renderer *g_renderer;
-std::vector<ROMWindow> g_rom_windows;
-kiwi::base::FilePath g_dropped_jpg;
-kiwi::base::FilePath g_dropped_rom;
+namespace {
 
-enum class FilterOptions {
-    kAll,
-    kIgnoreMarked,
-    kUnmatchedOnly,
-    kUnsupportedOnly,
-    kUninterestedOnly,
-    kImperfectOnly,
-    kDuplicatedOnly,
-};
+SDL_Renderer* g_renderer = nullptr;
 
-struct {
-    Explorer explorer;
-    bool first_open = true;
-    bool explorer_opened = false;
-    FilterOptions filter = FilterOptions::kAll;
-    bool exclude_unl = true;
-    Explorer::File *selected_item = nullptr;
-} g_explorer;
-
-void NotifySaved(const kiwi::base::FilePath &updated_zip_file) {
-    UpdateExplorerFiles(updated_zip_file, g_explorer.explorer.explorer_files);
+SDL_Window* CreateMainWindow() {
+  constexpr int kInitialWidth = 1440;
+  constexpr int kInitialHeight = 900;
+  return SDL_CreateWindow(
+      U8("Kiwi Package Studio"), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+      kInitialWidth, kInitialHeight,
+      SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 }
 
-kiwi::base::FilePath GetDroppedJPG() {
-    return g_dropped_jpg;
-}
+void InitializeStyle() {
+  ImGui::StyleColorsLight();
+  ImGuiStyle& style = ImGui::GetStyle();
+  style.WindowPadding = ImVec2(0, 0);
+  style.FramePadding = ImVec2(10, 7);
+  style.CellPadding = ImVec2(10, 7);
+  style.ItemSpacing = ImVec2(8, 7);
+  style.ItemInnerSpacing = ImVec2(6, 5);
+  style.ScrollbarSize = 12;
+  style.WindowRounding = 0;
+  style.ChildRounding = 0;
+  style.FrameRounding = 5;
+  style.PopupRounding = 6;
+  style.GrabRounding = 4;
+  style.TabRounding = 4;
+  style.WindowBorderSize = 0;
+  style.ChildBorderSize = 1;
+  style.FrameBorderSize = 1;
 
-void ClearDroppedJPG() {
-    g_dropped_jpg.clear();
-}
-
-kiwi::base::FilePath GetDroppedROM() {
-    return g_dropped_rom;
-}
-
-void ClearDroppedROM() {
-    g_dropped_rom.clear();
-}
-
-void CreateROMWindow(ROMS roms,
-                     kiwi::base::FilePath file,
-                     bool new_rom,
-                     bool fetch_image) {
-    ROMWindow window(g_renderer, roms, file);
-    if (new_rom)
-        window.NewRom();
-    if (fetch_image && window.first_rom()) {
-        window.TryFetchCoverByName(*window.first_rom(),
-                                   kiwi::base::FilePath::FromUTF8Unsafe(
-                                       window.first_rom()->nes_file_name));
-    }
-    g_rom_windows.push_back(std::move(window));
-}
-
-void CreateROMFromNES(const kiwi::base::FilePath &rom_path) {
-    auto nes_data = kiwi::base::ReadFileToBytes(rom_path);
-    if (nes_data) {
-        ROM rom;
-        strcpy(rom.nes_file_name, rom_path.BaseName().AsUTF8Unsafe().c_str());
-        rom.key = "default";
-        rom.nes_data = std::move(*nes_data);
-        FillRomDetailsAutomatically(rom, rom_path.BaseName());
-        CreateROMWindow(std::vector<ROM>{std::move(rom)}, kiwi::base::FilePath(),
-                        false, true);
-    }
-}
-
-SDL_Window *CreateMainWindow() {
-    SDL_Window *window =
-            SDL_CreateWindow(U8("KiwiMachine 资源包管理器"), SDL_WINDOWPOS_UNDEFINED,
-                             SDL_WINDOWPOS_UNDEFINED, 1024, 768, SDL_WINDOW_SHOWN);
-    return window;
-}
-
-void RemoveClosedWindows() {
-    for (auto iter = g_rom_windows.begin(); iter != g_rom_windows.end();) {
-        if (iter->closed())
-            iter = g_rom_windows.erase(iter);
-        else
-            ++iter;
-    }
+  ImVec4* colors = style.Colors;
+  colors[ImGuiCol_Text] = ImVec4(0.09f, 0.13f, 0.12f, 1.00f);
+  colors[ImGuiCol_TextDisabled] = ImVec4(0.45f, 0.50f, 0.48f, 1.00f);
+  colors[ImGuiCol_WindowBg] = ImVec4(0.96f, 0.97f, 0.97f, 1.00f);
+  colors[ImGuiCol_ChildBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+  colors[ImGuiCol_PopupBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.98f);
+  colors[ImGuiCol_Border] = ImVec4(0.82f, 0.86f, 0.84f, 1.00f);
+  colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_FrameBg] = ImVec4(0.98f, 0.99f, 0.98f, 1.00f);
+  colors[ImGuiCol_FrameBgHovered] = ImVec4(0.92f, 0.96f, 0.94f, 1.00f);
+  colors[ImGuiCol_FrameBgActive] = ImVec4(0.86f, 0.93f, 0.89f, 1.00f);
+  colors[ImGuiCol_TitleBg] = ImVec4(0.94f, 0.96f, 0.95f, 1.00f);
+  colors[ImGuiCol_TitleBgActive] = ImVec4(0.94f, 0.96f, 0.95f, 1.00f);
+  colors[ImGuiCol_MenuBarBg] = ImVec4(0.95f, 0.97f, 0.96f, 1.00f);
+  colors[ImGuiCol_ScrollbarBg] = ImVec4(0.95f, 0.97f, 0.96f, 1.00f);
+  colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.70f, 0.76f, 0.73f, 1.00f);
+  colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.56f, 0.65f, 0.61f, 1.00f);
+  colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.40f, 0.55f, 0.48f, 1.00f);
+  colors[ImGuiCol_CheckMark] = ImVec4(0.18f, 0.49f, 0.35f, 1.00f);
+  colors[ImGuiCol_SliderGrab] = ImVec4(0.18f, 0.49f, 0.35f, 1.00f);
+  colors[ImGuiCol_SliderGrabActive] = ImVec4(0.13f, 0.38f, 0.27f, 1.00f);
+  colors[ImGuiCol_Button] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+  colors[ImGuiCol_ButtonHovered] = ImVec4(0.86f, 0.94f, 0.90f, 1.00f);
+  colors[ImGuiCol_ButtonActive] = ImVec4(0.74f, 0.87f, 0.80f, 1.00f);
+  colors[ImGuiCol_Header] = ImVec4(0.88f, 0.95f, 0.91f, 1.00f);
+  colors[ImGuiCol_HeaderHovered] = ImVec4(0.82f, 0.92f, 0.87f, 1.00f);
+  colors[ImGuiCol_HeaderActive] = ImVec4(0.74f, 0.87f, 0.80f, 1.00f);
+  colors[ImGuiCol_Separator] = ImVec4(0.82f, 0.86f, 0.84f, 1.00f);
+  colors[ImGuiCol_SeparatorHovered] = ImVec4(0.32f, 0.58f, 0.46f, 1.00f);
+  colors[ImGuiCol_SeparatorActive] = ImVec4(0.18f, 0.49f, 0.35f, 1.00f);
+  colors[ImGuiCol_ResizeGrip] = ImVec4(0.30f, 0.55f, 0.43f, 0.20f);
+  colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.30f, 0.55f, 0.43f, 0.67f);
+  colors[ImGuiCol_ResizeGripActive] = ImVec4(0.18f, 0.49f, 0.35f, 0.95f);
+  colors[ImGuiCol_Tab] = ImVec4(0.94f, 0.96f, 0.95f, 1.00f);
+  colors[ImGuiCol_TabHovered] = ImVec4(0.84f, 0.93f, 0.88f, 1.00f);
+  colors[ImGuiCol_TabSelected] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+  colors[ImGuiCol_TabSelectedOverline] = ImVec4(0.18f, 0.49f, 0.35f, 1.00f);
+  colors[ImGuiCol_TableHeaderBg] = ImVec4(0.93f, 0.95f, 0.94f, 1.00f);
+  colors[ImGuiCol_TableBorderStrong] = ImVec4(0.77f, 0.82f, 0.80f, 1.00f);
+  colors[ImGuiCol_TableBorderLight] = ImVec4(0.87f, 0.90f, 0.89f, 1.00f);
+  colors[ImGuiCol_NavHighlight] = ImVec4(0.18f, 0.49f, 0.35f, 1.00f);
 }
 
 bool InitSDL() {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        return false;
-    }
+  if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    return false;
 
-    SDL_Window *window = CreateMainWindow();
-    if (!window) {
-        return false;
-    }
+  SDL_Window* window = CreateMainWindow();
+  if (!window)
+    return false;
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(
-        window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        SDL_DestroyWindow(window);
-        return false;
-    }
+  SDL_Renderer* renderer = SDL_CreateRenderer(
+      window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  if (!renderer) {
+    SDL_DestroyWindow(window);
+    return false;
+  }
 
-    g_renderer = renderer;
-
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+  g_renderer = renderer;
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO();
+  io.IniFilename = nullptr;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 #if BUILDFLAG(IS_APPLE)
-    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/STHeiti Light.ttc", 16);
+  io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/STHeiti Light.ttc", 16);
 #endif
 #if BUILDFLAG(IS_WIN)
-    io.Fonts->AddFontFromFileTTF(GetFontsPath()
-                                 .Append(FILE_PATH_LITERAL("msyh.ttc"))
-                                 .AsUTF8Unsafe()
-                                 .c_str(),
-                                 16);
+  io.Fonts->AddFontFromFileTTF(GetFontsPath()
+                                   .Append(FILE_PATH_LITERAL("msyh.ttc"))
+                                   .AsUTF8Unsafe()
+                                   .c_str(),
+                               16);
 #endif
 #if BUILDFLAG(IS_LINUX)
-    io.Fonts->AddFontFromFileTTF("/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
-                                 16);
+  io.Fonts->AddFontFromFileTTF(
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc", 16);
 #endif
 
-    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
-    ImGui_ImplSDLRenderer2_Init(renderer);
-
-    return true;
-}
-
-void HandleDrop(SDL_Event &event) {
-    char *dropped_file = event.drop.file;
-    if (dropped_file) {
-        if (IsZipExtension(dropped_file)) {
-            kiwi::base::FilePath file =
-                    kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
-            CreateROMWindow(ReadZipFromFile(file), file, false, false);
-        } else if (IsJPEGExtension(dropped_file)) {
-            g_dropped_jpg = kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
-        } else if (IsNESExtension(dropped_file)) {
-            g_dropped_rom = kiwi::base::FilePath::FromUTF8Unsafe(dropped_file);
-        }
-        SDL_free(dropped_file);
-    }
+  InitializeStyle();
+  ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+  ImGui_ImplSDLRenderer2_Init(renderer);
+  InitializePackageManagerUI(renderer);
+  return true;
 }
 
 bool HandleEvents() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        ImGui_ImplSDL2_ProcessEvent(&event);
-        switch (event.type) {
-            case SDL_QUIT:
-                return false;
-            case SDL_DROPFILE:
-                HandleDrop(event);
-                break;
-            default:
-                break;
-        }
+  SDL_Event event;
+  while (SDL_PollEvent(&event)) {
+    ImGui_ImplSDL2_ProcessEvent(&event);
+    switch (event.type) {
+      case SDL_QUIT:
+        return false;
+      case SDL_DROPFILE:
+        HandlePackageManagerDropFile(event.drop.file);
+        SDL_free(event.drop.file);
+        break;
+      default:
+        break;
     }
-    return true;
-}
-
-void PaintGlobal() {
-    ImGui::Begin(U8("全局设置"));
-    ImGui::TextUnformatted(U8("包管理器，方便轻松打包NES资源。"));
-    ImGui::TextUnformatted(U8("准备工作："));
-
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::TextUnformatted(U8(
-        "通过--km-path={KiwiMachine程序路径}"
-        "启动管理器，或将KiwiMachine拷贝到当前路径下，可以使用测试包/ROM功能"));
-
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::TextUnformatted(
-        U8("为了能够自动注音，需要安装Python3，并通过pip3安装pinyin依赖："));
-    ImGui::TextUnformatted("\t");
-    ImGui::SameLine();
-    ImGui::Bullet();
-    ImGui::TextUnformatted("pip3 install pinyin");
-    ImGui::TextUnformatted("\t");
-    ImGui::SameLine();
-    ImGui::Bullet();
-    ImGui::TextUnformatted("pip3 install pykakasi");
-
-    ImGui::NewLine();
-    ImGui::TextUnformatted(U8("工作空间 (--workspace)"));
-    ImGui::InputText("##Workspace", GetWorkspace().workspace_dir,
-                     sizeof(GetWorkspace().workspace_dir));
-    ImGui::SameLine();
-    if (ImGui::Button(U8("加载工作空间"))) {
-        kiwi::base::FilePath manifest_path =
-                kiwi::base::FilePath::FromUTF8Unsafe(GetWorkspace().workspace_dir)
-                .Append(FILE_PATH_LITERAL("manifest.json"));
-        GetWorkspace().ReadFromManifest(manifest_path);
-    }
-
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::Text(U8("Zip包路径: %s"),
-                GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
-
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::Text(U8("最终包输出路径: %s"),
-                GetWorkspace().GetPackageOutputPath().AsUTF8Unsafe().c_str());
-
-    ImGui::Bullet();
-    ImGui::SameLine();
-    ImGui::Text(U8("封面数据库: %s"),
-                GetWorkspace().GetNESBoxartsPath().AsUTF8Unsafe().c_str());
-    ImGui::End();
-}
-
-std::string g_last_pack_result_str;
-kiwi::base::FilePath g_last_pack_dir;
-
-void PaintExplorer() {
-    if (g_explorer.explorer_opened) {
-        ImGui::Begin(U8("目录浏览器##Explorer"), &g_explorer.explorer_opened);
-        ImGui::Text(U8("NES Roms 路径: %s"),
-                    GetWorkspace().GetNESRomsPath().AsUTF8Unsafe().c_str());
-        ImGui::SameLine();
-        if (ImGui::Button(U8("与打包路径对比")) || g_explorer.first_open) {
-            InitializeExplorerFiles(GetWorkspace().GetNESRomsPath(),
-                                    GetWorkspace().GetZippedPath(),
-                                    g_explorer.explorer.explorer_files);
-            g_explorer.first_open = false;
-        }
-
-        ImGui::Text(U8("打包路径: %s"),
-                    GetWorkspace().GetZippedPath().AsUTF8Unsafe().c_str());
-
-        constexpr int kItemCount = 20;
-        static const char *kPrefix[] = {
-            U8("(不支持) "), U8("(不关心) "),
-            U8("(不完美) "), U8("(重复) ")
-        };
-
-        if (ImGui::BeginListBox(
-            U8("文件##Files"),
-            ImVec2(-FLT_MIN,
-                   kItemCount * ImGui::GetTextLineHeightWithSpacing()))) {
-            for (auto &item: g_explorer.explorer.explorer_files) {
-                if (g_explorer.exclude_unl &&
-                    item.title.find("(Unl)") != std::string::npos)
-                    continue;
-
-                switch (g_explorer.filter) {
-                    case FilterOptions::kIgnoreMarked: {
-                        if (item.mark != Explorer::Mark::kNoMark)
-                            continue;
-                        break;
-                    }
-                    case FilterOptions::kUnmatchedOnly: {
-                        if (item.mark == Explorer::Mark::kUninterested ||
-                            item.mark == Explorer::Mark::kImprefect ||
-                            item.mark == Explorer::Mark::kDuplicated || item.matched ||
-                            !item.supported)
-                            continue;
-                        break;
-                    }
-                    case FilterOptions::kUnsupportedOnly: {
-                        if (item.supported || item.mark == Explorer::Mark::kUninterested)
-                            continue;
-                        break;
-                    }
-                    case FilterOptions::kUninterestedOnly: {
-                        if (item.mark != Explorer::Mark::kUninterested)
-                            continue;
-                        break;
-                    }
-                    case FilterOptions::kImperfectOnly: {
-                        if (item.mark != Explorer::Mark::kImprefect)
-                            continue;
-                        break;
-                    }
-                    case FilterOptions::kDuplicatedOnly: {
-                        if (item.mark != Explorer::Mark::kDuplicated)
-                            continue;
-                        break;
-                    }
-                    default:
-                        break;
-                }
-
-                const char *prefix =
-                        !item.supported
-                            ? (g_explorer.filter == FilterOptions::kAll ? kPrefix[0] : "")
-                            : (item.mark == Explorer::Mark::kUninterested
-                                   ? kPrefix[1]
-                                   : (item.mark == Explorer::Mark::kImprefect
-                                          ? kPrefix[2]
-                                          : (item.mark == Explorer::Mark::kDuplicated
-                                                 ? kPrefix[3]
-                                                 : "")));
-                ImGui::PushStyleColor(
-                    ImGuiCol_Text,
-                    (item.supported && item.mark != Explorer::Mark::kUninterested &&
-                     item.mark != Explorer::Mark::kImprefect &&
-                     item.mark != Explorer::Mark::kDuplicated)
-                        ? (item.matched
-                               ? ImColor(0, 255, 0).Value
-                               : ImColor(255, 0, 0).Value)
-                        : ImColor(127, 127, 127).Value);
-                if (ImGui::Selectable((prefix + item.title).c_str(), &item.selected,
-                                      ImGuiSelectableFlags_AllowDoubleClick)) {
-                    for (auto &i: g_explorer.explorer.explorer_files) {
-                        if (&i != &item)
-                            i.selected = false;
-                    }
-                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                        kiwi::base::FilePath nes_file = item.dir.Append(
-                            kiwi::base::FilePath::FromUTF8Unsafe(item.title));
-                        if (!g_explorer.selected_item ||
-                            !g_explorer.selected_item->matched) {
-                            // Creates a new one if no zip matched
-                            CreateROMFromNES(nes_file);
-                        } else {
-                            // Creates from a matched path
-                            const kiwi::base::FilePath &file =
-                                    g_explorer.selected_item->compared_zip_path;
-                            if (IsZipExtension(g_explorer.selected_item->compared_zip_path
-                                .AsUTF8Unsafe())) {
-                                CreateROMWindow(ReadZipFromFile(file), file, false, false);
-                            } else {
-                                // Not a zip file, so we create a new one.
-                                CreateROMFromNES(nes_file);
-                            }
-                        }
-                    }
-                    g_explorer.selected_item = &item;
-                }
-                ImGui::PopStyleColor();
-            }
-
-            ImGui::EndListBox();
-
-            if (g_explorer.selected_item) {
-                ImGui::Text(U8("Mapper: %s, 是否支持：%s"),
-                            g_explorer.selected_item->mapper.c_str(),
-                            g_explorer.selected_item->supported ? U8("是") : U8("否"));
-            }
-
-            {
-                if (!g_explorer.selected_item)
-                    ImGui::BeginDisabled();
-                if (ImGui::Button(U8("以此NES开始制作压缩包"))) {
-                    kiwi::base::FilePath nes_file = g_explorer.selected_item->dir.Append(
-                        kiwi::base::FilePath::FromUTF8Unsafe(
-                            g_explorer.selected_item->title));
-                    CreateROMFromNES(nes_file);
-                }
-                if (!g_explorer.selected_item)
-                    ImGui::EndDisabled();
-                ImGui::SameLine();
-            }
-
-            {
-                if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
-                    ImGui::BeginDisabled();
-                if (ImGui::Button(U8("打开对应的压缩包"))) {
-                    const kiwi::base::FilePath &file =
-                            g_explorer.selected_item->compared_zip_path;
-                    if (IsZipExtension(
-                        g_explorer.selected_item->compared_zip_path.AsUTF8Unsafe())) {
-                        CreateROMWindow(ReadZipFromFile(file), file, false, false);
-                    }
-                }
-                if (!g_explorer.selected_item || !g_explorer.selected_item->matched)
-                    ImGui::EndDisabled();
-            }
-
-            ImGui::SameLine();
-            if (ImGui::Button(U8("打包成pak"))) {
-                auto result =
-                        PackEntireDirectory(GetWorkspace().GetZippedPath(),
-                                            GetWorkspace().GetPackageOutputPath());
-                if (!result.empty()) {
-                    g_last_pack_result_str = U8("打包成功。生成文件：\n");
-                    g_last_pack_dir = GetWorkspace().GetPackageOutputPath();
-                    for (const auto &path: result) {
-                        g_last_pack_result_str += path.AsUTF8Unsafe() + "\n";
-                    }
-                } else {
-                    g_last_pack_result_str = U8("打包失败。");
-                    g_last_pack_dir.clear();
-                }
-            }
-
-            ImGui::SameLine();
-            if (ImGui::Button(U8("检查并重写所有压缩包"))) {
-                kiwi::base::FilePath zipped_path = GetWorkspace().GetZippedPath();
-                kiwi::base::FileEnumerator d(zipped_path, true,
-                                             kiwi::base::FileEnumerator::FILES,
-                                             FILE_PATH_LITERAL("*.zip"));
-                for (kiwi::base::FilePath current = d.Next(); !current.empty();
-                     current = d.Next()) {
-                    ROMS roms = ReadZipFromFile(current);
-
-                    bool missing_boxarts_manifest = false;
-                    for (const ROM &rom: roms) {
-                        if (!rom.has_boxarts_size_hint) {
-                            missing_boxarts_manifest = true;
-                            break;
-                        }
-                    }
-
-                    kiwi::base::FilePath output_file = WriteZip(zipped_path, roms);
-                    if (missing_boxarts_manifest) {
-                        // Remove the file which doesn't have boxart manifest.
-                        // Only remove the file if it's not the same as the output file.
-                        bool is_same_zip = (current.BaseName() == output_file.BaseName());
-                        if (!is_same_zip) {
-                            kiwi::base::DeletePathRecursively(current);
-                        }
-                    }
-                }
-            }
-
-            {
-                static const char *kMarkedList[]{
-                    U8("没有标记"),
-                    U8("标记为忽略-不感兴趣的游戏"),
-                    U8("标记为忽略-未完全模拟的游戏"),
-                    U8("标记位忽略-重复的游戏"),
-                };
-
-                const char *marked_desc = U8("未选择");
-                if (g_explorer.selected_item) {
-                    switch (g_explorer.selected_item->mark) {
-                        case Explorer::Mark::kNoMark:
-                            marked_desc = kMarkedList[0];
-                            break;
-                        case Explorer::Mark::kUninterested:
-                            marked_desc = kMarkedList[1];
-                            break;
-                        case Explorer::Mark::kImprefect:
-                            marked_desc = kMarkedList[2];
-                            break;
-                        case Explorer::Mark::kDuplicated:
-                            marked_desc = kMarkedList[3];
-                            break;
-                        default:
-                            SDL_assert(false);
-                            break;
-                    }
-                } else {
-                    ImGui::BeginDisabled();
-                }
-
-                if (ImGui::BeginCombo(U8("##Marked"), marked_desc)) {
-                    if (ImGui::Selectable(
-                        kMarkedList[0],
-                        g_explorer.selected_item && g_explorer.selected_item->mark ==
-                        Explorer::Mark::kNoMark)) {
-                        g_explorer.selected_item->mark = Explorer::Mark::kNoMark;
-                        UpdateMarks(GetWorkspace().GetNESRomsPath(),
-                                    g_explorer.explorer.explorer_files);
-                    }
-                    if (ImGui::Selectable(kMarkedList[1],
-                                          g_explorer.selected_item &&
-                                          g_explorer.selected_item->mark ==
-                                          Explorer::Mark::kUninterested)) {
-                        g_explorer.selected_item->mark = Explorer::Mark::kUninterested;
-                        UpdateMarks(GetWorkspace().GetNESRomsPath(),
-                                    g_explorer.explorer.explorer_files);
-                    }
-                    if (ImGui::Selectable(
-                        kMarkedList[2],
-                        g_explorer.selected_item && g_explorer.selected_item->mark ==
-                        Explorer::Mark::kImprefect)) {
-                        g_explorer.selected_item->mark = Explorer::Mark::kImprefect;
-                        UpdateMarks(GetWorkspace().GetNESRomsPath(),
-                                    g_explorer.explorer.explorer_files);
-                    }
-                    if (ImGui::Selectable(kMarkedList[3],
-                                          g_explorer.selected_item &&
-                                          g_explorer.selected_item->mark ==
-                                          Explorer::Mark::kDuplicated)) {
-                        g_explorer.selected_item->mark = Explorer::Mark::kDuplicated;
-                        UpdateMarks(GetWorkspace().GetNESRomsPath(),
-                                    g_explorer.explorer.explorer_files);
-                    }
-                    ImGui::EndCombo();
-                }
-
-                if (!g_explorer.selected_item) {
-                    ImGui::EndDisabled();
-                }
-
-                ImGui::NewLine();
-                ImGui::TextUnformatted(U8("筛选条件"));
-
-                static const std::map<FilterOptions, const char *> kFilterDesc = {
-                    {FilterOptions::kAll, U8("显示所有")},
-                    {FilterOptions::kIgnoreMarked, U8("忽略被标记的项")},
-                    {FilterOptions::kUnmatchedOnly, U8("只显示未被打包的项")},
-                    {FilterOptions::kUnsupportedOnly, U8("只显示不支持的项")},
-                    {FilterOptions::kUninterestedOnly, U8("只显示不感兴趣的项")},
-                    {FilterOptions::kImperfectOnly, U8("只显示未完全模拟的项")},
-                    {FilterOptions::kDuplicatedOnly, U8("只显示重复的项")},
-                };
-                if (ImGui::BeginCombo(U8("##Filter"),
-                                      kFilterDesc.at(g_explorer.filter))) {
-                    if (ImGui::Selectable(U8("显示所有"),
-                                          g_explorer.filter == FilterOptions::kAll)) {
-                        g_explorer.filter = FilterOptions::kAll;
-                    } else if (ImGui::Selectable(
-                        U8("忽略被标记的项"),
-                        g_explorer.filter == FilterOptions::kIgnoreMarked)) {
-                        g_explorer.filter = FilterOptions::kIgnoreMarked;
-                    } else if (ImGui::Selectable(
-                        U8("只显示未被打包的项"),
-                        g_explorer.filter == FilterOptions::kUnmatchedOnly)) {
-                        g_explorer.filter = FilterOptions::kUnmatchedOnly;
-                    } else if (ImGui::Selectable(U8("只显示不支持的项（不包含不感兴趣）"),
-                                                 g_explorer.filter ==
-                                                 FilterOptions::kUnsupportedOnly)) {
-                        g_explorer.filter = FilterOptions::kUnsupportedOnly;
-                    } else if (ImGui::Selectable(U8("只显示不感兴趣的项"),
-                                                 g_explorer.filter ==
-                                                 FilterOptions::kUninterestedOnly)) {
-                        g_explorer.filter = FilterOptions::kUninterestedOnly;
-                    } else if (ImGui::Selectable(
-                        U8("只显示未完全模拟的项"),
-                        g_explorer.filter == FilterOptions::kImperfectOnly)) {
-                        g_explorer.filter = FilterOptions::kImperfectOnly;
-                    } else if (ImGui::Selectable(
-                        U8("只显示重复的项"),
-                        g_explorer.filter == FilterOptions::kDuplicatedOnly)) {
-                        g_explorer.filter = FilterOptions::kDuplicatedOnly;
-                    }
-                    ImGui::EndCombo();
-                }
-
-                ImGui::Checkbox(U8("不包含未授权的游戏"), &g_explorer.exclude_unl);
-            }
-
-            if (!g_last_pack_dir.empty()) {
-                ImGui::TextUnformatted(g_last_pack_result_str.c_str());
-                if (ImGui::Button(U8("测试包##TestPackage"))) {
-                    kiwi::base::FilePath kiwi_machine_path_from_cmdline;
-                    if (!FLAGS_km_path.empty()) {
-                        kiwi_machine_path_from_cmdline =
-                                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_km_path);
-                    }
-#if BUILDFLAG(IS_MAC)
-                    kiwi::base::FilePath kiwi_machine(
-                        FILE_PATH_LITERAL("Kiwi Machine.app"));
-                    if (!kiwi_machine_path_from_cmdline.empty())
-                        kiwi_machine = kiwi_machine_path_from_cmdline;
-                    RunExecutable(kiwi_machine,
-                                  {
-                                      "--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
-                                      "--enable_debug"
-                                  });
-#elif BUILDFLAG(IS_LINUX)
-                    kiwi::base::FilePath kiwi_machine(
-                        FILE_PATH_LITERAL("kiwi_machine"));
-                    if (!kiwi_machine_path_from_cmdline.empty())
-                        kiwi_machine = kiwi_machine_path_from_cmdline;
-                    RunExecutable(kiwi_machine,
-                                  {
-                                      "--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
-                                      "--enable_debug"
-                                  });
-#elif BUILDFLAG(IS_WIN)
-                    kiwi::base::FilePath kiwi_machine(
-                        FILE_PATH_LITERAL("kiwi_machine.exe"));
-                    if (!kiwi_machine_path_from_cmdline.empty())
-                        kiwi_machine = kiwi_machine_path_from_cmdline;
-                    RunExecutable(kiwi_machine,
-                                  {
-                                      L"--package-dir=\"" + g_last_pack_dir.value() + L"\"",
-                                      L"--enable_debug"
-                                  });
-#else
-                    kiwi::base::FilePath kiwi_machine(FILE_PATH_LITERAL("kiwi_machine"));
-                    if (!kiwi_machine_path_from_cmdline.empty())
-                        kiwi_machine = kiwi_machine_path_from_cmdline;
-                    RunExecutable(kiwi_machine,
-                                  {
-                                      "--package-dir=" + g_last_pack_dir.AsUTF8Unsafe(),
-                                      "--enable_debug"
-                                  });
-#endif
-                }
-            }
-
-            ImGui::NewLine();
-            ImGui::TextUnformatted(U8("颜色说明："));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImColor(255, 0, 0).Value);
-            ImGui::TextUnformatted(U8("红色表示文件在目标路径中不存在"));
-            ImGui::PopStyleColor();
-
-            ImGui::PushStyleColor(ImGuiCol_Text, ImColor(0, 255, 0).Value);
-            ImGui::TextUnformatted(U8("绿色表示文件在目标路径中已存在"));
-            ImGui::PopStyleColor();
-
-            ImGui::PushStyleColor(ImGuiCol_Text, ImColor(127, 127, 127).Value);
-            ImGui::TextUnformatted(U8("灰色表示文件不支持被打开或被标记"));
-            ImGui::PopStyleColor();
-        }
-        ImGui::End();
-    }
+  }
+  return true;
 }
 
 void Render() {
-    SDL_RenderClear(g_renderer);
-    SDL_SetRenderDrawColor(g_renderer, 0x00, 0x00, 0x00, 0x00);
-    ImGui_ImplSDLRenderer2_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
+  SDL_SetRenderDrawColor(g_renderer, 0xe9, 0xee, 0xec, 0xff);
+  SDL_RenderClear(g_renderer);
+  ImGui_ImplSDLRenderer2_NewFrame();
+  ImGui_ImplSDL2_NewFrame();
+  ImGui::NewFrame();
 
-    if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu(U8("资源包"))) {
-            if (ImGui::MenuItem(U8("新建压缩包"))) {
-                CreateROMWindow(ROMS(), kiwi::base::FilePath(), true, false);
-            }
-            if (ImGui::MenuItem(U8("目录浏览器"))) {
-                g_explorer.explorer_opened = true;
-            }
+  PaintPackageManagerUI();
 
-            ImGui::EndMenu();
-        }
-        ImGui::EndMainMenuBar();
-    }
-
-    PaintGlobal();
-    PaintExplorer();
-
-    for (auto &rom_window: g_rom_windows) {
-        rom_window.Paint();
-    }
-
-    ImGui::Render();
-    ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_renderer);
-    SDL_RenderSetScale(g_renderer, ImGui::GetIO().DisplayFramebufferScale.x,
-                       ImGui::GetIO().DisplayFramebufferScale.y);
-    SDL_RenderPresent(g_renderer);
-
-    for (auto &rom_window: g_rom_windows) {
-        rom_window.Painted();
-    }
-    RemoveClosedWindows();
-    ClearDroppedJPG();
-
-    if (!g_dropped_rom.empty()) {
-        CreateROMFromNES(g_dropped_rom);
-    }
-    ClearDroppedROM();
+  ImGui::Render();
+  ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_renderer);
+  SDL_RenderSetScale(g_renderer, ImGui::GetIO().DisplayFramebufferScale.x,
+                     ImGui::GetIO().DisplayFramebufferScale.y);
+  SDL_RenderPresent(g_renderer);
+  PackageManagerUIPainted();
 }
 
 void Cleanup() {
-    ImGui_ImplSDLRenderer2_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
-    ImGui::DestroyContext();
-    SDL_Quit();
+  ImGui_ImplSDLRenderer2_Shutdown();
+  ImGui_ImplSDL2_Shutdown();
+  ImGui::DestroyContext();
+  SDL_Quit();
 }
 
+std::optional<ROMSystem> GetROMSystemFromFlag() {
+  if (kiwi::base::CompareCaseInsensitiveASCII(FLAGS_rom_system, "nes") == 0 ||
+      kiwi::base::CompareCaseInsensitiveASCII(FLAGS_rom_system, "fc") == 0) {
+    return ROMSystem::kNES;
+  }
+  if (kiwi::base::CompareCaseInsensitiveASCII(FLAGS_rom_system, "gba") == 0)
+    return ROMSystem::kGBA;
+  return std::nullopt;
+}
+
+int RunCommandLinePackaging() {
+  if (!FLAGS_mesen_hd_texture_path.empty()) {
+    if (FLAGS_output_path.empty()) {
+      fprintf(stderr, "--mesen_hd_texture_path requires --output_path.\n");
+      return 1;
+    }
+    std::vector<kiwi::base::FilePath> texture_packages = PackMesenHDTextures(
+        kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_mesen_hd_texture_path),
+        kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_output_path));
+    if (texture_packages.empty())
+      return 1;
+
+    printf("Done. Texture packages:\n");
+    for (const auto& path : texture_packages)
+      printf("%s\n", path.AsUTF8Unsafe().c_str());
+    return 0;
+  }
+
+  if (!FLAGS_zipped_path.empty() && !FLAGS_output_path.empty()) {
+    std::optional<ROMSystem> system = GetROMSystemFromFlag();
+    if (!system) {
+      fprintf(stderr, "--rom_system must be nes, fc, or gba.\n");
+      return 1;
+    }
+    auto result = PackEntireDirectory(
+        kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_zipped_path),
+        kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_output_path), *system);
+    if (result.empty()) {
+      printf("打包失败。\n");
+      return 1;
+    }
+
+    printf("Done. Result:\n");
+    for (const auto& path : result)
+      printf("%s\n", path.AsUTF8Unsafe().c_str());
+    return 0;
+  }
+  return -1;
+}
+
+}  // namespace
+
 #if BUILDFLAG(IS_WIN)
-#include <windows.h>
-char **g_argv = nullptr;
+char** g_argv = nullptr;
 
 void CleanupArgs() {
-    for (size_t i = 0; i < __argc; ++i) {
-        free(g_argv[i]);
-    }
-    free(g_argv);
+  for (size_t i = 0; i < __argc; ++i)
+    free(g_argv[i]);
+  free(g_argv);
 }
 
 int WINAPI wWinMain(HINSTANCE hInstance,
                     HINSTANCE hPrevInstance,
                     PWSTR pCmdLine,
                     int nCmdShow) {
-    wchar_t **wargv = __wargv;
-    SDL_assert(wargv);
-    g_argv = (char **) calloc(__argc, sizeof(char *));
-    for (size_t i = 0; i < __argc; ++i) {
-        g_argv[i] = (char *) calloc(wcslen(wargv[i]) + 1, sizeof(char));
-        if (g_argv[i]) {
-            size_t converted;
-            wcstombs_s(&converted, g_argv[i], wcslen(wargv[i]) + 1, wargv[i],
-                       wcslen(wargv[i]) + 1);
-        }
+  wchar_t** wargv = __wargv;
+  SDL_assert(wargv);
+  g_argv = static_cast<char**>(calloc(__argc, sizeof(char*)));
+  for (size_t i = 0; i < __argc; ++i) {
+    g_argv[i] = static_cast<char*>(calloc(wcslen(wargv[i]) + 1, sizeof(char)));
+    if (g_argv[i]) {
+      size_t converted;
+      wcstombs_s(&converted, g_argv[i], wcslen(wargv[i]) + 1, wargv[i],
+                 wcslen(wargv[i]) + 1);
     }
-    atexit(CleanupArgs);
-
-    gflags::ParseCommandLineFlags(&__argc, &g_argv, true);
-
+  }
+  atexit(CleanupArgs);
+  gflags::ParseCommandLineFlags(&__argc, &g_argv, true);
 #else
-int main(int argc, char **argv) {
-    gflags::ParseCommandLineFlags(&argc, &argv, true);
+int main(int argc, char** argv) {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 #endif
 
-    if (!FLAGS_mesen_hd_texture_path.empty()) {
-        if (FLAGS_output_path.empty()) {
-            fprintf(stderr,
-                    "--mesen_hd_texture_path requires --output_path.\n");
-            return 1;
-        }
-        std::vector<kiwi::base::FilePath> texture_packages =
-                PackMesenHDTextures(
-                        kiwi::base::FilePath::FromUTF8Unsafe(
-                                FLAGS_mesen_hd_texture_path),
-                        kiwi::base::FilePath::FromUTF8Unsafe(
-                                FLAGS_output_path));
-        if (texture_packages.empty())
-            return 1;
+  const int command_line_result = RunCommandLinePackaging();
+  if (command_line_result >= 0)
+    return command_line_result;
 
-        printf("Done. Texture packages:\n");
-        for (const auto& path : texture_packages)
-            printf("%s\n", path.AsUTF8Unsafe().c_str());
-        return 0;
-    }
+  if (!InitSDL())
+    return 1;
 
-    if (!FLAGS_zipped_path.empty() && !FLAGS_output_path.empty()) {
-        kiwi::base::FilePath zipped_path =
-                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_zipped_path);
-        kiwi::base::FilePath output_path =
-                kiwi::base::FilePath::FromUTF8Unsafe(FLAGS_output_path);
-        auto result = PackEntireDirectory(zipped_path, output_path);
-        if (!result.empty()) {
-            printf("Done. Result: \n");
-            for (const auto &path : result) {
-                printf("%s\n", path.AsUTF8Unsafe().c_str());
-            }
-            return 0;
-        } else {
-            printf("打包失败。\n");
-            return 1;
-        }
-    }
+  bool running = true;
+  while (running) {
+    if (!HandleEvents())
+      running = false;
+    Render();
+  }
 
-    InitSDL();
-
-    bool running = true;
-    while (running) {
-        if (!HandleEvents())
-            running = false;
-        Render();
-    }
-
-    Cleanup();
-    return 0;
+  Cleanup();
+  return 0;
 }

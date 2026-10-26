@@ -1,0 +1,187 @@
+// Copyright (C) 2023 Yisi Yu
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+#ifndef NES_EMULATOR_H_
+#define NES_EMULATOR_H_
+
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+
+#include "emulator/nes/nes_export.h"
+
+#include "base/functional/callback.h"
+#include "base/memory/scoped_refptr.h"
+#include "emulator/emulator.h"
+#include "emulator/nes/debug/debug_port.h"
+#include "emulator/nes/io_devices.h"
+
+namespace kiwi {
+namespace base {
+class FilePath;
+}
+
+namespace nes {
+class DebugPort;
+class Configuration;
+
+// The main interface for an emulator. All public methods are thread safe.
+class NES_EXPORT Emulator : public emu::Emulator, public Device {
+ public:
+  struct PRGNVRAMSnapshot {
+    std::string rom_sha1;
+    Bytes data;
+    uint64_t generation = 0;
+  };
+  using PRGNVRAMCallback =
+      base::OnceCallback<void(std::optional<PRGNVRAMSnapshot>)>;
+
+  struct LoadOptions {
+    constexpr LoadOptions(bool capture_texture_metadata = false,
+                          bool texture_uses_chr_ram = false)
+        : capture_ppu_texture_metadata(capture_texture_metadata),
+          uses_chr_ram(texture_uses_chr_ram) {}
+
+    bool capture_ppu_texture_metadata;
+    bool uses_chr_ram;
+  };
+
+  enum class RunningState {
+    kStopped,
+    kPaused,
+    kRunning,
+  };
+
+  Emulator();
+
+ protected:
+  ~Emulator() override;
+
+ public:
+  // Initializes the emulator. It will reset CPU, PPU, etc.
+  // You have to call this method before run ROM. It will also initialize the
+  // environment such as threadpool's task runners.
+  void PowerOn() override = 0;
+
+  // Power off. The emulator must be power off before destruction. |callback|
+  // will be run after power is off.
+  void PowerOff() override = 0;
+
+  // Loads a ROM. When loads finish, you can call Run() to run the
+  // emulator.
+  virtual void LoadFromFile(const base::FilePath& rom_path,
+                            LoadCallback callback) = 0;
+  virtual void LoadFromBinary(const Bytes& data,
+                              LoadCallback callback,
+                              const LoadOptions& options = {}) = 0;
+
+  // Gets currently loaded ROM's data. Returns nullptr if no ROM has been
+  // loaded.
+  virtual const RomData* GetRomData() = 0;
+
+  // Unloads a ROM.
+  virtual void Unload(UnloadCallback callback) = 0;
+
+  // Runs the emulator. Must load cartridge first by calling Load().
+  // Emulator will run in a working task runner. Run() only set the running
+  // state to kRunning, and you have to call RunOneFrame() per frame.
+  void Run() override = 0;
+  void RunOneFrame() override = 0;
+
+  // Pauses the emulator until Run() is called.
+  void Pause() override = 0;
+
+  // Resets CPU and PPU.
+  void Reset(ResetCallback reset_callback) override = 0;
+
+  // An utility method to call Load() and Run() in proper thread.
+  virtual void LoadAndRun(const base::FilePath& rom_path,
+                          LoadCallback = base::DoNothing()) = 0;
+  virtual void LoadAndRun(const Bytes& data,
+                          LoadCallback = base::DoNothing(),
+                          const LoadOptions& options = {}) = 0;
+
+  // Steps one CPU cycle. Because Run() will start a working task runner to run
+  // cycles, Step() should be called only when the emulator is not running.
+  virtual void Step() = 0;
+
+  // Gets the state of the emulator.
+  virtual RunningState GetRunningState() = 0;
+  bool IsRunning() override {
+    return GetRunningState() == RunningState::kRunning;
+  }
+  bool IsPaused() override {
+    return GetRunningState() == RunningState::kPaused;
+  }
+  bool HasROM() override { return GetRomData() != nullptr; }
+
+  // Sets real devices, such as keyboards.
+  virtual void SetIODevices(std::unique_ptr<IODevices> io_devices) = 0;
+  virtual IODevices* GetIODevices() = 0;
+
+  // Enables expensive per-pixel metadata collection only while an HD texture
+  // renderer is actively presenting frames.
+  virtual void SetTextureMetadataCaptureEnabled(bool enabled) = 0;
+
+  // Saves or loads current states, such as CPU, PPU, APU, cartridge, etc.
+  // If save state failed, an empty data will be returned in |callback|.
+  virtual void SaveState(SaveStateCallback callback) = 0;
+  virtual void LoadState(const Bytes& data, LoadCallback callback) = 0;
+
+  // Sets or gets emulator's volume. The valid volume is from 0 to 1.
+  void SetVolume(float volume) override = 0;
+  float GetVolume() override = 0;
+
+  // Gets last rendered frame.
+  virtual const Colors& GetLastFrame() = 0;
+  virtual const Colors& GetCurrentFrame() = 0;
+
+ public:
+  virtual void SetDebugPort(DebugPort* debug_port) = 0;
+
+ private:
+  // Debug ports. Access these methods only by DebugPort.
+  friend class DebugPort;
+  virtual PPUContext GetPPUContext() = 0;
+  virtual CPUContext GetCPUContext() = 0;
+  virtual Byte GetCPUMemory(Address address) = 0;
+  virtual Byte GetPPUMemory(Address address) = 0;
+  virtual Byte GetOAMMemory(Byte address) = 0;
+  virtual void SetAudioChannelMasks(int audio_channels) = 0;
+  virtual int GetAudioChannelMasks() = 0;
+  virtual Controller::Type GetControllerType(int id) = 0;
+  virtual void SetControllerType(int id, Controller::Type type) = 0;
+
+ public:
+  // Append new virtual methods here to preserve existing vtable slots.
+  virtual void LoadAndRunWithPRGNVRAM(const Bytes& data,
+                                      const Bytes& initial_prg_nvram,
+                                      LoadCallback callback = base::DoNothing(),
+                                      const LoadOptions& options = {}) = 0;
+  virtual void ExportPRGNVRAM(bool dirty_only, PRGNVRAMCallback callback) = 0;
+  virtual void AcknowledgePRGNVRAMSaved(const std::string& rom_sha1,
+                                        uint64_t generation,
+                                        LoadCallback callback) = 0;
+};
+
+// Create an emulator.
+NES_EXPORT scoped_refptr<Emulator> CreateEmulator();
+
+// Create an emulator for testing. All async methods will run on the same
+// thread.
+NES_EXPORT scoped_refptr<Emulator> CreateEmulatorForTesting();
+
+}  // namespace nes
+}  // namespace kiwi
+
+#endif  // NES_EMULATOR_H_

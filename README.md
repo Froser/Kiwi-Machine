@@ -59,6 +59,7 @@ In addition, some games use relatively niche Mappers, such as the Japanese versi
 Although the core is implemented by myself, I still used some third-party libraries:
 
 - APU: [Nes\_Snd\_Emu](https://github.com/blarggs-audio-libraries/Nes_Snd_Emu/)
+- Game Boy Advance and Game Boy cores: [mGBA 0.10.5](https://github.com/mgba-emu/mgba/tree/0.10.5)
 - Interface library: ImGui
 - Framework foundation: SDL2
   In addition, there are some common libraries like `zlib`, which I won't list repeatedly here.
@@ -94,9 +95,9 @@ To use the separately maintained Kiwi-Machine workspace:
    `src/third_party/Kiwi-Machine-Workspace`.
 2. Configure a desktop build with `python3 build.py pc`.
 3. Run `cmake --build cmake-build-debug --target auto_package`. This builds
-   `package_manager` and `kiwi_machine`, generates `main.pak`, `specials.pak`,
-   and `textures/*.pak`, then stages them in the desktop application's resource
-   directory.
+   `package_manager` and `kiwi_machine`, generates `nes_main.pak`,
+   `nes_specials.pak`, and `textures/*.pak`, then stages them in the desktop
+   application's resource directory.
 
 For manual editing, build the `package_manager` target and launch it with
 `--workspace=<path-to-Kiwi-Machine-Workspace>`.
@@ -183,10 +184,11 @@ The output is staged under
 `cmake-build-switch/dist/switch/KiwiMachine/`. Keep `KiwiMachine.elf` on the
 development machine for crash symbolization; copy `KiwiMachine.nro` to the SD
 card. The build requires
-`src/third_party/Kiwi-Machine-Workspace/out/main.pak` and embeds only top-level
-ROM PAK files from that directory into the NRO's RomFS. HD Texture support is
-disabled on Nintendo Switch, so `textures/` packages are not embedded. An
-alternative resource directory can be selected with `KIWI_PACKAGE_DIR`.
+`src/third_party/Kiwi-Machine-Workspace/out/nes_main.pak` and embeds only
+top-level ROM PAK files from that directory into the NRO's RomFS. HD Texture
+support is disabled on Nintendo Switch, so `textures/` packages are not
+embedded. An alternative resource directory can be selected with
+`KIWI_PACKAGE_DIR`.
 
 Place the self-contained NRO at
 `/switch/KiwiMachine/KiwiMachine.nro` on the SD card. Runtime logs are written
@@ -336,9 +338,9 @@ Kiwi Machine is designed in an arcade mode, with a large number of preset games 
 
 Game archives live under
 `src/third_party/Kiwi-Machine-Workspace/zipped/nes`. The packaging step stores
-the root collection in `main.pak` and each direct child collection in a
-separate PAK such as `specials.pak`. The PAK files remain external resources;
-they are not embedded in the executable.
+the root collection in `nes_main.pak` and each direct child collection in a
+separate PAK such as `nes_specials.pak`. The PAK files remain external
+resources; they are not embedded in the executable.
 
 For example:
 
@@ -353,9 +355,12 @@ is exposed as another version of the game.
 For example, I've organized many games' Japanese, English, and even Chinese
 versions. A game with multiple versions displays a stacked-card icon in the
 top-right corner. Click or tap the icon to advance without launching the game.
-On Nintendo Switch, press `L` to cycle ROM regions counterclockwise or `R` to
-cycle clockwise; other controllers use the configured `SELECT` button. The
-icon animates on the selected game to make the action discoverable:
+Use the toggle at the top-left of the library to switch between FC/NES and Game
+Boy Advance. On Nintendo Switch, `ZL` and `ZR` cycle systems left and right from
+anywhere in the library. With two systems, either trigger switches to the other
+one. `L` and `R` remain dedicated to cycling ROM regions counterclockwise and
+clockwise; other controllers use the configured `SELECT` button. The icon
+animates on the selected game to make the action discoverable:
 
 > ![Multiple ROM versions](docs/multi_version.png)
 
@@ -390,6 +395,13 @@ Use `--test_rom=<rom-path> --sav=<save-path> --enable_debug` to launch a ROM
 with an explicit battery-backed save path. Kiwi Machine reads from and writes
 back to that path. When `--sav` is omitted, Kiwi Machine uses the SHA-1-based
 save under the active profile when available.
+
+### Unit Tests
+
+`src/kiwi/testing` contains the shared `kiwi_unittests` entry point and CMake
+target. System-specific test support stays with its emulator implementation;
+NES ROM test helpers and bundled test ROMs are under
+`src/kiwi/emulator/nes/testing`.
 
 ## Usage Instructions
 
@@ -496,7 +508,7 @@ callback. The host must still call `RunOneFrame()` to advance emulation.
 ### Battery-Backed Saves
 
 Kiwi Machine stores battery-backed PRG-NVRAM as raw save data under
-`<profile>/Saves/<ROM_SHA1>.sav`. The application reads the ROM and save file
+`<profile>/nes/saves/<ROM_SHA1>.sav`. The application reads the ROM and save file
 on its IO thread, supplies the save bytes through
 `LoadAndRunWithPRGNVRAM()`, and atomically replaces the save file when flushing
 modified NVRAM. The ROM identity is the SHA-1 of its PRG-ROM and CHR-ROM
@@ -505,13 +517,16 @@ to a unique `.invalid.bak` file before Kiwi Machine starts with empty NVRAM.
 Dirty NVRAM is flushed every 30 seconds and before ROM switches, unloads,
 normal exits, and application suspension.
 
+GBA battery-backed data uses the same flush policy and is stored under
+`<profile>/gba/saves/<ROM_CRC32>.sav`.
+
 Set `KIWI_NES_ACCEPTANCE_ROM_DIR` when running `kiwi_unittests` to validate
 battery-backed round trips against local ROMs for the supported battery mapper
 matrix (0, 1, 4, 5, 10, and 74).
 
 ## Resource Packaging
 
-Kiwi-Machine provides an NES packaging tool at
+Kiwi-Machine provides an NES/FC and GBA packaging tool at
 `src/client/tools/package_manager`. You can use it to build your own game
 resource collection.
 
@@ -520,10 +535,29 @@ resources, clone
 `https://github.com/Froser/Kiwi-Machine-Workspace.git`. Open the package
 manager's GUI by running
 `package_manager --workspace=<path-to-Kiwi-Machine-Workspace>`.
+The GUI has separate NES/FC and GBA entries. By default, GBA ROMs, ZIP files,
+and box art use `roms/gba`, `zipped/gba`, and `boxarts/gba`. GBA ZIP manifests
+use the same localized title and box-art schema as NES/FC packages.
+Every generated ROM PAK has a top-level `type` field in `manifest.json`.
+Supported values are `nes` and `gba`; Kiwi Machine uses this field to show the
+package only in the matching system workspace.
+
+GBA PAK files can also be generated directly. They use a `gba_` filename
+prefix so they can coexist with NES/FC PAK files:
+
+```bash
+package_manager \
+  --rom_system=gba \
+  --zipped_path=<workspace>/zipped/gba \
+  --output_path=<output>
+```
 
 ### Auto Package
 
-Kiwi-Machine also provides an automated packaging target `auto_package` to simplify the packaging process. This target packages all subdirectories under `zipped/nes` and every Mesen HD texture directory under `extras/mesen_hd_textures`.
+Kiwi-Machine also provides an automated packaging target `auto_package` to
+simplify the packaging process. This target packages `zipped/nes`, optionally
+packages `zipped/gba` when that directory exists, and packages every Mesen HD
+texture directory under `extras/mesen_hd_textures`.
 
 To use `auto_package`:
 
@@ -535,8 +569,9 @@ cmake --build <build_dir> --target auto_package
 The `auto_package` target will:
 
 1. Check if `src/third_party/Kiwi-Machine-Workspace` exists
-2. Process each subdirectory under `zipped/nes`, generate its ROM SHA-1 index,
-   and package it into a `.pak` file
+2. Process `zipped/nes` and optional `zipped/gba` resources, generate their ROM
+   SHA-1 indexes, and package them into `.pak` files. The default workspace
+   produces `nes_main.pak`, `nes_specials.pak`, and `gba_main.pak`
 3. Package each direct child of `extras/mesen_hd_textures` as a standalone
    `.pak` file with a generated `manifest.json` containing the supported ROM
    SHA-1 values

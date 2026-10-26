@@ -15,14 +15,15 @@
 
 #include <string>
 
-#include "models/nes_runtime.h"
+#include "models/nes/runtime.h"
 #include "ui/widgets/widget.h"
 
 class StackWidget;
+class MainWindow;
+class NESDebugWidget;
 class MemoryWidget : public Widget {
  public:
-  explicit MemoryWidget(WindowBase* window_base,
-                        NESRuntimeID runtime_id,
+  explicit MemoryWidget(MainWindow* main_window,
                         kiwi::base::RepeatingClosure on_toggle_pause,
                         kiwi::base::RepeatingCallback<bool()> is_pause);
   ~MemoryWidget() override;
@@ -52,7 +53,9 @@ class MemoryWidget : public Widget {
   void Paint() override;
 
  private:
-  NESRuntime::Data* runtime_data_ = nullptr;
+  friend class NESDebugWidget;
+
+  MainWindow* main_window_ = nullptr;
   kiwi::base::RepeatingClosure on_toggle_pause_;
   kiwi::base::RepeatingCallback<bool()> is_pause_;
   // Many test ROMs write result to address $6000, so sets it as default

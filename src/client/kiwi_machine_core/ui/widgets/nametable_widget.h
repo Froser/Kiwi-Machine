@@ -15,16 +15,22 @@
 
 #include <kiwi_nes.h>
 
-#include "models/nes_runtime.h"
+#include <atomic>
+
 #include "ui/widgets/widget.h"
 
 struct SDL_Texture;
-class WindowBase;
+class DebugPort;
+class MainWindow;
+class NESDebugWidget;
 class NametableWidget : public Widget,
                         public kiwi::nes::IODevices::RenderDevice {
  public:
-  explicit NametableWidget(WindowBase* window_base, NESRuntimeID runtime_id);
+  explicit NametableWidget(MainWindow* main_window);
   ~NametableWidget() override;
+  void SetDebugPort(DebugPort* debug_port);
+  void SetRenderEnabled(bool enabled);
+  void Refresh();
 
  protected:
   // Widget:
@@ -35,7 +41,10 @@ class NametableWidget : public Widget,
   bool NeedRender() override;
 
  private:
-  NESRuntime::Data* runtime_data_ = nullptr;
+  friend class NESDebugWidget;
+
+  DebugPort* debug_port_ = nullptr;
+  std::atomic_bool render_enabled_ = false;
   SDL_Texture* screen_texture_ = nullptr;
   Buffer screen_buffer_;
 };

@@ -16,12 +16,19 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 # Add test sources
 set(Sources
     test_main.cc
+    ${kiwi_machine_core_SOURCE_DIR}/models/audio_base_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/models/battery_save_unittest.cc
-    ${kiwi_machine_core_SOURCE_DIR}/models/nes_runtime_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/models/config_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/models/gba/frame_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/models/gba/runtime_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/models/nes/runtime_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/ui/application_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/algorithm_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/ips_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/utility/localization_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/math_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/utility/runtime_util_unittest.cc
+    ${kiwi_machine_core_SOURCE_DIR}/utility/switch/paths_internal_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/texture_parser/mesen_texture_parser_unittest.cc
     ${kiwi_machine_core_SOURCE_DIR}/utility/zip_reader_unittest.cc
 )

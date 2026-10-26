@@ -23,7 +23,7 @@
 #include "../third_party/nlohmann_json/json.hpp"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
-#include "nes/components/mesen_hd_pack/hires_parser.h"
+#include "emulator/nes/components/mesen_hd_pack/hires_parser.h"
 #include "third_party/zlib-1.3.2/contrib/minizip/zip.h"
 
 namespace {

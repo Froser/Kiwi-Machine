@@ -10,6 +10,16 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+// Keep these outside the include guard so a repeated include can clean up
+// macros introduced by a later windows.h include.
+#if defined(CreateDirectory)
+#undef CreateDirectory
+#endif
+
+#if defined(CopyFile)
+#undef CopyFile
+#endif
+
 #ifndef BASE_FILES_FILE_UTIL_H_
 #define BASE_FILES_FILE_UTIL_H_
 

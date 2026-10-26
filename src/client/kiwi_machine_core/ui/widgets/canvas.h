@@ -20,12 +20,14 @@
 #include "build/build_config.h"
 
 #include "build/kiwi_defines.h"
-#include "models/nes_frame.h"
-#if KIWI_ENABLE_HD_TEXTURE
+#include "emulator/emulator.h"
+#include "models/gba/frame.h"
+#include "models/nes/frame.h"
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 #include "ui/widgets/hd_edition_badge.h"
 #endif
 #include "ui/widgets/widget.h"
-#if KIWI_ENABLE_HD_TEXTURE || BUILDFLAG(IS_SWITCH)
+#if BUILDFLAG(ENABLE_HD_TEXTURE) || BUILDFLAG(IS_SWITCH)
 #include "utility/timer.h"
 #endif
 
@@ -39,11 +41,17 @@ class Canvas : public Widget, public NESFrameObserver {
     kNESFrameDefaultHeight = 240,
   };
 
-  explicit Canvas(WindowBase* window_base, NESRuntimeID runtime_id);
+  explicit Canvas(WindowBase* window_base);
   ~Canvas() override;
 
   void Clear();
   int GetZapperState();
+  void SetEmulationSystem(kiwi::emu::Emulator::Type system);
+  kiwi::emu::Emulator::Type emulation_system() const {
+    return emulation_system_;
+  }
+  int frame_width() const;
+  int frame_height() const;
 
   void set_frame_scale(float scale) { frame_scale_ = scale; }
 
@@ -55,7 +63,7 @@ class Canvas : public Widget, public NESFrameObserver {
     on_quick_load_trigger_ = std::move(callback);
   }
 #endif
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   void set_hd_texture_toggle_callback(kiwi::base::RepeatingClosure callback) {
     on_hd_texture_toggle_ = std::move(callback);
   }
@@ -63,8 +71,12 @@ class Canvas : public Widget, public NESFrameObserver {
 #endif
 
   scoped_refptr<NESFrame> frame() { return frame_; }
+  scoped_refptr<GBAFrame> gba_frame() { return gba_frame_; }
   float frame_scale() { return frame_scale_; }
   kiwi::nes::IODevices::RenderDevice* render_device() { return frame_.get(); }
+  kiwi::gba::IODevices::RenderDevice* gba_render_device() {
+    return gba_frame_.get();
+  }
 
   void AddObserver(CanvasObserver* observer);
   void RemoveObserver(CanvasObserver* observer);
@@ -76,6 +88,9 @@ class Canvas : public Widget, public NESFrameObserver {
   bool OnKeyPressed(SDL_KeyboardEvent* event) override;
   bool OnControllerButtonPressed(SDL_ControllerButtonEvent* event) override;
   bool OnControllerButtonReleased(SDL_ControllerButtonEvent* event) override;
+#if BUILDFLAG(IS_SWITCH)
+  bool OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) override;
+#endif
   bool OnMousePressed(SDL_MouseButtonEvent* event) override;
   bool OnMouseReleased(SDL_MouseButtonEvent* event) override;
   bool OnTouchFingerDown(SDL_TouchFingerEvent* event) override;
@@ -87,10 +102,10 @@ class Canvas : public Widget, public NESFrameObserver {
  private:
   void InvokeInGameMenu();
 #if BUILDFLAG(IS_SWITCH)
-  void UpdateShoulderChord();
+  void UpdateTriggerChord();
   void InvokeQuickLoad();
 #endif
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   void InvokeHDTextureToggle();
   void PaintHDTextureToggleHint();
 #endif
@@ -106,27 +121,30 @@ class Canvas : public Widget, public NESFrameObserver {
     kFinger,
   };
   bool ZapperTest(Input input);
+  SDL_Texture* active_texture() const;
 
  private:
   float frame_scale_ = 1.f;
   bool mouse_or_finger_down_ = false;
   std::optional<std::pair<int, int>> touch_point_;
   scoped_refptr<NESFrame> frame_;
+  scoped_refptr<GBAFrame> gba_frame_;
+  kiwi::emu::Emulator::Type emulation_system_ = kiwi::emu::Emulator::Type::kNES;
   kiwi::base::RepeatingClosure on_menu_trigger_;
 #if BUILDFLAG(IS_SWITCH)
   kiwi::base::RepeatingClosure on_quick_load_trigger_;
 #endif
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   kiwi::base::RepeatingClosure on_hd_texture_toggle_;
 #endif
   std::set<CanvasObserver*> observers_;
 #if BUILDFLAG(IS_SWITCH)
-  Timer shoulder_chord_timer_;
-  SDL_JoystickID shoulder_chord_controller_id_ = -1;
-  bool shoulder_chord_pending_ = false;
-  bool shoulder_chord_triggered_ = false;
+  Timer trigger_chord_timer_;
+  SDL_JoystickID trigger_chord_controller_id_ = -1;
+  bool trigger_chord_pending_ = false;
+  bool trigger_chord_triggered_ = false;
 #endif
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   Timer hd_texture_hint_timer_;
   HDEditionBadge hd_texture_hint_badge_;
   bool hd_texture_toggle_available_ = false;

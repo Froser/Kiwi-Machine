@@ -64,7 +64,8 @@ void MenuBar::PaintMenuItems(const std::vector<MenuItem> items) {
       }
     } else {
       // Paint menu, then menu items.
-      if (ImGui::BeginMenu(item.title.c_str())) {
+      const bool enabled = !item.is_enabled ? true : item.is_enabled.Run();
+      if (ImGui::BeginMenu(item.title.c_str(), enabled)) {
         PaintMenuItems(item.sub_items);
         ImGui::EndMenu();
       }

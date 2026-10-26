@@ -17,7 +17,7 @@
 #include <string>
 #include "build/build_config.h"
 
-#include "models/nes_runtime.h"
+#include "models/nes/runtime.h"
 #include "ui/widgets/widget.h"
 #include "utility/fonts.h"
 
@@ -25,9 +25,7 @@ class StackWidget;
 class MainWindow;
 class AboutWidget : public Widget {
  public:
-  explicit AboutWidget(MainWindow* main_window,
-                       StackWidget* parent,
-                       NESRuntimeID runtime_id);
+  explicit AboutWidget(MainWindow* main_window, StackWidget* parent);
   ~AboutWidget() override;
 
  private:
@@ -173,7 +171,6 @@ class AboutWidget : public Widget {
   void OpenRepository();
 
  private:
-  NESRuntime::Data* runtime_data_ = nullptr;
   StackWidget* parent_ = nullptr;
   MainWindow* main_window_ = nullptr;
 #if BUILDFLAG(IS_SWITCH)

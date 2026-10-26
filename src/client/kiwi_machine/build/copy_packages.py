@@ -12,6 +12,11 @@ if __name__ == "__main__":
         print("Final destination folder is ", destination_folder)
     if not os.path.exists(destination_folder):
         os.makedirs(destination_folder)
+    for legacy_name in ("main.pak", "specials.pak"):
+        legacy_path = os.path.join(destination_folder, legacy_name)
+        if os.path.isfile(legacy_path):
+            os.remove(legacy_path)
+            print("Removed legacy package ", legacy_path)
     for root, dirs, files in os.walk(source_folder):
         for file in files:
             if file.endswith(".pak"):

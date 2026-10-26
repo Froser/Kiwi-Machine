@@ -350,14 +350,11 @@ void DrawBackArrow(const SDL_Rect& rect, ImU32 color, float scale) {
 
 }  // namespace
 
-AboutWidget::AboutWidget(MainWindow* main_window,
-                         StackWidget* parent,
-                         NESRuntimeID runtime_id)
+AboutWidget::AboutWidget(MainWindow* main_window, StackWidget* parent)
     : Widget(main_window), parent_(parent), main_window_(main_window) {
   set_flags(ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs);
   set_title("About");
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
 }
 
 AboutWidget::~AboutWidget() = default;
@@ -393,7 +390,6 @@ bool AboutWidget::OnControllerButtonPressed(SDL_ControllerButtonEvent* event) {
 }
 
 bool AboutWidget::OnControllerAxisMotionEvent(SDL_ControllerAxisEvent* event) {
-  static_cast<void>(event);
   return HandleInputEvent(nullptr, nullptr);
 }
 
@@ -671,7 +667,7 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
         std::min(static_cast<float>(body.h), 290.f * layout.scale);
     layout.controls_panel =
         MakeRect(body.x, body.y, body.w - side_width - gap, content_height);
-    const float selection_height = (content_height - gap) * .5f;
+    const float selection_height = (content_height - gap) * .64f;
     layout.game_selection_panel =
         MakeRect(RectRight(layout.controls_panel) + gap, body.y, side_width,
                  selection_height);
@@ -683,7 +679,7 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
     const float controls_height = body.h * .5f;
     layout.controls_panel = MakeRect(body.x, body.y, body.w, controls_height);
     const float remaining_height = body.h - controls_height - gap * 2.f;
-    const float selection_height = remaining_height * .46f;
+    const float selection_height = remaining_height * .56f;
     layout.game_selection_panel =
         MakeRect(body.x, RectBottom(layout.controls_panel) + gap, body.w,
                  selection_height);
@@ -826,7 +822,6 @@ void AboutWidget::DrawMobileSectionTabs(const FrameText& text,
 #endif
 
 void AboutWidget::DrawBackground(const FrameLayout& layout) {
-  static_cast<void>(layout);
   ImVec2 window_pos = ImGui::GetWindowPos();
   ImVec2 window_size = ImGui::GetWindowSize();
   ImGui::GetWindowDrawList()->AddRectFilled(
@@ -1106,8 +1101,8 @@ void AboutWidget::DrawGamepad(const FrameText& text,
   };
 #if BUILDFLAG(IS_SWITCH)
   const std::array<std::string, 6> values = {
-      text.gamepad_direction, "A / Y", "B / X", "-",
-      text.gamepad_start,     "L + R",
+      text.gamepad_direction, "A / Y",   "B / X", "-",
+      text.gamepad_start,     "ZL + ZR",
   };
 #else
   const std::array<std::string, 6> values = {
@@ -1146,7 +1141,9 @@ void AboutWidget::DrawGameSelection(const FrameText& text,
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   draw_list->PushClipRect(RectMin(layout.game_selection_body),
                           RectMax(layout.game_selection_body), true);
-  const PreferredFontSize font_size = GetSecondaryFontSize(layout.body_font);
+  PreferredFontSize font_size = GetSecondaryFontSize(layout.body_font);
+  if (layout.mode == LayoutMode::kTwoColumn)
+    font_size = GetSecondaryFontSize(font_size);
   const float line_height =
       MeasureText("Ag", font_size, FontType::kSystemDefault).y * 1.35f;
   const float content_right = RectRight(layout.game_selection_body);
@@ -1254,7 +1251,8 @@ bool AboutWidget::HandleInputEvent(SDL_KeyboardEvent* keyboard,
     auto matches = [this, keyboard](kiwi::nes::ControllerButton button,
                                     SDL_KeyCode key) {
       return keyboard->keysym.sym == key ||
-             IsJoystickButtonMatch(runtime_data_, button, keyboard->keysym);
+             IsJoystickButtonMatch(main_window_->runtime(), button,
+                                   keyboard->keysym);
     };
 #if BUILDFLAG(IS_MOBILE)
     if (matches(kiwi::nes::ControllerButton::kLeft, SDLK_LEFT)) {

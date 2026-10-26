@@ -20,7 +20,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/task/single_thread_task_executor.h"
-#include "nes/emulator.h"
+#include "emulator/nes/emulator.h"
 #include "third_party/googletest-release-1.12.1/googletest/include/gtest/gtest.h"
 
 namespace {
@@ -88,6 +88,11 @@ TEST_F(BatterySaveTest, ReadsWritesAndAtomicallyReplacesRawSave) {
       battery_save::GetPath(profile_path_, lowercase_sha1);
   ASSERT_TRUE(resolved_path);
   const kiwi::base::FilePath save_path = *resolved_path;
+  EXPECT_EQ(save_path,
+            profile_path_.Append(FILE_PATH_LITERAL("nes"))
+                .Append(FILE_PATH_LITERAL("saves"))
+                .Append(kiwi::base::FilePath::FromUTF8Unsafe(
+                    std::string(40, 'A') + ".sav")));
   const kiwi::base::FilePath temporary_path =
       kiwi::base::FilePath::FromUTF8Unsafe(save_path.AsUTF8Unsafe() + ".tmp");
 

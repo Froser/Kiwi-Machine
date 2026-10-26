@@ -18,10 +18,12 @@
 #include "ui/application.h"
 #include "utility/timer.h"
 
-bool IsJoystickButtonMatch(NESRuntime::Data* runtime_data,
+bool IsJoystickButtonMatch(Runtime* runtime,
                            kiwi::nes::ControllerButton button,
                            SDL_Keysym key) {
-  for (auto mapping : runtime_data->keyboard_mappings) {
+  for (int player = 0; player < 2; ++player) {
+    const Runtime::ControllerMapping& mapping =
+        runtime->keyboard_mapping(player);
     if (mapping.mapping[static_cast<int>(button)] == key.sym)
       return true;
   }
@@ -130,10 +132,10 @@ bool IsJoystickAxisMotionMatch(kiwi::nes::ControllerButton button) {
   return false;
 }
 
-bool IsKeyboardOrControllerAxisMotionMatch(NESRuntime::Data* runtime_data,
+bool IsKeyboardOrControllerAxisMotionMatch(Runtime* runtime,
                                            kiwi::nes::ControllerButton button,
                                            SDL_KeyboardEvent* k) {
-  return (k && IsJoystickButtonMatch(runtime_data, button, k->keysym)) ||
+  return (k && IsJoystickButtonMatch(runtime, button, k->keysym)) ||
          IsJoystickAxisMotionMatch(button);
 }
 
@@ -198,7 +200,7 @@ bool IsGameSelectionNextVersionButton(const SDL_ControllerButtonEvent* event) {
 #endif
 }
 
-void SetControllerMapping(NESRuntime::Data* runtime_data,
+void SetControllerMapping(Runtime* runtime,
                           int player,
                           SDL_GameController* controller,
                           bool ab_reverse) {
@@ -207,44 +209,53 @@ void SetControllerMapping(NESRuntime::Data* runtime_data,
   // devkitPro's SDL mapping uses Xbox-style button positions: Nintendo A/B
   // arrive as SDL B/A. BACK and START are the physical minus and plus buttons.
   // Keep this gameplay mapping separate from the fixed game-selection UI.
-  NESRuntime::Data::ControllerMapping joy_mapping =
+  Runtime::ControllerMapping joy_mapping =
       !ab_reverse
-          ? NESRuntime::Data::ControllerMapping{
-                SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_A,
-                SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_START,
-                SDL_CONTROLLER_BUTTON_DPAD_UP,
-                SDL_CONTROLLER_BUTTON_DPAD_DOWN,
-                SDL_CONTROLLER_BUTTON_DPAD_LEFT,
-                SDL_CONTROLLER_BUTTON_DPAD_RIGHT}
-          : NESRuntime::Data::ControllerMapping{
-                SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B,
-                SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_START,
-                SDL_CONTROLLER_BUTTON_DPAD_UP,
-                SDL_CONTROLLER_BUTTON_DPAD_DOWN,
-                SDL_CONTROLLER_BUTTON_DPAD_LEFT,
-                SDL_CONTROLLER_BUTTON_DPAD_RIGHT};
+          ? Runtime::ControllerMapping{SDL_CONTROLLER_BUTTON_B,
+                                       SDL_CONTROLLER_BUTTON_A,
+                                       SDL_CONTROLLER_BUTTON_BACK,
+                                       SDL_CONTROLLER_BUTTON_START,
+                                       SDL_CONTROLLER_BUTTON_DPAD_UP,
+                                       SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+                                       SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+                                       SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+                                       SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
+                                       SDL_CONTROLLER_BUTTON_RIGHTSHOULDER}
+          : Runtime::ControllerMapping{SDL_CONTROLLER_BUTTON_A,
+                                       SDL_CONTROLLER_BUTTON_B,
+                                       SDL_CONTROLLER_BUTTON_BACK,
+                                       SDL_CONTROLLER_BUTTON_START,
+                                       SDL_CONTROLLER_BUTTON_DPAD_UP,
+                                       SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+                                       SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+                                       SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+                                       SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
+                                       SDL_CONTROLLER_BUTTON_RIGHTSHOULDER};
 #else
-  NESRuntime::Data::ControllerMapping joy_mapping =
-      !ab_reverse ? NESRuntime::Data::
-                        ControllerMapping{SDL_CONTROLLER_BUTTON_A,
-                                          SDL_CONTROLLER_BUTTON_X,
-                                          SDL_CONTROLLER_BUTTON_Y,
-                                          SDL_CONTROLLER_BUTTON_START,
-                                          SDL_CONTROLLER_BUTTON_DPAD_UP,
-                                          SDL_CONTROLLER_BUTTON_DPAD_DOWN,
-                                          SDL_CONTROLLER_BUTTON_DPAD_LEFT,
-                                          SDL_CONTROLLER_BUTTON_DPAD_RIGHT}
-                  : NESRuntime::Data::ControllerMapping{
-                        SDL_CONTROLLER_BUTTON_X,
-                        SDL_CONTROLLER_BUTTON_A,
-                        SDL_CONTROLLER_BUTTON_Y,
-                        SDL_CONTROLLER_BUTTON_START,
-                        SDL_CONTROLLER_BUTTON_DPAD_UP,
-                        SDL_CONTROLLER_BUTTON_DPAD_DOWN,
-                        SDL_CONTROLLER_BUTTON_DPAD_LEFT,
-                        SDL_CONTROLLER_BUTTON_DPAD_RIGHT};
+  Runtime::ControllerMapping joy_mapping =
+      !ab_reverse
+          ? Runtime::ControllerMapping{SDL_CONTROLLER_BUTTON_A,
+                                       SDL_CONTROLLER_BUTTON_X,
+                                       SDL_CONTROLLER_BUTTON_Y,
+                                       SDL_CONTROLLER_BUTTON_START,
+                                       SDL_CONTROLLER_BUTTON_DPAD_UP,
+                                       SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+                                       SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+                                       SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+                                       SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
+                                       SDL_CONTROLLER_BUTTON_RIGHTSHOULDER}
+          : Runtime::ControllerMapping{SDL_CONTROLLER_BUTTON_X,
+                                       SDL_CONTROLLER_BUTTON_A,
+                                       SDL_CONTROLLER_BUTTON_Y,
+                                       SDL_CONTROLLER_BUTTON_START,
+                                       SDL_CONTROLLER_BUTTON_DPAD_UP,
+                                       SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+                                       SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+                                       SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+                                       SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
+                                       SDL_CONTROLLER_BUTTON_RIGHTSHOULDER};
 #endif
-  runtime_data->joystick_mappings[player] = {controller, joy_mapping};
+  runtime->set_joystick_mapping(player, {controller, joy_mapping});
 }
 
 std::vector<SDL_GameController*> GetControllerList() {
@@ -259,13 +270,12 @@ std::vector<SDL_GameController*> GetControllerList() {
 
   // Application stores controllers by pointer. Use SDL instance IDs instead so
   // the Switch primary controller (slot 0) is considered before idle slots.
-  std::sort(result.begin(), result.end(),
-            [](SDL_GameController* lhs, SDL_GameController* rhs) {
-              return SDL_JoystickInstanceID(
-                         SDL_GameControllerGetJoystick(lhs)) <
-                     SDL_JoystickInstanceID(
-                         SDL_GameControllerGetJoystick(rhs));
-            });
+  std::sort(
+      result.begin(), result.end(),
+      [](SDL_GameController* lhs, SDL_GameController* rhs) {
+        return SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(lhs)) <
+               SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(rhs));
+      });
 
   // The first entry means no joystick, or doesn't use any joysticks.
   result.insert(result.begin(), nullptr);

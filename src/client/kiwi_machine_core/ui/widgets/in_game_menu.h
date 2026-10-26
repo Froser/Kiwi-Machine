@@ -22,7 +22,7 @@
 #include <string>
 #include <variant>
 
-#include "models/nes_runtime.h"
+#include "models/nes/runtime.h"
 #include "ui/widgets/widget.h"
 #include "utility/fonts.h"
 #include "utility/timer.h"
@@ -47,15 +47,15 @@ class InGameMenu : public Widget {
 #if !BUILDFLAG(IS_SWITCH)
     kWindowMode,
     kJoyP1,
+    kJoyP2,
 #else
     kControllerSupport,
 #endif
-    kSwapABP1,
-#if !BUILDFLAG(IS_SWITCH)
-    kJoyP2,
-#endif
-    kSwapABP2,
+    kSwapAB,
     kLanguage,
+    kABSwapScope,
+    kABSwapP1,
+    kABSwapP2,
 
     kMax,
   };
@@ -78,12 +78,15 @@ class InGameMenu : public Widget {
 
   using MenuItemCallback =
       kiwi::base::RepeatingCallback<void(const MenuCommand&)>;
-  using SettingsItemValue = std::variant<bool, float>;
+  struct ABSwapChange {
+    bool go_left = false;
+    bool for_current_game = false;
+  };
+  using SettingsItemValue = std::variant<bool, float, ABSwapChange>;
   using SettingsItemCallback =
       kiwi::base::RepeatingCallback<void(SettingsItem, SettingsItemValue)>;
 
   explicit InGameMenu(MainWindow* main_window,
-                      NESRuntimeID runtime_id,
                       MenuItemCallback menu_callback,
                       SettingsItemCallback settings_callback);
   ~InGameMenu() override;
@@ -117,6 +120,8 @@ class InGameMenu : public Widget {
   static constexpr size_t kMenuItemCount = static_cast<size_t>(MenuItem::kMax);
   static constexpr size_t kSettingsItemCount =
       static_cast<size_t>(SettingsItem::kMax);
+  static constexpr SettingsItem kFirstABSwapSetting =
+      SettingsItem::kABSwapScope;
 #if BUILDFLAG(IS_SWITCH)
   static constexpr size_t kQuickLoadVisibleSlotCount = 5;
   static constexpr size_t kQuickLoadSelectedSlotIndex =
@@ -133,6 +138,7 @@ class InGameMenu : public Widget {
     kMainMenu,
     kStateBrowser,
     kSettings,
+    kABSwapSettings,
     kConfirmation,
   };
 
@@ -325,6 +331,7 @@ class InGameMenu : public Widget {
   void ExecuteStateAction();
   void ExecuteConfirmation();
   void OpenPage(Page page);
+  void OpenABSwapSettings();
   void ReturnToMenu();
   void MoveMenuSelection(int delta);
   void MoveSettingsSelection(int delta);
@@ -355,11 +362,10 @@ class InGameMenu : public Widget {
   static void DispatchStateResult(std::weak_ptr<int> weak_lifetime,
                                   InGameMenu* menu,
                                   uint64_t request_id,
-                                  const NESRuntime::Data::StateResult& result);
+                                  const Runtime::StateResult& result);
   void OnGotSavedStateCount(uint64_t request_id, int count);
   void OnGotAutoSavedStateCount(uint64_t request_id, int count);
-  void OnGotState(uint64_t request_id,
-                  const NESRuntime::Data::StateResult& result);
+  void OnGotState(uint64_t request_id, const Runtime::StateResult& result);
   void CancelStatePreviewRequest();
 #if BUILDFLAG(IS_SWITCH)
   void ResetQuickLoadPreviews();
@@ -369,10 +375,10 @@ class InGameMenu : public Widget {
       InGameMenu* menu,
       uint64_t request_id,
       int slot,
-      const NESRuntime::Data::StateResult& result);
+      const Runtime::StateResult& result);
   void OnGotQuickLoadPreview(uint64_t request_id,
                              int slot,
-                             const NESRuntime::Data::StateResult& result);
+                             const Runtime::StateResult& result);
   int GetQuickLoadSlot(size_t visible_index) const;
   int GetQuickLoadTimestamp() const;
 #endif
@@ -380,7 +386,10 @@ class InGameMenu : public Widget {
   bool IsMenuItemVisible(MenuItem item) const;
   bool IsMenuItemEnabled(MenuItem item) const;
   bool IsStateMenuItem(MenuItem item) const;
+  bool IsSettingsPage(Page page) const;
+  bool IsCommandSetting(SettingsItem item) const;
   bool IsSettingItemVisible(SettingsItem item) const;
+  bool IsSettingItemEnabled(SettingsItem item) const;
   bool IsStandaloneSettingsMenu() const;
   bool CanStepState(StepDirection direction) const;
   bool CanExecuteStateAction() const;
@@ -389,7 +398,6 @@ class InGameMenu : public Widget {
   std::string GetSettingValue(SettingsItem item) const;
 
   MainWindow* main_window_ = nullptr;
-  NESRuntime::Data* runtime_data_ = nullptr;
   MenuItemCallback menu_callback_;
   SettingsItemCallback settings_callback_;
 
@@ -402,6 +410,7 @@ class InGameMenu : public Widget {
   InputModality input_modality_ = InputModality::kKeyboard;
   MenuItem confirmation_item_ = MenuItem::kResetGame;
   std::array<bool, kMenuItemCount> menu_item_visible_ = {};
+  bool ab_swap_current_game_scope_ = false;
 
   int which_state_ = 0;
   int which_autosave_state_slot_ = 0;
@@ -435,8 +444,7 @@ class InGameMenu : public Widget {
   SDL_Texture* snapshot_ = nullptr;
 #if BUILDFLAG(IS_SWITCH)
   uint64_t quick_load_preview_request_id_ = 0;
-  std::array<QuickLoadPreview, NESRuntime::Data::MaxAutoSaveStates>
-      quick_load_previews_;
+  std::array<QuickLoadPreview, Runtime::MaxAutoSaveStates> quick_load_previews_;
 #endif
 };
 

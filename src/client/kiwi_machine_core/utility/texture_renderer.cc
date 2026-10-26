@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <limits>
 
-#include "nes/ppu_observer.h"
+#include "emulator/nes/ppu_observer.h"
 
 TextureRenderer::TextureRenderer() = default;
 

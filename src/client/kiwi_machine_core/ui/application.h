@@ -22,7 +22,8 @@
 #include "build/build_config.h"
 
 #include "build/kiwi_defines.h"
-#include "models/nes_runtime.h"
+#include "models/config.h"
+#include "models/runtime.h"
 #include "ui/window_base.h"
 #include "utility/localization.h"
 #include "utility/timer.h"
@@ -74,8 +75,10 @@ class Application {
     return game_controllers_;
   }
 
-  NESRuntimeID runtime_id() { return runtime_id_; }
-  scoped_refptr<NESConfig> config() { return config_; }
+  Runtime* runtime() { return runtime_; }
+  void set_runtime(Runtime* runtime) { runtime_ = runtime; }
+  const kiwi::base::FilePath& profile_path() const { return profile_path_; }
+  scoped_refptr<ApplicationConfig> config() { return config_; }
 
  private:
   void InitializeApplication(int& argc, char** argv);
@@ -88,7 +91,7 @@ class Application {
   void InitializeRuntimeAndConfigs();
   void InitializeROMs();
   std::vector<kiwi::base::FilePath> GetPackagePathList();
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   std::vector<kiwi::base::FilePath> GetTexturePackPathList(
       const std::vector<kiwi::base::FilePath>& package_paths);
 #endif
@@ -111,9 +114,10 @@ class Application {
 
  private:
   bool initialized_ = false;
-  NESRuntimeID runtime_id_ = 0;
-  scoped_refptr<NESConfig> config_;
-#if KIWI_ENABLE_HD_TEXTURE
+  kiwi::base::FilePath profile_path_;
+  Runtime* runtime_ = nullptr;
+  scoped_refptr<ApplicationConfig> config_;
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   std::vector<kiwi::base::FilePath> texture_pack_paths_;
 #endif
 #if !BUILDFLAG(IS_WASM)

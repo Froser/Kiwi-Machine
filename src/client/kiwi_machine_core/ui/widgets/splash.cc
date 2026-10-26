@@ -18,8 +18,10 @@
 #include <cmath>
 
 #include "build/kiwi_defines.h"
+#include "resources/image_resources.h"
 #include "ui/main_window.h"
 #include "utility/fonts.h"
+#include "utility/images.h"
 #include "utility/localization.h"
 
 namespace {

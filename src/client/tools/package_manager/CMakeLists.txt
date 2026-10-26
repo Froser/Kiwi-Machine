@@ -41,7 +41,13 @@ list(APPEND
 )
 
 set(Sources
+        explorer_loader.cc
+        explorer_loader.h
         main.cc
+        package_manager_ui.cc
+        package_manager_ui.h
+        package_manager_widgets.cc
+        package_manager_widgets.h
         rom_window.cc
         rom_window.h
         texture_packager.cc

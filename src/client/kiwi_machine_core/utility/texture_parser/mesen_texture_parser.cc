@@ -29,9 +29,9 @@
 #include <unordered_map>
 #include <utility>
 
-#include "nes/components/mesen_hd_pack/hires_parser.h"
-#include "nes/ppu_observer.h"
-#include "nes/rom_hash.h"
+#include "emulator/nes/components/mesen_hd_pack/hires_parser.h"
+#include "emulator/nes/ppu_observer.h"
+#include "emulator/nes/rom_hash.h"
 #include "utility/ips.h"
 #include "utility/texture_parser/texture_resource_provider.h"
 #include "utility/texture_renderer.h"

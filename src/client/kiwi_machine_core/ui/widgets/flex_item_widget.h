@@ -18,7 +18,7 @@
 #include <cstdint>
 
 #include "build/kiwi_defines.h"
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 #include "ui/widgets/hd_edition_badge.h"
 #endif
 #include "ui/widgets/loading_widget.h"
@@ -75,6 +75,7 @@ class FlexItemWidget : public Widget {
   Data* current_data() { return current_data_; }
 
   SDL_Rect GetSuggestedSize(int item_height);
+  SDL_Rect GetSuggestedSizeForWidth(int item_width);
 
   void Trigger(bool triggered_by_finger);
 
@@ -106,7 +107,7 @@ class FlexItemWidget : public Widget {
   MainWindow* main_window_ = nullptr;
   FlexItemsWidget* parent_ = nullptr;
   Data* current_data_ = nullptr;
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   HDEditionBadge hd_edition_badge_;
 #endif
   LoadingWidget loading_widget_;

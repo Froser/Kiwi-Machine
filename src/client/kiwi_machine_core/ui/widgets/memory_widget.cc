@@ -14,6 +14,8 @@
 
 #include <kiwi_nes.h>
 
+#include "ui/main_window.h"
+
 namespace {
 
 constexpr size_t kAddressMaxSize = 5;
@@ -27,17 +29,15 @@ std::string NumberToHexString(kiwi::nes::Address n) {
 
 }  // namespace
 
-MemoryWidget::MemoryWidget(WindowBase* window_base,
-                           NESRuntimeID runtime_id,
+MemoryWidget::MemoryWidget(MainWindow* main_window,
                            kiwi::base::RepeatingClosure on_toggle_pause,
                            kiwi::base::RepeatingCallback<bool()> is_pause)
-    : Widget(window_base),
+    : Widget(main_window),
+      main_window_(main_window),
       on_toggle_pause_(on_toggle_pause),
       is_pause_(is_pause) {
   set_flags(ImGuiWindowFlags_AlwaysAutoResize);
   set_title("Memory");
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
-  SDL_assert(runtime_data_);
   cpu_address_.resize(kAddressMaxSize);
   ppu_address_.resize(kAddressMaxSize);
   oam_address_.resize(kAddressMaxSize);
@@ -46,8 +46,9 @@ MemoryWidget::MemoryWidget(WindowBase* window_base,
 MemoryWidget::~MemoryWidget() = default;
 
 void MemoryWidget::UpdateMemory() {
-  if (visible()) {
-    if (runtime_data_->emulator->GetRunningState() ==
+  NESRuntime* runtime = main_window_->nes_runtime();
+  if (visible() && runtime) {
+    if (runtime->emulator()->AsNESEmulator()->GetRunningState() ==
         kiwi::nes::Emulator::RunningState::kPaused) {
       // Only update when paused.
 
@@ -55,19 +56,19 @@ void MemoryWidget::UpdateMemory() {
       {
         kiwi::nes::Address address =
             FormatAddress(MemoryType::kCPU, cpu_address_);
-        cpu_memory_ = runtime_data_->debug_port->GetPrettyPrintCPUMemory(
+        cpu_memory_ = runtime->debug_port()->GetPrettyPrintCPUMemory(
             static_cast<kiwi::nes::Address>(address));
       }
       {
         kiwi::nes::Address address =
             FormatAddress(MemoryType::kPPU, ppu_address_);
-        ppu_memory_ = runtime_data_->debug_port->GetPrettyPrintPPUMemory(
+        ppu_memory_ = runtime->debug_port()->GetPrettyPrintPPUMemory(
             static_cast<kiwi::nes::Address>(address));
       }
       {
         kiwi::nes::Address address =
             FormatAddress(MemoryType::kOAM, oam_address_);
-        oam_memory_ = runtime_data_->debug_port->GetPrettyPrintOAMMemory(
+        oam_memory_ = runtime->debug_port()->GetPrettyPrintOAMMemory(
             static_cast<kiwi::nes::Address>(address));
       }
     }

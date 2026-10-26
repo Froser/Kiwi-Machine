@@ -258,6 +258,13 @@ SDL_Rect FlexItemWidget::GetSuggestedSize(int item_height) {
   return bs;
 }
 
+SDL_Rect FlexItemWidget::GetSuggestedSizeForWidth(int item_width) {
+  SDL_Rect bs = bounds();
+  bs.w = item_width;
+  bs.h = bs.w * current_data()->image_height / current_data()->image_width;
+  return bs;
+}
+
 void FlexItemWidget::Trigger(bool triggered_by_finger) {
   if (current_data()->on_trigger_callback)
     current_data()->on_trigger_callback.Run(triggered_by_finger);
@@ -511,7 +518,7 @@ void FlexItemWidget::Paint() {
   }
 
   const bool is_selected = !parent_->empty() && parent_->IsItemSelected(this);
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   if (current_data()->is_hd_edition)
     hd_edition_badge_.Paint(draw_list, kBoundsToWindow, is_selected);
 #endif

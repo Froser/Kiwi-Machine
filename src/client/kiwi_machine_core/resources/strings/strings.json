@@ -169,6 +169,36 @@
     "zh": "P2 交换 A/B",
     "ja": "P2 A/B入れ替え"
   },
+  "IDR_IN_GAME_MENU_SWAP_AB": {
+    "default": "Swap A/B",
+    "zh": "交换 A/B",
+    "ja": "A/B 入れ替え"
+  },
+  "IDR_IN_GAME_MENU_AB_SCOPE": {
+    "default": "Applies To",
+    "zh": "适用范围",
+    "ja": "適用範囲"
+  },
+  "IDR_IN_GAME_MENU_AB_NES_GLOBAL": {
+    "default": "All NES Games",
+    "zh": "所有 NES 游戏",
+    "ja": "すべての NES ゲーム"
+  },
+  "IDR_IN_GAME_MENU_AB_GBA_GLOBAL": {
+    "default": "All GBA Games",
+    "zh": "所有 GBA 游戏",
+    "ja": "すべての GBA ゲーム"
+  },
+  "IDR_IN_GAME_MENU_AB_CURRENT_GAME": {
+    "default": "Current Game",
+    "zh": "当前游戏",
+    "ja": "現在のゲーム"
+  },
+  "IDR_IN_GAME_MENU_SWAP": {
+    "default": "Swap",
+    "zh": "交换",
+    "ja": "入れ替え"
+  },
   "IDR_IN_GAME_MENU_SMALL": {
     "default": "Small",
     "zh": "小",
@@ -344,6 +374,26 @@
     "zh": "搜索 (Y)",
     "ja": "検索 (Y)"
   },
+  "IDR_SIDE_MENU_SYSTEM_NES": {
+    "default": "FC/NES",
+    "zh": "FC/NES",
+    "ja": "FC/NES"
+  },
+  "IDR_SIDE_MENU_SYSTEM_GBA": {
+    "default": "GBA",
+    "zh": "GBA",
+    "ja": "GBA"
+  },
+  "IDR_GBA_EMPTY_LIBRARY": {
+    "default": "Drop a .gba ROM here to play",
+    "zh": "将 .gba ROM 拖入此处即可游玩",
+    "ja": ".gba ROMをここにドロップしてプレイ"
+  },
+  "IDR_GBA_EMPTY_SPECIALS": {
+    "default": "No Game Boy Advance special collection",
+    "zh": "暂无 Game Boy Advance 特别收藏",
+    "ja": "Game Boy Advanceの特別コレクションはありません"
+  },
   "IDR_SIDE_MENU_SETTINGS": {
     "default": "Settings",
     "zh": "设置",
@@ -358,9 +408,9 @@
     "default": "Kiwi-Machine"
   },
   "IDR_ABOUT_INSTRUCTIONS": {
-    "default": "An open sources NES emulator",
-    "zh": "一个开源的红白机器模拟器",
-    "ja": "とはオープンソースのFAMICOMシミュレーターだ"
+    "default": "An open-source NES and GBA emulator",
+    "zh": "一个开源的 NES 与 GBA 模拟器",
+    "ja": "オープンソースの NES・GBA エミュレーター"
   },
   "IDR_ABOUT_CONTROLLER": {
     "default": "Controller Manual",
@@ -491,9 +541,9 @@
     "ja": "SELECTを押す又は選択されている間にゲームを長押すると、バージョンを変更できる。"
   },
   "IDR_ABOUT_GAME_SELECTION_CHANGE_VERSION_SWITCH": {
-    "default": "A/+ starts. ROM regions: L counterclockwise; R or icon tap clockwise.",
-    "zh": "A/+ 开始；ROM 地区：L 逆时针，R 或点击图标顺时针。",
-    "ja": "A / + で開始。ROM 地域：L は反時計回り、R またはアイコンタップは時計回り。"
+    "default": "A/+ starts. Systems: ZL left; ZR right. ROM regions: L counterclockwise; R or icon tap clockwise.",
+    "zh": "A/+ 开始；系统：ZL 向左切换，ZR 向右切换；ROM 地区：L 逆时针，R 或点击图标顺时针。",
+    "ja": "A / + で開始。システム：ZL で左、ZR で右に切り替え。ROM 地域：L は反時計回り、R またはアイコンタップは時計回り。"
   },
   "IDR_ABOUT_ABOUT": {
     "default": "About this app",

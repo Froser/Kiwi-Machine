@@ -17,8 +17,6 @@
 #include <gflags/gflags.h>
 #include "build/build_config.h"
 
-#include <cstddef>
-#include <map>
 #include <optional>
 #include <set>
 #include <string>
@@ -26,34 +24,36 @@
 #include <vector>
 
 #include "build/kiwi_defines.h"
-#include "kiwi/nes/controller.h"
-#include "models/nes_audio.h"
-#include "models/nes_frame.h"
-#include "models/nes_runtime.h"
+#include "emulator/emulator.h"
+#include "emulator/gba/io_devices.h"
+#include "kiwi/emulator/nes/controller.h"
+#include "models/config.h"
+#include "models/gba/audio.h"
+#include "models/gba/runtime.h"
+#include "models/nes/audio.h"
+#include "models/nes/frame.h"
+#include "models/nes/runtime.h"
 #include "ui/widgets/canvas_observer.h"
 #include "ui/widgets/in_game_menu.h"
 #include "ui/widgets/menu_bar.h"
-#include "ui/widgets/side_menu.h"
 #include "ui/window_base.h"
 
 class Canvas;
+class GameLibraryView;
 class InGameMenu;
 class KiwiBgWidget;
 class LoadingWidget;
 class StackWidget;
-class MemoryWidget;
-class DisassemblyWidget;
-class FlexItemsWidget;
-class CardWidget;
+class GBADebugWidget;
+class NESDebugWidget;
 class Splash;
 class FpsCounter;
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
 class TextureRenderer;
 #endif
 
 namespace preset_roms {
 enum class ROMEdition;
-struct Package;
 struct PresetROM;
 }  // namespace preset_roms
 
@@ -94,8 +94,7 @@ class MainWindow : public WindowBase,
 
  public:
   explicit MainWindow(const std::string& title,
-                      NESRuntimeID runtime_id,
-                      scoped_refptr<NESConfig> config);
+                      scoped_refptr<ApplicationConfig> config);
   ~MainWindow() override;
 
   // InitializeAsync() must be called before rendering.
@@ -123,6 +122,10 @@ class MainWindow : public WindowBase,
   float window_scale() { return ui_scale_; }
   bool is_fullscreen() { return config_->data().is_fullscreen; }
   bool IsABSwapped(int player) const;
+  bool IsGlobalABSwapped(int player) const;
+  bool IsCurrentGameABSwapped(int player) const;
+  bool HasCurrentGameABSwapOverride() const;
+  bool CanUseCurrentGameABSwap() const;
   bool IsLandscape();
 #if BUILDFLAG(IS_MOBILE)
   bool is_stretch_mode() { return config_->data().is_stretch_mode; }
@@ -132,6 +135,14 @@ class MainWindow : public WindowBase,
   int Scaled(int i);
   int GetMainMenuContentLeft();
   void ChangeFocus(MainFocus focus);
+  kiwi::emu::Emulator::Type emulation_system() const {
+    return emulation_system_;
+  }
+  Runtime* runtime() { return runtime_.get(); }
+  NESRuntime* nes_runtime();
+  const NESRuntime* nes_runtime() const;
+  DebugPort* debug_port();
+  float audio_volume() const { return config_->data().volume; }
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -171,8 +182,12 @@ class MainWindow : public WindowBase,
   void LoadROMByPath(
       kiwi::base::FilePath rom_path,
       std::optional<kiwi::base::FilePath> save_path = std::nullopt);
-  void StartAutoSave();
-  void StopAutoSave();
+  void LoadGBAROMByPath(kiwi::base::FilePath rom_path);
+  void ReplaceRuntime(kiwi::emu::Emulator::Type system);
+  void PowerOffRuntime();
+  void SwitchEmulationSystem(kiwi::emu::Emulator::Type system);
+  bool IsEmulationSystem(kiwi::emu::Emulator::Type system) const;
+  void UpdateWorkspaceForSystem();
   void ResetAudio();
   std::vector<MenuBar::Menu> GetMenuModel();
   void SetLoading(bool is_loading);
@@ -181,7 +196,7 @@ class MainWindow : public WindowBase,
   void UpdateGameControllerMapping();
   void CreateVirtualTouchButtons();
   void LayoutVirtualTouchButtons();
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   void SetHDTextureToggleState(bool visible, bool hd_enabled);
 #endif
   void SetVirtualButtonsVisible(bool visible);
@@ -200,29 +215,14 @@ class MainWindow : public WindowBase,
   bool IsControllerButtonPressedForGameplay(SDL_GameController* controller,
                                             SDL_GameControllerButton button);
   void IgnoreHeldControllerButtonsUntilRelease();
-  void SetABSwapped(int player, bool swapped);
+  const ApplicationConfig::ABSwapSystemSettings& GetABSwapSettings() const;
+  ApplicationConfig::ABSwapSystemSettings& GetABSwapSettings();
+  void NotifyEffectiveABSwapChanges(
+      const ApplicationConfig::ABSwapValues& previous_values);
+  void SetABSwapped(int player, bool swapped, bool for_current_game);
   void CloseInGameMenu();
-  void FlexLayout(bool animate = true);
-  FlexItemsWidget* GetMainItemsWidget();
-  void PopulatePackageItems(preset_roms::Package* package,
-                            FlexItemsWidget* items_widget);
-  void EnsurePackageIndex(preset_roms::Package* package,
-                          FlexItemsWidget* items_widget);
-  void OnPackageIndexProgress(FlexItemsWidget* items_widget,
-                              size_t completed,
-                              size_t total);
-  void OnPackageIndexReady(preset_roms::Package* package,
-                           FlexItemsWidget* items_widget,
-                           bool success);
-
-  SideMenu::MenuCallbacks CreateMenuSettingsCallbacks();
-  SideMenu::MenuCallbacks CreateMenuAboutCallbacks();
-  SideMenu::MenuCallbacks CreateMenuChangeFocusToGameItemsCallbacks(
-      preset_roms::Package* package,
-      FlexItemsWidget* items_widget);
-  void SwitchToWidgetForSideMenu(int menu_index);
-  void SwitchToSideMenuByCurrentFlexItemWidget();
-  void ChangeFocusToCurrentSideMenuAndShowFilter();
+  void ShowSettings();
+  void ShowAbout();
 
   // Splash screen
   void ShowSplash(kiwi::base::OnceClosure callback);
@@ -230,6 +230,7 @@ class MainWindow : public WindowBase,
 
   // Menu callbacks:
   void OnRomLoaded(std::unique_ptr<PendingROM> pending_rom, bool success);
+  void OnGBARomLoaded(std::string fallback_title, bool success);
   void OnQuit();
   void OnResetROM();
   void OnBackToMainMenu();
@@ -237,10 +238,11 @@ class MainWindow : public WindowBase,
   void OnSaveState(int which_state);
   void OnLoadState(int which_state);
   void OnLoadAutoSavedState(int timestamp, bool discard_newer_states);
+  void StartPeriodicSaves();
+  const kiwi::emu::Colors& GetLastFrameForState();
   void OnStateSaved(int slot, bool succeed);
-  void OnStateLoaded(bool discard_newer_states,
-                     const NESRuntime::Data::StateResult& state_result);
-  bool CanSaveOrLoadState();
+  void PrepareToLoadState();
+  void OnStateLoaded(int slot_or_timestamp, bool succeed);
   void OnTogglePause();
   void OnPause();
   void OnResume();
@@ -250,28 +252,16 @@ class MainWindow : public WindowBase,
                        preset_roms::ROMEdition edition,
                        bool load_from_finger_gesture);
   void OnLoadDebugROM(kiwi::base::FilePath rom_path);
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   void OnSetHDTextureRenderingEnabled(bool enabled);
   void OnToggleHDTextureRendering();
 #endif
   void OnToggleAudioEnabled();
   void OnSetAudioVolume(float volume);
   bool IsAudioEnabled();
-  void OnToggleAudioChannelMasks(kiwi::nes::AudioChannel which_mask);
-  bool IsAudioChannelOn(kiwi::nes::AudioChannel which_mask);
-  void OnToggleRenderPaused();
-  bool IsRenderPaused();
   void OnSetFullscreen();
   void OnUnsetFullscreen();
-  void OnTogglePaletteWidget();
-  bool IsPaletteWidgetShown();
-  void OnTogglePatternWidget();
-  bool IsPatternWidgetShown();
-  void OnPerformanceWidget();
-  bool IsPerformanceWidgetShown();
-  void OnDebugMemory();
-  void OnDebugDisassembly();
-  void OnDebugNametable();
+  void OnDebug();
   void OnShowUiDemoWidget();
   void OnInGameMenuTrigger();
 #if BUILDFLAG(IS_SWITCH)
@@ -294,8 +284,8 @@ class MainWindow : public WindowBase,
   friend class FullscreenMask;
   bool HandleWindowFingerDown();
 
-  // Give a chance to pause the game, to view disassembly widget.
-  void PauseGameIfDisassemblyVisible();
+  // Keep a loaded or reset game paused while its debugger is open.
+  void PauseGameIfDebuggerVisible();
 
 #if BUILDFLAG(IS_MOBILE)
   void OnScaleModeChanged();
@@ -319,28 +309,15 @@ class MainWindow : public WindowBase,
   Widget* fullscreen_mask_ = nullptr;
   InGameMenu* in_game_menu_ = nullptr;
   Widget* menu_bar_ = nullptr;
-  Widget* palette_widget_ = nullptr;
-  Widget* pattern_widget_ = nullptr;
-  Widget* performance_widget_ = nullptr;
   Widget* demo_widget_ = nullptr;
   StackWidget* main_stack_widget_ = nullptr;
   KiwiBgWidget* bg_widget_ = nullptr;
-  std::vector<FlexItemsWidget*> items_widgets_;
-  std::set<preset_roms::Package*> indexing_packages_;
+  GameLibraryView* game_library_view_ = nullptr;
   LoadingWidget* loading_widget_ = nullptr;
-  SideMenu* side_menu_ = nullptr;
-  // Side menu index to item widgets' map
-  std::map<int, FlexItemsWidget*> flex_items_map_;
-
-  Timer side_menu_timer_;
-  int side_menu_target_width_ = 0;
-  int side_menu_original_width_ = 0;
-  CardWidget* contents_card_widget_ = nullptr;
-  MemoryWidget* memory_widget_ = nullptr;
-  DisassemblyWidget* disassembly_widget_ = nullptr;
-  Widget* nametable_widget_ = nullptr;
+  NESDebugWidget* nes_debug_widget_ = nullptr;
+  GBADebugWidget* gba_debug_widget_ = nullptr;
   std::set<MainWindow::Observer*> observers_;
-#if ENABLE_DEBUG_ROMS
+#if BUILDFLAG(ENABLE_DEBUG_ROMS)
   MenuBar::MenuItem debug_roms_;
 #endif
 
@@ -357,19 +334,21 @@ class MainWindow : public WindowBase,
   Widget* vtb_start_ = nullptr;
   Widget* vtb_select_ = nullptr;
   Widget* vtb_pause_ = nullptr;
-#if KIWI_ENABLE_HD_TEXTURE
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   Widget* hd_texture_toggle_ = nullptr;
 #endif
   bool stashed_virtual_joysticks_visible_state_ = false;
 #endif
 
-  NESRuntimeID runtime_id_ = NESRuntimeID();
-  NESRuntime::Data* runtime_data_ = nullptr;
+  std::unique_ptr<Runtime> runtime_;
   std::unique_ptr<NESAudio> audio_;
-  scoped_refptr<NESConfig> config_;
+  std::unique_ptr<GBAAudio> gba_audio_;
+  scoped_refptr<ApplicationConfig> config_;
+  kiwi::emu::Emulator::Type emulation_system_ = kiwi::emu::Emulator::Type::kNES;
   float ui_scale_ = 1.f;
   std::string current_game_title_;
-#if KIWI_ENABLE_HD_TEXTURE
+  std::string current_game_id_;
+#if BUILDFLAG(ENABLE_HD_TEXTURE)
   bool hd_texture_available_ = false;
   bool hd_texture_enabled_ = false;
 #endif

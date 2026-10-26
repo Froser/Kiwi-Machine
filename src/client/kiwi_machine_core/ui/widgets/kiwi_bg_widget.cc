@@ -25,9 +25,8 @@ namespace {
 constexpr float kFadeSpeedMs = 100;
 }  // namespace
 
-KiwiBgWidget::KiwiBgWidget(MainWindow* main_window, NESRuntimeID runtime_id)
+KiwiBgWidget::KiwiBgWidget(MainWindow* main_window)
     : Widget(main_window), main_window_(main_window) {
-  runtime_data_ = NESRuntime::GetInstance()->GetDataById(runtime_id);
   bg_last_render_elapsed_.Start();
 }
 

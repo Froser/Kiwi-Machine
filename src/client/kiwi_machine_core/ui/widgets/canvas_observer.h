@@ -15,7 +15,7 @@
 
 #include <kiwi_nes.h>
 
-#include "models/nes_frame.h"
+#include "models/nes/frame.h"
 
 class Canvas;
 class NESFrame;
