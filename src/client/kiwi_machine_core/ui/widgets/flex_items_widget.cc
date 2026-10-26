@@ -66,7 +66,11 @@ constexpr float kDetailWidgetMaxWidthRatio = .55f;
 constexpr int kFilterWidgetMargin = kDetailWidgetMargin;
 constexpr int kFilterWidgetPadding = kDetailWidgetPadding;
 constexpr int kItemHoverDurationMs = 1000;
+#if BUILDFLAG(IS_SWITCH)
+constexpr int kTextureCacheMarginRows = 10;
+#else
 constexpr int kTextureCacheMarginRows = 2;
+#endif
 constexpr float kMinimumFlingVelocity = 120.f;
 constexpr float kInertialDeceleration = 4.5f;
 constexpr int kMaximumInertialFrameMs = 50;

@@ -136,6 +136,7 @@ void SideMenu::set_activate(bool activate) {
     suppress_pointer_expansion_ = pointer_inside_;
   }
   activate_ = activate;
+  invalidate();
 }
 
 void SideMenu::Paint() {
@@ -452,17 +453,17 @@ void SideMenu::PaintSystemToggle(ImDrawList* draw_list,
 
 #if BUILDFLAG(IS_SWITCH)
   constexpr int kExpandedControlWidth = 220;
-  constexpr int kExpandedControlHeight = 42;
+  constexpr int kExpandedControlHeight = 56;
   constexpr int kCollapsedControlWidth = 72;
   constexpr int kCollapsedControlHeight = 36;
 #elif BUILDFLAG(IS_ANDROID)
   constexpr int kExpandedControlWidth = 220;
-  constexpr int kExpandedControlHeight = 44;
+  constexpr int kExpandedControlHeight = 64;
   constexpr int kCollapsedControlWidth = 72;
   constexpr int kCollapsedControlHeight = 36;
 #else
   const int kExpandedControlWidth = SCALED(122);
-  const int kExpandedControlHeight = SCALED(28);
+  const int kExpandedControlHeight = SCALED(42);
   const int kCollapsedControlWidth = SCALED(36);
   const int kCollapsedControlHeight = SCALED(24);
 #endif
@@ -794,11 +795,14 @@ void SideMenu::Layout() {
   const int item_width = local_bounds.w - SCALED(kItemSpacing.x);
   const int button_height = SCALED(kButtonHeight + kItemSpacing.y * 2);
   const int item_height = SCALED(kItemHeight + kItemSpacing.y * 2);
+  const int system_toggle_height =
+      expanded() ? SCALED(kButtonHeight + kItemSpacing.y * 4) : button_height;
 
   int y = local_bounds.y + SCALED(kItemMarginBottom);
   if (system_toggle_) {
-    system_toggle_bounds_ = SDL_Rect{item_x, y, item_width, button_height};
-    y += button_height;
+    system_toggle_bounds_ =
+        SDL_Rect{item_x, y, item_width, system_toggle_height};
+    y += system_toggle_height;
   } else {
     system_toggle_bounds_ = SDL_Rect{};
   }
