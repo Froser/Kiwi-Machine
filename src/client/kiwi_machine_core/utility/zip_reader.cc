@@ -362,6 +362,9 @@ class PackageImpl : public preset_roms::Package {
   std::string GetTitleForLanguage(SupportedLanguage language) override;
   preset_roms::PackageType GetType() const override { return type_; }
   bool IsMainPackage() const override;
+  std::string GetPersistentId() const override {
+    return package_path_.BaseName().AsUTF8Unsafe();
+  }
 
   bool index_ready() const { return index_ready_; }
   void set_index_ready(bool ready) { index_ready_ = ready; }

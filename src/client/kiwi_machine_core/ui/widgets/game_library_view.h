@@ -18,6 +18,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "base/functional/callback.h"
@@ -56,17 +57,27 @@ class GameLibraryView : public Widget {
     kiwi::base::RepeatingClosure layout_changed;
   };
 
+  struct SystemSelection {
+    int index = 0;
+    std::string package_id;
+  };
+
+  struct PreferredSelections {
+    SystemSelection nes;
+    SystemSelection gba;
+  };
+
   GameLibraryView(MainWindow* main_window,
                   kiwi::emu::Emulator::Type emulation_system,
-                  int preferred_index,
+                  PreferredSelections preferred_selections,
                   Callbacks callbacks);
   ~GameLibraryView() override;
 
   int GetContentLeft();
-  std::optional<int> GetCurrentIndex();
+  std::optional<SystemSelection> GetCurrentSelection(
+      kiwi::emu::Emulator::Type system);
   void ChangeFocus(Focus focus);
-  void SetEmulationSystem(kiwi::emu::Emulator::Type system,
-                          int preferred_index);
+  void SetEmulationSystem(kiwi::emu::Emulator::Type system);
   void ShowFilter();
   void Layout(bool animate = true);
 
@@ -92,9 +103,16 @@ class GameLibraryView : public Widget {
   void OnPackageIndexReady(preset_roms::Package* package,
                            FlexItemsWidget* items_widget,
                            bool success);
-  FlexItemsWidget* GetMainItemsWidget();
+  FlexItemsWidget* GetSelectedItemsWidget(
+      kiwi::emu::Emulator::Type system) const;
+  void ApplyPendingPreferredIndex(kiwi::emu::Emulator::Type system,
+                                  FlexItemsWidget* items_widget);
+  const std::map<int, FlexItemsWidget*>& GetFlexItemsMap(
+      kiwi::emu::Emulator::Type system) const;
   const std::map<int, FlexItemsWidget*>& GetCurrentFlexItemsMap() const;
   int GetDefaultMenuIndex(kiwi::emu::Emulator::Type system) const;
+  int FindMenuIndexForPackage(kiwi::emu::Emulator::Type system,
+                              const std::string& package_id) const;
   void RememberCurrentSideMenuSelection();
   void RememberSideMenuSelection(int menu_index);
   void SwitchToWidgetForSideMenu(int menu_index);
@@ -102,7 +120,6 @@ class GameLibraryView : public Widget {
 
   MainWindow* main_window_ = nullptr;
   kiwi::emu::Emulator::Type emulation_system_;
-  int preferred_index_ = 0;
   Callbacks callbacks_;
   std::vector<FlexItemsWidget*> items_widgets_;
   std::vector<FlexItemsWidget*> gba_items_widgets_;
@@ -110,6 +127,8 @@ class GameLibraryView : public Widget {
   std::map<int, FlexItemsWidget*> flex_items_map_;
   std::map<int, FlexItemsWidget*> gba_flex_items_map_;
   std::array<int, 2> selected_menu_indices_ = {-1, -1};
+  std::array<std::optional<int>, 2> pending_preferred_indices_;
+  std::array<std::string, 2> preferred_package_ids_;
   SideMenu* side_menu_ = nullptr;
   CardWidget* contents_card_widget_ = nullptr;
   Timer side_menu_timer_;

@@ -43,13 +43,23 @@ class ApplicationConfig : public kiwi::base::RefCounted<ApplicationConfig> {
     ABSwapSystemSettings gba;
   };
 
+  struct GameLibrarySystemSettings {
+    int last_index = 0;
+    std::string selected_package;
+  };
+
+  struct GameLibrarySettings {
+    GameLibrarySystemSettings nes;
+    GameLibrarySystemSettings gba;
+  };
+
   struct Data {
     float window_scale = 3.f;
     bool is_fullscreen = false;
     float volume = 1.f;
-    int last_index = 0;
     int last_system = 0;
     int language = -1;  // -1 means automatic (follows system's locale)
+    GameLibrarySettings game_library_settings;
     ABSwapSettings swap_ab_settings;
 #if BUILDFLAG(IS_MOBILE)
     bool is_stretch_mode = true;

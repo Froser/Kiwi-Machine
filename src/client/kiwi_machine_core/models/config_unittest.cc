@@ -73,6 +73,55 @@ TEST(ABSwapSystemSettingsTest, GameValuesLazilyOverrideAndRestoreGlobalValues) {
             (ApplicationConfig::ABSwapValues{true, false}));
 }
 
+TEST_F(ApplicationConfigTest, MigratesLegacyLastIndexToNES) {
+  WriteSettings(R"({"last_index":17,"last_system":0})");
+  scoped_refptr<ApplicationConfig> config =
+      kiwi::base::MakeRefCounted<ApplicationConfig>(profile_path_);
+
+  config->LoadConfigAndWait();
+
+  EXPECT_EQ(config->data().game_library_settings.nes.last_index, 17);
+  EXPECT_TRUE(
+      config->data().game_library_settings.nes.selected_package.empty());
+  EXPECT_EQ(config->data().game_library_settings.gba.last_index, 0);
+}
+
+TEST_F(ApplicationConfigTest, MigratesLegacyLastIndexToGBA) {
+  WriteSettings(R"({"last_index":23,"last_system":1})");
+  scoped_refptr<ApplicationConfig> config =
+      kiwi::base::MakeRefCounted<ApplicationConfig>(profile_path_);
+
+  config->LoadConfigAndWait();
+
+  EXPECT_EQ(config->data().game_library_settings.nes.last_index, 0);
+  EXPECT_EQ(config->data().game_library_settings.gba.last_index, 23);
+  EXPECT_TRUE(
+      config->data().game_library_settings.gba.selected_package.empty());
+}
+
+TEST_F(ApplicationConfigTest,
+       NewGameLibrarySettingsTakePrecedenceOverLegacyIndex) {
+  WriteSettings(R"({
+    "last_index":99,
+    "last_system":1,
+    "game_library_settings":{
+      "nes":{"last_index":7,"selected_package":"nes_specials.pak"},
+      "gba":{"last_index":11,"selected_package":"gba_main.pak"}
+    }
+  })");
+  scoped_refptr<ApplicationConfig> config =
+      kiwi::base::MakeRefCounted<ApplicationConfig>(profile_path_);
+
+  config->LoadConfigAndWait();
+
+  EXPECT_EQ(config->data().game_library_settings.nes.last_index, 7);
+  EXPECT_EQ(config->data().game_library_settings.nes.selected_package,
+            "nes_specials.pak");
+  EXPECT_EQ(config->data().game_library_settings.gba.last_index, 11);
+  EXPECT_EQ(config->data().game_library_settings.gba.selected_package,
+            "gba_main.pak");
+}
+
 TEST_F(ApplicationConfigTest, MigratesLegacySwapValuesToBothSystems) {
   WriteSettings(R"({"swap_ab":[true,false]})");
   scoped_refptr<ApplicationConfig> config =

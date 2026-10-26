@@ -15,11 +15,13 @@
 #include <SDL.h>
 #include "build/build_config.h"
 
+#include <algorithm>
 #include <exception>
 
 #include "base/files/file.h"
 #include "base/functional/bind.h"
 #include "build/kiwi_defines.h"
+#include "emulator/emulator.h"
 #include "ui/application.h"
 
 #if BUILDFLAG(IS_WASM)
@@ -86,25 +88,33 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     ApplicationConfig::ABSwapSettings,
     nes,
     gba);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    ApplicationConfig::GameLibrarySystemSettings,
+    last_index,
+    selected_package);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
+    ApplicationConfig::GameLibrarySettings,
+    nes,
+    gba);
 
 #if BUILDFLAG(IS_MOBILE)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ApplicationConfig::Data,
                                                 window_scale,
                                                 is_fullscreen,
                                                 volume,
-                                                last_index,
                                                 last_system,
                                                 is_stretch_mode,
                                                 language,
+                                                game_library_settings,
                                                 swap_ab_settings);
 #else
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ApplicationConfig::Data,
                                                 window_scale,
                                                 is_fullscreen,
                                                 volume,
-                                                last_index,
                                                 last_system,
                                                 language,
+                                                game_library_settings,
                                                 swap_ab_settings);
 #endif
 
@@ -171,6 +181,18 @@ void ApplicationConfig::LoadFromUTF8Json(const std::string& utf8_json) {
     try {
       nlohmann::json json = nlohmann::json::parse(utf8_json);
       data_ = json;
+      if (!json.contains("game_library_settings")) {
+        auto legacy_last_index = json.find("last_index");
+        if (legacy_last_index != json.end() &&
+            legacy_last_index->is_number_integer()) {
+          GameLibrarySystemSettings& settings =
+              data_.last_system ==
+                      static_cast<int>(kiwi::emu::Emulator::Type::kGBA)
+                  ? data_.game_library_settings.gba
+                  : data_.game_library_settings.nes;
+          settings.last_index = std::max(0, legacy_last_index->get<int>());
+        }
+      }
       if (!json.contains("swap_ab_settings")) {
         auto legacy_swap_ab = json.find("swap_ab");
         if (legacy_swap_ab != json.end()) {

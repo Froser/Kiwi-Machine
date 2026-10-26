@@ -100,6 +100,7 @@ struct Package {
   virtual std::string GetTitleForLanguage(SupportedLanguage language) = 0;
   virtual PackageType GetType() const = 0;
   virtual bool IsMainPackage() const = 0;
+  virtual std::string GetPersistentId() const = 0;
 };
 
 std::vector<Package*> GetPresetOrTestRomsPackages();

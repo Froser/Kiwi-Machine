@@ -42,6 +42,10 @@ constexpr std::array<kiwi::emu::Emulator::Type, 2> kEmulationSystems = {
     kiwi::emu::Emulator::Type::kGBA,
 };
 
+size_t GetSystemIndex(kiwi::emu::Emulator::Type system) {
+  return system == kiwi::emu::Emulator::Type::kGBA ? 1 : 0;
+}
+
 float EaseOutQuadratic(float progress) {
   progress = std::clamp(progress, 0.f, 1.f);
   return 1.f - (1.f - progress) * (1.f - progress);
@@ -230,12 +234,11 @@ class ROMTitleUpdater : public LocalizedStringUpdater {
 
 GameLibraryView::GameLibraryView(MainWindow* main_window,
                                  kiwi::emu::Emulator::Type emulation_system,
-                                 int preferred_index,
+                                 PreferredSelections preferred_selections,
                                  Callbacks callbacks)
     : Widget(main_window),
       main_window_(main_window),
       emulation_system_(emulation_system),
-      preferred_index_(preferred_index),
       callbacks_(std::move(callbacks)) {
   SDL_assert(main_window_);
   SDL_assert(callbacks_.load_rom);
@@ -243,6 +246,14 @@ GameLibraryView::GameLibraryView(MainWindow* main_window,
   SDL_assert(callbacks_.show_settings);
   SDL_assert(callbacks_.show_about);
   SDL_assert(callbacks_.layout_changed);
+  const size_t nes_index = GetSystemIndex(kiwi::emu::Emulator::Type::kNES);
+  const size_t gba_index = GetSystemIndex(kiwi::emu::Emulator::Type::kGBA);
+  pending_preferred_indices_[nes_index] = preferred_selections.nes.index;
+  pending_preferred_indices_[gba_index] = preferred_selections.gba.index;
+  preferred_package_ids_[nes_index] =
+      std::move(preferred_selections.nes.package_id);
+  preferred_package_ids_[gba_index] =
+      std::move(preferred_selections.gba.package_id);
   Initialize();
 }
 
@@ -405,19 +416,28 @@ void GameLibraryView::Initialize() {
   side_menu->Layout();
   side_menu_ = side_menu.get();
   AddWidget(std::move(side_menu));
-  SetEmulationSystem(emulation_system_, preferred_index_);
+  SetEmulationSystem(emulation_system_);
 }
 
 int GameLibraryView::GetContentLeft() {
   return contents_card_widget_ ? contents_card_widget_->bounds().x : 0;
 }
 
-std::optional<int> GameLibraryView::GetCurrentIndex() {
-  FlexItemsWidget* items_widget = GetMainItemsWidget();
-  if (!items_widget) {
+std::optional<GameLibraryView::SystemSelection>
+GameLibraryView::GetCurrentSelection(kiwi::emu::Emulator::Type system) {
+  const size_t system_index = GetSystemIndex(system);
+  const int menu_index = selected_menu_indices_[system_index];
+  const auto& items_map = GetFlexItemsMap(system);
+  const auto item = items_map.find(menu_index);
+  const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
+  if (item == items_map.end() || item->second->empty() || menu_index < 0 ||
+      menu_index >= static_cast<int>(packages.size())) {
     return std::nullopt;
   }
-  return static_cast<int>(items_widget->current_index());
+  return SystemSelection{
+      .index = static_cast<int>(item->second->current_index()),
+      .package_id = packages[menu_index]->GetPersistentId(),
+  };
 }
 
 void GameLibraryView::ChangeFocus(Focus focus) {
@@ -450,18 +470,22 @@ void GameLibraryView::ChangeFocus(Focus focus) {
   Layout();
 }
 
-void GameLibraryView::SetEmulationSystem(kiwi::emu::Emulator::Type system,
-                                         int preferred_index) {
+void GameLibraryView::SetEmulationSystem(kiwi::emu::Emulator::Type system) {
   if (emulation_system_ != system)
     RememberCurrentSideMenuSelection();
   emulation_system_ = system;
-  preferred_index_ = preferred_index;
   side_menu_->invalidate();
 
   const auto& items_map = GetCurrentFlexItemsMap();
-  const size_t system_index = system == kiwi::emu::Emulator::Type::kGBA ? 1 : 0;
+  const size_t system_index = GetSystemIndex(system);
   int menu_index = selected_menu_indices_[system_index];
   if (!items_map.contains(menu_index) && !items_map.empty()) {
+    menu_index =
+        FindMenuIndexForPackage(system, preferred_package_ids_[system_index]);
+  }
+  if (!items_map.contains(menu_index) && !items_map.empty()) {
+    if (!preferred_package_ids_[system_index].empty())
+      pending_preferred_indices_[system_index].reset();
     menu_index = GetDefaultMenuIndex(system);
   }
   selected_menu_indices_[system_index] = menu_index;
@@ -473,11 +497,7 @@ void GameLibraryView::SetEmulationSystem(kiwi::emu::Emulator::Type system,
   if (item != items_map.end() &&
       menu_index < static_cast<int>(packages.size())) {
     EnsurePackageIndex(packages[menu_index], item->second);
-    if (!item->second->empty()) {
-      const int index = std::clamp(preferred_index_, 0,
-                                   static_cast<int>(item->second->size() - 1));
-      item->second->SetIndex(index);
-    }
+    ApplyPendingPreferredIndex(system, item->second);
   }
 }
 
@@ -719,33 +739,52 @@ void GameLibraryView::OnPackageIndexReady(preset_roms::Package* package,
   indexing_packages_.erase(package);
   if (success && items_widget->empty()) {
     PopulatePackageItems(package, items_widget);
-    if (items_widget == GetMainItemsWidget() && !items_widget->empty()) {
-      const int index = std::clamp(preferred_index_, 0,
-                                   static_cast<int>(items_widget->size() - 1));
-      items_widget->SetIndex(index);
-    }
+    const kiwi::emu::Emulator::Type system =
+        package->GetType() == preset_roms::PackageType::kGBA
+            ? kiwi::emu::Emulator::Type::kGBA
+            : kiwi::emu::Emulator::Type::kNES;
+    if (items_widget == GetSelectedItemsWidget(system))
+      ApplyPendingPreferredIndex(system, items_widget);
   }
   items_widget->FinishIndexing(success);
 }
 
-FlexItemsWidget* GameLibraryView::GetMainItemsWidget() {
-  const auto& items_map = GetCurrentFlexItemsMap();
-  const auto main = items_map.find(GetDefaultMenuIndex(emulation_system_));
-  return main == items_map.end() ? nullptr : main->second;
+FlexItemsWidget* GameLibraryView::GetSelectedItemsWidget(
+    kiwi::emu::Emulator::Type system) const {
+  const auto& items_map = GetFlexItemsMap(system);
+  const auto item =
+      items_map.find(selected_menu_indices_[GetSystemIndex(system)]);
+  return item == items_map.end() ? nullptr : item->second;
+}
+
+void GameLibraryView::ApplyPendingPreferredIndex(
+    kiwi::emu::Emulator::Type system,
+    FlexItemsWidget* items_widget) {
+  std::optional<int>& pending_index =
+      pending_preferred_indices_[GetSystemIndex(system)];
+  if (!pending_index || items_widget->empty())
+    return;
+
+  const int index =
+      std::clamp(*pending_index, 0, static_cast<int>(items_widget->size() - 1));
+  items_widget->SetIndex(index);
+  pending_index.reset();
+}
+
+const std::map<int, FlexItemsWidget*>& GameLibraryView::GetFlexItemsMap(
+    kiwi::emu::Emulator::Type system) const {
+  return system == kiwi::emu::Emulator::Type::kGBA ? gba_flex_items_map_
+                                                   : flex_items_map_;
 }
 
 const std::map<int, FlexItemsWidget*>& GameLibraryView::GetCurrentFlexItemsMap()
     const {
-  return emulation_system_ == kiwi::emu::Emulator::Type::kGBA
-             ? gba_flex_items_map_
-             : flex_items_map_;
+  return GetFlexItemsMap(emulation_system_);
 }
 
 int GameLibraryView::GetDefaultMenuIndex(
     kiwi::emu::Emulator::Type system) const {
-  const auto& items_map = system == kiwi::emu::Emulator::Type::kGBA
-                              ? gba_flex_items_map_
-                              : flex_items_map_;
+  const auto& items_map = GetFlexItemsMap(system);
   const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
   for (const auto& [menu_index, items_widget] : items_map) {
     static_cast<void>(items_widget);
@@ -755,6 +794,24 @@ int GameLibraryView::GetDefaultMenuIndex(
     }
   }
   return items_map.empty() ? -1 : items_map.begin()->first;
+}
+
+int GameLibraryView::FindMenuIndexForPackage(
+    kiwi::emu::Emulator::Type system,
+    const std::string& package_id) const {
+  if (package_id.empty())
+    return -1;
+
+  const auto& items_map = GetFlexItemsMap(system);
+  const auto& packages = preset_roms::GetPresetOrTestRomsPackages();
+  for (const auto& [menu_index, items_widget] : items_map) {
+    static_cast<void>(items_widget);
+    if (menu_index >= 0 && menu_index < static_cast<int>(packages.size()) &&
+        packages[menu_index]->GetPersistentId() == package_id) {
+      return menu_index;
+    }
+  }
+  return -1;
 }
 
 void GameLibraryView::RememberCurrentSideMenuSelection() {
@@ -772,8 +829,7 @@ void GameLibraryView::RememberCurrentSideMenuSelection() {
 void GameLibraryView::RememberSideMenuSelection(int menu_index) {
   if (!GetCurrentFlexItemsMap().contains(menu_index))
     return;
-  const size_t system_index =
-      emulation_system_ == kiwi::emu::Emulator::Type::kGBA ? 1 : 0;
+  const size_t system_index = GetSystemIndex(emulation_system_);
   selected_menu_indices_[system_index] = menu_index;
 }
 

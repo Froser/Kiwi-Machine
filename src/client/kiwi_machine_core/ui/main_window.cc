@@ -907,9 +907,23 @@ void MainWindow::InitializeUI() {
     callbacks.layout_changed = kiwi::base::BindRepeating(
         &MainWindow::LayoutVirtualTouchButtons, kiwi::base::Unretained(this));
 
+    const ApplicationConfig::GameLibrarySettings& library_settings =
+        config_->data().game_library_settings;
+    GameLibraryView::PreferredSelections preferred_selections{
+        .nes =
+            {
+                .index = library_settings.nes.last_index,
+                .package_id = library_settings.nes.selected_package,
+            },
+        .gba =
+            {
+                .index = library_settings.gba.last_index,
+                .package_id = library_settings.gba.selected_package,
+            },
+    };
     std::unique_ptr<GameLibraryView> game_library_view =
         std::make_unique<GameLibraryView>(this, emulation_system_,
-                                          config_->data().last_index,
+                                          std::move(preferred_selections),
                                           std::move(callbacks));
     game_library_view_ = game_library_view.get();
     FillLayout(this, game_library_view_);
@@ -1506,9 +1520,8 @@ void MainWindow::SwitchEmulationSystem(kiwi::emu::Emulator::Type system) {
       gba_debug_widget_->set_visible(false);
     emulation_system_ = system;
     ReplaceRuntime(system);
-    config_->data().last_system = static_cast<int>(system);
-    config_->SaveConfig();
     UpdateWorkspaceForSystem();
+    SaveConfig();
     NotifyEffectiveABSwapChanges(previous_swap_values);
   }
 }
@@ -1522,8 +1535,7 @@ void MainWindow::UpdateWorkspaceForSystem() {
     canvas_->SetEmulationSystem(emulation_system_);
   }
   if (game_library_view_) {
-    game_library_view_->SetEmulationSystem(emulation_system_,
-                                           config_->data().last_index);
+    game_library_view_->SetEmulationSystem(emulation_system_);
   }
 
   SetTitle(emulation_system_ == kiwi::emu::Emulator::Type::kGBA
@@ -2198,17 +2210,25 @@ void MainWindow::OnInGameSettingsHandleVolume(const SDL_Rect& volume_bounds,
 #endif
 
 void MainWindow::SaveConfig() {
-  // Before main window destruct, save current game index.
-  // This happens when MainWindow is about to destroy, and has IO operation.
-  if (!is_headless_ && game_library_view_) {
-    const std::optional<int> current_index =
-        game_library_view_->GetCurrentIndex();
-    if (current_index) {
-      config_->data().last_index = *current_index;
-      config_->data().last_system = static_cast<int>(emulation_system_);
-      config_->SaveConfig();
-    }
+  if (is_headless_ || !game_library_view_)
+    return;
+
+  ApplicationConfig::GameLibrarySettings& settings =
+      config_->data().game_library_settings;
+  if (const std::optional<GameLibraryView::SystemSelection> nes_selection =
+          game_library_view_->GetCurrentSelection(
+              kiwi::emu::Emulator::Type::kNES)) {
+    settings.nes.last_index = nes_selection->index;
+    settings.nes.selected_package = nes_selection->package_id;
   }
+  if (const std::optional<GameLibraryView::SystemSelection> gba_selection =
+          game_library_view_->GetCurrentSelection(
+              kiwi::emu::Emulator::Type::kGBA)) {
+    settings.gba.last_index = gba_selection->index;
+    settings.gba.selected_package = gba_selection->package_id;
+  }
+  config_->data().last_system = static_cast<int>(emulation_system_);
+  config_->SaveConfig();
 }
 
 bool MainWindow::IsPause() {
