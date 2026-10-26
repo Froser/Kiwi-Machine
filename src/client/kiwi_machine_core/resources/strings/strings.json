@@ -408,9 +408,9 @@
     "default": "Kiwi-Machine"
   },
   "IDR_ABOUT_INSTRUCTIONS": {
-    "default": "An open sources NES emulator",
-    "zh": "一个开源的红白机器模拟器",
-    "ja": "とはオープンソースのFAMICOMシミュレーターだ"
+    "default": "An open-source NES and GBA emulator",
+    "zh": "一个开源的 NES 与 GBA 模拟器",
+    "ja": "オープンソースの NES・GBA エミュレーター"
   },
   "IDR_ABOUT_CONTROLLER": {
     "default": "Controller Manual",

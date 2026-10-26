@@ -667,7 +667,7 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
         std::min(static_cast<float>(body.h), 290.f * layout.scale);
     layout.controls_panel =
         MakeRect(body.x, body.y, body.w - side_width - gap, content_height);
-    const float selection_height = (content_height - gap) * .5f;
+    const float selection_height = (content_height - gap) * .64f;
     layout.game_selection_panel =
         MakeRect(RectRight(layout.controls_panel) + gap, body.y, side_width,
                  selection_height);
@@ -679,7 +679,7 @@ AboutWidget::FrameLayout AboutWidget::CalculateFrameLayout(
     const float controls_height = body.h * .5f;
     layout.controls_panel = MakeRect(body.x, body.y, body.w, controls_height);
     const float remaining_height = body.h - controls_height - gap * 2.f;
-    const float selection_height = remaining_height * .46f;
+    const float selection_height = remaining_height * .56f;
     layout.game_selection_panel =
         MakeRect(body.x, RectBottom(layout.controls_panel) + gap, body.w,
                  selection_height);
@@ -1141,7 +1141,9 @@ void AboutWidget::DrawGameSelection(const FrameText& text,
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   draw_list->PushClipRect(RectMin(layout.game_selection_body),
                           RectMax(layout.game_selection_body), true);
-  const PreferredFontSize font_size = GetSecondaryFontSize(layout.body_font);
+  PreferredFontSize font_size = GetSecondaryFontSize(layout.body_font);
+  if (layout.mode == LayoutMode::kTwoColumn)
+    font_size = GetSecondaryFontSize(font_size);
   const float line_height =
       MeasureText("Ag", font_size, FontType::kSystemDefault).y * 1.35f;
   const float content_right = RectRight(layout.game_selection_body);
